@@ -1,0 +1,450 @@
+from collections import defaultdict
+from datetime import datetime, timezone
+from decimal import Decimal
+from uuid import UUID
+
+from psycopg import AsyncConnection
+from psycopg.types.json import Jsonb
+
+from card_platform.domain.portfolio import LedgerEntry, TransactionKind, calculate_position
+from card_platform.schemas import (
+    CollectionItemCreate,
+    PortfolioItem,
+    PortfolioItemDetail,
+    PortfolioSummary,
+    TransactionCreate,
+    TransactionType,
+    TransactionView,
+    UserCreate,
+    ValuationCreate,
+    ValuationView,
+)
+
+
+def normalize_name(value: str) -> str:
+    return " ".join(value.casefold().split())
+
+
+class NotFoundError(Exception):
+    pass
+
+
+class PositionError(Exception):
+    pass
+
+
+class PortfolioRepository:
+    async def create_user(self, connection: AsyncConnection, payload: UserCreate) -> UUID:
+        result = await connection.execute(
+            """
+            INSERT INTO app_user (email, display_name, base_currency)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (email) DO UPDATE SET
+                display_name = EXCLUDED.display_name,
+                base_currency = EXCLUDED.base_currency,
+                updated_at = now()
+            RETURNING id
+            """,
+            (payload.email.casefold(), payload.display_name, payload.base_currency.upper()),
+        )
+        return (await result.fetchone())["id"]
+
+    async def create_item(self, connection: AsyncConnection, payload: CollectionItemCreate) -> UUID:
+        async with connection.transaction():
+            owner = await connection.execute(
+                "SELECT id FROM app_user WHERE id = %s", (payload.owner_id,)
+            )
+            if await owner.fetchone() is None:
+                raise NotFoundError("owner not found")
+
+            player_id = await self._get_or_create_player(connection, payload)
+            brand_id = await self._get_or_create_brand(connection, payload)
+            card_set_id = await self._get_or_create_set(connection, brand_id, payload)
+            definition_id = await self._get_or_create_definition(
+                connection, player_id, card_set_id, payload
+            )
+
+            result = await connection.execute(
+                """
+                INSERT INTO collection_item (
+                    owner_id, card_definition_id, serial_number, serial_total,
+                    grade_company, grade_value, grade_cert_number, strategy_tags,
+                    acquired_at, notes
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    payload.owner_id,
+                    definition_id,
+                    payload.serial_number,
+                    payload.serial_total,
+                    payload.grade_company,
+                    payload.grade_value,
+                    payload.grade_cert_number,
+                    payload.strategy_tags,
+                    payload.purchase.transacted_at.date() if payload.purchase else None,
+                    payload.notes,
+                ),
+            )
+            item_id = (await result.fetchone())["id"]
+
+            if payload.purchase:
+                purchase = payload.purchase
+                await connection.execute(
+                    """
+                    INSERT INTO card_transaction (
+                        collection_item_id, transaction_type, transacted_at, quantity,
+                        unit_price, fee_amount, currency, fx_rate_to_base, venue, notes
+                    ) VALUES (%s, 'buy', %s, 1, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        item_id,
+                        purchase.transacted_at,
+                        purchase.price,
+                        purchase.fee_amount,
+                        purchase.currency.upper(),
+                        purchase.fx_rate_to_base,
+                        purchase.venue,
+                        purchase.notes,
+                    ),
+                )
+            return item_id
+
+    async def _get_or_create_player(
+        self, connection: AsyncConnection, payload: CollectionItemCreate
+    ) -> UUID:
+        card = payload.card
+        result = await connection.execute(
+            """
+            SELECT id FROM player
+            WHERE normalized_name = %s AND birth_date IS NOT DISTINCT FROM %s
+            """,
+            (normalize_name(card.player_name), card.player_birth_date),
+        )
+        row = await result.fetchone()
+        if row:
+            return row["id"]
+        result = await connection.execute(
+            """
+            INSERT INTO player (full_name, normalized_name, birth_date)
+            VALUES (%s, %s, %s) RETURNING id
+            """,
+            (card.player_name, normalize_name(card.player_name), card.player_birth_date),
+        )
+        return (await result.fetchone())["id"]
+
+    async def _get_or_create_brand(
+        self, connection: AsyncConnection, payload: CollectionItemCreate
+    ) -> UUID:
+        card = payload.card
+        result = await connection.execute(
+            """
+            INSERT INTO brand (name, manufacturer, tier)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (name) DO UPDATE SET
+                manufacturer = COALESCE(brand.manufacturer, EXCLUDED.manufacturer),
+                tier = COALESCE(brand.tier, EXCLUDED.tier)
+            RETURNING id
+            """,
+            (card.brand_name, card.manufacturer, card.brand_tier),
+        )
+        return (await result.fetchone())["id"]
+
+    async def _get_or_create_set(
+        self, connection: AsyncConnection, brand_id: UUID, payload: CollectionItemCreate
+    ) -> UUID:
+        card = payload.card
+        result = await connection.execute(
+            """
+            SELECT id FROM card_set
+            WHERE brand_id = %s AND season_start = %s AND product_name = %s
+              AND set_name IS NOT DISTINCT FROM %s
+            """,
+            (brand_id, card.season_start, card.product_name, card.set_name),
+        )
+        row = await result.fetchone()
+        if row:
+            return row["id"]
+        result = await connection.execute(
+            """
+            INSERT INTO card_set (
+                brand_id, season_start, season_end, product_name, set_name
+            ) VALUES (%s, %s, %s, %s, %s) RETURNING id
+            """,
+            (brand_id, card.season_start, card.season_end, card.product_name, card.set_name),
+        )
+        return (await result.fetchone())["id"]
+
+    async def _get_or_create_definition(
+        self,
+        connection: AsyncConnection,
+        player_id: UUID,
+        card_set_id: UUID,
+        payload: CollectionItemCreate,
+    ) -> UUID:
+        card = payload.card
+        result = await connection.execute(
+            """
+            INSERT INTO card_definition (
+                card_set_id, player_id, card_number, insert_name, parallel_name,
+                is_rookie, is_autograph, is_patch, is_case_hit, print_run
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (
+                card_set_id, player_id,
+                (COALESCE(card_number, '')),
+                (COALESCE(insert_name, '')),
+                (COALESCE(parallel_name, ''))
+            ) DO UPDATE SET
+                is_rookie = card_definition.is_rookie OR EXCLUDED.is_rookie,
+                is_autograph = card_definition.is_autograph OR EXCLUDED.is_autograph,
+                is_patch = card_definition.is_patch OR EXCLUDED.is_patch,
+                is_case_hit = card_definition.is_case_hit OR EXCLUDED.is_case_hit,
+                print_run = COALESCE(card_definition.print_run, EXCLUDED.print_run)
+            RETURNING id
+            """,
+            (
+                card_set_id,
+                player_id,
+                card.card_number,
+                card.insert_name,
+                card.parallel_name,
+                card.is_rookie,
+                card.is_autograph,
+                card.is_patch,
+                card.is_case_hit,
+                card.print_run,
+            ),
+        )
+        return (await result.fetchone())["id"]
+
+    async def add_transaction(
+        self, connection: AsyncConnection, item_id: UUID, payload: TransactionCreate
+    ) -> UUID:
+        async with connection.transaction():
+            item = await connection.execute(
+                "SELECT id FROM collection_item WHERE id = %s FOR UPDATE", (item_id,)
+            )
+            if await item.fetchone() is None:
+                raise NotFoundError("collection item not found")
+
+            if payload.transaction_type == TransactionType.SELL:
+                entries = await self._ledger_entries(connection, item_id)
+                position = calculate_position(entries)
+                if payload.quantity > position.quantity_held:
+                    raise PositionError("sell quantity exceeds current position")
+
+            result = await connection.execute(
+                """
+                INSERT INTO card_transaction (
+                    collection_item_id, transaction_type, transacted_at, quantity,
+                    unit_price, fee_amount, currency, fx_rate_to_base, venue,
+                    external_order_id, notes
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    item_id,
+                    payload.transaction_type.value,
+                    payload.transacted_at,
+                    payload.quantity,
+                    payload.unit_price,
+                    payload.fee_amount,
+                    payload.currency.upper(),
+                    payload.fx_rate_to_base,
+                    payload.venue,
+                    payload.external_order_id,
+                    payload.notes,
+                ),
+            )
+            return (await result.fetchone())["id"]
+
+    async def add_valuation(
+        self, connection: AsyncConnection, item_id: UUID, payload: ValuationCreate
+    ) -> UUID:
+        exists = await connection.execute(
+            "SELECT id FROM collection_item WHERE id = %s", (item_id,)
+        )
+        if await exists.fetchone() is None:
+            raise NotFoundError("collection item not found")
+        result = await connection.execute(
+            """
+            INSERT INTO valuation_snapshot (
+                collection_item_id, valued_at, method, currency, low_value,
+                fair_value, high_value, confidence, evidence
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+            """,
+            (
+                item_id,
+                payload.valued_at or datetime.now(timezone.utc),
+                payload.method.value,
+                payload.currency.upper(),
+                payload.low_value,
+                payload.fair_value,
+                payload.high_value,
+                payload.confidence,
+                Jsonb(payload.evidence),
+            ),
+        )
+        return (await result.fetchone())["id"]
+
+    async def list_items(self, connection: AsyncConnection, owner_id: UUID) -> list[PortfolioItem]:
+        result = await connection.execute(
+            """
+            SELECT
+                ci.id, ci.owner_id, p.id AS player_id, p.full_name AS player_name,
+                b.name AS brand_name,
+                cs.season_start, cs.season_end, cs.product_name, cs.set_name,
+                cd.card_number, cd.insert_name, cd.parallel_name,
+                cd.is_rookie, cd.is_autograph, cd.is_patch,
+                ci.serial_number, ci.serial_total, ci.grade_company, ci.grade_value,
+                ci.strategy_tags, ci.image_front_url, ci.image_back_url, u.base_currency,
+                lv.currency AS valuation_currency,
+                lv.low_value AS valuation_low, lv.fair_value,
+                lv.high_value AS valuation_high,
+                (SELECT COUNT(*) FROM market_comp mc
+                 WHERE mc.card_definition_id = ci.card_definition_id) AS market_comp_count
+            FROM collection_item ci
+            JOIN app_user u ON u.id = ci.owner_id
+            JOIN card_definition cd ON cd.id = ci.card_definition_id
+            JOIN player p ON p.id = cd.player_id
+            JOIN card_set cs ON cs.id = cd.card_set_id
+            JOIN brand b ON b.id = cs.brand_id
+            LEFT JOIN latest_item_valuation lv ON lv.collection_item_id = ci.id
+            WHERE ci.owner_id = %s
+            ORDER BY ci.created_at DESC
+            """,
+            (owner_id,),
+        )
+        rows = await result.fetchall()
+        entries_by_item = await self._owner_ledger_entries(connection, owner_id)
+        items: list[PortfolioItem] = []
+        for row in rows:
+            position = calculate_position(entries_by_item[row["id"]])
+            valuation_compatible = (
+                row["fair_value"] is not None and row["valuation_currency"] == row["base_currency"]
+            )
+            market_value = (
+                row["fair_value"] * position.quantity_held if valuation_compatible else None
+            )
+            items.append(
+                PortfolioItem(
+                    **{k: v for k, v in row.items() if k != "base_currency"},
+                    quantity_held=position.quantity_held,
+                    remaining_cost=position.remaining_cost,
+                    realized_profit=position.realized_profit,
+                    unrealized_profit=(
+                        market_value - position.remaining_cost if market_value is not None else None
+                    ),
+                )
+            )
+        return items
+
+    async def summary(self, connection: AsyncConnection, owner_id: UUID) -> PortfolioSummary:
+        user_result = await connection.execute(
+            "SELECT base_currency FROM app_user WHERE id = %s", (owner_id,)
+        )
+        user = await user_result.fetchone()
+        if user is None:
+            raise NotFoundError("owner not found")
+        items = await self.list_items(connection, owner_id)
+        total_cost = sum((item.remaining_cost for item in items), Decimal("0"))
+        realized = sum((item.realized_profit for item in items), Decimal("0"))
+        valued_items = [
+            item
+            for item in items
+            if item.fair_value is not None and item.valuation_currency == user["base_currency"]
+        ]
+        market_value = sum(
+            (item.fair_value * item.quantity_held for item in valued_items),
+            Decimal("0"),
+        )
+        unrealized = sum(
+            (item.unrealized_profit for item in valued_items if item.unrealized_profit is not None),
+            Decimal("0"),
+        )
+        return PortfolioSummary(
+            owner_id=owner_id,
+            base_currency=user["base_currency"],
+            item_count=len(items),
+            valued_item_count=len(valued_items),
+            unvalued_item_count=len(items) - len(valued_items),
+            total_cost=total_cost,
+            total_market_value=market_value,
+            unrealized_profit=unrealized,
+            realized_profit=realized,
+        )
+
+    async def item_detail(
+        self, connection: AsyncConnection, owner_id: UUID, item_id: UUID
+    ) -> PortfolioItemDetail:
+        items = await self.list_items(connection, owner_id)
+        item = next((candidate for candidate in items if candidate.id == item_id), None)
+        if item is None:
+            raise NotFoundError("collection item not found")
+        transaction_result = await connection.execute(
+            """
+            SELECT id, transaction_type, transacted_at, quantity, unit_price,
+                   fee_amount, currency, fx_rate_to_base, venue, notes
+            FROM card_transaction WHERE collection_item_id = %s
+            ORDER BY transacted_at DESC, created_at DESC
+            """,
+            (item_id,),
+        )
+        valuation_result = await connection.execute(
+            """
+            SELECT id, valued_at, method, currency, low_value, fair_value,
+                   high_value, confidence
+            FROM valuation_snapshot WHERE collection_item_id = %s
+            ORDER BY valued_at DESC, created_at DESC
+            """,
+            (item_id,),
+        )
+        return PortfolioItemDetail(
+            item=item,
+            transactions=[TransactionView(**row) for row in await transaction_result.fetchall()],
+            valuations=[ValuationView(**row) for row in await valuation_result.fetchall()],
+        )
+
+    async def _ledger_entries(
+        self, connection: AsyncConnection, item_id: UUID
+    ) -> list[LedgerEntry]:
+        result = await connection.execute(
+            """
+            SELECT transaction_type, quantity, unit_price, fee_amount, fx_rate_to_base
+            FROM card_transaction
+            WHERE collection_item_id = %s
+            ORDER BY transacted_at, created_at, id
+            """,
+            (item_id,),
+        )
+        return [self._to_entry(row) for row in await result.fetchall()]
+
+    async def _owner_ledger_entries(
+        self, connection: AsyncConnection, owner_id: UUID
+    ) -> defaultdict[UUID, list[LedgerEntry]]:
+        result = await connection.execute(
+            """
+            SELECT t.collection_item_id, t.transaction_type, t.quantity,
+                   t.unit_price, t.fee_amount, t.fx_rate_to_base
+            FROM card_transaction t
+            JOIN collection_item ci ON ci.id = t.collection_item_id
+            WHERE ci.owner_id = %s
+            ORDER BY t.collection_item_id, t.transacted_at, t.created_at, t.id
+            """,
+            (owner_id,),
+        )
+        grouped: defaultdict[UUID, list[LedgerEntry]] = defaultdict(list)
+        for row in await result.fetchall():
+            grouped[row["collection_item_id"]].append(self._to_entry(row))
+        return grouped
+
+    @staticmethod
+    def _to_entry(row: dict) -> LedgerEntry:
+        return LedgerEntry(
+            kind=TransactionKind(row["transaction_type"]),
+            quantity=row["quantity"],
+            unit_price=row["unit_price"],
+            fee_amount=row["fee_amount"],
+            fx_rate_to_base=row["fx_rate_to_base"],
+        )

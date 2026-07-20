@@ -1,0 +1,91 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-card_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-card_platform}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - card_platform_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    image: postgres:16-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-card_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-card_platform}
+    volumes:
+      - ../db/migrations:/migrations:ro
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        psql -v ON_ERROR_STOP=1 -h postgres -U "$${POSTGRES_USER}" \
+          -d "$${POSTGRES_DB}" -c \
+          "CREATE TABLE IF NOT EXISTS schema_migration (version text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())"
+        for migration in /migrations/*.sql; do
+          version="$$(basename "$${migration}")"
+          applied="$$(psql -h postgres -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" \
+            -tAc "SELECT 1 FROM schema_migration WHERE version = '$${version}'")"
+          if [ "$${applied}" != "1" ]; then
+            psql -v ON_ERROR_STOP=1 -h postgres -U "$${POSTGRES_USER}" \
+              -d "$${POSTGRES_DB}" -f "$${migration}"
+            psql -v ON_ERROR_STOP=1 -h postgres -U "$${POSTGRES_USER}" \
+              -d "$${POSTGRES_DB}" -c \
+              "INSERT INTO schema_migration(version) VALUES ('$${version}')"
+          fi
+        done
+    restart: "no"
+
+  api:
+    build:
+      context: ../apps/api
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL with a URL-encoded password}
+      DEFAULT_CURRENCY: ${DEFAULT_CURRENCY:-CNY}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.6-luna}
+      NEWS_RSS_URL_TEMPLATE: ${NEWS_RSS_URL_TEMPLATE:?set NEWS_RSS_URL_TEMPLATE}
+      INJURY_RSS_URL_TEMPLATE: ${INJURY_RSS_URL_TEMPLATE:?set INJURY_RSS_URL_TEMPLATE}
+      UPLOAD_DIR: /app/uploads
+      MAX_IMAGE_BYTES: ${MAX_IMAGE_BYTES:-10485760}
+    volumes:
+      - card_platform_uploads:/app/uploads
+    ports:
+      - "${API_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready')"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  web:
+    build:
+      context: ../apps/web
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+
+volumes:
+  card_platform_postgres:
+  card_platform_uploads:

@@ -1,0 +1,6 @@
+player_name,brand_name,season_start,season_end,product_name,insert_name,card_number,is_rookie,is_autograph,is_patch,serial_number,serial_total,price,currency,fx_rate_to_base,acquired_at,strategy_tags,notes
+Jalen Duren,National Treasures,,,National Treasures Basketball,Auto,,false,true,false,,,260,,,2026-07-01T00:00:00Z,高端品牌低价球员|RC潜力股,请确认赛季与币种
+Shaedon Sharpe,Crown Royale,2022,2023,Crown Royale Basketball,Silhouettes Auto,,true,true,false,,,210,,,2026-07-01T00:00:00Z,RC潜力股,请确认币种及具体平行版
+Brandon Ingram,One and One,,,One and One Basketball,Auto,,false,true,false,,,230,,,2026-07-01T00:00:00Z,高端品牌低价球员,请确认赛季与币种
+Kobe Bryant,Upper Deck,1996,1997,UD3,Hardwood Prospects,,false,false,false,,,550,,,2026-07-01T00:00:00Z,历史球星资产,请确认币种与卡号
+Steve Nash,Upper Deck,1996,1997,UD3,Hardwood Prospects,,false,false,false,,,40,,,2026-07-01T00:00:00Z,历史球星资产,请确认币种与卡号

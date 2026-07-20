@@ -1,0 +1,70 @@
+from decimal import Decimal
+
+import pytest
+
+from card_platform.domain.portfolio import (
+    LedgerEntry,
+    TransactionKind,
+    calculate_position,
+)
+
+
+def entry(
+    kind: TransactionKind,
+    quantity: str,
+    unit_price: str,
+    fee: str = "0",
+    fx: str = "1",
+) -> LedgerEntry:
+    return LedgerEntry(
+        kind=kind,
+        quantity=Decimal(quantity),
+        unit_price=Decimal(unit_price),
+        fee_amount=Decimal(fee),
+        fx_rate_to_base=Decimal(fx),
+    )
+
+
+def test_buy_position_includes_fee_and_fx() -> None:
+    position = calculate_position([entry(TransactionKind.BUY, "1", "100", fee="5", fx="7.2")])
+
+    assert position.quantity_held == Decimal("1")
+    assert position.remaining_cost == Decimal("756.0")
+    assert position.realized_profit == Decimal("0")
+
+
+def test_partial_sale_uses_moving_average_cost() -> None:
+    position = calculate_position(
+        [
+            entry(TransactionKind.BUY, "1", "100", fee="10"),
+            entry(TransactionKind.BUY, "1", "200", fee="10"),
+            entry(TransactionKind.SELL, "1", "220", fee="5"),
+        ]
+    )
+
+    assert position.quantity_held == Decimal("1")
+    assert position.remaining_cost == Decimal("160")
+    assert position.realized_profit == Decimal("55")
+
+
+def test_full_sale_leaves_no_cost() -> None:
+    position = calculate_position(
+        [
+            entry(TransactionKind.BUY, "1", "260"),
+            entry(TransactionKind.SELL, "1", "310", fee="10"),
+        ]
+    )
+
+    assert position.quantity_held == Decimal("0")
+    assert position.remaining_cost == Decimal("0")
+    assert position.realized_profit == Decimal("40")
+
+
+def test_oversell_is_rejected() -> None:
+    with pytest.raises(ValueError, match="exceeds current position"):
+        calculate_position(
+            [
+                entry(TransactionKind.BUY, "1", "100"),
+                entry(TransactionKind.SELL, "2", "100"),
+            ]
+        )
