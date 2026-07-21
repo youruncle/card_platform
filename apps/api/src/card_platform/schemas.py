@@ -389,6 +389,14 @@ class ImageUploadResult(ApiModel):
     image_url: str
 
 
+class CardWebCandidate(ApiModel):
+    title: str
+    source_urls: list[str] = Field(default_factory=list)
+    matching_fields: list[str] = Field(default_factory=list)
+    conflicts: list[str] = Field(default_factory=list)
+    match_confidence: Decimal = Field(ge=0, le=1)
+
+
 class CardRecognitionResult(ApiModel):
     player_name: str | None = None
     season_start: int | None = Field(default=None, ge=1940, le=2200)
@@ -405,3 +413,19 @@ class CardRecognitionResult(ApiModel):
     is_patch: bool = False
     confidence: Decimal = Field(ge=0, le=1)
     caveats: list[str] = Field(default_factory=list)
+    search_queries: list[str] = Field(default_factory=list)
+    field_evidence: dict[str, list[str]] = Field(default_factory=dict)
+    web_candidates: list[CardWebCandidate] = Field(default_factory=list)
+
+
+class CardSearchEnrichment(ApiModel):
+    resolved_fields: dict[str, str | int | bool | None] = Field(default_factory=dict)
+    field_evidence: dict[str, list[str]] = Field(default_factory=dict)
+    candidates: list[CardWebCandidate] = Field(default_factory=list)
+    caveats: list[str] = Field(default_factory=list)
+
+
+class BatchCardRecognitionItem(ApiModel):
+    filename: str
+    result: CardRecognitionResult | None = None
+    error: str | None = None

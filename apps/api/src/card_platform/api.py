@@ -37,6 +37,7 @@ from card_platform.schemas import (
     MarketEstimateCreate,
     MarketEstimateResult,
     CardRecognitionResult,
+    BatchCardRecognitionItem,
     ImageUploadResult,
     PotentialInput,
     TransactionCreate,
@@ -226,6 +227,50 @@ async def recognize_card(image: UploadFile = File(...)) -> CardRecognitionResult
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error))
     except RuntimeError as error:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error))
+    except Exception as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"vision provider failed: {str(error)[:300]}",
+        ) from error
+
+
+@router.post("/cards/recognize-pair", response_model=CardRecognitionResult)
+async def recognize_card_pair(
+    front: UploadFile = File(...), back: UploadFile = File(...)
+) -> CardRecognitionResult:
+    try:
+        return await CardVisionService(get_settings()).recognize_pair(front, back)
+    except InvalidImageError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error))
+    except RuntimeError as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error))
+    except Exception as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"vision provider failed: {str(error)[:300]}",
+        ) from error
+
+
+@router.post("/cards/recognize-batch", response_model=list[BatchCardRecognitionItem])
+async def recognize_card_batch(images: list[UploadFile] = File(...)) -> list[BatchCardRecognitionItem]:
+    if not 1 <= len(images) <= 20:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="batch recognition accepts between 1 and 20 images",
+        )
+    service = CardVisionService(get_settings())
+    results: list[BatchCardRecognitionItem] = []
+    for image in images:
+        try:
+            result = await service.recognize(image)
+            results.append(
+                BatchCardRecognitionItem(filename=image.filename or "image", result=result)
+            )
+        except Exception as error:
+            results.append(
+                BatchCardRecognitionItem(filename=image.filename or "image", error=str(error))
+            )
+    return results
 
 
 @router.post(

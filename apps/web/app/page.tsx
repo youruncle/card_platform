@@ -34,6 +34,8 @@ import {
   getMarketComps,
   estimateMarket,
   recognizeCard,
+  recognizeCardBatch,
+  recognizeCardPair,
   uploadItemImage,
   assetUrl,
   type AnalysisResult,
@@ -44,7 +46,48 @@ import {
   type ItemDetail,
   type MarketComp,
   type CardRecognition,
+  type BatchCardRecognition,
 } from "@/lib/api";
+
+type RecognitionMode = "single" | "pair" | "batch";
+type BatchRecognitionDraft = BatchCardRecognition & { file: File };
+
+const recognitionFieldLabels: Record<string, string> = {
+  player_name: "球员",
+  season_start: "赛季起始年",
+  season_end: "赛季结束年",
+  brand_name: "品牌",
+  product_name: "产品线",
+  insert_name: "Insert / 卡种",
+  parallel_name: "平行版本",
+  card_number: "卡号",
+  serial_number: "序列编号",
+  serial_total: "总限编",
+  is_rookie: "RC",
+  is_autograph: "签字",
+  is_patch: "Patch",
+};
+
+function isEvidenceUrl(value: string) {
+  return /^https?:\/\//i.test(value.trim());
+}
+
+function recognitionSourceUrls(result: CardRecognition) {
+  return Array.from(
+    new Set([
+      ...Object.values(result.field_evidence).flat().filter(isEvidenceUrl),
+      ...result.web_candidates.flatMap((candidate) => candidate.source_urls),
+    ]),
+  );
+}
+
+function evidenceSourceHost(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "外部来源";
+  }
+}
 
 const OWNER_KEY = "card-alpha-owner-id";
 
@@ -105,6 +148,16 @@ export default function Dashboard() {
   const [showRecognition, setShowRecognition] = useState(false);
   const [recognitionResult, setRecognitionResult] =
     useState<CardRecognition | null>(null);
+  const [recognitionFile, setRecognitionFile] = useState<File | null>(null);
+  const [recognitionBackFile, setRecognitionBackFile] = useState<File | null>(null);
+  const [recognitionMode, setRecognitionMode] =
+    useState<RecognitionMode>("single");
+  const [batchDrafts, setBatchDrafts] = useState<BatchRecognitionDraft[]>([]);
+  const [selectedBatchIndex, setSelectedBatchIndex] = useState<number | null>(null);
+  const [recognitionLoading, setRecognitionLoading] = useState(false);
+  const [recognitionProgress, setRecognitionProgress] = useState(0);
+  const [recognitionPhase, setRecognitionPhase] = useState("");
+  const [cardDraft, setCardDraft] = useState<CardRecognition | null>(null);
 
   const refresh = useCallback(async (id: string) => {
     setLoading(true);
@@ -173,15 +226,19 @@ export default function Dashboard() {
     const serialTotal = String(form.get("serialTotal") ?? "");
     setError("");
     try {
-      await createItem({
+      const created = await createItem({
         owner_id: ownerId,
         card: {
           player_name: form.get("playerName"),
           brand_name: form.get("brandName"),
           season_start: seasonStart,
-          season_end: seasonStart + 1,
+          season_end: form.get("seasonEnd")
+            ? Number(form.get("seasonEnd"))
+            : seasonStart + 1,
           product_name: form.get("productName"),
           insert_name: form.get("insertName") || null,
+          parallel_name: form.get("parallelName") || null,
+          card_number: form.get("cardNumber") || null,
           is_rookie: form.get("isRookie") === "on",
           is_autograph: form.get("isAutograph") === "on",
           is_patch: form.get("isPatch") === "on",
@@ -199,7 +256,26 @@ export default function Dashboard() {
           fx_rate_to_base: 1,
         },
       });
+      if (cardDraft && recognitionFile) {
+        await uploadItemImage(created.id, ownerId, "front", recognitionFile);
+      }
+      if (cardDraft && recognitionBackFile) {
+        await uploadItemImage(created.id, ownerId, "back", recognitionBackFile);
+      }
       setShowAddCard(false);
+      setCardDraft(null);
+      if (recognitionMode === "batch" && selectedBatchIndex !== null) {
+        const remaining = batchDrafts.filter((_, index) => index !== selectedBatchIndex);
+        setBatchDrafts(remaining);
+        setSelectedBatchIndex(null);
+        setRecognitionResult(null);
+        setRecognitionFile(null);
+        setRecognitionBackFile(null);
+        setShowRecognition(remaining.length > 0);
+      } else {
+        setRecognitionFile(null);
+        setRecognitionBackFile(null);
+      }
       await refresh(ownerId);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "录入卡片失败");
@@ -313,13 +389,94 @@ export default function Dashboard() {
 
   async function handleRecognition(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const file = new FormData(event.currentTarget).get("recognitionImage");
-    if (!(file instanceof File) || !file.size) return;
+    const form = new FormData(event.currentTarget);
+    setError("");
+    setRecognitionLoading(true);
+    setRecognitionProgress(8);
+    setRecognitionPhase("正在上传并校验图片");
+    const progressTimer = window.setInterval(() => {
+      setRecognitionProgress((current) => {
+        const next = Math.min(current + (current < 45 ? 7 : 3), 90);
+        if (next >= 62) setRecognitionPhase("正在联网核验目录与候选");
+        else if (next >= 24) setRecognitionPhase("Qwen3-VL 正在提取卡面信息");
+        return next;
+      });
+    }, 900);
     try {
-      setRecognitionResult(await recognizeCard(file));
+      if (recognitionMode === "single") {
+        const file = form.get("recognitionImage");
+        if (!(file instanceof File) || !file.size) return;
+        setRecognitionFile(file);
+        setRecognitionBackFile(null);
+        setRecognitionResult(await recognizeCard(file));
+      } else if (recognitionMode === "pair") {
+        const front = form.get("frontImage");
+        const back = form.get("backImage");
+        if (
+          !(front instanceof File) ||
+          !front.size ||
+          !(back instanceof File) ||
+          !back.size
+        )
+          return;
+        setRecognitionFile(front);
+        setRecognitionBackFile(back);
+        setRecognitionResult(await recognizeCardPair(front, back));
+      } else {
+        const input = event.currentTarget.elements.namedItem("batchImages");
+        if (!(input instanceof HTMLInputElement) || !input.files?.length) return;
+        const files = Array.from(input.files);
+        const results = await recognizeCardBatch(files);
+        setBatchDrafts(results.map((result, index) => ({ ...result, file: files[index] })));
+        setRecognitionResult(null);
+        setSelectedBatchIndex(null);
+      }
+      setRecognitionProgress(100);
+      setRecognitionPhase("识别完成，正在整理结果");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "卡片图片识别失败");
+      setRecognitionPhase("识别失败");
+    } finally {
+      window.clearInterval(progressTimer);
+      window.setTimeout(() => setRecognitionLoading(false), 350);
     }
+  }
+
+  function selectBatchDraft(index: number) {
+    const draft = batchDrafts[index];
+    if (!draft?.result) return;
+    setSelectedBatchIndex(index);
+    setRecognitionFile(draft.file);
+    setRecognitionBackFile(null);
+    setRecognitionResult(draft.result);
+  }
+
+  function handleUseRecognition(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!recognitionResult) return;
+    const form = new FormData(event.currentTarget);
+    const optionalNumber = (name: string) => {
+      const value = String(form.get(name) ?? "").trim();
+      return value ? Number(value) : null;
+    };
+    setCardDraft({
+      ...recognitionResult,
+      player_name: String(form.get("playerName") || "").trim() || null,
+      season_start: optionalNumber("seasonStart"),
+      season_end: optionalNumber("seasonEnd"),
+      brand_name: String(form.get("brandName") || "").trim() || null,
+      product_name: String(form.get("productName") || "").trim() || null,
+      insert_name: String(form.get("insertName") || "").trim() || null,
+      parallel_name: String(form.get("parallelName") || "").trim() || null,
+      card_number: String(form.get("cardNumber") || "").trim() || null,
+      serial_number: optionalNumber("serialNumber"),
+      serial_total: optionalNumber("serialTotal"),
+      is_rookie: form.get("isRookie") === "on",
+      is_autograph: form.get("isAutograph") === "on",
+      is_patch: form.get("isPatch") === "on",
+    });
+    setShowRecognition(false);
+    setShowAddCard(true);
   }
 
   async function handleImageUpload(event: FormEvent<HTMLFormElement>) {
@@ -516,15 +673,26 @@ export default function Dashboard() {
             <button
               className="ghost-button"
               onClick={() => {
+                setError("");
                 setShowRecognition(true);
+                setRecognitionMode("single");
                 setRecognitionResult(null);
+                setRecognitionFile(null);
+                setRecognitionBackFile(null);
+                setBatchDrafts([]);
+                setSelectedBatchIndex(null);
               }}
             >
               <Sparkles size={15} /> 图片识别
             </button>
             <button
               className="primary-button"
-              onClick={() => setShowAddCard(true)}
+              onClick={() => {
+                setCardDraft(null);
+                setRecognitionFile(null);
+                setRecognitionBackFile(null);
+                setShowAddCard(true);
+              }}
               disabled={!ownerId}
             >
               <Plus size={17} /> 录入卡片
@@ -756,7 +924,12 @@ export default function Dashboard() {
                           {!search && (
                             <button
                               className="secondary-button"
-                              onClick={() => setShowAddCard(true)}
+                              onClick={() => {
+                                setCardDraft(null);
+                                setRecognitionFile(null);
+                                setRecognitionBackFile(null);
+                                setShowAddCard(true);
+                              }}
                             >
                               录入第一张卡
                             </button>
@@ -800,6 +973,7 @@ export default function Dashboard() {
           onClose={() => setShowAddCard(false)}
           onSubmit={handleAddCard}
           currency={summary.base_currency}
+          initialValues={cardDraft}
         />
       )}
       {analysisItem && (
@@ -857,8 +1031,25 @@ export default function Dashboard() {
       {showRecognition && (
         <RecognitionDialog
           result={recognitionResult}
+          mode={recognitionMode}
+          batchDrafts={batchDrafts}
+          selectedBatchIndex={selectedBatchIndex}
+          loading={recognitionLoading}
+          progress={recognitionProgress}
+          phase={recognitionPhase}
+          error={error}
           onClose={() => setShowRecognition(false)}
           onSubmit={handleRecognition}
+          onUse={handleUseRecognition}
+          onModeChange={(mode) => {
+            setError("");
+            setRecognitionMode(mode);
+            setRecognitionResult(null);
+            setRecognitionFile(null);
+            setRecognitionBackFile(null);
+            setSelectedBatchIndex(null);
+          }}
+          onSelectBatch={selectBatchDraft}
         />
       )}
     </main>
@@ -920,10 +1111,12 @@ function CardDialog({
   onClose,
   onSubmit,
   currency,
+  initialValues,
 }: {
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   currency: string;
+  initialValues: CardRecognition | null;
 }) {
   return (
     <div className="modal-backdrop">
@@ -941,7 +1134,12 @@ function CardDialog({
           <div className="form-grid">
             <label className="wide">
               球员
-              <input name="playerName" placeholder="Jalen Duren" required />
+              <input
+                name="playerName"
+                placeholder="Jalen Duren"
+                defaultValue={initialValues?.player_name ?? ""}
+                required
+              />
             </label>
             <label>
               赛季起始年
@@ -951,7 +1149,18 @@ function CardDialog({
                 placeholder="2022"
                 min="1940"
                 max="2200"
+                defaultValue={initialValues?.season_start ?? ""}
                 required
+              />
+            </label>
+            <label>
+              赛季结束年
+              <input
+                name="seasonEnd"
+                type="number"
+                min="1940"
+                max="2200"
+                defaultValue={initialValues?.season_end ?? ""}
               />
             </label>
             <label>
@@ -959,6 +1168,7 @@ function CardDialog({
               <input
                 name="brandName"
                 placeholder="National Treasures"
+                defaultValue={initialValues?.brand_name ?? ""}
                 required
               />
             </label>
@@ -967,12 +1177,33 @@ function CardDialog({
               <input
                 name="productName"
                 placeholder="National Treasures Basketball"
+                defaultValue={initialValues?.product_name ?? ""}
                 required
               />
             </label>
             <label className="wide">
               Insert / 卡种
-              <input name="insertName" placeholder="Rookie Patch Autographs" />
+              <input
+                name="insertName"
+                placeholder="Rookie Patch Autographs"
+                defaultValue={initialValues?.insert_name ?? ""}
+              />
+            </label>
+            <label>
+              Parallel / 平行版本
+              <input
+                name="parallelName"
+                placeholder="Gold /99"
+                defaultValue={initialValues?.parallel_name ?? ""}
+              />
+            </label>
+            <label>
+              卡号
+              <input
+                name="cardNumber"
+                placeholder="123"
+                defaultValue={initialValues?.card_number ?? ""}
+              />
             </label>
             <label>
               编号
@@ -981,6 +1212,7 @@ function CardDialog({
                 type="number"
                 placeholder="23"
                 min="1"
+                defaultValue={initialValues?.serial_number ?? ""}
               />
             </label>
             <label>
@@ -990,18 +1222,34 @@ function CardDialog({
                 type="number"
                 placeholder="99"
                 min="1"
+                defaultValue={initialValues?.serial_total ?? ""}
               />
             </label>
             <fieldset className="wide">
               <legend>卡片属性</legend>
               <label className="check">
-                <input name="isRookie" type="checkbox" /> RC
+                <input
+                  name="isRookie"
+                  type="checkbox"
+                  defaultChecked={initialValues?.is_rookie ?? false}
+                />{" "}
+                RC
               </label>
               <label className="check">
-                <input name="isAutograph" type="checkbox" /> Auto
+                <input
+                  name="isAutograph"
+                  type="checkbox"
+                  defaultChecked={initialValues?.is_autograph ?? false}
+                />{" "}
+                Auto
               </label>
               <label className="check">
-                <input name="isPatch" type="checkbox" /> Patch
+                <input
+                  name="isPatch"
+                  type="checkbox"
+                  defaultChecked={initialValues?.is_patch ?? false}
+                />{" "}
+                Patch
               </label>
             </fieldset>
             <label>
@@ -1150,16 +1398,16 @@ function AnalysisDialog({
           <div className="evidence-columns">
             <div>
               <h3>潜在催化剂</h3>
-              {result.catalysts.map((value) => (
-                <p key={value} className="evidence positive-dot">
+              {result.catalysts.map((value, index) => (
+                <p key={`${value}-${index}`} className="evidence positive-dot">
                   {value}
                 </p>
               ))}
             </div>
             <div>
               <h3>主要风险</h3>
-              {result.risks.map((value) => (
-                <p key={value} className="evidence risk-dot">
+              {result.risks.map((value, index) => (
+                <p key={`${value}-${index}`} className="evidence risk-dot">
                   {value}
                 </p>
               ))}
@@ -1886,13 +2134,35 @@ function ImagePreview({ label, url }: { label: string; url: string | null }) {
 
 function RecognitionDialog({
   result,
+  mode,
+  batchDrafts,
+  selectedBatchIndex,
+  loading,
+  progress,
+  phase,
+  error,
   onClose,
   onSubmit,
+  onUse,
+  onModeChange,
+  onSelectBatch,
 }: {
   result: CardRecognition | null;
+  mode: RecognitionMode;
+  batchDrafts: BatchRecognitionDraft[];
+  selectedBatchIndex: number | null;
+  loading: boolean;
+  progress: number;
+  phase: string;
+  error: string;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onUse: (event: FormEvent<HTMLFormElement>) => void;
+  onModeChange: (mode: RecognitionMode) => void;
+  onSelectBatch: (index: number) => void;
 }) {
+  const [batchFileCount, setBatchFileCount] = useState(0);
+
   return (
     <div className="modal-backdrop">
       <div className="modal recognition-modal">
@@ -1901,62 +2171,324 @@ function RecognitionDialog({
             <p className="eyebrow">AI CARD VISION</p>
             <h2>识别卡面信息</h2>
           </div>
-          <button className="icon-button" onClick={onClose}>
+          <button className="icon-button" onClick={onClose} disabled={loading}>
             <X size={20} />
           </button>
         </div>
-        <form className="recognition-form" onSubmit={onSubmit}>
-          <label>
-            选择卡片正面图片
-            <input
-              name="recognitionImage"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              required
-            />
-          </label>
-          <button type="submit" className="primary-button">
-            <Sparkles size={15} /> 开始识别
+        <div className="recognition-modes">
+          <button
+            type="button"
+            disabled={loading}
+            className={mode === "single" ? "active" : ""}
+            onClick={() => {
+              setBatchFileCount(0);
+              onModeChange("single");
+            }}
+          >
+            单卡识别
+            <small>一张图片快速提取</small>
+          </button>
+          <button
+            type="button"
+            disabled={loading}
+            className={mode === "pair" ? "active" : ""}
+            onClick={() => {
+              setBatchFileCount(0);
+              onModeChange("pair");
+            }}
+          >
+            正反面识别
+            <small>联合正面与背面</small>
+          </button>
+          <button
+            type="button"
+            disabled={loading}
+            className={mode === "batch" ? "active" : ""}
+            onClick={() => {
+              setBatchFileCount(0);
+              onModeChange("batch");
+            }}
+          >
+            批量识别
+            <small>最多 20 张单卡图</small>
+          </button>
+        </div>
+        <form key={mode} className="recognition-form" onSubmit={onSubmit}>
+          {mode === "single" && (
+            <label>
+              选择单张卡片图片
+              <input
+                name="recognitionImage"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                required
+              />
+            </label>
+          )}
+          {mode === "pair" && (
+            <div className="recognition-pair-inputs">
+              <label>
+                卡片正面
+                <input
+                  name="frontImage"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  required
+                />
+              </label>
+              <label>
+                卡片背面
+                <input
+                  name="backImage"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  required
+                />
+              </label>
+            </div>
+          )}
+          {mode === "batch" && (
+            <label className="batch-file-picker">
+              <span>选择多张卡片图片</span>
+              <input
+                key="batch-images-multiple"
+                name="batchImages"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple={true}
+                required
+                onChange={(event) =>
+                  setBatchFileCount(event.currentTarget.files?.length ?? 0)
+                }
+              />
+              <small>
+                {batchFileCount > 0
+                  ? `已选择 ${batchFileCount} 张图片`
+                  : "在文件窗口中按住 Command 或 Shift 可一次选择多张，最多 20 张"}
+              </small>
+            </label>
+          )}
+          <button type="submit" className="primary-button" disabled={loading}>
+            <Sparkles size={15} />
+            {loading
+              ? "识别处理中…"
+              : mode === "batch"
+                ? "开始批量识别"
+                : "开始识别"}
           </button>
         </form>
+        {loading && (
+          <div className="recognition-progress" role="status" aria-live="polite">
+            <div>
+              <strong>{phase}</strong>
+              <span>{progress}%</span>
+            </div>
+            <progress max="100" value={progress} />
+            <small>
+              视觉识别和联网核验通常需要 10–40 秒；批量任务会按图片逐张处理。
+            </small>
+          </div>
+        )}
+        {error && <p className="recognition-error">{error}</p>}
+        {mode === "batch" && batchDrafts.length > 0 && (
+          <div className="batch-recognition-list">
+            <div className="batch-recognition-heading">
+              <strong>识别队列</strong>
+              <span>{batchDrafts.length} 张待处理</span>
+            </div>
+            {batchDrafts.map((draft, index) => (
+              <button
+                type="button"
+                key={`${draft.filename}-${index}`}
+                className={selectedBatchIndex === index ? "active" : ""}
+                disabled={!draft.result}
+                onClick={() => onSelectBatch(index)}
+              >
+                <span>{draft.filename}</span>
+                <strong>
+                  {draft.error
+                    ? `失败：${draft.error}`
+                    : draft.result?.player_name || "待人工确认"}
+                </strong>
+                <small>{draft.result ? "校正并录入" : "无法录入"}</small>
+              </button>
+            ))}
+          </div>
+        )}
         {result && (
           <div className="recognition-result">
             <div className="recognition-confidence">
               <span>整体置信度</span>
               <strong>{Math.round(Number(result.confidence) * 100)}%</strong>
             </div>
-            <dl>
-              <RecognitionField label="球员" value={result.player_name} />
-              <RecognitionField
-                label="年份"
-                value={
-                  result.season_start && result.season_end
-                    ? `${result.season_start}-${String(result.season_end).slice(-2)}`
-                    : result.season_start
-                }
-              />
-              <RecognitionField label="品牌" value={result.brand_name} />
-              <RecognitionField label="产品线" value={result.product_name} />
-              <RecognitionField label="卡种" value={result.insert_name} />
-              <RecognitionField
-                label="编号"
-                value={
-                  result.serial_number && result.serial_total
-                    ? `${result.serial_number}/${result.serial_total}`
-                    : result.serial_total
-                      ? `/${result.serial_total}`
-                      : result.serial_number
-                }
-              />
-              <RecognitionField label="RC" value={result.is_rookie} />
-              <RecognitionField label="签字" value={result.is_autograph} />
-              <RecognitionField label="Patch" value={result.is_patch} />
-            </dl>
+            {result.search_queries?.length > 0 && (
+              <div className="recognition-search-evidence">
+                <div className="recognition-search-heading">
+                  <strong>联网目录核验</strong>
+                  <span>{result.web_candidates.length} 个候选</span>
+                </div>
+                <div className="recognition-queries">
+                  {result.search_queries.map((query, index) => (
+                    <code key={`${query}-${index}`}>{query}</code>
+                  ))}
+                </div>
+                {Object.entries(result.field_evidence).map(([field, evidence]) => {
+                  const descriptions = evidence.filter((value) => !isEvidenceUrl(value));
+                  const sourceCount = evidence.length - descriptions.length;
+                  return (
+                    <div className="field-evidence-row" key={field}>
+                      <strong>{recognitionFieldLabels[field] ?? field}</strong>
+                      <span>
+                        {descriptions.length > 0
+                          ? descriptions.join("；")
+                          : sourceCount > 0
+                            ? `已找到 ${sourceCount} 个来源，待结合候选人工确认`
+                            : "已参与候选匹配"}
+                      </span>
+                    </div>
+                  );
+                })}
+                {result.web_candidates.map((candidate, index) => (
+                  <article key={`${candidate.title}-${index}`}>
+                    <div>
+                      <strong>{candidate.title}</strong>
+                      <span>
+                        匹配度 {Math.round(Number(candidate.match_confidence) * 100)}%
+                      </span>
+                    </div>
+                    {candidate.matching_fields.length > 0 && (
+                      <p>匹配：{candidate.matching_fields.join("、")}</p>
+                    )}
+                    {candidate.conflicts.length > 0 && (
+                      <p className="candidate-conflict">
+                        冲突：{candidate.conflicts.join("、")}
+                      </p>
+                    )}
+                    <small className="candidate-source-count">
+                      {candidate.source_urls.length > 0
+                        ? `${candidate.source_urls.length} 个参考来源`
+                        : "没有可验证来源"}
+                    </small>
+                  </article>
+                ))}
+                {recognitionSourceUrls(result).length > 0 && (
+                  <details className="recognition-sources">
+                    <summary>
+                      参考来源 · {recognitionSourceUrls(result).length} 个（已去重）
+                    </summary>
+                    <div>
+                      {recognitionSourceUrls(result).map((url, index) => {
+                        return (
+                          <a
+                            href={url}
+                            key={`${url}-${index}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <span>{evidenceSourceHost(url)}</span>
+                            <small>来源 {index + 1}</small>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  </details>
+                )}
+              </div>
+            )}
+            <p className="recognition-edit-hint">
+              AI 结果仅作为草稿。请检查并修改后再带入录卡。
+            </p>
+            <form className="recognition-edit-form" onSubmit={onUse}>
+              <div className="form-grid">
+                <label className="wide">
+                  球员
+                  <input name="playerName" defaultValue={result.player_name ?? ""} />
+                </label>
+                <label>
+                  赛季起始年
+                  <input
+                    name="seasonStart"
+                    type="number"
+                    min="1940"
+                    max="2200"
+                    defaultValue={result.season_start ?? ""}
+                  />
+                </label>
+                <label>
+                  赛季结束年
+                  <input
+                    name="seasonEnd"
+                    type="number"
+                    min="1940"
+                    max="2200"
+                    defaultValue={result.season_end ?? ""}
+                  />
+                </label>
+                <label>
+                  品牌
+                  <input name="brandName" defaultValue={result.brand_name ?? ""} />
+                </label>
+                <label>
+                  产品线
+                  <input name="productName" defaultValue={result.product_name ?? ""} />
+                </label>
+                <label>
+                  Insert / 卡种
+                  <input name="insertName" defaultValue={result.insert_name ?? ""} />
+                </label>
+                <label>
+                  Parallel / 平行版本
+                  <input name="parallelName" defaultValue={result.parallel_name ?? ""} />
+                </label>
+                <label>
+                  卡号
+                  <input name="cardNumber" defaultValue={result.card_number ?? ""} />
+                </label>
+                <label>
+                  编号
+                  <input
+                    name="serialNumber"
+                    type="number"
+                    min="1"
+                    defaultValue={result.serial_number ?? ""}
+                  />
+                </label>
+                <label>
+                  总限编
+                  <input
+                    name="serialTotal"
+                    type="number"
+                    min="1"
+                    defaultValue={result.serial_total ?? ""}
+                  />
+                </label>
+                <fieldset className="wide">
+                  <legend>卡片属性</legend>
+                  <label className="check">
+                    <input name="isRookie" type="checkbox" defaultChecked={result.is_rookie} /> RC
+                  </label>
+                  <label className="check">
+                    <input
+                      name="isAutograph"
+                      type="checkbox"
+                      defaultChecked={result.is_autograph}
+                    />{" "}
+                    Auto
+                  </label>
+                  <label className="check">
+                    <input name="isPatch" type="checkbox" defaultChecked={result.is_patch} /> Patch
+                  </label>
+                </fieldset>
+              </div>
+              <button type="submit" className="primary-button full">
+                确认修改并带入录卡
+              </button>
+            </form>
             {result.caveats.length > 0 && (
               <div className="recognition-caveats">
                 <strong>需人工确认</strong>
-                {result.caveats.map((value) => (
-                  <p key={value}>{value}</p>
+                {result.caveats.map((value, index) => (
+                  <p key={`${value}-${index}`}>{value}</p>
                 ))}
               </div>
             )}
@@ -1966,29 +2498,6 @@ function RecognitionDialog({
           关闭
         </button>
       </div>
-    </div>
-  );
-}
-
-function RecognitionField({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | number | boolean | null;
-}) {
-  const display =
-    value === null
-      ? "无法确认"
-      : typeof value === "boolean"
-        ? value
-          ? "是"
-          : "否"
-        : String(value);
-  return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{display}</dd>
     </div>
   );
 }

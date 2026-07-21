@@ -34,6 +34,26 @@ cp .env.example .env
 docker compose -f infra/compose.yaml up -d
 ```
 
+### 加密同步 `.env`
+
+仓库持续忽略明文 `.env`，只提交使用强密码加密后的 `.env.age`。不要用 `git add -f .env`，也不要把解密密码写入仓库；请将密码保存在密码管理器中。
+
+首次加密（macOS）：
+
+```bash
+brew install age
+./scripts/env-secrets.sh encrypt
+git add .env.age
+```
+
+在另一台机器克隆仓库并安装 `age` 后，运行：
+
+```bash
+./scripts/env-secrets.sh decrypt
+```
+
+脚本会在终端中读取密码并恢复权限为 `600` 的 `.env`。若更新了环境变量，重新执行 `encrypt` 并提交新的 `.env.age` 即可。密码一旦遗失，密文无法恢复。
+
 执行数据库迁移：
 
 ```bash
@@ -62,7 +82,9 @@ API 文档默认位于 `http://localhost:8000/docs`。主要接口包括：
 - `POST /v1/portfolio/items/{id}/analysis`：生成评分、价格判断和投资建议
 - `POST /v1/portfolio/items/{id}/analysis/auto`：自动综合球员、卡片与市场证据生成投资建议
 - `POST /v1/portfolio/items/{id}/images`：上传卡片正面或背面图片
-- `POST /v1/cards/recognize`：用 OpenAI 视觉结构化识别卡面字段
+- `POST /v1/cards/recognize`：使用 Qwen3-VL-Flash 识别单张卡片图片
+- `POST /v1/cards/recognize-pair`：联合卡片正反面识别为一条草稿
+- `POST /v1/cards/recognize-batch`：批量识别最多 20 张单卡图片
 - `POST /v1/analyses/{id}/narrative`：基于已锁定数值和证据生成 AI 深度解读
 - `GET /v1/portfolio/summary`：组合汇总
 - `PUT /v1/players/{id}/metrics`：录入或更新 NBA 指标快照
@@ -75,9 +97,11 @@ API 文档默认位于 `http://localhost:8000/docs`。主要接口包括：
 
 分析接口使用版本化六因子模型，输出综合分、各因子贡献、价格合理性、买入评级、建议持有周期、目标卖出区间、置信度、催化剂和风险。可比成交不足时不会给出“强力买入”。
 
-设置 `OPENAI_API_KEY` 后，深度解读使用 Responses API 和 Pydantic 结构化输出，默认模型为 `gpt-5.6-luna`。未配置密钥时接口返回明确标记为 `rules` 的确定性降级解释，不会冒充 AI 结果。AI 只能解释证据，不能修改规则引擎给出的评级、合理价、目标价或持有期。
+设置 `AI_API_KEY` 后，深度解读使用 DeepSeek 的 OpenAI 兼容 Chat Completions API 和 JSON 结构化输出，默认模型为 `deepseek-v4-flash`。未配置密钥时接口返回明确标记为 `rules` 的确定性降级解释，不会冒充 AI 结果。AI 只能解释证据，不能修改规则引擎给出的评级、合理价、目标价或持有期。
 
-卡片识别同样要求 `OPENAI_API_KEY`，未配置时返回 503；不会使用伪识别结果。图片仅接受 JPEG、PNG、WebP，默认单张不超过 10 MiB。生产环境通过 `card_platform_uploads` 卷持久化。
+卡片图片识别使用独立的 Qwen3-VL-Flash provider，需要设置 `VISION_API_KEY`。图片通过 Base64 Data URL 发送到百炼 OpenAI 兼容接口；未配置密钥时返回 503，不会使用伪识别结果。前端将能力拆为单卡、正反面、批量三个模式，所有识别结果均先作为可编辑草稿，再由用户确认录入。图片仅接受 JPEG、PNG、WebP，默认单张不超过 10 MiB；批量模式每次最多 20 张。生产环境通过 `card_platform_uploads` 卷持久化。
+
+设置 `CARD_SEARCH_ENABLED=true` 后，每次视觉提取会额外使用 `CARD_SEARCH_MODEL`（默认 `qwen-plus`）强制联网核验。系统最多构造 3 条身份查询，并将搜索限制在厂商、Checklist、评级与成交类站点；只有带有效来源 URL 且存在字段证据的候选才能修正视觉草稿。查询词、字段证据、候选、冲突和来源链接会展示给用户，最终仍需人工确认。批量模式会对每张卡分别产生一次视觉调用和一次搜索调用，可关闭该开关控制成本。
 
 NBA 同步默认连接 `NBA_STATS_BASE_URL`。新闻与伤病开箱使用 Google News RSS 搜索，也可通过 `NEWS_RSS_URL_TEMPLATE` 和 `INJURY_RSS_URL_TEMPLATE` 替换；模板使用 `{player}` 作为已编码球员名占位符。未配置的 provider 会返回 `not_configured`；单一来源失败不会丢失其他来源已同步的数据，每次执行均记录在 `data_sync_run`。
 

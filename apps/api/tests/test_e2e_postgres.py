@@ -51,7 +51,8 @@ pytestmark = pytest.mark.skipif(
 
 
 def test_full_investment_workflow(tmp_path) -> None:
-    os.environ.pop("OPENAI_API_KEY", None)
+    os.environ["AI_API_KEY"] = ""
+    os.environ["VISION_API_KEY"] = ""
     os.environ["UPLOAD_DIR"] = str(tmp_path / "uploads")
     get_settings.cache_clear()
     os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
@@ -133,7 +134,7 @@ def test_full_investment_workflow(tmp_path) -> None:
             files={"image": ("duren.jpg", b"\xff\xd8\xffsafe-test-image", "image/jpeg")},
         )
         assert recognition.status_code == 503
-        assert "OPENAI_API_KEY" in recognition.json()["detail"]
+        assert "VISION_API_KEY" in recognition.json()["detail"]
 
         for index, price in enumerate((260, 280, 300), start=1):
             comp = client.post(

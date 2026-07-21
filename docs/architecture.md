@@ -18,7 +18,9 @@ flowchart LR
   NBA["NBA Data Provider"] --> API
   NEWS["News & Injury Providers"] --> API
   MARKET["User-entered Comparable Sales"] --> API
-  AI["OpenAI Responses API"] <--> API
+  AI["DeepSeek Text API"] <--> API
+  VISION["Qwen3-VL Vision API"] <--> API
+  SEARCH["Qwen Web Search"] <--> API
 ```
 
 当前部署为模块化单体：Web 与 API 分进程运行，共享 PostgreSQL；同步任务由显式 API 调用触发。数据量增长后，可将 provider 同步迁移到队列 worker，而不改变领域表结构。

@@ -73,6 +73,21 @@ export type CardRecognition = {
   is_patch: boolean;
   confidence: string;
   caveats: string[];
+  search_queries: string[];
+  field_evidence: Record<string, string[]>;
+  web_candidates: Array<{
+    title: string;
+    source_urls: string[];
+    matching_fields: string[];
+    conflicts: string[];
+    match_confidence: string;
+  }>;
+};
+
+export type BatchCardRecognition = {
+  filename: string;
+  result: CardRecognition | null;
+  error: string | null;
 };
 
 export type PlayerIntelligence = {
@@ -340,6 +355,40 @@ async function multipartRequest<T>(path: string, file: File): Promise<T> {
 
 export function recognizeCard(file: File): Promise<CardRecognition> {
   return multipartRequest("/v1/cards/recognize", file);
+}
+
+export async function recognizeCardPair(
+  front: File,
+  back: File,
+): Promise<CardRecognition> {
+  const form = new FormData();
+  form.append("front", front);
+  form.append("back", back);
+  const response = await fetch(`${API_URL}/v1/cards/recognize-pair`, {
+    method: "POST",
+    body: form,
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.detail ?? `请求失败 (${response.status})`);
+  }
+  return response.json() as Promise<CardRecognition>;
+}
+
+export async function recognizeCardBatch(
+  files: File[],
+): Promise<BatchCardRecognition[]> {
+  const form = new FormData();
+  files.forEach((file) => form.append("images", file));
+  const response = await fetch(`${API_URL}/v1/cards/recognize-batch`, {
+    method: "POST",
+    body: form,
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.detail ?? `请求失败 (${response.status})`);
+  }
+  return response.json() as Promise<BatchCardRecognition[]>;
 }
 
 export function uploadItemImage(

@@ -57,8 +57,15 @@ services:
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL with a URL-encoded password}
       DEFAULT_CURRENCY: ${DEFAULT_CURRENCY:-CNY}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.6-luna}
+      AI_PROVIDER: ${AI_PROVIDER:-deepseek}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_BASE_URL: ${AI_BASE_URL:-https://api.deepseek.com}
+      AI_MODEL: ${AI_MODEL:-deepseek-v4-flash}
+      VISION_API_KEY: ${VISION_API_KEY:-}
+      VISION_BASE_URL: ${VISION_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      VISION_MODEL: ${VISION_MODEL:-qwen3-vl-flash}
+      CARD_SEARCH_ENABLED: ${CARD_SEARCH_ENABLED:-true}
+      CARD_SEARCH_MODEL: ${CARD_SEARCH_MODEL:-qwen-plus}
       NEWS_RSS_URL_TEMPLATE: ${NEWS_RSS_URL_TEMPLATE:?set NEWS_RSS_URL_TEMPLATE}
       INJURY_RSS_URL_TEMPLATE: ${INJURY_RSS_URL_TEMPLATE:?set INJURY_RSS_URL_TEMPLATE}
       UPLOAD_DIR: /app/uploads

@@ -1,4 +1,6 @@
 .env
+.env.age.tmp.*
+.env.tmp.*
 .DS_Store
 __pycache__/
 *.py[cod]

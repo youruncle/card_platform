@@ -20,23 +20,32 @@ class NarrativeProvider(Protocol):
     async def generate(self, evidence: dict) -> AINarrative: ...
 
 
-class OpenAINarrativeProvider:
-    name = "openai"
+class DeepSeekNarrativeProvider:
+    name = "deepseek"
 
-    def __init__(self, api_key: str, model: str) -> None:
+    def __init__(self, api_key: str, base_url: str, model: str) -> None:
         self.model = model
-        self.client = AsyncOpenAI(api_key=api_key)
+        self.client = AsyncOpenAI(api_key=api_key, base_url=base_url)
 
     async def generate(self, evidence: dict) -> AINarrative:
-        response = await self.client.responses.parse(
+        schema = json.dumps(AINarrative.model_json_schema(), ensure_ascii=False)
+        response = await self.client.chat.completions.create(
             model=self.model,
-            instructions=SYSTEM_INSTRUCTIONS,
-            input=json.dumps(evidence, ensure_ascii=False),
-            text_format=AINarrative,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        f"{SYSTEM_INSTRUCTIONS}\n只输出符合以下 JSON Schema 的 JSON：{schema}"
+                    ),
+                },
+                {"role": "user", "content": json.dumps(evidence, ensure_ascii=False)},
+            ],
+            response_format={"type": "json_object"},
         )
-        if response.output_parsed is None:
+        content = response.choices[0].message.content
+        if not content:
             raise RuntimeError("AI response did not contain a structured narrative")
-        return response.output_parsed
+        return AINarrative.model_validate_json(content)
 
 
 class RuleNarrativeProvider:
@@ -70,8 +79,10 @@ class AIAdvisoryService:
     def __init__(self, settings: Settings, provider: NarrativeProvider | None = None) -> None:
         if provider is not None:
             self.provider = provider
-        elif settings.openai_api_key:
-            self.provider = OpenAINarrativeProvider(settings.openai_api_key, settings.openai_model)
+        elif settings.ai_api_key and settings.ai_provider == "deepseek":
+            self.provider = DeepSeekNarrativeProvider(
+                settings.ai_api_key, settings.ai_base_url, settings.ai_model
+            )
         else:
             self.provider = RuleNarrativeProvider()
 

@@ -57,16 +57,51 @@ class FakeVisionProvider:
             caveats=["编号需查看背面"],
         )
 
+    async def recognize_images(
+        self, images: list[tuple[bytes, str]], prompt: str
+    ) -> CardRecognitionResult:
+        assert len(images) == 2
+        assert "正面和背面" in prompt
+        return CardRecognitionResult(
+            player_name="Kobe Bryant",
+            season_start=1996,
+            season_end=1997,
+            brand_name="Topps",
+            product_name="Topps Basketball",
+            card_number="138",
+            is_rookie=True,
+            confidence="0.97",
+            caveats=[],
+        )
+
 
 def test_card_vision_service_returns_structured_provider_result() -> None:
-    service = CardVisionService(Settings(max_image_bytes=100), provider=FakeVisionProvider())
+    service = CardVisionService(
+        Settings(max_image_bytes=100, card_search_enabled=False),
+        provider=FakeVisionProvider(),
+    )
     result = asyncio.run(service.recognize(upload(b"\xff\xd8\xfffixture")))
     assert result.player_name == "Kobe Bryant"
     assert result.is_rookie is True
     assert str(result.confidence) == "0.91"
 
 
-def test_card_vision_requires_api_key_without_provider() -> None:
-    service = CardVisionService(Settings(openai_api_key=None))
-    with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
+def test_card_vision_service_combines_front_and_back() -> None:
+    service = CardVisionService(
+        Settings(max_image_bytes=100, card_search_enabled=False),
+        provider=FakeVisionProvider(),
+    )
+    result = asyncio.run(
+        service.recognize_pair(
+            upload(b"\xff\xd8\xfffixture"),
+            upload(b"\xff\xd8\xffback-side"),
+        )
+    )
+    assert result.card_number == "138"
+    assert str(result.confidence) == "0.97"
+
+
+def test_card_vision_requires_vision_provider() -> None:
+    service = CardVisionService(Settings(vision_api_key=None))
+    with pytest.raises(RuntimeError, match="VISION_API_KEY"):
         asyncio.run(service.recognize(upload(b"\xff\xd8\xfffixture")))
