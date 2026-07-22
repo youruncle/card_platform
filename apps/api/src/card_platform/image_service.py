@@ -12,7 +12,11 @@ from psycopg import AsyncConnection
 from card_platform.config import Settings
 from card_platform.card_search_service import CardSearchService
 from card_platform.repository import NotFoundError
-from card_platform.schemas import CardRecognitionResult, ImageUploadResult
+from card_platform.schemas import (
+    CardRecognitionResult,
+    ImageUploadResult,
+    SheetCardRecognitionResult,
+)
 
 ALLOWED_IMAGE_TYPES = {
     "image/jpeg": ".jpg",
@@ -144,6 +148,53 @@ class QwenVisionProvider:
             raise RuntimeError("vision response did not contain structured card data")
         return CardRecognitionResult.model_validate_json(result)
 
+    async def recognize_sheet(
+        self, content: bytes, content_type: str
+    ) -> SheetCardRecognitionResult:
+        schema = json.dumps(SheetCardRecognitionResult.model_json_schema(), ensure_ascii=False)
+        encoded = base64.b64encode(content).decode("ascii")
+        response = await self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "你在解析一张可能同时包含多张篮球球星卡、订单行或商品列表的图片。"
+                        "先按视觉分区和订单/商品边界确定独立卡牌数量，再为每张卡分别提取卡片"
+                        "身份和对应的采购信息，严格保持从上到下、从左到右的顺序。价格必须绑定"
+                        "到同一商品行；purchase_price 只填商品价，shipping_price 单独填写。"
+                        "card_image_bbox 必须框住该条目中卡片实物图片本身，不要包含标题、价格、"
+                        "订单信息或页面背景；坐标按整张图片宽高归一化到 0 到 1000，格式为"
+                        "[left, top, right, bottom]。如果没有可见卡片实物图则返回 null。"
+                        "同时完整 OCR 同一商品行中与卡片有关的全部标题和描述：listing_title"
+                        "填写主标题，visible_description 填写其余描述原文。卡面无法确认的年份、"
+                        "球员、品牌、产品线、卡种、平行版本、卡号、限编、RC、签字或 Patch，可用"
+                        "这些文字补全 result，并在 text_derived_fields 中以字段名记录对应的原文"
+                        "证据。文字与卡面冲突时以卡面为准，并把冲突写入 caveats；不要把卖家宣传"
+                        "词直接当作事实，也不要把商品编号或订单号当成卡号。"
+                        "中文译名要尽量还原为英文球员名。无法可靠确认的字段返回 null，不能把"
+                        "卖家名、订单号或商品编号当作卡号。detected_count 必须等于 cards 数量。"
+                        f"只输出符合以下 JSON Schema 的 JSON：{schema}"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "识别图片中的全部球星卡并逐条返回。"},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{content_type};base64,{encoded}"},
+                        },
+                    ],
+                },
+            ],
+            response_format={"type": "json_object"},
+        )
+        result = response.choices[0].message.content
+        if not result:
+            raise RuntimeError("vision response did not contain structured multi-card data")
+        return SheetCardRecognitionResult.model_validate_json(result)
+
 
 class CardVisionService:
     def __init__(self, settings: Settings, provider: VisionProvider | None = None) -> None:
@@ -192,3 +243,32 @@ class CardVisionService:
             ),
         )
         return await self.search.enrich(visual)
+
+    async def recognize_sheet(self, upload: UploadFile) -> SheetCardRecognitionResult:
+        if self.provider is None:
+            raise RuntimeError(
+                "VISION_API_KEY is required for Qwen3-VL-Flash card image recognition"
+            )
+        content = await read_validated_image(upload, self.max_bytes)
+        if not hasattr(self.provider, "recognize_sheet"):
+            raise RuntimeError("configured vision provider does not support multi-card recognition")
+        sheet = await self.provider.recognize_sheet(
+            content, upload.content_type or "image/jpeg"
+        )
+        for card in sheet.cards:
+            context_parts = [card.listing_title, card.visible_description]
+            context = "\n".join(part for part in context_parts if part)
+            if card.text_derived_fields:
+                card.result = card.result.model_copy(
+                    update={
+                        "field_evidence": {
+                            **card.result.field_evidence,
+                            **{
+                                field: [f"截图文字：{evidence}"]
+                                for field, evidence in card.text_derived_fields.items()
+                            },
+                        }
+                    }
+                )
+            card.result = await self.search.enrich(card.result, context=context or None)
+        return sheet

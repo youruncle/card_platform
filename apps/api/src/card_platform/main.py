@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -8,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from card_platform.api import router
 from card_platform.config import get_settings
 from card_platform.db import Database
+from card_platform.valuation_worker import AutomatedValuationWorker, stop_worker
 
 
 @asynccontextmanager
@@ -15,9 +17,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     database = Database(get_settings())
     await database.open()
     app.state.database = database
+    worker = AutomatedValuationWorker(database, get_settings())
+    worker_task = None
+    if get_settings().valuation_worker_enabled:
+        worker_task = asyncio.create_task(worker.run())
     try:
         yield
     finally:
+        if worker_task is not None:
+            await stop_worker(worker_task, worker)
         await database.close()
 
 

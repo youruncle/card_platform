@@ -108,6 +108,16 @@ class PortfolioRepository:
                         purchase.notes,
                     ),
                 )
+            await connection.execute(
+                """
+                INSERT INTO valuation_job (collection_item_id, status)
+                VALUES (%s, 'queued')
+                ON CONFLICT (collection_item_id)
+                    WHERE status IN ('queued', 'identifying', 'searching', 'calculating')
+                DO NOTHING
+                """,
+                (item_id,),
+            )
             return item_id
 
     async def _get_or_create_player(
@@ -299,9 +309,16 @@ class PortfolioRepository:
                 cd.is_rookie, cd.is_autograph, cd.is_patch,
                 ci.serial_number, ci.serial_total, ci.grade_company, ci.grade_value,
                 ci.strategy_tags, ci.image_front_url, ci.image_back_url, u.base_currency,
-                lv.currency AS valuation_currency,
-                lv.low_value AS valuation_low, lv.fair_value,
-                lv.high_value AS valuation_high,
+                CASE WHEN vj.created_at > lv.valued_at AND vj.status <> 'succeeded'
+                     THEN NULL ELSE lv.currency END AS valuation_currency,
+                CASE WHEN vj.created_at > lv.valued_at AND vj.status <> 'succeeded'
+                     THEN NULL ELSE lv.low_value END AS valuation_low,
+                CASE WHEN vj.created_at > lv.valued_at AND vj.status <> 'succeeded'
+                     THEN NULL ELSE lv.fair_value END AS fair_value,
+                CASE WHEN vj.created_at > lv.valued_at AND vj.status <> 'succeeded'
+                     THEN NULL ELSE lv.high_value END AS valuation_high,
+                vj.id AS valuation_job_id, vj.status AS valuation_status,
+                vj.error_message AS valuation_error,
                 (SELECT COUNT(*) FROM market_comp mc
                  WHERE mc.card_definition_id = ci.card_definition_id) AS market_comp_count
             FROM collection_item ci
@@ -311,6 +328,12 @@ class PortfolioRepository:
             JOIN card_set cs ON cs.id = cd.card_set_id
             JOIN brand b ON b.id = cs.brand_id
             LEFT JOIN latest_item_valuation lv ON lv.collection_item_id = ci.id
+            LEFT JOIN LATERAL (
+                SELECT id, status, error_message, created_at
+                FROM valuation_job
+                WHERE collection_item_id = ci.id
+                ORDER BY created_at DESC LIMIT 1
+            ) vj ON true
             WHERE ci.owner_id = %s
             ORDER BY ci.created_at DESC
             """,

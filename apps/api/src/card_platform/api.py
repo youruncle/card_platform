@@ -20,6 +20,7 @@ from card_platform.schemas import (
     CardAnalysisCreate,
     CardAnalysisResult,
     AINarrativeResult,
+    AutomatedValuationDetail,
     AutoCardAnalysisCreate,
     CollectionItemCreate,
     CreatedResource,
@@ -38,6 +39,7 @@ from card_platform.schemas import (
     MarketEstimateResult,
     CardRecognitionResult,
     BatchCardRecognitionItem,
+    SheetCardRecognitionResult,
     ImageUploadResult,
     PotentialInput,
     TransactionCreate,
@@ -197,6 +199,38 @@ async def create_market_estimate(
         raise translate_domain_error(error) from error
 
 
+@router.get(
+    "/portfolio/items/{item_id}/automated-valuation",
+    response_model=AutomatedValuationDetail,
+)
+async def get_automated_valuation(
+    item_id: UUID,
+    owner_id: UUID,
+    connection: AsyncConnection = Depends(get_connection),
+) -> AutomatedValuationDetail:
+    try:
+        return await market_repository.automated_detail(connection, item_id, owner_id)
+    except NotFoundError as error:
+        raise translate_domain_error(error) from error
+
+
+@router.post(
+    "/portfolio/items/{item_id}/automated-valuation/retry",
+    response_model=CreatedResource,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def retry_automated_valuation(
+    item_id: UUID,
+    owner_id: UUID,
+    connection: AsyncConnection = Depends(get_connection),
+) -> CreatedResource:
+    try:
+        job_id = await market_repository.enqueue_valuation(connection, item_id, owner_id)
+    except NotFoundError as error:
+        raise translate_domain_error(error) from error
+    return CreatedResource(id=job_id)
+
+
 @router.post(
     "/portfolio/items/{item_id}/images",
     response_model=ImageUploadResult,
@@ -271,6 +305,22 @@ async def recognize_card_batch(images: list[UploadFile] = File(...)) -> list[Bat
                 BatchCardRecognitionItem(filename=image.filename or "image", error=str(error))
             )
     return results
+
+
+@router.post("/cards/recognize-auto", response_model=SheetCardRecognitionResult)
+async def recognize_card_auto(image: UploadFile = File(...)) -> SheetCardRecognitionResult:
+    """Auto-detect whether an image contains one card or many and parse each one."""
+    try:
+        return await CardVisionService(get_settings()).recognize_sheet(image)
+    except InvalidImageError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error))
+    except RuntimeError as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error))
+    except Exception as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"vision provider failed: {str(error)[:300]}",
+        ) from error
 
 
 @router.post(

@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
+from typing import Annotated
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -159,6 +160,9 @@ class PortfolioItem(ApiModel):
     valuation_high: Decimal | None
     market_comp_count: int
     unrealized_profit: Decimal | None
+    valuation_status: str | None = None
+    valuation_job_id: UUID | None = None
+    valuation_error: str | None = None
 
 
 class PortfolioSummary(ApiModel):
@@ -383,6 +387,30 @@ class MarketEstimateResult(ApiModel):
     evidence_count: int
 
 
+class AutomatedValuationSnapshot(ApiModel):
+    id: UUID
+    valued_at: datetime
+    currency: str
+    low_value: Decimal
+    fair_value: Decimal
+    high_value: Decimal
+    confidence: Decimal | None
+    evidence: dict
+    model_version: str | None
+
+
+class AutomatedValuationDetail(ApiModel):
+    job_id: UUID | None = None
+    status: str | None = None
+    error_message: str | None = None
+    result_summary: dict = Field(default_factory=dict)
+    created_at: datetime | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    valuation: AutomatedValuationSnapshot | None = None
+    comparables: list[MarketCompView] = Field(default_factory=list)
+
+
 class ImageUploadResult(ApiModel):
     item_id: UUID
     side: str
@@ -429,3 +457,48 @@ class BatchCardRecognitionItem(ApiModel):
     filename: str
     result: CardRecognitionResult | None = None
     error: str | None = None
+
+
+class SheetCardRecognitionItem(ApiModel):
+    """One independently editable card discovered inside a composite image."""
+
+    result: CardRecognitionResult
+    card_image_bbox: tuple[
+        Annotated[int, Field(ge=0, le=1000)],
+        Annotated[int, Field(ge=0, le=1000)],
+        Annotated[int, Field(ge=0, le=1000)],
+        Annotated[int, Field(ge=0, le=1000)],
+    ] | None = None
+    listing_title: str | None = None
+    visible_description: str | None = None
+    text_derived_fields: dict[str, str] = Field(default_factory=dict)
+    order_number: str | None = None
+    product_number: str | None = None
+    purchased_at: datetime | None = None
+    purchase_price: Decimal | None = Field(default=None, ge=0, max_digits=18, decimal_places=2)
+    shipping_price: Decimal | None = Field(default=None, ge=0, max_digits=18, decimal_places=2)
+    currency: str | None = Field(default=None, min_length=3, max_length=3)
+    quantity: int = Field(default=1, ge=1)
+    seller_name: str | None = None
+    source_region: str | None = None
+    caveats: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_card_image_bbox(self) -> "SheetCardRecognitionItem":
+        if self.card_image_bbox is not None:
+            left, top, right, bottom = self.card_image_bbox
+            if right <= left or bottom <= top:
+                raise ValueError("card_image_bbox must have positive width and height")
+        return self
+
+
+class SheetCardRecognitionResult(ApiModel):
+    detected_count: int = Field(ge=0, le=50)
+    cards: list[SheetCardRecognitionItem] = Field(default_factory=list, max_length=50)
+    caveats: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_detected_count(self) -> "SheetCardRecognitionResult":
+        if self.detected_count != len(self.cards):
+            raise ValueError("detected_count must equal the number of cards")
+        return self

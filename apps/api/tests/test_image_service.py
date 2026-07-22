@@ -7,7 +7,11 @@ from starlette.datastructures import Headers
 
 from card_platform.config import Settings
 from card_platform.image_service import CardVisionService, InvalidImageError, read_validated_image
-from card_platform.schemas import CardRecognitionResult
+from card_platform.schemas import (
+    CardRecognitionResult,
+    SheetCardRecognitionItem,
+    SheetCardRecognitionResult,
+)
 
 
 def upload(content: bytes, content_type: str = "image/jpeg") -> UploadFile:
@@ -74,6 +78,54 @@ class FakeVisionProvider:
             caveats=[],
         )
 
+    async def recognize_sheet(
+        self, content: bytes, content_type: str
+    ) -> SheetCardRecognitionResult:
+        assert content == b"\xff\xd8\xfffixture"
+        return SheetCardRecognitionResult(
+            detected_count=2,
+            cards=[
+                SheetCardRecognitionItem(
+                    result=CardRecognitionResult(
+                        player_name="Tim Duncan",
+                        season_start=2021,
+                        season_end=2022,
+                        brand_name="Panini",
+                        product_name="Immaculate",
+                        serial_total=75,
+                        is_patch=True,
+                        confidence="0.93",
+                    ),
+                    order_number="260719215304998007",
+                    product_number="260716000053100",
+                    purchased_at="2026-07-19T00:00:00Z",
+                    purchase_price="380.00",
+                    shipping_price="18.00",
+                    currency="CNY",
+                    listing_title="2021-22 Panini Immaculate Tim Duncan /75 Patch",
+                    visible_description="双窗球衣物料，75周年，75编",
+                    text_derived_fields={
+                        "serial_total": "75编",
+                        "is_patch": "双窗球衣物料",
+                    },
+                ),
+                SheetCardRecognitionItem(
+                    result=CardRecognitionResult(
+                        player_name="LeBron James",
+                        season_start=2021,
+                        season_end=2022,
+                        brand_name="Panini",
+                        product_name="National Treasures",
+                        serial_total=99,
+                        is_patch=True,
+                        confidence="0.92",
+                    ),
+                    purchase_price="888.00",
+                    currency="CNY",
+                ),
+            ],
+        )
+
 
 def test_card_vision_service_returns_structured_provider_result() -> None:
     service = CardVisionService(
@@ -99,6 +151,21 @@ def test_card_vision_service_combines_front_and_back() -> None:
     )
     assert result.card_number == "138"
     assert str(result.confidence) == "0.97"
+
+
+def test_card_vision_service_discovers_multiple_cards_in_one_image() -> None:
+    service = CardVisionService(
+        Settings(max_image_bytes=100, card_search_enabled=False),
+        provider=FakeVisionProvider(),
+    )
+    result = asyncio.run(service.recognize_sheet(upload(b"\xff\xd8\xfffixture")))
+    assert result.detected_count == 2
+    assert [card.result.player_name for card in result.cards] == [
+        "Tim Duncan",
+        "LeBron James",
+    ]
+    assert str(result.cards[0].purchase_price) == "380.00"
+    assert result.cards[0].result.field_evidence["serial_total"] == ["截图文字：75编"]
 
 
 def test_card_vision_requires_vision_provider() -> None:

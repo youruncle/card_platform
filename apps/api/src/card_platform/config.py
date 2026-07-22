@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     card_search_enabled: bool = True
     card_search_model: str = "qwen-plus"
     card_search_timeout_seconds: float = 45.0
+    valuation_search_model: str = "qwen-plus"
+    valuation_search_timeout_seconds: float = 90.0
+    valuation_worker_enabled: bool = True
+    valuation_worker_poll_seconds: float = 2.0
+    valuation_verify_sources: bool = True
+    valuation_source_verify_timeout_seconds: float = 8.0
     nba_stats_base_url: str = "https://stats.nba.com/stats"
     news_rss_url_template: str | None = (
         "https://news.google.com/rss/search?q={player}+NBA&hl=en-US&gl=US&ceid=US:en"

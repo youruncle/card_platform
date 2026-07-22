@@ -17,6 +17,8 @@ SEARCHABLE_FIELDS = {
     "card_number",
     "serial_total",
     "is_rookie",
+    "is_autograph",
+    "is_patch",
 }
 
 TRUSTED_SITES = [
@@ -39,8 +41,40 @@ STRONG_IDENTITY_SITES = {
     "psacard.com",
 }
 
+STRING_FIELDS = {
+    "player_name",
+    "brand_name",
+    "product_name",
+    "insert_name",
+    "parallel_name",
+    "card_number",
+}
+INTEGER_FIELDS = {"season_start", "season_end", "serial_total"}
+BOOLEAN_FIELDS = {"is_rookie", "is_autograph", "is_patch"}
 
-def build_card_search_queries(result: CardRecognitionResult) -> list[str]:
+
+def normalize_resolved_field(key: str, value: str | int | bool) -> str | int | bool | None:
+    try:
+        if key in STRING_FIELDS:
+            return str(value)
+        if key in INTEGER_FIELDS and not isinstance(value, bool):
+            return int(value)
+        if key in BOOLEAN_FIELDS:
+            if isinstance(value, bool):
+                return value
+            normalized = str(value).strip().lower()
+            if normalized in {"true", "yes", "1"}:
+                return True
+            if normalized in {"false", "no", "0"}:
+                return False
+    except (TypeError, ValueError):
+        return None
+    return None
+
+
+def build_card_search_queries(
+    result: CardRecognitionResult, context: str | None = None
+) -> list[str]:
     parts = [
         result.player_name,
         str(result.season_start) if result.season_start else None,
@@ -51,6 +85,8 @@ def build_card_search_queries(result: CardRecognitionResult) -> list[str]:
         f"#{result.card_number}" if result.card_number else None,
     ]
     identity = " ".join(str(value) for value in parts if value)
+    if not identity and context:
+        identity = context[:300]
     if not identity:
         return []
     queries = [f"{identity} basketball card checklist"]
@@ -76,8 +112,10 @@ class CardSearchService:
             else None
         )
 
-    async def enrich(self, visual: CardRecognitionResult) -> CardRecognitionResult:
-        queries = build_card_search_queries(visual)
+    async def enrich(
+        self, visual: CardRecognitionResult, context: str | None = None
+    ) -> CardRecognitionResult:
+        queries = build_card_search_queries(visual, context)
         if not self.client or not queries:
             return visual.model_copy(update={"search_queries": queries})
         schema = json.dumps(CardSearchEnrichment.model_json_schema(), ensure_ascii=False)
@@ -97,6 +135,9 @@ class CardSearchService:
                             "一致’，禁止把 URL 填入 field_evidence；URL 只能放在 candidates 的"
                             "source_urls。eBay、COMC、130point 等销售标题属于弱证据，不能单独"
                             "证明年份、RC、签字、平行版本或限编。"
+                            "listing_or_order_context 是截图 OCR 的商品标题和描述，可用于生成更精确"
+                            "的搜索词和候选匹配，但它本身仍是销售方描述，必须经过强来源核验后才能"
+                            "修正字段。若视觉字段为空，应主动尝试用该文字定位具体 checklist 条目。"
                             f"只输出符合以下 JSON Schema 的 JSON：{schema}"
                         ),
                     },
@@ -105,6 +146,7 @@ class CardSearchService:
                         "content": json.dumps(
                             {
                                 "visual_extraction": visual.model_dump(mode="json"),
+                                "listing_or_order_context": context,
                                 "search_queries": queries,
                             },
                             ensure_ascii=False,
@@ -149,8 +191,9 @@ class CardSearchService:
             for candidate in candidates
         )
         updates = {
-            key: value
+            key: normalized
             for key, value in enrichment.resolved_fields.items()
+            if (normalized := normalize_resolved_field(key, value)) is not None
             if key in SEARCHABLE_FIELDS
             and value is not None
             and enrichment.field_evidence.get(key)
@@ -160,7 +203,10 @@ class CardSearchService:
             update={
                 **updates,
                 "search_queries": queries,
-                "field_evidence": enrichment.field_evidence,
+                "field_evidence": {
+                    **visual.field_evidence,
+                    **enrichment.field_evidence,
+                },
                 "web_candidates": candidates,
                 "caveats": [*visual.caveats, *enrichment.caveats],
             }

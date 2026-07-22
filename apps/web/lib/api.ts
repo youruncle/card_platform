@@ -41,6 +41,9 @@ export type PortfolioItem = {
   valuation_high: string | null;
   market_comp_count: number;
   unrealized_profit: string | null;
+  valuation_status: string | null;
+  valuation_job_id: string | null;
+  valuation_error: string | null;
 };
 
 export type MarketComp = {
@@ -55,6 +58,71 @@ export type MarketComp = {
   listing_title: string | null;
   source_url: string | null;
   match_confidence: string | null;
+};
+
+export type AutomatedValuationDetail = {
+  job_id: string | null;
+  status: string | null;
+  error_message: string | null;
+  result_summary: Record<string, unknown>;
+  created_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  valuation: null | {
+    id: string;
+    valued_at: string;
+    currency: string;
+    low_value: string;
+    fair_value: string;
+    high_value: string;
+    confidence: string | null;
+    evidence: {
+      strategy?: string;
+      formula?: string;
+      search_queries?: string[];
+      notes?: string[];
+      player_adjustments?: Array<{
+        target_player: string;
+        reference_player: string;
+        segment: string;
+        coefficient: string;
+        sample_count: number;
+        ratio_low: string;
+        ratio_high: string;
+        pairs: Array<{
+          target_title: string;
+          target_url: string;
+          target_price_base: string;
+          reference_title: string;
+          reference_url: string;
+          reference_price_base: string;
+        }>;
+      }>;
+      comparables?: Array<{
+        id: string;
+        title: string | null;
+        source_url: string | null;
+        occurred_at: string;
+        original_price: string;
+        currency: string;
+        fx_rate_to_base: string;
+        normalized_price: string;
+        match_confidence: string;
+        age_days: number;
+        evidence_type?: string;
+        source?: string;
+        evidence_level?: "confirmed_transaction" | "ended_auction" | null;
+        adjustment?: string;
+        condition_type?: string;
+        grade_company?: string | null;
+        grade_value?: string | null;
+        player_name?: string;
+        player_coefficient?: string;
+      }>;
+    };
+    model_version: string | null;
+  };
+  comparables: MarketComp[];
 };
 
 export type CardRecognition = {
@@ -88,6 +156,30 @@ export type BatchCardRecognition = {
   filename: string;
   result: CardRecognition | null;
   error: string | null;
+};
+
+export type SheetCardRecognitionItem = {
+  result: CardRecognition;
+  card_image_bbox: [number, number, number, number] | null;
+  listing_title: string | null;
+  visible_description: string | null;
+  text_derived_fields: Record<string, string>;
+  order_number: string | null;
+  product_number: string | null;
+  purchased_at: string | null;
+  purchase_price: string | null;
+  shipping_price: string | null;
+  currency: string | null;
+  quantity: number;
+  seller_name: string | null;
+  source_region: string | null;
+  caveats: string[];
+};
+
+export type SheetCardRecognition = {
+  detected_count: number;
+  cards: SheetCardRecognitionItem[];
+  caveats: string[];
 };
 
 export type PlayerIntelligence = {
@@ -313,6 +405,25 @@ export function getMarketComps(
   );
 }
 
+export function getAutomatedValuation(
+  itemId: string,
+  ownerId: string,
+): Promise<AutomatedValuationDetail> {
+  return request(
+    `/v1/portfolio/items/${itemId}/automated-valuation?owner_id=${ownerId}`,
+  );
+}
+
+export function retryAutomatedValuation(
+  itemId: string,
+  ownerId: string,
+): Promise<{ id: string }> {
+  return request(
+    `/v1/portfolio/items/${itemId}/automated-valuation/retry?owner_id=${ownerId}`,
+    { method: "POST" },
+  );
+}
+
 export function addMarketComp(
   itemId: string,
   payload: unknown,
@@ -389,6 +500,10 @@ export async function recognizeCardBatch(
     throw new Error(body.detail ?? `请求失败 (${response.status})`);
   }
   return response.json() as Promise<BatchCardRecognition[]>;
+}
+
+export function recognizeCardAuto(file: File): Promise<SheetCardRecognition> {
+  return multipartRequest("/v1/cards/recognize-auto", file);
 }
 
 export function uploadItemImage(

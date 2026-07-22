@@ -114,6 +114,19 @@ def test_full_investment_workflow(tmp_path) -> None:
         item = items.json()[0]
         player_id = item["player_id"]
         assert Decimal(item["remaining_cost"]) == Decimal("260")
+        assert item["valuation_status"] in {
+            "queued",
+            "identifying",
+            "searching",
+            "calculating",
+            "insufficient_evidence",
+        }
+        automated_valuation = client.get(
+            f"/v1/portfolio/items/{item_id}/automated-valuation",
+            params={"owner_id": owner_id},
+        )
+        assert automated_valuation.status_code == 200, automated_valuation.text
+        assert automated_valuation.json()["job_id"]
 
         image = client.post(
             f"/v1/portfolio/items/{item_id}/images",

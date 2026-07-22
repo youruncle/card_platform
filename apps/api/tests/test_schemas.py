@@ -5,7 +5,13 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from card_platform.schemas import CardIdentityInput, CollectionItemCreate, ValuationCreate
+from card_platform.schemas import (
+    CardIdentityInput,
+    CardRecognitionResult,
+    CollectionItemCreate,
+    SheetCardRecognitionItem,
+    ValuationCreate,
+)
 
 
 def test_card_can_be_rookie_auto_and_patch() -> None:
@@ -48,3 +54,11 @@ def test_invalid_valuation_range_is_rejected() -> None:
             fair_value=Decimal("200"),
             high_value=Decimal("400"),
         )
+
+
+def test_multi_card_crop_bbox_must_be_valid_normalized_coordinates() -> None:
+    result = CardRecognitionResult(confidence="0.8")
+    item = SheetCardRecognitionItem(result=result, card_image_bbox=(10, 20, 300, 500))
+    assert item.card_image_bbox == (10, 20, 300, 500)
+    with pytest.raises(ValidationError, match="positive width"):
+        SheetCardRecognitionItem(result=result, card_image_bbox=(300, 20, 10, 500))

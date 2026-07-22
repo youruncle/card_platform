@@ -6,6 +6,8 @@ from psycopg.types.json import Jsonb
 from card_platform.domain.valuation import ComparableSale, estimate_from_comps
 from card_platform.repository import NotFoundError
 from card_platform.schemas import (
+    AutomatedValuationDetail,
+    AutomatedValuationSnapshot,
     MarketCompCreate,
     MarketCompView,
     MarketEstimateCreate,
@@ -142,3 +144,63 @@ class MarketRepository:
             confidence=estimate.confidence,
             evidence_count=estimate.evidence_count,
         )
+
+    async def automated_detail(
+        self, connection: AsyncConnection, item_id: UUID, owner_id: UUID
+    ) -> AutomatedValuationDetail:
+        await self._definition_id(connection, item_id, owner_id)
+        job_result = await connection.execute(
+            """
+            SELECT id AS job_id, status, error_message, result_summary,
+                   created_at, started_at, finished_at
+            FROM valuation_job WHERE collection_item_id = %s
+            ORDER BY created_at DESC LIMIT 1
+            """,
+            (item_id,),
+        )
+        job = await job_result.fetchone()
+        valuation_result = await connection.execute(
+            """
+            SELECT id, valued_at, currency, low_value, fair_value, high_value,
+                   confidence, evidence, model_version
+            FROM valuation_snapshot
+            WHERE collection_item_id = %s AND method = 'ai_estimate'
+              AND (%s IS NULL OR valued_at >= %s)
+            ORDER BY valued_at DESC, created_at DESC LIMIT 1
+            """,
+            (
+                item_id,
+                job["created_at"] if job else None,
+                job["created_at"] if job else None,
+            ),
+        )
+        valuation = await valuation_result.fetchone()
+        comps = await self.list_comps(connection, item_id, owner_id)
+        return AutomatedValuationDetail(
+            **(job or {}),
+            valuation=AutomatedValuationSnapshot(**valuation) if valuation else None,
+            comparables=comps,
+        )
+
+    async def enqueue_valuation(
+        self, connection: AsyncConnection, item_id: UUID, owner_id: UUID
+    ) -> UUID:
+        await self._definition_id(connection, item_id, owner_id)
+        async with connection.transaction():
+            await connection.execute(
+                """
+                UPDATE valuation_job SET status = 'failed',
+                    error_message = '由用户重新发起估值', finished_at = now(), updated_at = now()
+                WHERE collection_item_id = %s
+                  AND status IN ('queued', 'identifying', 'searching', 'calculating')
+                """,
+                (item_id,),
+            )
+            result = await connection.execute(
+                """
+                INSERT INTO valuation_job (collection_item_id, status)
+                VALUES (%s, 'queued') RETURNING id
+                """,
+                (item_id,),
+            )
+            return (await result.fetchone())["id"]

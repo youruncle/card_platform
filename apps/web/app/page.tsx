@@ -32,8 +32,10 @@ import {
   getPlayerIntelligence,
   getItemDetail,
   getMarketComps,
+  getAutomatedValuation,
+  retryAutomatedValuation,
   estimateMarket,
-  recognizeCard,
+  recognizeCardAuto,
   recognizeCardBatch,
   recognizeCardPair,
   uploadItemImage,
@@ -45,12 +47,31 @@ import {
   type PlayerIntelligence,
   type ItemDetail,
   type MarketComp,
+  type AutomatedValuationDetail,
   type CardRecognition,
   type BatchCardRecognition,
+  type SheetCardRecognitionItem,
 } from "@/lib/api";
 
 type RecognitionMode = "single" | "pair" | "batch";
-type BatchRecognitionDraft = BatchCardRecognition & { file: File };
+type AcquisitionDraft = {
+  purchased_at?: string | null;
+  purchase_price?: string | null;
+  shipping_price?: string | null;
+  currency?: string | null;
+  order_number?: string | null;
+  product_number?: string | null;
+  listing_title?: string | null;
+  visible_description?: string | null;
+  text_derived_fields?: Record<string, string>;
+  seller_name?: string | null;
+  card_image_bbox?: [number, number, number, number] | null;
+};
+type BatchRecognitionDraft = BatchCardRecognition & {
+  file: File | null;
+  acquisition?: AcquisitionDraft;
+};
+type EditableRecognition = CardRecognition & AcquisitionDraft;
 
 const recognitionFieldLabels: Record<string, string> = {
   player_name: "球员",
@@ -89,6 +110,40 @@ function evidenceSourceHost(url: string) {
   }
 }
 
+async function cropCardImage(
+  source: File,
+  bbox: [number, number, number, number] | null,
+  index: number,
+): Promise<File | null> {
+  if (!bbox) return null;
+  const bitmap = await createImageBitmap(source);
+  try {
+    const [left, top, right, bottom] = bbox;
+    const x = Math.max(0, Math.floor((left / 1000) * bitmap.width));
+    const y = Math.max(0, Math.floor((top / 1000) * bitmap.height));
+    const width = Math.min(bitmap.width - x, Math.ceil(((right - left) / 1000) * bitmap.width));
+    const height = Math.min(
+      bitmap.height - y,
+      Math.ceil(((bottom - top) / 1000) * bitmap.height),
+    );
+    if (width < 20 || height < 20) return null;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) return null;
+    context.drawImage(bitmap, x, y, width, height, 0, 0, width, height);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", 0.92),
+    );
+    return blob
+      ? new File([blob], `recognized-card-${index + 1}.jpg`, { type: "image/jpeg" })
+      : null;
+  } finally {
+    bitmap.close();
+  }
+}
+
 const OWNER_KEY = "card-alpha-owner-id";
 
 const emptySummary: PortfolioSummary = {
@@ -117,6 +172,10 @@ function season(item: PortfolioItem) {
   return `${item.season_start}-${String(item.season_end).slice(-2)}`;
 }
 
+function isValuationRunning(status: string | null) {
+  return ["queued", "identifying", "searching", "calculating"].includes(status ?? "");
+}
+
 export default function Dashboard() {
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [summary, setSummary] = useState(emptySummary);
@@ -141,6 +200,10 @@ export default function Dashboard() {
   const [itemDetail, setItemDetail] = useState<ItemDetail | null>(null);
   const [marketComps, setMarketComps] = useState<MarketComp[]>([]);
   const [marketItem, setMarketItem] = useState<PortfolioItem | null>(null);
+  const [valuationDetail, setValuationDetail] =
+    useState<AutomatedValuationDetail | null>(null);
+  const [valuationDetailItem, setValuationDetailItem] =
+    useState<PortfolioItem | null>(null);
   const [potentialItem, setPotentialItem] = useState<PortfolioItem | null>(
     null,
   );
@@ -157,7 +220,7 @@ export default function Dashboard() {
   const [recognitionLoading, setRecognitionLoading] = useState(false);
   const [recognitionProgress, setRecognitionProgress] = useState(0);
   const [recognitionPhase, setRecognitionPhase] = useState("");
-  const [cardDraft, setCardDraft] = useState<CardRecognition | null>(null);
+  const [cardDraft, setCardDraft] = useState<EditableRecognition | null>(null);
 
   const refresh = useCallback(async (id: string) => {
     setLoading(true);
@@ -183,6 +246,23 @@ export default function Dashboard() {
     setOwnerId(savedOwner);
     void refresh(savedOwner);
   }, [refresh]);
+
+  useEffect(() => {
+    if (!ownerId) return;
+    const active = items.some((item) =>
+      ["queued", "identifying", "searching", "calculating"].includes(
+        item.valuation_status ?? "",
+      ),
+    );
+    if (!active) return;
+    const timer = window.setInterval(() => {
+      void getPortfolio(ownerId).then(([nextSummary, nextItems]) => {
+        setSummary(nextSummary);
+        setItems(nextItems);
+      });
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [items, ownerId]);
 
   const filteredItems = useMemo(() => {
     const keyword = search.trim().toLocaleLowerCase();
@@ -250,10 +330,13 @@ export default function Dashboard() {
         serial_total: serialTotal ? Number(serialTotal) : null,
         strategy_tags: form.getAll("strategyTags"),
         purchase: {
-          transacted_at: new Date().toISOString(),
+          transacted_at: String(form.get("purchasedAt") || new Date().toISOString()),
           price: form.get("price"),
           currency: form.get("currency"),
           fx_rate_to_base: 1,
+          fee_amount: form.get("shippingPrice") || 0,
+          venue: form.get("sellerName") || null,
+          notes: form.get("purchaseNotes") || null,
         },
       });
       if (cardDraft && recognitionFile) {
@@ -264,15 +347,19 @@ export default function Dashboard() {
       }
       setShowAddCard(false);
       setCardDraft(null);
-      if (recognitionMode === "batch" && selectedBatchIndex !== null) {
+      if (selectedBatchIndex !== null && batchDrafts.length > 1) {
         const remaining = batchDrafts.filter((_, index) => index !== selectedBatchIndex);
+        const nextIndex = remaining.findIndex((draft) => draft.result !== null);
         setBatchDrafts(remaining);
-        setSelectedBatchIndex(null);
-        setRecognitionResult(null);
-        setRecognitionFile(null);
+        setSelectedBatchIndex(nextIndex >= 0 ? nextIndex : null);
+        setRecognitionResult(nextIndex >= 0 ? remaining[nextIndex].result : null);
+        setRecognitionFile(nextIndex >= 0 ? remaining[nextIndex].file : null);
         setRecognitionBackFile(null);
         setShowRecognition(remaining.length > 0);
       } else {
+        setBatchDrafts([]);
+        setSelectedBatchIndex(null);
+        setRecognitionResult(null);
         setRecognitionFile(null);
         setRecognitionBackFile(null);
       }
@@ -408,7 +495,27 @@ export default function Dashboard() {
         if (!(file instanceof File) || !file.size) return;
         setRecognitionFile(file);
         setRecognitionBackFile(null);
-        setRecognitionResult(await recognizeCard(file));
+        const auto = await recognizeCardAuto(file);
+        const drafts = await Promise.all(
+          auto.cards.map(async (card: SheetCardRecognitionItem, index) => {
+            const cropped = await cropCardImage(file, card.card_image_bbox, index);
+            return {
+              filename: auto.detected_count === 1 ? file.name : `卡牌 ${index + 1}`,
+              result: card.result,
+              error: null,
+              file: cropped ?? (auto.detected_count === 1 ? file : null),
+              acquisition: card,
+            };
+          }),
+        );
+        setBatchDrafts(drafts);
+        if (drafts.length === 0) {
+          setSelectedBatchIndex(null);
+          setRecognitionResult(null);
+          throw new Error("图片中未识别到球星卡，请更换清晰图片后重试");
+        }
+        setSelectedBatchIndex(0);
+        setRecognitionResult(drafts[0].result);
       } else if (recognitionMode === "pair") {
         const front = form.get("frontImage");
         const back = form.get("backImage");
@@ -461,6 +568,9 @@ export default function Dashboard() {
     };
     setCardDraft({
       ...recognitionResult,
+      ...(selectedBatchIndex !== null
+        ? batchDrafts[selectedBatchIndex]?.acquisition
+        : {}),
       player_name: String(form.get("playerName") || "").trim() || null,
       season_start: optionalNumber("seasonStart"),
       season_end: optionalNumber("seasonEnd"),
@@ -558,6 +668,48 @@ export default function Dashboard() {
       setMarketItem(item);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "成交证据读取失败");
+    }
+  }
+
+  async function openValuationDetail(item: PortfolioItem) {
+    if (!ownerId) return;
+    try {
+      setValuationDetailItem(item);
+      setValuationDetail(await getAutomatedValuation(item.id, ownerId));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "估值详情读取失败");
+    }
+  }
+
+  async function handleValuationRetry() {
+    if (!ownerId || !valuationDetailItem) return;
+    const itemId = valuationDetailItem.id;
+    try {
+      setError("");
+      setValuationDetail((current) =>
+        current
+          ? {
+              ...current,
+              status: "queued",
+              error_message: null,
+              result_summary: {},
+              valuation: null,
+            }
+          : current,
+      );
+      await retryAutomatedValuation(itemId, ownerId);
+      await refresh(ownerId);
+
+      for (let attempt = 0; attempt < 40; attempt += 1) {
+        const nextDetail = await getAutomatedValuation(itemId, ownerId);
+        setValuationDetail(nextDetail);
+        if (!isValuationRunning(nextDetail.status)) break;
+        await new Promise((resolve) => window.setTimeout(resolve, 750));
+      }
+      await refresh(ownerId);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "重新估值失败");
+      setValuationDetail(await getAutomatedValuation(itemId, ownerId).catch(() => null));
     }
   }
 
@@ -848,11 +1000,37 @@ export default function Dashboard() {
                           {money(item.remaining_cost, summary.base_currency)}
                         </td>
                         <td>
-                          {item.fair_value ? (
-                            money(
-                              item.fair_value,
-                              item.valuation_currency ?? summary.base_currency,
-                            )
+                          {isValuationRunning(item.valuation_status) ? (
+                            <button
+                              className="valuation-status running"
+                              onClick={() => void openValuationDetail(item)}
+                            >
+                              <span className="valuation-spinner" /> 估值中
+                            </button>
+                          ) : item.valuation_status === "insufficient_evidence" ? (
+                            <button
+                              className="valuation-status insufficient"
+                              onClick={() => void openValuationDetail(item)}
+                            >
+                              证据不足
+                            </button>
+                          ) : item.valuation_status === "failed" ? (
+                            <button
+                              className="valuation-status failed"
+                              onClick={() => void openValuationDetail(item)}
+                            >
+                              估值失败
+                            </button>
+                          ) : item.fair_value ? (
+                            <button
+                              className="valuation-price"
+                              onClick={() => void openValuationDetail(item)}
+                            >
+                              {money(
+                                item.fair_value,
+                                item.valuation_currency ?? summary.base_currency,
+                              )}
+                            </button>
                           ) : (
                             <span className="unvalued">待估值</span>
                           )}
@@ -1014,6 +1192,17 @@ export default function Dashboard() {
           onEstimate={() => void handleMarketEstimate()}
         />
       )}
+      {valuationDetailItem && valuationDetail && (
+        <AutomatedValuationDialog
+          item={valuationDetailItem}
+          detail={valuationDetail}
+          onClose={() => {
+            setValuationDetailItem(null);
+            setValuationDetail(null);
+          }}
+          onRetry={handleValuationRetry}
+        />
+      )}
       {potentialItem && (
         <PotentialDialog
           item={potentialItem}
@@ -1116,7 +1305,7 @@ function CardDialog({
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   currency: string;
-  initialValues: CardRecognition | null;
+  initialValues: EditableRecognition | null;
 }) {
   return (
     <div className="modal-backdrop">
@@ -1260,15 +1449,51 @@ function CardDialog({
                 step="0.01"
                 min="0"
                 placeholder="260"
+                defaultValue={initialValues?.purchase_price ?? ""}
                 required
               />
             </label>
             <label>
               币种
-              <select name="currency" defaultValue={currency}>
+              <select name="currency" defaultValue={initialValues?.currency ?? currency}>
                 <option value="CNY">CNY</option>
                 <option value="USD">USD</option>
               </select>
+            </label>
+            <label>
+              购买日期
+              <input
+                name="purchasedAt"
+                type="datetime-local"
+                defaultValue={initialValues?.purchased_at?.slice(0, 16) ?? ""}
+              />
+            </label>
+            <label>
+              运费 / 采购费用
+              <input
+                name="shippingPrice"
+                type="number"
+                step="0.01"
+                min="0"
+                defaultValue={initialValues?.shipping_price ?? ""}
+              />
+            </label>
+            <label>
+              卖家
+              <input name="sellerName" defaultValue={initialValues?.seller_name ?? ""} />
+            </label>
+            <label className="wide">
+              采购凭证
+              <input
+                name="purchaseNotes"
+                defaultValue={[
+                  initialValues?.order_number && `订单号：${initialValues.order_number}`,
+                  initialValues?.product_number && `商品编号：${initialValues.product_number}`,
+                  initialValues?.listing_title && `商品标题：${initialValues.listing_title}`,
+                  initialValues?.visible_description &&
+                    `截图描述：${initialValues.visible_description}`,
+                ].filter(Boolean).join("；")}
+              />
             </label>
             <fieldset className="wide">
               <legend>策略标签</legend>
@@ -1847,6 +2072,218 @@ function ItemDetailDialog({
   );
 }
 
+const valuationStatusLabels: Record<string, string> = {
+  queued: "等待处理",
+  identifying: "正在确认卡片身份",
+  searching: "正在检索真实成交",
+  calculating: "正在计算估值区间",
+  succeeded: "估值完成",
+  insufficient_evidence: "有效成交证据不足",
+  failed: "估值失败",
+};
+
+function AutomatedValuationDialog({
+  item,
+  detail,
+  onClose,
+  onRetry,
+}: {
+  item: PortfolioItem;
+  detail: AutomatedValuationDetail;
+  onClose: () => void;
+  onRetry: () => Promise<void>;
+}) {
+  const [retrying, setRetrying] = useState(false);
+  const valuation = detail.valuation;
+  const evidence = valuation?.evidence;
+  const comps = evidence?.comparables ?? [];
+  const running = isValuationRunning(detail.status);
+  return (
+    <div className="modal-backdrop">
+      <div className="modal valuation-detail-modal">
+        <div className="modal-heading">
+          <div>
+            <p className="eyebrow">AUTOMATED VALUATION</p>
+            <h2>{item.player_name} · 估值详情</h2>
+            <p className="detail-subtitle">
+              {valuationStatusLabels[detail.status ?? ""] ?? "尚未估值"}
+            </p>
+          </div>
+          <button className="icon-button" onClick={onClose}>
+            <X size={20} />
+          </button>
+        </div>
+        {running && (
+          <div className="valuation-running-panel">
+            <span className="valuation-spinner" />
+            <div>
+              <strong>{valuationStatusLabels[detail.status ?? ""]}</strong>
+              <p>系统正在后台处理，完成后列表中的价格会自动更新。</p>
+            </div>
+          </div>
+        )}
+        {valuation && (
+          <>
+            <div className="valuation-hero">
+              <div>
+                <span>当前合理估值</span>
+                <strong>{money(valuation.fair_value, valuation.currency)}</strong>
+              </div>
+              <div>
+                <span>估值区间</span>
+                <strong>
+                  {money(valuation.low_value, valuation.currency)} –{" "}
+                  {money(valuation.high_value, valuation.currency)}
+                </strong>
+              </div>
+              <div>
+                <span>置信度</span>
+                <strong>
+                  {valuation.confidence
+                    ? `${Math.round(Number(valuation.confidence) * 100)}%`
+                    : "—"}
+                </strong>
+              </div>
+            </div>
+            <section className="valuation-method">
+              <h3>估值逻辑</h3>
+              <p>{evidence?.strategy ?? "可比成交估值"}</p>
+              <small>{evidence?.formula}</small>
+              <small>
+                模型 {valuation.model_version ?? "—"} ·{" "}
+                {new Date(valuation.valued_at).toLocaleString("zh-CN")}
+              </small>
+            </section>
+            {evidence?.search_queries && evidence.search_queries.length > 0 && (
+              <section className="valuation-queries">
+                <h3>检索关键词</h3>
+                <div>
+                  {evidence.search_queries.map((query, index) => (
+                    <code key={`${query}-${index}`}>{query}</code>
+                  ))}
+                </div>
+              </section>
+            )}
+            {evidence?.player_adjustments && evidence.player_adjustments.length > 0 && (
+              <section className="player-adjustment-list">
+                <h3>跨球员折算依据</h3>
+                {evidence.player_adjustments.map((adjustment) => (
+                  <article key={`${adjustment.target_player}-${adjustment.reference_player}`}>
+                    <strong>
+                      {adjustment.target_player} / {adjustment.reference_player} ={" "}
+                      {Math.round(Number(adjustment.coefficient) * 100)}%
+                    </strong>
+                    <p>
+                      {adjustment.segment} · {adjustment.sample_count} 组配对 · 比率范围{" "}
+                      {Math.round(Number(adjustment.ratio_low) * 100)}%–
+                      {Math.round(Number(adjustment.ratio_high) * 100)}%
+                    </p>
+                    <details>
+                      <summary>查看配对成交</summary>
+                      {adjustment.pairs.map((pair, index) => (
+                        <div key={`${pair.target_url}-${pair.reference_url}-${index}`}>
+                          <a href={pair.target_url} target="_blank" rel="noreferrer">
+                            {pair.target_title} · {money(pair.target_price_base, valuation.currency)}
+                          </a>
+                          <a href={pair.reference_url} target="_blank" rel="noreferrer">
+                            {pair.reference_title} ·{" "}
+                            {money(pair.reference_price_base, valuation.currency)}
+                          </a>
+                        </div>
+                      ))}
+                    </details>
+                  </article>
+                ))}
+              </section>
+            )}
+            <section>
+              <h3>参考成交 · {comps.length}</h3>
+              <div className="valuation-comp-list">
+                {comps.map((comp) => (
+                  <article key={comp.id}>
+                    <div>
+                      <strong>
+                        {money(comp.normalized_price, valuation.currency)}
+                      </strong>
+                      <span>
+                        匹配度 {Math.round(Number(comp.match_confidence) * 100)}%
+                      </span>
+                    </div>
+                    <p>{comp.title || "未命名成交"}</p>
+                    <small>
+                      {new Date(comp.occurred_at).toLocaleDateString("zh-CN")} · 原价{" "}
+                      {money(comp.original_price, comp.currency)} · {comp.age_days} 天前
+                    </small>
+                    {comp.source === "cardhobby" && (
+                      <small>
+                        卡淘 · {comp.evidence_level === "confirmed_transaction"
+                          ? "交易评价确认成交"
+                          : "有出价的结束拍卖（未确认付款）"}
+                      </small>
+                    )}
+                    {comp.adjustment && (
+                      <small>
+                        {comp.evidence_type ? `${comp.evidence_type} · ` : ""}
+                        {comp.adjustment}
+                      </small>
+                    )}
+                    {comp.player_coefficient && comp.player_coefficient !== "1" && (
+                      <small>
+                        {comp.player_name} 原始参考价 × 球员系数{" "}
+                        {Math.round(Number(comp.player_coefficient) * 100)}%
+                      </small>
+                    )}
+                    <small>
+                      状态：
+                      {comp.condition_type === "graded"
+                        ? `${comp.grade_company ?? "评级"} ${comp.grade_value ?? ""}`
+                        : "裸卡"}
+                    </small>
+                    {comp.source_url && (
+                      <a href={comp.source_url} target="_blank" rel="noreferrer">
+                        查看原始成交来源
+                      </a>
+                    )}
+                  </article>
+                ))}
+                {comps.length === 0 && <p>暂无满足匹配要求的成交证据。</p>}
+              </div>
+            </section>
+          </>
+        )}
+        {!valuation && !running && (
+          <div className="valuation-empty">
+            <strong>{valuationStatusLabels[detail.status ?? ""] ?? "暂无估值"}</strong>
+            <p>
+              {detail.error_message ??
+                String(detail.result_summary.reason ?? "没有找到足够可靠的真实成交。")}
+            </p>
+          </div>
+        )}
+        {!running && (
+          <button
+            className="secondary-button full"
+            disabled={retrying}
+            onClick={async () => {
+              setRetrying(true);
+              try {
+                await onRetry();
+              } finally {
+                setRetrying(false);
+              }
+            }}
+          >
+            {retrying ? "正在发起…" : "重新发起估值"}
+          </button>
+        )}
+        <button className="ghost-button full" onClick={onClose}>
+          关闭
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function MarketDialog({
   item,
   comps,
@@ -2186,7 +2623,7 @@ function RecognitionDialog({
             }}
           >
             单卡识别
-            <small>一张图片快速提取</small>
+            <small>自动判断单卡或多卡</small>
           </button>
           <button
             type="button"
@@ -2216,7 +2653,7 @@ function RecognitionDialog({
         <form key={mode} className="recognition-form" onSubmit={onSubmit}>
           {mode === "single" && (
             <label>
-              选择单张卡片图片
+              选择卡片图片或订单截图
               <input
                 name="recognitionImage"
                 type="file"
@@ -2290,7 +2727,7 @@ function RecognitionDialog({
           </div>
         )}
         {error && <p className="recognition-error">{error}</p>}
-        {mode === "batch" && batchDrafts.length > 0 && (
+        {batchDrafts.length > 1 && (
           <div className="batch-recognition-list">
             <div className="batch-recognition-heading">
               <strong>识别队列</strong>
@@ -2304,6 +2741,7 @@ function RecognitionDialog({
                 disabled={!draft.result}
                 onClick={() => onSelectBatch(index)}
               >
+                <FileThumbnail file={draft.file} alt={`识别卡牌 ${index + 1}`} />
                 <span>{draft.filename}</span>
                 <strong>
                   {draft.error
@@ -2311,12 +2749,33 @@ function RecognitionDialog({
                     : draft.result?.player_name || "待人工确认"}
                 </strong>
                 <small>{draft.result ? "校正并录入" : "无法录入"}</small>
+                {draft.acquisition?.purchase_price && (
+                  <small>
+                    {draft.acquisition.currency ?? "CNY"} {draft.acquisition.purchase_price}
+                    {draft.acquisition.order_number
+                      ? ` · 订单 ${draft.acquisition.order_number}`
+                      : ""}
+                  </small>
+                )}
               </button>
             ))}
           </div>
         )}
         {result && (
           <div className="recognition-result">
+            {selectedBatchIndex !== null && (
+              <div className="recognized-crop-preview">
+                <FileThumbnail
+                  file={batchDrafts[selectedBatchIndex]?.file ?? null}
+                  alt="当前识别卡牌裁剪预览"
+                />
+                <span>
+                  {batchDrafts[selectedBatchIndex]?.file
+                    ? "卡牌图片已自动裁剪，录入后将保存到卡牌列表"
+                    : "未能可靠定位卡片图片，本次不会保存错误截图"}
+                </span>
+              </div>
+            )}
             <div className="recognition-confidence">
               <span>整体置信度</span>
               <strong>{Math.round(Number(result.confidence) * 100)}%</strong>
@@ -2500,4 +2959,20 @@ function RecognitionDialog({
       </div>
     </div>
   );
+}
+
+function FileThumbnail({ file, alt }: { file: File | null; alt: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file) {
+      setUrl(null);
+      return;
+    }
+    const nextUrl = URL.createObjectURL(file);
+    setUrl(nextUrl);
+    return () => URL.revokeObjectURL(nextUrl);
+  }, [file]);
+
+  return url ? <img className="recognized-crop" src={url} alt={alt} /> : <span>无裁剪图</span>;
 }

@@ -79,12 +79,15 @@ API 文档默认位于 `http://localhost:8000/docs`。主要接口包括：
 - `POST /v1/portfolio/items/{id}/market-comps`：添加可比成交证据
 - `GET /v1/portfolio/items/{id}/market-comps`：查看可比成交历史
 - `POST /v1/portfolio/items/{id}/market-estimate`：生成稳健市场估值
+- `GET /v1/portfolio/items/{id}/automated-valuation`：查看异步估值状态、逻辑和成交证据
+- `POST /v1/portfolio/items/{id}/automated-valuation/retry`：重新发起后台估值
 - `POST /v1/portfolio/items/{id}/analysis`：生成评分、价格判断和投资建议
 - `POST /v1/portfolio/items/{id}/analysis/auto`：自动综合球员、卡片与市场证据生成投资建议
 - `POST /v1/portfolio/items/{id}/images`：上传卡片正面或背面图片
 - `POST /v1/cards/recognize`：使用 Qwen3-VL-Flash 识别单张卡片图片
 - `POST /v1/cards/recognize-pair`：联合卡片正反面识别为一条草稿
 - `POST /v1/cards/recognize-batch`：批量识别最多 20 张单卡图片
+- `POST /v1/cards/recognize-auto`：自动判断一张图片包含单卡或多卡，并逐卡提取卡片及采购信息
 - `POST /v1/analyses/{id}/narrative`：基于已锁定数值和证据生成 AI 深度解读
 - `GET /v1/portfolio/summary`：组合汇总
 - `PUT /v1/players/{id}/metrics`：录入或更新 NBA 指标快照
@@ -95,11 +98,15 @@ API 文档默认位于 `http://localhost:8000/docs`。主要接口包括：
 
 组合汇总只使用与账户基准币一致的估值计算未实现盈亏；未估值或币种不一致的卡会计入 `unvalued_item_count`，不会被错误计算为亏损。
 
+新卡保存后会在同一数据库事务中写入 `valuation_job`。应用内 Worker 使用 PostgreSQL `FOR UPDATE SKIP LOCKED` 异步领取任务，通过联网检索收集真实成交，以身份匹配度和时间衰减计算加权分位数估值。列表在任务期间显示“估值中”，完成后可点击价格查看区间、置信度、模型版本、检索词、汇率和逐条来源；没有可靠成交时显示“证据不足”，不会使用买入价伪造市场价格。
+
+国内成交优先通过卡淘公开 `NewCommodity/SearchCommodity` 查询：限定篮球单卡、`Status=-2`（“售出的宝贝”）并按结束时间倒序拉取。系统使用 `LowestPrice`、`NewPostageMoney`、`OutCount` 和 `EffectiveDate` 还原结束价、运费、出价次数与时间；只接受有出价记录，并严格过滤多卡 Lot、不同赛季、不同限编、签字/非签字、物料/非物料和裸卡/评级卡混用。卡淘 `Status=-2` 证据在界面中明确标为“有出价的结束拍卖（未确认付款）”，不会伪装成支付完成记录；接口无可靠同款时才降级到通用联网检索。卡淘命中后跳过大模型市场检索，避免无关说明并缩短估值耗时。
+
 分析接口使用版本化六因子模型，输出综合分、各因子贡献、价格合理性、买入评级、建议持有周期、目标卖出区间、置信度、催化剂和风险。可比成交不足时不会给出“强力买入”。
 
 设置 `AI_API_KEY` 后，深度解读使用 DeepSeek 的 OpenAI 兼容 Chat Completions API 和 JSON 结构化输出，默认模型为 `deepseek-v4-flash`。未配置密钥时接口返回明确标记为 `rules` 的确定性降级解释，不会冒充 AI 结果。AI 只能解释证据，不能修改规则引擎给出的评级、合理价、目标价或持有期。
 
-卡片图片识别使用独立的 Qwen3-VL-Flash provider，需要设置 `VISION_API_KEY`。图片通过 Base64 Data URL 发送到百炼 OpenAI 兼容接口；未配置密钥时返回 503，不会使用伪识别结果。前端将能力拆为单卡、正反面、批量三个模式，所有识别结果均先作为可编辑草稿，再由用户确认录入。图片仅接受 JPEG、PNG、WebP，默认单张不超过 10 MiB；批量模式每次最多 20 张。生产环境通过 `card_platform_uploads` 卷持久化。
+卡片图片识别使用独立的 Qwen3-VL-Flash provider，需要设置 `VISION_API_KEY`。图片通过 Base64 Data URL 发送到百炼 OpenAI 兼容接口；未配置密钥时返回 503，不会使用伪识别结果。前端保留单卡、正反面和多文件批量三个入口，其中单卡入口会自动判断上传内容实际包含一张还是多张卡：识别到一张时直接进入校正表单，识别到多张时自动展开逐卡队列，并将商品价、运费、购买日期、卖家、订单号和商品编号绑定到对应草稿。图片仅接受 JPEG、PNG、WebP，默认单张不超过 10 MiB；多文件批量模式每次最多 20 张。生产环境通过 `card_platform_uploads` 卷持久化。
 
 设置 `CARD_SEARCH_ENABLED=true` 后，每次视觉提取会额外使用 `CARD_SEARCH_MODEL`（默认 `qwen-plus`）强制联网核验。系统最多构造 3 条身份查询，并将搜索限制在厂商、Checklist、评级与成交类站点；只有带有效来源 URL 且存在字段证据的候选才能修正视觉草稿。查询词、字段证据、候选、冲突和来源链接会展示给用户，最终仍需人工确认。批量模式会对每张卡分别产生一次视觉调用和一次搜索调用，可关闭该开关控制成本。
 
