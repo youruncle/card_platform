@@ -1,0 +1,237 @@
+{
+  "batch_key": "prizm-monopoly-2425-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2024-25 Panini Prizm Monopoly Basketball",
+    "2024-25 Prizm Monopoly Legends",
+    "2024-25 Prizm Monopoly White Money Blast",
+    "2024-25 Prizm Monopoly Black Money Blast",
+    "2024-25 Prizm Monopoly Black 1/1",
+    "2024-25 Prizm Monopoly #73 Victor Wembanyama"
+  ],
+  "sources": [
+    {
+      "key": "beckett-prizm-monopoly-2425",
+      "title": "2024-25 Panini Prizm Monopoly Basketball Checklist",
+      "url": "https://www.beckett.com/news/2024-25-panini-prizm-monopoly-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T18:10:00+08:00",
+      "metadata": {
+        "scope": "90-card 2024-25 NBA Prizm Monopoly checklist; board-game, blaster and Panini-direct distribution; inserts, parallels and selected card identities."
+      }
+    },
+    {
+      "key": "panini-prizm-monopoly-2425-case",
+      "title": "Roll to Glory Inside 2024-25 Prizm NBA Monopoly Blaster",
+      "url": "https://blog.paniniamerica.net/roll-to-glory-inside-2024-25-prizm-nba-monopoly-blaster/",
+      "publisher": "Panini America",
+      "source_type": "official_product",
+      "retrieved_at": "2026-07-28T18:10:00+08:00",
+      "metadata": {
+        "scope": "Panini-direct sealed-case Luka Doncic bonus and its two explicitly super-short-print insert possibilities."
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "panini",
+      "entity_type": "manufacturer",
+      "canonical_name": "Panini",
+      "source_key": "beckett-prizm-monopoly-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"industry_roles": ["manufacturer", "brand", "issuer"]},
+      "aliases": []
+    },
+    {
+      "key": "prizm-monopoly-2425",
+      "entity_type": "product",
+      "canonical_name": "2024-25 Panini Prizm Monopoly Basketball",
+      "source_key": "beckett-prizm-monopoly-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Panini",
+        "brand": "Prizm Monopoly",
+        "season_start": 2024,
+        "season_end": 2025,
+        "league": "NBA",
+        "base_set_size": 90,
+        "card_technology": "chromium",
+        "has_autographs": false,
+        "product_distinction": "Third NBA Prizm Monopoly board-game/trading-card collaboration; a separate product from 2024-25 Panini Prizm Basketball.",
+        "release_month": "2025-03"
+      },
+      "aliases": []
+    },
+    {
+      "key": "prizm-monopoly-legends-2425",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 Prizm Monopoly Legends",
+      "source_key": "beckett-prizm-monopoly-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Panini Prizm Monopoly Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "insert",
+        "checklist_size": 10,
+        "scope_key": "prizm-monopoly-2024-25-legends",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "prizm-monopoly-white-money-blast-2425",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 Prizm Monopoly White Money Blast",
+      "source_key": "beckett-prizm-monopoly-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Panini Prizm Monopoly Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "insert",
+        "checklist_size": 20,
+        "distribution": "board_game_only",
+        "scope_key": "prizm-monopoly-2024-25-white-money-blast",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "prizm-monopoly-black-money-blast-2425",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 Prizm Monopoly Black Money Blast",
+      "source_key": "panini-prizm-monopoly-2425-case",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Panini Prizm Monopoly Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "insert",
+        "scarcity_label": "super_short_print",
+        "distribution": "possible Panini-direct sealed-case bonus replacement",
+        "scope_key": "prizm-monopoly-2024-25-black-money-blast",
+        "not_cross_product_equivalent": true,
+        "not_automatically_case_hit": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "prizm-monopoly-millionaire-white-2425",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 Prizm Monopoly Millionaire White",
+      "source_key": "panini-prizm-monopoly-2425-case",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Panini Prizm Monopoly Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "insert",
+        "scarcity_label": "super_short_print",
+        "distribution": "possible Panini-direct sealed-case bonus replacement",
+        "scope_key": "prizm-monopoly-2024-25-millionaire-white",
+        "not_cross_product_equivalent": true,
+        "not_automatically_case_hit": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "prizm-monopoly-free-parking-2425",
+      "entity_type": "parallel",
+      "canonical_name": "2024-25 Prizm Monopoly Free Parking",
+      "source_key": "beckett-prizm-monopoly-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Panini Prizm Monopoly Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "distribution": "iCollect blasters only",
+        "scope_key": "prizm-monopoly-2024-25-base",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "prizm-monopoly-sparkle-2425",
+      "entity_type": "parallel",
+      "canonical_name": "2024-25 Prizm Monopoly Sparkle",
+      "source_key": "beckett-prizm-monopoly-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Panini Prizm Monopoly Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "distribution": "board_game_only",
+        "scope_key": "prizm-monopoly-2024-25-base",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "prizm-monopoly-black-2425",
+      "entity_type": "parallel",
+      "canonical_name": "2024-25 Prizm Monopoly Black 1/1",
+      "source_key": "beckett-prizm-monopoly-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Panini Prizm Monopoly Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "color": "Black",
+        "serial_total": 1,
+        "scope_key": "prizm-monopoly-2024-25-base",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "prizm-monopoly-wembanyama-73-2425",
+      "entity_type": "card",
+      "canonical_name": "2024-25 Prizm Monopoly #73 Victor Wembanyama",
+      "source_key": "beckett-prizm-monopoly-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Panini Prizm Monopoly Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "player": "Victor Wembanyama",
+        "team": "San Antonio Spurs",
+        "card_number": "73",
+        "is_rookie_card": false,
+        "identity_status": "verified",
+        "image_reference_status": "pending_front_back_asset"
+      },
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {"subject": "prizm-monopoly-2425", "relation_type": "manufactured_by", "object": "panini", "reason": "Beckett identifies the product as 2024-25 Panini Prizm Monopoly Basketball.", "source_key": "beckett-prizm-monopoly-2425", "review_status": "approved", "confidence": 0.99},
+    {"subject": "prizm-monopoly-legends-2425", "relation_type": "available_in", "object": "prizm-monopoly-2425", "reason": "Beckett lists the 10-card Legends insert in this product.", "source_key": "beckett-prizm-monopoly-2425", "review_status": "approved", "confidence": 0.99},
+    {"subject": "prizm-monopoly-white-money-blast-2425", "relation_type": "available_in", "object": "prizm-monopoly-2425", "reason": "Beckett lists the 20-card White Money Blast insert as board-game-only.", "source_key": "beckett-prizm-monopoly-2425", "review_status": "approved", "confidence": 0.99},
+    {"subject": "prizm-monopoly-black-money-blast-2425", "relation_type": "available_in", "object": "prizm-monopoly-2425", "reason": "Panini names Black Money Blast as one of the possible super-short-print sealed-case bonus replacements.", "source_key": "panini-prizm-monopoly-2425-case", "review_status": "approved", "confidence": 0.99},
+    {"subject": "prizm-monopoly-millionaire-white-2425", "relation_type": "available_in", "object": "prizm-monopoly-2425", "reason": "Panini names Millionaire White as one of the possible super-short-print sealed-case bonus replacements.", "source_key": "panini-prizm-monopoly-2425-case", "review_status": "approved", "confidence": 0.99}
+  ],
+  "applicability": [
+    {"entity": "prizm-monopoly-white-money-blast-2425", "product": "prizm-monopoly-2425", "season_start": 2024, "season_end": 2025, "status": "verified", "review_status": "approved", "source_key": "beckett-prizm-monopoly-2425", "attributes": {"classification": "product-season insert; board-game-only; not a regular Prizm Color Blast."}},
+    {"entity": "prizm-monopoly-black-2425", "product": "prizm-monopoly-2425", "season_start": 2024, "season_end": 2025, "status": "verified", "review_status": "approved", "source_key": "beckett-prizm-monopoly-2425", "attributes": {"classification": "product-season base parallel; Black 1/1 is not equivalent to Black parallels in other Prizm products."}}
+  ],
+  "coverage": [
+    {"manufacturer": "panini", "product": "prizm-monopoly-2425", "season_start": 2024, "season_end": 2025, "insert": "prizm-monopoly-legends-2425", "status": "covered", "source_key": "beckett-prizm-monopoly-2425", "notes": "10-card Legends insert verified."},
+    {"manufacturer": "panini", "product": "prizm-monopoly-2425", "season_start": 2024, "season_end": 2025, "insert": "prizm-monopoly-white-money-blast-2425", "status": "covered", "source_key": "beckett-prizm-monopoly-2425", "notes": "20-card White Money Blast insert, board-game-only, verified."},
+    {"manufacturer": "panini", "product": "prizm-monopoly-2425", "season_start": 2024, "season_end": 2025, "insert": "prizm-monopoly-black-money-blast-2425", "status": "covered", "source_key": "panini-prizm-monopoly-2425-case", "notes": "Explicit SSP sealed-case bonus possibility; not equated with a standard case hit."},
+    {"manufacturer": "panini", "product": "prizm-monopoly-2425", "season_start": 2024, "season_end": 2025, "parallel": "prizm-monopoly-black-2425", "status": "covered", "source_key": "beckett-prizm-monopoly-2425", "notes": "Product-season Black 1/1 base parallel verified."},
+    {"manufacturer": "panini", "product": "prizm-monopoly-2425", "season_start": 2024, "season_end": 2025, "status": "partial", "source_key": "beckett-prizm-monopoly-2425", "notes": "Core product, distribution-specific inserts, selected parallels and Wembanyama #73 identity verified; the complete parallel matrix remains intentionally unexpanded."}
+  ]
+}

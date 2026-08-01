@@ -1,0 +1,28 @@
+{
+  "batch_key": "topps-identity-normalization-v1",
+  "catalog_enabled": true,
+  "manifest_version": 2,
+  "required_regressions": ["Topps", "Topps Chrome", "Topps Midnight"],
+  "sources": [
+    {"key": "fanatics-topps-official", "title": "Fanatics Acquires Topps Trading Cards and Collectibles Business", "url": "https://www.fanaticsinc.com/press-releases/fanatics-acquires-topps-trading-cards-and-collectibles-business", "publisher": "Fanatics Inc.", "source_type": "official_product", "retrieved_at": "2026-07-28T17:30:00+08:00", "metadata": {"scope": "Topps business identity and post-acquisition operating relationship"}}
+  ],
+  "entities": [
+    {"key": "topps", "entity_type": "manufacturer", "canonical_name": "Topps", "source_key": "fanatics-topps-official", "review_status": "approved", "confidence": 0.99, "attributes": {"industry_roles": ["manufacturer", "brand", "issuer"], "parent_organization": "Fanatics Collectibles", "role_scope": "Use Topps for product identity; record Fanatics Collectibles as parent/operating organization."}, "aliases": []},
+    {"key": "fanatics-collectibles", "entity_type": "manufacturer", "canonical_name": "Fanatics Collectibles", "source_key": "fanatics-topps-official", "review_status": "approved", "confidence": 0.99, "attributes": {"organization_type": "parent_and_collectibles_business", "owns_or_operates": ["Topps"]}, "aliases": []},
+    {"key": "topps-chrome", "entity_type": "product", "canonical_name": "Topps Chrome", "source_key": "fanatics-topps-official", "review_status": "approved", "confidence": 0.95, "attributes": {"manufacturer": "Topps", "brand": "Topps", "construction": "chromium", "scope_note": "Exact sport, season, license and checklist must be modeled at product-season level."}, "aliases": []},
+    {"key": "topps-midnight", "entity_type": "product", "canonical_name": "Topps Midnight", "source_key": "fanatics-topps-official", "review_status": "approved", "confidence": 0.95, "attributes": {"manufacturer": "Topps", "brand": "Topps", "season_start": 2025, "season_end": 2026, "scope_note": "Product-level issuer normalized; checklist facts retain their dedicated source evidence."}, "aliases": []}
+  ],
+  "relations": [
+    {"subject": "topps-chrome", "relation_type": "manufactured_by", "object": "topps", "reason": "Normalize Topps product identity to the Topps manufacturer/issuer role; Fanatics Collectibles remains its parent organization.", "source_key": "fanatics-topps-official", "review_status": "approved", "confidence": 0.99},
+    {"subject": "topps-midnight", "relation_type": "manufactured_by", "object": "topps", "reason": "Normalize Topps product identity to the Topps manufacturer/issuer role; Fanatics Collectibles remains its parent organization.", "source_key": "fanatics-topps-official", "review_status": "approved", "confidence": 0.99}
+  ],
+  "retire_relations": [
+    {"subject": "topps-chrome", "relation_type": "manufactured_by", "object_type": "manufacturer", "object_name": "Fanatics Collectibles"},
+    {"subject": "topps-midnight", "relation_type": "manufactured_by", "object_type": "manufacturer", "object_name": "Fanatics Collectibles"}
+  ],
+  "reassign_coverage": [
+    {"product": "topps-chrome", "previous_manufacturer": "fanatics-collectibles", "manufacturer": "topps"},
+    {"product": "topps-midnight", "previous_manufacturer": "fanatics-collectibles", "manufacturer": "topps"}
+  ],
+  "coverage": []
+}

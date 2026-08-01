@@ -1,0 +1,339 @@
+{
+  "batch_key": "topps-chrome-sapphire-2425-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2024-25 Topps Chrome Sapphire Basketball",
+    "2024-25 Topps Chrome Sapphire Green /99",
+    "2024-25 Topps Chrome Sapphire Sapphire Selections",
+    "2024-25 Topps Chrome Sapphire Infinity",
+    "2024-25 Topps Chrome Sapphire I-5 Victor Wembanyama"
+  ],
+  "sources": [
+    {
+      "key": "beckett-topps-chrome-sapphire-2425",
+      "title": "2024-25 Topps Chrome Sapphire Basketball Checklist and Details",
+      "url": "https://www.beckett.com/news/2024-25-topps-chrome-sapphire-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T17:25:00+08:00",
+      "metadata": {
+        "scope": "Hobby configuration, 200-card base, numbered Sapphire parallels, inserts and checklist identities."
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "topps",
+      "entity_type": "manufacturer",
+      "canonical_name": "Topps",
+      "source_key": "beckett-topps-chrome-sapphire-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "industry_roles": [
+          "manufacturer",
+          "issuer",
+          "brand"
+        ],
+        "parent_company": "Fanatics Collectibles"
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-chrome-sapphire-2425",
+      "entity_type": "product",
+      "canonical_name": "2024-25 Topps Chrome Sapphire Basketball",
+      "source_key": "beckett-topps-chrome-sapphire-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Topps",
+        "brand": "Topps Chrome Sapphire",
+        "season_start": 2024,
+        "season_end": 2025,
+        "league": "NBA",
+        "base_set_size": 200,
+        "card_technology": "Sapphire chromium",
+        "hobby_configuration": {
+          "cards_per_pack": 4,
+          "packs_per_box": 8,
+          "autographs_per_box_average": 1
+        },
+        "scope_key": "topps-chrome-sapphire-2024-25"
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-chrome-sapphire-green-99-2425",
+      "entity_type": "parallel",
+      "canonical_name": "2024-25 Topps Chrome Sapphire Green /99",
+      "source_key": "beckett-topps-chrome-sapphire-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Topps Chrome Sapphire Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "color": "Green",
+        "serial_numbered_to": 99,
+        "scope_key": "topps-chrome-sapphire-2024-25-green-99",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-chrome-sapphire-gold-50-2425",
+      "entity_type": "parallel",
+      "canonical_name": "2024-25 Topps Chrome Sapphire Gold /50",
+      "source_key": "beckett-topps-chrome-sapphire-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Topps Chrome Sapphire Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "color": "Gold",
+        "serial_numbered_to": 50,
+        "scope_key": "topps-chrome-sapphire-2024-25-gold-50",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-chrome-sapphire-orange-25-2425",
+      "entity_type": "parallel",
+      "canonical_name": "2024-25 Topps Chrome Sapphire Orange /25",
+      "source_key": "beckett-topps-chrome-sapphire-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Topps Chrome Sapphire Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "color": "Orange",
+        "serial_numbered_to": 25,
+        "scope_key": "topps-chrome-sapphire-2024-25-orange-25",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-chrome-sapphire-purple-10-2425",
+      "entity_type": "parallel",
+      "canonical_name": "2024-25 Topps Chrome Sapphire Purple /10",
+      "source_key": "beckett-topps-chrome-sapphire-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Topps Chrome Sapphire Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "color": "Purple",
+        "serial_numbered_to": 10,
+        "scope_key": "topps-chrome-sapphire-2024-25-purple-10",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-chrome-sapphire-red-5-2425",
+      "entity_type": "parallel",
+      "canonical_name": "2024-25 Topps Chrome Sapphire Red /5",
+      "source_key": "beckett-topps-chrome-sapphire-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Topps Chrome Sapphire Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "color": "Red",
+        "serial_numbered_to": 5,
+        "scope_key": "topps-chrome-sapphire-2024-25-red-5",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-chrome-sapphire-padparadscha-1-2425",
+      "entity_type": "parallel",
+      "canonical_name": "2024-25 Topps Chrome Sapphire Padparadscha /1",
+      "source_key": "beckett-topps-chrome-sapphire-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Topps Chrome Sapphire Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "serial_numbered_to": 1,
+        "scope_key": "topps-chrome-sapphire-2024-25-padparadscha-1",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": [
+        {
+          "value": "Padparadscha Sapphire /1",
+          "alias_type": "synonym",
+          "source_key": "beckett-topps-chrome-sapphire-2425",
+          "confidence": 0.99
+        }
+      ]
+    },
+    {
+      "key": "topps-chrome-sapphire-selections-2425",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 Topps Chrome Sapphire Sapphire Selections",
+      "source_key": "beckett-topps-chrome-sapphire-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Topps Chrome Sapphire Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "checklist_size": 20,
+        "semantic_type": "insert",
+        "subject_context": "2024 NBA Draft",
+        "scope_key": "topps-chrome-sapphire-2024-25-selections",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-chrome-sapphire-infinity-2425",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 Topps Chrome Sapphire Infinity",
+      "source_key": "beckett-topps-chrome-sapphire-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Topps Chrome Sapphire Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "checklist_size": 20,
+        "semantic_type": "insert",
+        "scope_key": "topps-chrome-sapphire-2024-25-infinity",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-chrome-sapphire-wemby-i5-2425",
+      "entity_type": "card",
+      "canonical_name": "2024-25 Topps Chrome Sapphire I-5 Victor Wembanyama",
+      "source_key": "beckett-topps-chrome-sapphire-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Topps Chrome Sapphire Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "insert": "Infinity",
+        "player": "Victor Wembanyama",
+        "team": "San Antonio Spurs",
+        "card_number": "I-5",
+        "is_rookie_card": false,
+        "identity_status": "verified",
+        "image_reference_status": "pending_front_back_asset"
+      },
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {
+      "subject": "topps-chrome-sapphire-2425",
+      "relation_type": "manufactured_by",
+      "object": "topps",
+      "reason": "Beckett identifies the 2024-25 Topps Chrome Sapphire Basketball product.",
+      "source_key": "beckett-topps-chrome-sapphire-2425",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "topps-chrome-sapphire-selections-2425",
+      "relation_type": "available_in",
+      "object": "topps-chrome-sapphire-2425",
+      "reason": "Beckett lists Sapphire Selections in this product.",
+      "source_key": "beckett-topps-chrome-sapphire-2425",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "topps-chrome-sapphire-infinity-2425",
+      "relation_type": "available_in",
+      "object": "topps-chrome-sapphire-2425",
+      "reason": "Beckett lists Infinity in this product.",
+      "source_key": "beckett-topps-chrome-sapphire-2425",
+      "review_status": "approved",
+      "confidence": 0.99
+    }
+  ],
+  "applicability": [
+    {
+      "entity": "topps-chrome-sapphire-green-99-2425",
+      "product": "topps-chrome-sapphire-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-topps-chrome-sapphire-2425",
+      "attributes": {
+        "classification": "product-season parallel; do not merge with other Green Sapphire names."
+      }
+    },
+    {
+      "entity": "topps-chrome-sapphire-selections-2425",
+      "product": "topps-chrome-sapphire-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-topps-chrome-sapphire-2425",
+      "attributes": {
+        "classification": "product-season insert, distinct from base or parallel."
+      }
+    },
+    {
+      "entity": "topps-chrome-sapphire-infinity-2425",
+      "product": "topps-chrome-sapphire-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-topps-chrome-sapphire-2425",
+      "attributes": {
+        "classification": "product-season insert; no SSP/case-hit inference."
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "manufacturer": "topps",
+      "product": "topps-chrome-sapphire-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "insert": "topps-chrome-sapphire-selections-2425",
+      "parallel": "topps-chrome-sapphire-green-99-2425",
+      "status": "covered",
+      "source_key": "beckett-topps-chrome-sapphire-2425",
+      "notes": "20-card 2024 Draft-focused insert and six-step numbered base Sapphire ladder are verified."
+    },
+    {
+      "manufacturer": "topps",
+      "product": "topps-chrome-sapphire-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "insert": "topps-chrome-sapphire-infinity-2425",
+      "status": "covered",
+      "source_key": "beckett-topps-chrome-sapphire-2425",
+      "notes": "20-card Infinity insert including Wembanyama I-5 identity verified."
+    },
+    {
+      "manufacturer": "topps",
+      "product": "topps-chrome-sapphire-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "status": "partial",
+      "source_key": "beckett-topps-chrome-sapphire-2425",
+      "notes": "Core base, serially numbered parallel ladder, two inserts and one card identity verified; autograph parallel matrix remains later work."
+    }
+  ]
+}

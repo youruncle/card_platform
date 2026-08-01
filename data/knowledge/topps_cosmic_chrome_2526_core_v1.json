@@ -1,0 +1,38 @@
+{
+  "batch_key": "topps-cosmic-chrome-2526-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2025-26 Topps Cosmic Chrome Basketball",
+    "2025-26 Topps Cosmic Chrome Cosmic Dust",
+    "2025-26 Topps Cosmic Chrome Planetary Pursuit",
+    "2025-26 Topps Cosmic Chrome Superfractor 1/1",
+    "2025-26 Topps Cosmic Chrome #7 Cedric Coward RC"
+  ],
+  "sources": [
+    {"key":"topps-cosmic-chrome-2526","title":"Topps Cosmic Chrome Basketball","url":"https://www.topps.com/pages/topps-cosmic-chrome-basketball","publisher":"Topps","source_type":"official_product","retrieved_at":"2026-07-28T21:00:00+08:00","metadata":{"scope":"Official 2025-26 Cosmic Chrome product page and visual product identity."}},
+    {"key":"beckett-topps-cosmic-chrome-2526","title":"2025-26 Topps Cosmic Chrome Basketball Checklist","url":"https://www.beckett.com/news/2025-26-topps-cosmic-chrome-basketball-cards/","publisher":"Beckett","source_type":"beckett_checklist","retrieved_at":"2026-07-28T21:00:00+08:00","metadata":{"scope":"Licensed product status, checklist, insert rarity tiers, product-specific parallels and Cedric Coward RC."}}
+  ],
+  "entities": [
+    {"key":"topps","entity_type":"manufacturer","canonical_name":"Topps","source_key":"topps-cosmic-chrome-2526","review_status":"approved","confidence":0.99,"attributes":{"industry_roles":["manufacturer","brand","issuer"]},"aliases":[]},
+    {"key":"topps-cosmic-chrome-2526","entity_type":"product","canonical_name":"2025-26 Topps Cosmic Chrome Basketball","source_key":"beckett-topps-cosmic-chrome-2526","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Topps","brand":"Topps Cosmic Chrome","season_start":2025,"season_end":2026,"league":"NBA","nba_license_status":"fully_licensed","base_checklist_size":200,"product_distinction":"Space-themed chromium product; separate from 2025-26 Topps Chrome and 2025-26 Topps Finest."},"aliases":[]},
+    {"key":"topps-cosmic-chrome-cosmic-dust-2526","entity_type":"insert","canonical_name":"2025-26 Topps Cosmic Chrome Cosmic Dust","source_key":"beckett-topps-cosmic-chrome-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Topps Cosmic Chrome Basketball","season_start":2025,"season_end":2026,"semantic_type":"insert","rarity_description":"SSP","scope_key":"topps-cosmic-chrome-2025-26-cosmic-dust","not_cross_product_equivalent":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"topps-cosmic-chrome-planetary-pursuit-2526","entity_type":"insert","canonical_name":"2025-26 Topps Cosmic Chrome Planetary Pursuit","source_key":"beckett-topps-cosmic-chrome-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Topps Cosmic Chrome Basketball","season_start":2025,"season_end":2026,"semantic_type":"player_planet_variation_insert","variations_per_player":10,"variation_theme":"Sun and planets Mercury through Pluto","scope_key":"topps-cosmic-chrome-2025-26-planetary-pursuit","not_cross_product_equivalent":true,"not_automatically_ssp":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"topps-cosmic-chrome-superfractor-2526","entity_type":"parallel","canonical_name":"2025-26 Topps Cosmic Chrome Superfractor 1/1","source_key":"beckett-topps-cosmic-chrome-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Topps Cosmic Chrome Basketball","season_start":2025,"season_end":2026,"parallel_scope":"base","serial_total":1,"hobby_pack_odds":"1:8319","scope_key":"topps-cosmic-chrome-2025-26-superfractor","not_cross_product_equivalent":true},"aliases":[]},
+    {"key":"topps-cosmic-chrome-coward-cedric-7-2526","entity_type":"card","canonical_name":"2025-26 Topps Cosmic Chrome #7 Cedric Coward RC","source_key":"beckett-topps-cosmic-chrome-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Topps Cosmic Chrome Basketball","season_start":2025,"season_end":2026,"player":"Cedric Coward","team":"Memphis Grizzlies","card_number":"7","is_rookie_card":true,"identity_status":"verified","image_reference_status":"pending_front_back_asset"},"aliases":[]}
+  ],
+  "relations": [
+    {"subject":"topps-cosmic-chrome-2526","relation_type":"manufactured_by","object":"topps","reason":"Topps and Beckett identify this as the 2025-26 Topps Cosmic Chrome Basketball release.","source_key":"topps-cosmic-chrome-2526","review_status":"approved","confidence":0.99},
+    {"subject":"topps-cosmic-chrome-cosmic-dust-2526","relation_type":"available_in","object":"topps-cosmic-chrome-2526","reason":"Beckett identifies Cosmic Dust as an SSP in this product.","source_key":"beckett-topps-cosmic-chrome-2526","review_status":"approved","confidence":0.99},
+    {"subject":"topps-cosmic-chrome-planetary-pursuit-2526","relation_type":"available_in","object":"topps-cosmic-chrome-2526","reason":"Beckett describes Planetary Pursuit player/planet variations in this product.","source_key":"beckett-topps-cosmic-chrome-2526","review_status":"approved","confidence":0.99}
+  ],
+  "applicability": [
+    {"entity":"topps-cosmic-chrome-cosmic-dust-2526","product":"topps-cosmic-chrome-2526","season_start":2025,"season_end":2026,"status":"verified","review_status":"approved","source_key":"beckett-topps-cosmic-chrome-2526","attributes":{"classification":"Explicitly SSP; case-hit status is not inferred."}},
+    {"entity":"topps-cosmic-chrome-planetary-pursuit-2526","product":"topps-cosmic-chrome-2526","season_start":2025,"season_end":2026,"status":"verified","review_status":"approved","source_key":"beckett-topps-cosmic-chrome-2526","attributes":{"classification":"Player/planet variation insert; not modeled as a general parallel."}}
+  ],
+  "coverage": [
+    {"manufacturer":"topps","product":"topps-cosmic-chrome-2526","season_start":2025,"season_end":2026,"insert":"topps-cosmic-chrome-cosmic-dust-2526","status":"covered","source_key":"beckett-topps-cosmic-chrome-2526","notes":"Explicit SSP verified without case-hit inference."},
+    {"manufacturer":"topps","product":"topps-cosmic-chrome-2526","season_start":2025,"season_end":2026,"insert":"topps-cosmic-chrome-planetary-pursuit-2526","status":"covered","source_key":"beckett-topps-cosmic-chrome-2526","notes":"Ten player/planet variations per player verified as product-specific insert variations."},
+    {"manufacturer":"topps","product":"topps-cosmic-chrome-2526","season_start":2025,"season_end":2026,"status":"partial","source_key":"beckett-topps-cosmic-chrome-2526","notes":"Product, licensing, 200-card base, selected SSP/variation/parallel and Cedric Coward RC verified; remaining insert, autograph and parallel matrix is pending."}
+  ]
+}

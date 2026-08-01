@@ -1,0 +1,34 @@
+{
+  "batch_key": "contenders-euroleague-2526-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2025-26 Panini Contenders EuroLeague Basketball",
+    "2025-26 Contenders EuroLeague License To Dominate",
+    "2025-26 Contenders EuroLeague Championship Ticket 1/1",
+    "2025-26 Contenders EuroLeague Atmosphere #1 Victor Wembanyama"
+  ],
+  "sources": [
+    {"key":"beckett-contenders-euroleague-2526","title":"2025-26 Panini Contenders EuroLeague Basketball Checklist","url":"https://www.beckett.com/news/2025-26-panini-contenders-euroleague-basketball-cards/","publisher":"Beckett","source_type":"beckett_checklist","retrieved_at":"2026-07-28T22:30:00+08:00","metadata":{"scope":"Debut EuroLeague Contenders product, ticket base, selected short-print insert, product parallel and Victor Wembanyama identity."}}
+  ],
+  "entities": [
+    {"key":"panini","entity_type":"manufacturer","canonical_name":"Panini","source_key":"beckett-contenders-euroleague-2526","review_status":"approved","confidence":0.99,"attributes":{"industry_roles":["manufacturer","brand","issuer"]},"aliases":[]},
+    {"key":"contenders-euroleague-2526","entity_type":"product","canonical_name":"2025-26 Panini Contenders EuroLeague Basketball","source_key":"beckett-contenders-euroleague-2526","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","brand":"Contenders","season_start":2025,"season_end":2026,"league":"EuroLeague","base_checklist_size":100,"base_design":"ticket","product_distinction":"Debut EuroLeague Contenders product; distinct from NBA Contenders and Contenders Optic products."},"aliases":[]},
+    {"key":"contenders-euroleague-license-dominate-2526","entity_type":"insert","canonical_name":"2025-26 Contenders EuroLeague License To Dominate","source_key":"beckett-contenders-euroleague-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Panini Contenders EuroLeague Basketball","season_start":2025,"season_end":2026,"semantic_type":"short_print_insert","rarity_description":"tough chase","scope_key":"contenders-euroleague-2025-26-license-to-dominate","not_cross_product_equivalent":true,"not_automatically_ssp":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"contenders-euroleague-championship-ticket-1of1-2526","entity_type":"parallel","canonical_name":"2025-26 Contenders EuroLeague Championship Ticket 1/1","source_key":"beckett-contenders-euroleague-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Panini Contenders EuroLeague Basketball","season_start":2025,"season_end":2026,"parallel_scope":"base ticket","serial_total":1,"scope_key":"contenders-euroleague-2025-26-base-ticket","not_cross_product_equivalent":true},"aliases":[]},
+    {"key":"contenders-euroleague-wemby-atmosphere-1-2526","entity_type":"card","canonical_name":"2025-26 Contenders EuroLeague Atmosphere #1 Victor Wembanyama","source_key":"beckett-contenders-euroleague-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Panini Contenders EuroLeague Basketball","insert":"2025-26 Contenders EuroLeague Atmosphere","season_start":2025,"season_end":2026,"player":"Victor Wembanyama","team":"LDLC ASVEL Villeurbanne","card_number":"1","identity_status":"verified","not_rookie_card_inference":true,"image_reference_status":"pending_front_back_asset"},"aliases":[]}
+  ],
+  "relations": [
+    {"subject":"contenders-euroleague-2526","relation_type":"manufactured_by","object":"panini","reason":"Beckett identifies the product as 2025-26 Panini Contenders EuroLeague Basketball.","source_key":"beckett-contenders-euroleague-2526","review_status":"approved","confidence":0.99},
+    {"subject":"contenders-euroleague-license-dominate-2526","relation_type":"available_in","object":"contenders-euroleague-2526","reason":"Beckett identifies License To Dominate as a tough short-print chase in this product.","source_key":"beckett-contenders-euroleague-2526","review_status":"approved","confidence":0.99}
+  ],
+  "applicability": [
+    {"entity":"contenders-euroleague-license-dominate-2526","product":"contenders-euroleague-2526","season_start":2025,"season_end":2026,"league":"EuroLeague","status":"verified","review_status":"approved","source_key":"beckett-contenders-euroleague-2526","attributes":{"classification":"Product-season short-print chase; not normalized to SSP or case hit."}},
+    {"entity":"contenders-euroleague-championship-ticket-1of1-2526","product":"contenders-euroleague-2526","season_start":2025,"season_end":2026,"league":"EuroLeague","status":"verified","review_status":"approved","source_key":"beckett-contenders-euroleague-2526","attributes":{"classification":"Base-ticket-specific 1/1 parallel."}}
+  ],
+  "coverage": [
+    {"manufacturer":"panini","product":"contenders-euroleague-2526","season_start":2025,"season_end":2026,"insert":"contenders-euroleague-license-dominate-2526","status":"covered","source_key":"beckett-contenders-euroleague-2526","notes":"License To Dominate verified as a tough short-print chase without SSP/case-hit inference."},
+    {"manufacturer":"panini","product":"contenders-euroleague-2526","season_start":2025,"season_end":2026,"parallel":"contenders-euroleague-championship-ticket-1of1-2526","status":"covered","source_key":"beckett-contenders-euroleague-2526","notes":"Championship Ticket 1/1 verified for base ticket scope."},
+    {"manufacturer":"panini","product":"contenders-euroleague-2526","season_start":2025,"season_end":2026,"status":"partial","source_key":"beckett-contenders-euroleague-2526","notes":"Debut product, ticket base, selected short-print/parallel and Wembanyama identity verified; autograph, relic, remaining insert and parallel matrices are pending."}
+  ]
+}

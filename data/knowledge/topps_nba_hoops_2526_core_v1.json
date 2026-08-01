@@ -1,0 +1,36 @@
+{
+  "batch_key": "topps-nba-hoops-2526-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2025-26 Topps NBA Hoops Basketball",
+    "2025-26 Topps NBA Hoops Bounce House",
+    "2025-26 Topps NBA Hoops Oasis",
+    "2025-26 Topps NBA Hoops Rainbow Teal /299"
+  ],
+  "sources": [
+    {"key":"topps-nba-hoops-2526","title":"2025-26 Hoops Basketball Hanger Box","url":"https://www.topps.com/products/2025-26-hoops-basketball-hanger-box","publisher":"Topps","source_type":"official_product","retrieved_at":"2026-07-28T20:45:00+08:00","metadata":{"scope":"Official Topps 2025-26 Hoops product page identifying inserts and case hits."}},
+    {"key":"beckett-topps-nba-hoops-2526","title":"2025-26 Topps NBA Hoops Basketball Checklist","url":"https://www.beckett.com/news/2025-26-topps-nba-hoops-basketball-cards/","publisher":"Beckett","source_type":"beckett_checklist","retrieved_at":"2026-07-28T20:45:00+08:00","metadata":{"scope":"Brand history, 300-card base structure and product-specific parallel evidence."}}
+  ],
+  "entities": [
+    {"key":"topps","entity_type":"manufacturer","canonical_name":"Topps","source_key":"topps-nba-hoops-2526","review_status":"approved","confidence":0.99,"attributes":{"industry_roles":["manufacturer","brand","issuer"]},"aliases":[]},
+    {"key":"nba-hoops","entity_type":"brand","canonical_name":"NBA Hoops","source_key":"beckett-topps-nba-hoops-2526","review_status":"approved","confidence":0.99,"attributes":{"taxonomy":"brand_not_manufacturer","historical_operator_note":"Production history is era-scoped: SkyBox, Fleer/SkyBox, Upper Deck, Panini and now Topps have produced NBA Hoops products.","current_product_operator":"Topps"},"aliases":[{"value":"Hoops","alias_type":"synonym","source_key":"topps-nba-hoops-2526","confidence":0.95}]},
+    {"key":"topps-nba-hoops-2526","entity_type":"product","canonical_name":"2025-26 Topps NBA Hoops Basketball","source_key":"topps-nba-hoops-2526","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Topps","brand":"NBA Hoops","season_start":2025,"season_end":2026,"league":"NBA","nba_license_status":"fully_licensed","base_checklist_size":300,"base_structure":"Base #1-260, Highlights #261-270, All-Stars #271-300","product_distinction":"Topps-produced NBA Hoops product; distinct from Panini NBA Hoops seasons and from 2025-26 Topps flagship."},"aliases":[]},
+    {"key":"topps-nba-hoops-bounce-house-2526","entity_type":"insert","canonical_name":"2025-26 Topps NBA Hoops Bounce House","source_key":"topps-nba-hoops-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Topps NBA Hoops Basketball","season_start":2025,"season_end":2026,"semantic_type":"insert","scope_key":"topps-nba-hoops-2025-26-bounce-house","not_cross_product_equivalent":true,"not_automatically_ssp":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"topps-nba-hoops-oasis-2526","entity_type":"insert","canonical_name":"2025-26 Topps NBA Hoops Oasis","source_key":"topps-nba-hoops-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Topps NBA Hoops Basketball","season_start":2025,"season_end":2026,"semantic_type":"insert","rarity_description":"case hit","scope_key":"topps-nba-hoops-2025-26-oasis","not_cross_product_equivalent":true,"not_automatically_ssp":true},"aliases":[]},
+    {"key":"topps-nba-hoops-rainbow-teal-299-2526","entity_type":"parallel","canonical_name":"2025-26 Topps NBA Hoops Rainbow Teal /299","source_key":"beckett-topps-nba-hoops-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Topps NBA Hoops Basketball","season_start":2025,"season_end":2026,"parallel_scope":"base","serial_total":299,"scope_key":"topps-nba-hoops-2025-26-rainbow-teal","not_cross_product_equivalent":true},"aliases":[]}
+  ],
+  "relations": [
+    {"subject":"topps-nba-hoops-2526","relation_type":"manufactured_by","object":"topps","reason":"Topps official product page identifies the 2025-26 Hoops release.","source_key":"topps-nba-hoops-2526","review_status":"approved","confidence":0.99},
+    {"subject":"topps-nba-hoops-bounce-house-2526","relation_type":"available_in","object":"topps-nba-hoops-2526","reason":"Topps official page names Bounce House among 2025-26 Hoops inserts.","source_key":"topps-nba-hoops-2526","review_status":"approved","confidence":0.99},
+    {"subject":"topps-nba-hoops-oasis-2526","relation_type":"available_in","object":"topps-nba-hoops-2526","reason":"Topps official page identifies Oasis among 2025-26 Hoops case hits.","source_key":"topps-nba-hoops-2526","review_status":"approved","confidence":0.99}
+  ],
+  "applicability": [
+    {"entity":"topps-nba-hoops-oasis-2526","product":"topps-nba-hoops-2526","season_start":2025,"season_end":2026,"status":"verified","review_status":"approved","source_key":"topps-nba-hoops-2526","attributes":{"classification":"Officially described as a case hit; SSP is not inferred."}}
+  ],
+  "coverage": [
+    {"manufacturer":"topps","product":"topps-nba-hoops-2526","season_start":2025,"season_end":2026,"insert":"topps-nba-hoops-oasis-2526","status":"covered","source_key":"topps-nba-hoops-2526","notes":"Case-hit classification verified without SSP inference."},
+    {"manufacturer":"topps","product":"topps-nba-hoops-2526","season_start":2025,"season_end":2026,"insert":"topps-nba-hoops-bounce-house-2526","status":"covered","source_key":"topps-nba-hoops-2526","notes":"Insert identity verified; rarity is not inferred."},
+    {"manufacturer":"topps","product":"topps-nba-hoops-2526","season_start":2025,"season_end":2026,"status":"partial","source_key":"beckett-topps-nba-hoops-2526","notes":"Topps production, brand history, base structure, selected insert/case-hit and parallel facts verified; full insert and parallel matrix remains pending."}
+  ]
+}

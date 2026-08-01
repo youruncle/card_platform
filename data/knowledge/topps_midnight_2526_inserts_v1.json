@@ -1,0 +1,190 @@
+{
+  "batch_key": "topps-midnight-2526-inserts-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "Topps Midnight",
+    "Dreamland",
+    "Night Owls",
+    "2025-26 Topps Midnight Night Owls Black Light 1/1"
+  ],
+  "sources": [
+    {
+      "key": "topps-midnight-2526-official",
+      "title": "2025-26 Topps Midnight Basketball Hobby Box",
+      "url": "https://www.topps.com/products/2025-26-topps-midnight-basketball-hobby-box",
+      "publisher": "Topps",
+      "source_type": "official_product",
+      "retrieved_at": "2026-07-29T01:00:00+08:00",
+      "metadata": {
+        "scope": "official product page names Night Owls and Dreamland as chase inserts."
+      }
+    },
+    {
+      "key": "beckett-topps-midnight-2526",
+      "title": "2025-26 Topps Midnight Basketball Checklist",
+      "url": "https://www.beckett.com/news/2025-26-topps-midnight-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-29T01:00:00+08:00",
+      "metadata": {
+        "scope": "Night Owls 25-card checklist and its parallel ladder; Dreamland 1:28 packs."
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "topps",
+      "entity_type": "manufacturer",
+      "canonical_name": "Topps",
+      "source_key": "topps-midnight-2526-official",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"industry_roles": ["manufacturer", "brand", "issuer"]},
+      "aliases": []
+    },
+    {
+      "key": "topps-midnight",
+      "entity_type": "product",
+      "canonical_name": "Topps Midnight",
+      "source_key": "topps-midnight-2526-official",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Topps",
+        "brand": "Topps",
+        "season_start": 2025,
+        "season_end": 2026,
+        "league": "NBA",
+        "base_set_size": 100
+      },
+      "aliases": []
+    },
+    {
+      "key": "dreamland",
+      "entity_type": "insert",
+      "canonical_name": "Dreamland",
+      "source_key": "beckett-topps-midnight-2526",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "Topps Midnight",
+        "season_start": 2025,
+        "season_end": 2026,
+        "semantic_type": "insert",
+        "distribution_odds": "1:28 packs",
+        "scarcity_label": "rare",
+        "scope_key": "topps-midnight-2025-26-dreamland",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "night-owls",
+      "entity_type": "insert",
+      "canonical_name": "Night Owls",
+      "source_key": "beckett-topps-midnight-2526",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "Topps Midnight",
+        "season_start": 2025,
+        "season_end": 2026,
+        "semantic_type": "insert",
+        "checklist_size": 25,
+        "distribution_odds": "1:8 packs",
+        "visual_features": [
+          "owl face",
+          "cosmic elements"
+        ],
+        "scope_key": "topps-midnight-2025-26-night-owls",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "night-owls-black-light-2526",
+      "entity_type": "parallel",
+      "canonical_name": "2025-26 Topps Midnight Night Owls Black Light 1/1",
+      "source_key": "beckett-topps-midnight-2526",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "Topps Midnight",
+        "parent_insert": "Night Owls",
+        "season_start": 2025,
+        "season_end": 2026,
+        "color": "Black Light",
+        "serial_total": 1,
+        "scope_key": "topps-midnight-2025-26-night-owls"
+      },
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {
+      "subject": "dreamland",
+      "relation_type": "available_in",
+      "object": "topps-midnight",
+      "reason": "Topps official page and Beckett checklist identify Dreamland in 2025-26 Topps Midnight.",
+      "source_key": "topps-midnight-2526-official",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "night-owls",
+      "relation_type": "available_in",
+      "object": "topps-midnight",
+      "reason": "Topps official page and Beckett checklist identify Night Owls in 2025-26 Topps Midnight.",
+      "source_key": "topps-midnight-2526-official",
+      "review_status": "approved",
+      "confidence": 0.99
+    }
+  ],
+  "applicability": [
+    {
+      "entity": "night-owls",
+      "product": "topps-midnight",
+      "season_start": 2025,
+      "season_end": 2026,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-topps-midnight-2526",
+      "attributes": {
+        "classification": "25-card product-specific insert; its name is not a generic owl-themed card class."
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "manufacturer": "topps",
+      "product": "topps-midnight",
+      "season_start": 2025,
+      "season_end": 2026,
+      "insert": "dreamland",
+      "status": "covered",
+      "source_key": "beckett-topps-midnight-2526",
+      "notes": "Dreamland 1:28 packs verified."
+    },
+    {
+      "manufacturer": "topps",
+      "product": "topps-midnight",
+      "season_start": 2025,
+      "season_end": 2026,
+      "insert": "night-owls",
+      "status": "covered",
+      "source_key": "beckett-topps-midnight-2526",
+      "notes": "Night Owls 25-card insert and odds verified."
+    },
+    {
+      "manufacturer": "topps",
+      "product": "topps-midnight",
+      "season_start": 2025,
+      "season_end": 2026,
+      "parallel": "night-owls-black-light-2526",
+      "status": "covered",
+      "source_key": "beckett-topps-midnight-2526",
+      "notes": "Night Owls Black Light 1/1 verified."
+    }
+  ]
+}

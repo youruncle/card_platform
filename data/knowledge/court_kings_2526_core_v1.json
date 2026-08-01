@@ -1,0 +1,38 @@
+{
+  "batch_key": "court-kings-2526-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2025-26 Panini Court Kings Basketball",
+    "2025-26 Court Kings First Steps",
+    "2025-26 Court Kings King of the Court",
+    "2025-26 Court Kings Base Masterpiece 1/1",
+    "2025-26 Court Kings First Steps #1 VJ Edgecombe"
+  ],
+  "sources": [
+    {"key":"beckett-court-kings-2526","title":"2025-26 Panini Court Kings Basketball Checklist","url":"https://www.beckett.com/news/2025-26-panini-court-kings-basketball-cards/","publisher":"Beckett","source_type":"beckett_checklist","retrieved_at":"2026-07-28T22:15:00+08:00","metadata":{"scope":"2025-26 unlicensed Court Kings product, checklist structure, selected short-print/SSP semantics, parallel and VJ Edgecombe insert identity."}}
+  ],
+  "entities": [
+    {"key":"panini","entity_type":"manufacturer","canonical_name":"Panini","source_key":"beckett-court-kings-2526","review_status":"approved","confidence":0.99,"attributes":{"industry_roles":["manufacturer","brand","issuer"]},"aliases":[]},
+    {"key":"court-kings-2526","entity_type":"product","canonical_name":"2025-26 Panini Court Kings Basketball","source_key":"beckett-court-kings-2526","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","brand":"Court Kings","season_start":2025,"season_end":2026,"league":"NBA","nba_license_status":"not_fully_licensed","license_presentation":"No NBA team names or logos; includes NBA and NIL/amateur subjects.","base_checklist_size":265,"base_structure":"Base #1-100; Rookies I #101-133; Rookies II #134-166; Rookies III #167-199; Rookies IV #200-232; Rookies 0 #233-265","product_distinction":"2025-26 unlicensed Court Kings season, distinct from fully licensed 2023-24/2024-25 Court Kings."},"aliases":[]},
+    {"key":"court-kings-first-steps-2526","entity_type":"insert","canonical_name":"2025-26 Court Kings First Steps","source_key":"beckett-court-kings-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Panini Court Kings Basketball","season_start":2025,"season_end":2026,"semantic_type":"insert","scope_key":"court-kings-2025-26-first-steps","not_cross_product_equivalent":true,"not_automatically_ssp":true,"not_automatically_rookie_card":true},"aliases":[]},
+    {"key":"court-kings-king-of-court-2526","entity_type":"insert","canonical_name":"2025-26 Court Kings King of the Court","source_key":"beckett-court-kings-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Panini Court Kings Basketball","season_start":2025,"season_end":2026,"semantic_type":"SSP_insert","visual_features":["pop-art lion background"],"scope_key":"court-kings-2025-26-king-of-the-court","not_cross_product_equivalent":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"court-kings-base-masterpiece-1of1-2526","entity_type":"parallel","canonical_name":"2025-26 Court Kings Base Masterpiece 1/1","source_key":"beckett-court-kings-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Panini Court Kings Basketball","season_start":2025,"season_end":2026,"parallel_scope":"base #1-100","serial_total":1,"scope_key":"court-kings-2025-26-base","not_cross_product_equivalent":true},"aliases":[]},
+    {"key":"court-kings-first-steps-edgecombe-vj-1-2526","entity_type":"card","canonical_name":"2025-26 Court Kings First Steps #1 VJ Edgecombe","source_key":"beckett-court-kings-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Panini Court Kings Basketball","insert":"2025-26 Court Kings First Steps","season_start":2025,"season_end":2026,"player":"VJ Edgecombe","team":"Philadelphia 76ers","card_number":"1","identity_status":"verified","not_rookie_card_inference":true,"image_reference_status":"pending_front_back_asset"},"aliases":[]}
+  ],
+  "relations": [
+    {"subject":"court-kings-2526","relation_type":"manufactured_by","object":"panini","reason":"Beckett identifies the product as 2025-26 Panini Court Kings Basketball.","source_key":"beckett-court-kings-2526","review_status":"approved","confidence":0.99},
+    {"subject":"court-kings-first-steps-2526","relation_type":"available_in","object":"court-kings-2526","reason":"Beckett checklist identifies First Steps in this Court Kings product.","source_key":"beckett-court-kings-2526","review_status":"approved","confidence":0.99},
+    {"subject":"court-kings-king-of-court-2526","relation_type":"available_in","object":"court-kings-2526","reason":"Beckett identifies King of the Court as a new Court Kings SSP.","source_key":"beckett-court-kings-2526","review_status":"approved","confidence":0.99},
+    {"subject":"court-kings-first-steps-edgecombe-vj-1-2526","relation_type":"belongs_to","object":"court-kings-first-steps-2526","reason":"Beckett team checklist identifies VJ Edgecombe as First Steps #1.","source_key":"beckett-court-kings-2526","review_status":"approved","confidence":0.99}
+  ],
+  "applicability": [
+    {"entity":"court-kings-king-of-court-2526","product":"court-kings-2526","season_start":2025,"season_end":2026,"status":"verified","review_status":"approved","source_key":"beckett-court-kings-2526","attributes":{"classification":"Product-season SSP insert; case-hit status is not inferred."}},
+    {"entity":"court-kings-base-masterpiece-1of1-2526","product":"court-kings-2526","season_start":2025,"season_end":2026,"status":"verified","review_status":"approved","source_key":"beckett-court-kings-2526","attributes":{"classification":"Base #1-100 parallel only; no inference to Rookies or inserts."}}
+  ],
+  "coverage": [
+    {"manufacturer":"panini","product":"court-kings-2526","season_start":2025,"season_end":2026,"insert":"court-kings-king-of-court-2526","status":"covered","source_key":"beckett-court-kings-2526","notes":"New King of the Court SSP verified without case-hit inference."},
+    {"manufacturer":"panini","product":"court-kings-2526","season_start":2025,"season_end":2026,"insert":"court-kings-first-steps-2526","status":"covered","source_key":"beckett-court-kings-2526","notes":"First Steps product-season insert and VJ Edgecombe #1 identity verified without automatic RC status."},
+    {"manufacturer":"panini","product":"court-kings-2526","season_start":2025,"season_end":2026,"status":"partial","source_key":"beckett-court-kings-2526","notes":"Product/license transition, tiered base, selected SSP/parallel and First Steps identity verified; remaining insert, autograph, relic and tier-specific parallel matrix is pending."}
+  ]
+}

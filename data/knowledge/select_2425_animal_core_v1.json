@@ -1,0 +1,29 @@
+{
+  "batch_key": "select-2425-animal-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": ["Select", "2024-25 Select Concourse Elephant Prizms", "2024-25 Select Concourse Tiger Prizms", "2024-25 Select Concourse Zebra Prizms"],
+  "sources": [
+    {"key": "beckett-select-2425-full", "title": "2024-25 Panini Select Basketball Checklist", "url": "https://www.beckett.com/news/2024-25-panini-select-basketball-cards/", "publisher": "Beckett", "source_type": "beckett_checklist", "retrieved_at": "2026-07-28T19:00:00+08:00", "metadata": {"scope": "400-card tiered base and named Concourse animal-print parallels"}}
+  ],
+  "entities": [
+    {"key": "panini", "entity_type": "manufacturer", "canonical_name": "Panini", "source_key": "beckett-select-2425-full", "review_status": "approved", "confidence": 0.99, "attributes": {"industry_roles": ["manufacturer", "brand", "issuer"]}, "aliases": []},
+    {"key": "select", "entity_type": "product", "canonical_name": "Select", "source_key": "beckett-select-2425-full", "review_status": "approved", "confidence": 0.99, "attributes": {"manufacturer": "Panini", "season_start": 2024, "season_end": 2025, "league": "NBA", "base_card_count": 400, "base_tiers": ["Concourse", "Premier Level", "Courtside", "Mezzanine Level"], "construction": "opti-chrome"}, "aliases": []},
+    {"key": "select-elephant", "entity_type": "parallel", "canonical_name": "2024-25 Select Concourse Elephant Prizms", "source_key": "beckett-select-2425-full", "review_status": "approved", "confidence": 0.99, "attributes": {"product": "Select", "season_start": 2024, "season_end": 2025, "parent_set": "Base", "base_level": "Concourse", "pattern": "Elephant", "numbering_status": "not_announced", "scarcity_status": "not_inferred", "scope_key": "select-2024-25-concourse"}, "aliases": [{"value": "Select Elephant", "language": "en", "alias_type": "seller_term", "confidence": 0.95, "claim": "Only resolve in 2024-25 Select Concourse context."}]},
+    {"key": "select-tiger", "entity_type": "parallel", "canonical_name": "2024-25 Select Concourse Tiger Prizms", "source_key": "beckett-select-2425-full", "review_status": "approved", "confidence": 0.99, "attributes": {"product": "Select", "season_start": 2024, "season_end": 2025, "parent_set": "Base", "base_level": "Concourse", "pattern": "Tiger", "numbering_status": "not_announced", "scarcity_status": "not_inferred", "scope_key": "select-2024-25-concourse"}, "aliases": [{"value": "Select Tiger", "language": "en", "alias_type": "seller_term", "confidence": 0.95, "claim": "Only resolve in 2024-25 Select Concourse context."}]},
+    {"key": "select-zebra", "entity_type": "parallel", "canonical_name": "2024-25 Select Concourse Zebra Prizms", "source_key": "beckett-select-2425-full", "review_status": "approved", "confidence": 0.99, "attributes": {"product": "Select", "season_start": 2024, "season_end": 2025, "parent_set": "Base", "base_level": "Concourse", "pattern": "Zebra", "numbering_status": "not_announced", "scarcity_status": "not_inferred", "scope_key": "select-2024-25-concourse"}, "aliases": [{"value": "Select Zebra", "language": "en", "alias_type": "seller_term", "confidence": 0.95, "claim": "Only resolve in 2024-25 Select Concourse context."}]}
+  ],
+  "relations": [
+    {"subject": "select", "relation_type": "manufactured_by", "object": "panini", "reason": "Beckett's 2024-25 Select Basketball checklist identifies Panini product.", "source_key": "beckett-select-2425-full", "review_status": "approved", "confidence": 0.99}
+  ],
+  "applicability": [
+    {"entity": "select-elephant", "product": "select", "season_start": 2024, "season_end": 2025, "status": "verified", "review_status": "approved", "source_key": "beckett-select-2425-full", "attributes": {"base_level": "Concourse", "numbering_status": "not_announced"}},
+    {"entity": "select-tiger", "product": "select", "season_start": 2024, "season_end": 2025, "status": "verified", "review_status": "approved", "source_key": "beckett-select-2425-full", "attributes": {"base_level": "Concourse", "numbering_status": "not_announced"}},
+    {"entity": "select-zebra", "product": "select", "season_start": 2024, "season_end": 2025, "status": "verified", "review_status": "approved", "source_key": "beckett-select-2425-full", "attributes": {"base_level": "Concourse", "numbering_status": "not_announced"}}
+  ],
+  "coverage": [
+    {"manufacturer": "panini", "product": "select", "season_start": 2024, "season_end": 2025, "parallel": "select-elephant", "status": "covered", "source_key": "beckett-select-2425-full", "notes": "Concourse Elephant Prizms verified; no SSP or print-run claim inferred."},
+    {"manufacturer": "panini", "product": "select", "season_start": 2024, "season_end": 2025, "parallel": "select-tiger", "status": "covered", "source_key": "beckett-select-2425-full", "notes": "Concourse Tiger Prizms verified; no SSP or print-run claim inferred."},
+    {"manufacturer": "panini", "product": "select", "season_start": 2024, "season_end": 2025, "parallel": "select-zebra", "status": "covered", "source_key": "beckett-select-2425-full", "notes": "Concourse Zebra Prizms verified; no SSP or print-run claim inferred."}
+  ]
+}

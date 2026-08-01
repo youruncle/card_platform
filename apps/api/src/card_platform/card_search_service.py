@@ -1,10 +1,15 @@
+import asyncio
 import json
-from urllib.parse import urlparse
+from decimal import Decimal
+from html.parser import HTMLParser
+from urllib.parse import urljoin, urlparse
 
+import httpx
 from openai import AsyncOpenAI
 
 from card_platform.config import Settings
-from card_platform.schemas import CardRecognitionResult, CardSearchEnrichment
+from card_platform.ingestion.cardhobby import CardHobbyProvider
+from card_platform.schemas import CardRecognitionResult, CardSearchEnrichment, CardWebCandidate
 
 SEARCHABLE_FIELDS = {
     "player_name",
@@ -18,6 +23,8 @@ SEARCHABLE_FIELDS = {
     "serial_total",
     "is_rookie",
     "is_autograph",
+    "has_inscription",
+    "inscription_text",
     "is_patch",
 }
 
@@ -48,9 +55,64 @@ STRING_FIELDS = {
     "insert_name",
     "parallel_name",
     "card_number",
+    "inscription_text",
 }
 INTEGER_FIELDS = {"season_start", "season_end", "serial_total"}
-BOOLEAN_FIELDS = {"is_rookie", "is_autograph", "is_patch"}
+BOOLEAN_FIELDS = {"is_rookie", "is_autograph", "has_inscription", "is_patch"}
+
+
+class _PageImageParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.image_url: str | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() != "meta" or self.image_url:
+            return
+        values = {key.lower(): value for key, value in attrs if value}
+        key = (values.get("property") or values.get("name") or "").lower()
+        if key in {"og:image", "og:image:url", "twitter:image", "twitter:image:src"}:
+            self.image_url = values.get("content")
+
+
+def extract_page_image(html: str, page_url: str) -> str | None:
+    parser = _PageImageParser()
+    parser.feed(html)
+    if not parser.image_url:
+        return None
+    image_url = urljoin(page_url, parser.image_url)
+    return image_url if urlparse(image_url).scheme in {"http", "https"} else None
+
+
+def is_trusted_catalog_url(url: str) -> bool:
+    hostname = (urlparse(url).hostname or "").lower().removeprefix("www.")
+    return any(hostname == site or hostname.endswith(f".{site}") for site in TRUSTED_SITES)
+
+
+def candidate_is_exact_image_match(
+    candidate: CardWebCandidate,
+    target: CardRecognitionResult,
+) -> bool:
+    if candidate.match_confidence < Decimal("0.92") or candidate.conflicts:
+        return False
+    matched = set(candidate.matching_fields)
+    required = {"player_name", "season_start", "brand_name", "product_name"}
+    if target.season_end:
+        required.add("season_end")
+    if target.serial_total:
+        required.add("serial_total")
+    for field in ("card_number", "insert_name", "parallel_name"):
+        if getattr(target, field):
+            required.add(field)
+    if target.is_rookie:
+        required.add("is_rookie")
+    if target.is_autograph:
+        required.add("is_autograph")
+    if target.has_inscription:
+        required.add("has_inscription")
+    if target.is_patch:
+        required.add("is_patch")
+    return required.issubset(matched)
 
 
 def normalize_resolved_field(key: str, value: str | int | bool) -> str | int | bool | None:
@@ -70,6 +132,21 @@ def normalize_resolved_field(key: str, value: str | int | bool) -> str | int | b
     except (TypeError, ValueError):
         return None
     return None
+
+
+def resolved_update_is_safe(
+    visual: CardRecognitionResult,
+    key: str,
+    value: str | int | bool,
+) -> bool:
+    if key in {
+        "is_rookie",
+        "is_autograph",
+        "has_inscription",
+        "is_patch",
+    }:
+        return not (getattr(visual, key) is True and value is False)
+    return True
 
 
 def build_card_search_queries(
@@ -138,6 +215,26 @@ class CardSearchService:
                             "listing_or_order_context 是截图 OCR 的商品标题和描述，可用于生成更精确"
                             "的搜索词和候选匹配，但它本身仍是销售方描述，必须经过强来源核验后才能"
                             "修正字段。若视觉字段为空，应主动尝试用该文字定位具体 checklist 条目。"
+                            "仅当搜索结果明确给出该精确图鉴条目的原始高清图片直链时，才填写候选"
+                            "image_url；不得填写搜索结果缩略图、站点 Logo、占位图、相似卡或同球员"
+                            "其他卡片图片。无法确认精确图片时必须返回 null。"
+                            "每个 candidates 条目必须尽量填写 identity，identity 只能包含"
+                            "player_name、season_start、season_end、brand_name、product_name、"
+                            "insert_name、parallel_name、card_number、serial_number、"
+                            "serial_total、is_numbered、grade_company、grade_value、"
+                            "is_rookie、rookie_evidence、is_autograph、autograph_type、"
+                            "has_inscription、inscription_text、is_memorabilia、"
+                            "memorabilia_types、memorabilia_usage、memorabilia_player、"
+                            "is_patch；布尔属性无法确认时填 null，不得把未知写成 false；"
+                            "候选之间必须是"
+                            "可独立评分的具体卡片身份，不能只换一种标题措辞。"
+                            "candidates 必须包含搜索证据最强的具体卡片，即使它与"
+                            "resolved_fields 一致；若视觉结果缺少背面、年份、产品、特卡名"
+                            "或卡号，或视觉 caveats 表明某一面识别失败，必须主动搜索同球员、"
+                            "同卡号或相同版式可能对应的产品，并在确有搜索结果支持时返回最多"
+                            "3 个互斥的具体候选。不要为了凑数编造候选。若搜索结果中确实看见"
+                            "具体图鉴身份，但无法获得稳定直链，可将 source_urls 留空；仍需"
+                            "填写完整 identity、matching_fields、conflicts 和保守置信度。"
                             f"只输出符合以下 JSON Schema 的 JSON：{schema}"
                         ),
                     },
@@ -180,9 +277,32 @@ class CardSearchService:
             valid_urls = [
                 url
                 for url in candidate.source_urls
-                if urlparse(url).scheme in {"http", "https"}
+                if urlparse(url).scheme in {"http", "https"} and is_trusted_catalog_url(url)
             ]
-            candidates.append(candidate.model_copy(update={"source_urls": valid_urls}))
+            candidates.append(
+                candidate.model_copy(update={"source_urls": valid_urls})
+            )
+        verified_url_groups = await asyncio.gather(
+            *(self._verified_source_urls(candidate.source_urls) for candidate in candidates)
+        )
+        candidates = [
+            candidate.model_copy(update={"source_urls": urls})
+            for candidate, urls in zip(candidates, verified_url_groups, strict=True)
+        ]
+        image_urls = await asyncio.gather(
+            *(
+                self._candidate_image(
+                    candidate.source_urls,
+                    candidate.image_url,
+                    candidate_is_exact_image_match(candidate, visual),
+                )
+                for candidate in candidates
+            )
+        )
+        candidates = [
+            candidate.model_copy(update={"image_url": image_url})
+            for candidate, image_url in zip(candidates, image_urls, strict=True)
+        ]
         has_strong_sources = any(
             any(
                 (urlparse(url).hostname or "").removeprefix("www.") in STRONG_IDENTITY_SITES
@@ -198,16 +318,126 @@ class CardSearchService:
             and value is not None
             and enrichment.field_evidence.get(key)
             and has_strong_sources
+            and resolved_update_is_safe(visual, key, normalized)
         }
+        reference_updates: dict = {}
+        try:
+            reference = await CardHobbyProvider(
+                self.client, self.model, timeout=15
+            ).reference_images(visual.model_dump(mode="json"))
+            if reference:
+                reference_updates = {
+                    "reference_image_front_url": reference.front_url,
+                    "reference_image_back_url": reference.back_url,
+                    "reference_image_source_url": reference.source_url,
+                    "reference_image_provider": "cardhobby",
+                    "reference_image_match_confidence": reference.match_confidence,
+                }
+        except (httpx.HTTPError, ValueError, TypeError):
+            reference_updates = {}
         return visual.model_copy(
             update={
                 **updates,
+                **reference_updates,
                 "search_queries": queries,
                 "field_evidence": {
                     **visual.field_evidence,
-                    **enrichment.field_evidence,
+                    **{
+                        key: [
+                            f"{'目录核验' if key in updates else '联网候选'}：{text}"
+                            for text in evidence
+                        ]
+                        for key, evidence in enrichment.field_evidence.items()
+                    },
                 },
                 "web_candidates": candidates,
                 "caveats": [*visual.caveats, *enrichment.caveats],
             }
         )
+
+    async def _verified_source_urls(self, urls: list[str]) -> list[str]:
+        """Keep only source pages that resolve; model-generated URLs are not evidence."""
+        if not urls:
+            return []
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 Chrome/131 Safari/537.36"
+            )
+        }
+        verified: list[str] = []
+        async with httpx.AsyncClient(
+            timeout=8,
+            follow_redirects=True,
+            headers=headers,
+        ) as client:
+            for url in urls[:3]:
+                try:
+                    response = await client.get(url)
+                    if response.status_code < 400:
+                        verified.append(str(response.url))
+                except httpx.HTTPError:
+                    continue
+        return verified
+
+    async def _candidate_image(
+        self,
+        source_urls: list[str],
+        suggested_image_url: str | None,
+        exact_identity_match: bool,
+    ) -> str | None:
+        if not exact_identity_match or not source_urls:
+            return None
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 Chrome/131 Safari/537.36"
+            )
+        }
+        async with httpx.AsyncClient(
+            timeout=8,
+            follow_redirects=True,
+            headers=headers,
+        ) as client:
+            if suggested_image_url and is_trusted_catalog_url(suggested_image_url):
+                if await self._is_real_image(client, suggested_image_url):
+                    return suggested_image_url
+            for source_url in source_urls[:2]:
+                try:
+                    response = await client.get(source_url)
+                    if (
+                        response.status_code != 200
+                        or not is_trusted_catalog_url(str(response.url))
+                        or "text/html" not in response.headers.get("content-type", "")
+                    ):
+                        continue
+                    image_url = extract_page_image(response.text[:2_000_000], str(response.url))
+                    if (
+                        image_url
+                        and is_trusted_catalog_url(image_url)
+                        and not any(
+                            marker in image_url.lower()
+                            for marker in ("logo", "default", "placeholder", "social-share")
+                        )
+                        and await self._is_real_image(client, image_url)
+                    ):
+                        return image_url
+                except httpx.HTTPError:
+                    continue
+        return None
+
+    @staticmethod
+    async def _is_real_image(client: httpx.AsyncClient, image_url: str) -> bool:
+        try:
+            response = await client.get(
+                image_url,
+                headers={"Range": "bytes=0-65535"},
+            )
+            content_type = response.headers.get("content-type", "").lower()
+            return (
+                response.status_code in {200, 206}
+                and content_type.startswith("image/")
+                and len(response.content) >= 512
+            )
+        except httpx.HTTPError:
+            return False

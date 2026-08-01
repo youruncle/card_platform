@@ -1,0 +1,251 @@
+{
+  "batch_key": "topps-finest-2526-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2025-26 Topps Finest Basketball",
+    "2025-26 Topps Finest The Man",
+    "2025-26 Topps Finest Aura",
+    "2025-26 Topps Finest First",
+    "2025-26 Topps Finest #1 Cooper Flagg RC"
+  ],
+  "sources": [
+    {
+      "key": "topps-finest-2526",
+      "title": "Topps Finest Basketball",
+      "url": "https://uk.topps.com/pages/topps-finest-basketball",
+      "publisher": "Topps",
+      "source_type": "official_product",
+      "retrieved_at": "2026-07-28T20:30:00+08:00",
+      "metadata": {"scope": "Official 2025-26 fully licensed Topps Finest product, inserts, case hits, SSPs and autograph information."}
+    },
+    {
+      "key": "beckett-topps-finest-2526",
+      "title": "2025-26 Topps Finest Basketball Checklist",
+      "url": "https://www.beckett.com/news/2025-26-topps-finest-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T20:30:00+08:00",
+      "metadata": {"scope": "Checklist size, base tiers, parallel numbering and Cooper Flagg base identity."}
+    }
+  ],
+  "entities": [
+    {
+      "key": "topps",
+      "entity_type": "manufacturer",
+      "canonical_name": "Topps",
+      "source_key": "topps-finest-2526",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"industry_roles": ["manufacturer", "brand", "issuer"]},
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-2526",
+      "entity_type": "product",
+      "canonical_name": "2025-26 Topps Finest Basketball",
+      "source_key": "topps-finest-2526",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Topps",
+        "brand": "Topps Finest",
+        "season_start": 2025,
+        "season_end": 2026,
+        "league": "NBA",
+        "nba_license_status": "fully_licensed",
+        "base_checklist_size": 300,
+        "base_structure": "three tiers: Common, Uncommon and Rare",
+        "product_distinction": "Fully licensed NBA Finest return; separate product-season identity from 2023-24 and 2024-25 NBA Players Association versions."
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-first-2526",
+      "entity_type": "insert",
+      "canonical_name": "2025-26 Topps Finest First",
+      "source_key": "topps-finest-2526",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2025-26 Topps Finest Basketball",
+        "season_start": 2025,
+        "season_end": 2026,
+        "semantic_type": "rookie_driven_insert",
+        "scope_key": "topps-finest-2025-26-first",
+        "not_cross_product_equivalent": true,
+        "not_automatically_rookie_card": true,
+        "not_automatically_ssp": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-the-man-2526",
+      "entity_type": "insert",
+      "canonical_name": "2025-26 Topps Finest The Man",
+      "source_key": "topps-finest-2526",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2025-26 Topps Finest Basketball",
+        "season_start": 2025,
+        "season_end": 2026,
+        "semantic_type": "insert",
+        "rarity_description": "premier case hit",
+        "scope_key": "topps-finest-2025-26-the-man",
+        "not_cross_product_equivalent": true,
+        "not_automatically_ssp": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-aura-2526",
+      "entity_type": "insert",
+      "canonical_name": "2025-26 Topps Finest Aura",
+      "source_key": "topps-finest-2526",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2025-26 Topps Finest Basketball",
+        "season_start": 2025,
+        "season_end": 2026,
+        "semantic_type": "insert",
+        "rarity_description": "SSP",
+        "scope_key": "topps-finest-2025-26-aura",
+        "not_cross_product_equivalent": true,
+        "not_automatically_case_hit": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-base-superfractor-2526",
+      "entity_type": "parallel",
+      "canonical_name": "2025-26 Topps Finest Base Superfractor 1/1",
+      "source_key": "beckett-topps-finest-2526",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2025-26 Topps Finest Basketball",
+        "season_start": 2025,
+        "season_end": 2026,
+        "parallel_scope": "base",
+        "serial_total": 1,
+        "scope_key": "topps-finest-2025-26-base-superfractor",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-flag-cooper-1-2526",
+      "entity_type": "card",
+      "canonical_name": "2025-26 Topps Finest #1 Cooper Flagg RC",
+      "source_key": "beckett-topps-finest-2526",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2025-26 Topps Finest Basketball",
+        "season_start": 2025,
+        "season_end": 2026,
+        "player": "Cooper Flagg",
+        "team": "Dallas Mavericks",
+        "card_number": "1",
+        "base_tier": "Common",
+        "is_rookie_card": true,
+        "identity_status": "verified",
+        "image_reference_status": "pending_front_back_asset"
+      },
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {
+      "subject": "topps-finest-2526",
+      "relation_type": "manufactured_by",
+      "object": "topps",
+      "reason": "Topps official product page identifies the 2025-26 Topps Finest Basketball release.",
+      "source_key": "topps-finest-2526",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "topps-finest-first-2526",
+      "relation_type": "available_in",
+      "object": "topps-finest-2526",
+      "reason": "Topps official page names First as a 2025-26 Finest insert.",
+      "source_key": "topps-finest-2526",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "topps-finest-the-man-2526",
+      "relation_type": "available_in",
+      "object": "topps-finest-2526",
+      "reason": "Topps identifies The Man as a premier 2025-26 Finest case hit.",
+      "source_key": "topps-finest-2526",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "topps-finest-aura-2526",
+      "relation_type": "available_in",
+      "object": "topps-finest-2526",
+      "reason": "Topps identifies Aura as a 2025-26 Finest SSP.",
+      "source_key": "topps-finest-2526",
+      "review_status": "approved",
+      "confidence": 0.99
+    }
+  ],
+  "applicability": [
+    {
+      "entity": "topps-finest-the-man-2526",
+      "product": "topps-finest-2526",
+      "season_start": 2025,
+      "season_end": 2026,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "topps-finest-2526",
+      "attributes": {"classification": "Officially described as a case hit; SSP is not inferred."}
+    },
+    {
+      "entity": "topps-finest-aura-2526",
+      "product": "topps-finest-2526",
+      "season_start": 2025,
+      "season_end": 2026,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "topps-finest-2526",
+      "attributes": {"classification": "Officially described as SSP; case-hit status is not inferred."}
+    }
+  ],
+  "coverage": [
+    {
+      "manufacturer": "topps",
+      "product": "topps-finest-2526",
+      "season_start": 2025,
+      "season_end": 2026,
+      "insert": "topps-finest-the-man-2526",
+      "status": "covered",
+      "source_key": "topps-finest-2526",
+      "notes": "Official case-hit classification verified without SSP inference."
+    },
+    {
+      "manufacturer": "topps",
+      "product": "topps-finest-2526",
+      "season_start": 2025,
+      "season_end": 2026,
+      "insert": "topps-finest-aura-2526",
+      "status": "covered",
+      "source_key": "topps-finest-2526",
+      "notes": "Official SSP classification verified without case-hit inference."
+    },
+    {
+      "manufacturer": "topps",
+      "product": "topps-finest-2526",
+      "season_start": 2025,
+      "season_end": 2026,
+      "status": "partial",
+      "source_key": "beckett-topps-finest-2526",
+      "notes": "Product, base structure, selected insert/scarcity semantics, 1/1 parallel and Cooper Flagg RC verified; remaining insert and parallel matrix is pending."
+    }
+  ]
+}

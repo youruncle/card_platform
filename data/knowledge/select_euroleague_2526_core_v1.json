@@ -1,0 +1,35 @@
+{
+  "batch_key": "select-euroleague-2526-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2025-26 Panini Select EuroLeague Basketball",
+    "2025-26 Select EuroLeague Black Color Blast",
+    "2025-26 Select EuroLeague Concourse Black Finite Prizm 1/1",
+    "2025-26 Select EuroLeague Black Color Blast #4 Victor Wembanyama"
+  ],
+  "sources": [
+    {"key":"beckett-select-euroleague-2526","title":"2025-26 Panini Select EuroLeague Basketball Checklist","url":"https://www.beckett.com/news/2025-26-panini-select-euroleague-basketball-cards/","publisher":"Beckett","source_type":"beckett_checklist","retrieved_at":"2026-07-28T22:00:00+08:00","metadata":{"scope":"Debut 2025-26 Select EuroLeague product, tiered base, SSP/inserts, product-specific parallel and Victor Wembanyama checklist identity."}}
+  ],
+  "entities": [
+    {"key":"panini","entity_type":"manufacturer","canonical_name":"Panini","source_key":"beckett-select-euroleague-2526","review_status":"approved","confidence":0.99,"attributes":{"industry_roles":["manufacturer","brand","issuer"]},"aliases":[]},
+    {"key":"select-euroleague-2526","entity_type":"product","canonical_name":"2025-26 Panini Select EuroLeague Basketball","source_key":"beckett-select-euroleague-2526","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","brand":"Select","season_start":2025,"season_end":2026,"league":"EuroLeague","base_checklist_size":400,"base_structure":"Concourse #1-100; Premier Level #101-200; Courtside #201-300; Mezzanine #301-400","product_distinction":"Debut Select EuroLeague product, distinct from NBA Select and prior EuroLeague Prizm/Donruss/Crown Royale products."},"aliases":[]},
+    {"key":"select-euroleague-black-color-blast-2526","entity_type":"insert","canonical_name":"2025-26 Select EuroLeague Black Color Blast","source_key":"beckett-select-euroleague-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Panini Select EuroLeague Basketball","season_start":2025,"season_end":2026,"semantic_type":"SSP_insert","checklist_size":25,"scope_key":"select-euroleague-2025-26-black-color-blast","not_cross_product_equivalent":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"select-euroleague-concourse-black-finite-1of1-2526","entity_type":"parallel","canonical_name":"2025-26 Select EuroLeague Concourse Black Finite Prizm 1/1","source_key":"beckett-select-euroleague-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Panini Select EuroLeague Basketball","season_start":2025,"season_end":2026,"base_level":"Concourse","parallel_scope":"Concourse base","serial_total":1,"scope_key":"select-euroleague-2025-26-concourse","not_cross_product_equivalent":true},"aliases":[]},
+    {"key":"select-euroleague-wemby-black-color-blast-4-2526","entity_type":"card","canonical_name":"2025-26 Select EuroLeague Black Color Blast #4 Victor Wembanyama","source_key":"beckett-select-euroleague-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Panini Select EuroLeague Basketball","insert":"2025-26 Select EuroLeague Black Color Blast","season_start":2025,"season_end":2026,"player":"Victor Wembanyama","team":"LDLC ASVEL Villeurbanne","card_number":"4","identity_status":"verified","not_rookie_card_inference":true,"image_reference_status":"pending_front_back_asset"},"aliases":[]}
+  ],
+  "relations": [
+    {"subject":"select-euroleague-2526","relation_type":"manufactured_by","object":"panini","reason":"Beckett identifies the product as 2025-26 Panini Select EuroLeague Basketball.","source_key":"beckett-select-euroleague-2526","review_status":"approved","confidence":0.99},
+    {"subject":"select-euroleague-black-color-blast-2526","relation_type":"available_in","object":"select-euroleague-2526","reason":"Beckett lists 25-card Black Color Blast as a Select EuroLeague SSP insert.","source_key":"beckett-select-euroleague-2526","review_status":"approved","confidence":0.99},
+    {"subject":"select-euroleague-wemby-black-color-blast-4-2526","relation_type":"belongs_to","object":"select-euroleague-black-color-blast-2526","reason":"Beckett checklist identifies Victor Wembanyama as Black Color Blast #4.","source_key":"beckett-select-euroleague-2526","review_status":"approved","confidence":0.99}
+  ],
+  "applicability": [
+    {"entity":"select-euroleague-black-color-blast-2526","product":"select-euroleague-2526","season_start":2025,"season_end":2026,"league":"EuroLeague","status":"verified","review_status":"approved","source_key":"beckett-select-euroleague-2526","attributes":{"classification":"EuroLeague product-season SSP insert; not a generic Color Blast or case-hit synonym."}},
+    {"entity":"select-euroleague-concourse-black-finite-1of1-2526","product":"select-euroleague-2526","season_start":2025,"season_end":2026,"league":"EuroLeague","status":"verified","review_status":"approved","source_key":"beckett-select-euroleague-2526","attributes":{"classification":"Concourse-only base parallel; it does not transfer to Premier, Courtside or Mezzanine."}}
+  ],
+  "coverage": [
+    {"manufacturer":"panini","product":"select-euroleague-2526","season_start":2025,"season_end":2026,"insert":"select-euroleague-black-color-blast-2526","status":"covered","source_key":"beckett-select-euroleague-2526","notes":"25-card Black Color Blast SSP insert and Wembanyama #4 identity verified; case-hit status is not inferred."},
+    {"manufacturer":"panini","product":"select-euroleague-2526","season_start":2025,"season_end":2026,"parallel":"select-euroleague-concourse-black-finite-1of1-2526","status":"covered","source_key":"beckett-select-euroleague-2526","notes":"Concourse Black Finite Prizm 1/1 verified as tier-specific."},
+    {"manufacturer":"panini","product":"select-euroleague-2526","season_start":2025,"season_end":2026,"status":"partial","source_key":"beckett-select-euroleague-2526","notes":"Debut EuroLeague product, 400-card tiered base, selected SSP/parallel and Wembanyama identity verified; remaining auto, memorabilia, insert and level-specific parallel matrix is pending."}
+  ]
+}

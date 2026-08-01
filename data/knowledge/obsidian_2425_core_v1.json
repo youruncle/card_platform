@@ -1,0 +1,41 @@
+{
+  "batch_key": "obsidian-2425-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2024-25 Panini Obsidian Basketball",
+    "2024-25 Panini Obsidian Vitreous",
+    "2024-25 Panini Obsidian Black Color Blast",
+    "2024-25 Panini Obsidian Cutting Edge Memorabilia",
+    "2024-25 Panini Obsidian International Black Color Blast #5 Kyrie Irving"
+  ],
+  "sources": [
+    {"key":"beckett-obsidian-2425","title":"2024-25 Panini Obsidian Basketball Checklist","url":"https://www.beckett.com/news/2024-25-panini-obsidian-basketball-cards/","publisher":"Beckett","source_type":"beckett_checklist","retrieved_at":"2026-07-29T00:47:00+08:00","metadata":{"scope":"Full Obsidian checklist: box configuration, base/parallel, short-print insert semantics, memorabilia sets, update-card distinction and Kyrie Irving identity."}}
+  ],
+  "entities": [
+    {"key":"panini","entity_type":"manufacturer","canonical_name":"Panini","source_key":"beckett-obsidian-2425","review_status":"approved","confidence":0.99,"attributes":{"industry_roles":["manufacturer","brand","issuer"]},"aliases":[]},
+    {"key":"obsidian","entity_type":"brand","canonical_name":"Obsidian","source_key":"beckett-obsidian-2425","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","semantic_scope":"dark chromium trading-card product brand"},"aliases":[]},
+    {"key":"obsidian-2425","entity_type":"product","canonical_name":"2024-25 Panini Obsidian Basketball","source_key":"beckett-obsidian-2425","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","brand":"Obsidian","season_start":2024,"season_end":2025,"league":"NBA","base_checklist_size":239,"hobby_box_configuration":"7 cards: 2 autographs, 1 memorabilia card, 3 inserts or base parallels and 1 base card","product_distinction":"Seventh Obsidian Basketball edition. Checklist update cards retain their original product identity and are not treated as native Obsidian sets."},"aliases":[]},
+    {"key":"obsidian-base-black-1of1-2425","entity_type":"parallel","canonical_name":"2024-25 Panini Obsidian Base Black /1","source_key":"beckett-obsidian-2425","review_status":"approved","confidence":0.99,"attributes":{"product":"2024-25 Panini Obsidian Basketball","season_start":2024,"season_end":2025,"parallel_scope":"veteran base","serial_total":1,"scope_key":"obsidian-2024-25-veteran-base-black","not_cross_product_equivalent":true},"aliases":[]},
+    {"key":"obsidian-vitreous-2425","entity_type":"insert","canonical_name":"2024-25 Panini Obsidian Vitreous","source_key":"beckett-obsidian-2425","review_status":"approved","confidence":0.99,"attributes":{"product":"2024-25 Panini Obsidian Basketball","season_start":2024,"season_end":2025,"semantic_type":"SSP_die_cut_insert","rarity_description":"SSP","visual_features":["die-cut"],"scope_key":"obsidian-2024-25-vitreous","not_cross_product_equivalent":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"obsidian-black-color-blast-2425","entity_type":"insert","canonical_name":"2024-25 Panini Obsidian Black Color Blast","source_key":"beckett-obsidian-2425","review_status":"approved","confidence":0.99,"attributes":{"product":"2024-25 Panini Obsidian Basketball","season_start":2024,"season_end":2025,"semantic_type":"tough_chase_insert","rarity_description":"toughest insert","scope_key":"obsidian-2024-25-black-color-blast","not_cross_product_equivalent":true,"not_automatically_ssp":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"obsidian-cutting-edge-memorabilia-2425","entity_type":"insert","canonical_name":"2024-25 Panini Obsidian Cutting Edge Memorabilia","source_key":"beckett-obsidian-2425","review_status":"approved","confidence":0.99,"attributes":{"product":"2024-25 Panini Obsidian Basketball","season_start":2024,"season_end":2025,"semantic_type":"memorabilia_set","serial_total":249,"memorabilia_provenance_requires_card_specific_evidence":true,"scope_key":"obsidian-2024-25-cutting-edge-memorabilia","not_cross_product_equivalent":true},"aliases":[]},
+    {"key":"obsidian-intl-black-color-blast-kyrie-irving-5-2425","entity_type":"card","canonical_name":"2024-25 Panini Obsidian International Black Color Blast #5 Kyrie Irving","source_key":"beckett-obsidian-2425","review_status":"approved","confidence":0.99,"attributes":{"product":"2024-25 Panini Obsidian Basketball","insert":"International Black Color Blast","season_start":2024,"season_end":2025,"player":"Kyrie Irving","team":"Dallas Mavericks","card_number":"5","identity_status":"verified","not_rookie_card_inference":true,"image_reference_status":"pending_front_back_asset"},"aliases":[]}
+  ],
+  "relations": [
+    {"subject":"obsidian-2425","relation_type":"manufactured_by","object":"panini","reason":"Beckett identifies the product as 2024-25 Panini Obsidian Basketball.","source_key":"beckett-obsidian-2425","review_status":"approved","confidence":0.99},
+    {"subject":"obsidian-vitreous-2425","relation_type":"available_in","object":"obsidian-2425","reason":"Beckett identifies Vitreous as a new die-cut SSP insert in this product.","source_key":"beckett-obsidian-2425","review_status":"approved","confidence":0.99},
+    {"subject":"obsidian-black-color-blast-2425","relation_type":"available_in","object":"obsidian-2425","reason":"Beckett identifies Black Color Blast among this product's toughest inserts.","source_key":"beckett-obsidian-2425","review_status":"approved","confidence":0.99},
+    {"subject":"obsidian-cutting-edge-memorabilia-2425","relation_type":"available_in","object":"obsidian-2425","reason":"Beckett lists Cutting Edge Memorabilia in the product checklist.","source_key":"beckett-obsidian-2425","review_status":"approved","confidence":0.99}
+  ],
+  "applicability": [
+    {"entity":"obsidian-vitreous-2425","product":"obsidian-2425","season_start":2024,"season_end":2025,"status":"verified","review_status":"approved","source_key":"beckett-obsidian-2425","attributes":{"classification":"Product-season die-cut SSP insert. Case-hit status is not inferred."}},
+    {"entity":"obsidian-black-color-blast-2425","product":"obsidian-2425","season_start":2024,"season_end":2025,"status":"verified","review_status":"approved","source_key":"beckett-obsidian-2425","attributes":{"classification":"Product-season tough chase insert. It is not upgraded to SSP or case hit without explicit source evidence."}},
+    {"entity":"obsidian-cutting-edge-memorabilia-2425","product":"obsidian-2425","season_start":2024,"season_end":2025,"status":"verified","review_status":"approved","source_key":"beckett-obsidian-2425","attributes":{"classification":"Memorabilia set; game-used, player-worn and event-used provenance remain card-specific."}}
+  ],
+  "coverage": [
+    {"manufacturer":"panini","product":"obsidian-2425","season_start":2024,"season_end":2025,"insert":"obsidian-vitreous-2425","status":"covered","source_key":"beckett-obsidian-2425","notes":"New die-cut Vitreous SSP verified without case-hit inference."},
+    {"manufacturer":"panini","product":"obsidian-2425","season_start":2024,"season_end":2025,"insert":"obsidian-cutting-edge-memorabilia-2425","status":"covered","source_key":"beckett-obsidian-2425","notes":"Cutting Edge Memorabilia semantics verified without generic provenance inference."},
+    {"manufacturer":"panini","product":"obsidian-2425","season_start":2024,"season_end":2025,"status":"partial","source_key":"beckett-obsidian-2425","notes":"Product, base 1/1, selected inserts, memorabilia semantics and Kyrie International Black Color Blast #5 identity verified; remaining base, autograph, memorabilia, insert and update-card matrix is pending."}
+  ]
+}

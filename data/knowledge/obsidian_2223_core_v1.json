@@ -1,0 +1,308 @@
+{
+  "batch_key": "obsidian-2223-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2022-23 Panini Obsidian Basketball",
+    "2022-23 Obsidian Purple Electric Etch /99",
+    "2022-23 Obsidian Vitreous",
+    "2022-23 Obsidian Rookie Jersey Autographs",
+    "2022-23 Obsidian Base #183 Paolo Banchero RC",
+    "2022-23 Obsidian Equinox #9 Paolo Banchero /99",
+    "2022-23 Obsidian Rookie Jersey Autographs #226 Paolo Banchero /99"
+  ],
+  "sources": [
+    {
+      "key": "beckett-obsidian-2223",
+      "title": "2022-23 Panini Obsidian Basketball Checklist",
+      "url": "https://www.beckett.com/news/2022-23-panini-obsidian-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T22:00:00+08:00",
+      "metadata": {
+        "scope": "240-card checklist, Electric Etch ladder, hobby-only Vitreous/Volcanix and Paolo identities."
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "panini",
+      "entity_type": "manufacturer",
+      "canonical_name": "Panini",
+      "source_key": "beckett-obsidian-2223",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "industry_roles": [
+          "manufacturer",
+          "brand",
+          "issuer"
+        ]
+      },
+      "aliases": []
+    },
+    {
+      "key": "obsidian-2223",
+      "entity_type": "product",
+      "canonical_name": "2022-23 Panini Obsidian Basketball",
+      "source_key": "beckett-obsidian-2223",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Panini",
+        "brand": "Obsidian",
+        "season_start": 2022,
+        "season_end": 2023,
+        "league": "NBA",
+        "base_set_size": 240,
+        "card_technology": "chromium",
+        "hobby_configuration": {
+          "cards_per_box": 7,
+          "autographs_per_box": 2,
+          "base_cards_per_box": 3
+        },
+        "product_distinction": "Standalone dark-chrome Obsidian NBA product; Electric Etch names are product-season scoped."
+      },
+      "aliases": []
+    },
+    {
+      "key": "obsidian-purple-electric-etch-99-2223",
+      "entity_type": "parallel",
+      "canonical_name": "2022-23 Obsidian Purple Electric Etch /99",
+      "source_key": "beckett-obsidian-2223",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2022-23 Panini Obsidian Basketball",
+        "season_start": 2022,
+        "season_end": 2023,
+        "parallel_family": "Electric Etch",
+        "color": "Purple",
+        "serial_total": 99,
+        "scope_key": "obsidian-2022-23-base-electric-etch",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "obsidian-vitreous-2223",
+      "entity_type": "insert",
+      "canonical_name": "2022-23 Obsidian Vitreous",
+      "source_key": "beckett-obsidian-2223",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2022-23 Panini Obsidian Basketball",
+        "season_start": 2022,
+        "season_end": 2023,
+        "semantic_type": "insert",
+        "distribution": "hobby_only",
+        "scope_key": "obsidian-2022-23-vitreous",
+        "not_cross_product_equivalent": true,
+        "not_automatically_ssp": true,
+        "not_automatically_case_hit": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "obsidian-rookie-jersey-autographs-2223",
+      "entity_type": "insert",
+      "canonical_name": "2022-23 Obsidian Rookie Jersey Autographs",
+      "source_key": "beckett-obsidian-2223",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2022-23 Panini Obsidian Basketball",
+        "season_start": 2022,
+        "season_end": 2023,
+        "semantic_type": "rookie_jersey_autograph_set",
+        "card_number_range": "201-240",
+        "base_serial_total": 99,
+        "has_autograph": true,
+        "has_jersey": true,
+        "scope_key": "obsidian-2022-23-rookie-jersey-autographs",
+        "not_automatically_rpa": true,
+        "memorabilia_provenance_requires_card_specific_evidence": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "obsidian-paolo-base-183-2223",
+      "entity_type": "card",
+      "canonical_name": "2022-23 Obsidian Base #183 Paolo Banchero RC",
+      "source_key": "beckett-obsidian-2223",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2022-23 Panini Obsidian Basketball",
+        "season_start": 2022,
+        "season_end": 2023,
+        "player": "Paolo Banchero",
+        "team": "Orlando Magic",
+        "card_number": "183",
+        "is_rookie_card": true,
+        "identity_status": "verified",
+        "image_reference_status": "pending_front_back_asset"
+      },
+      "aliases": []
+    },
+    {
+      "key": "obsidian-paolo-equinox-9-2223",
+      "entity_type": "card",
+      "canonical_name": "2022-23 Obsidian Equinox #9 Paolo Banchero /99",
+      "source_key": "beckett-obsidian-2223",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2022-23 Panini Obsidian Basketball",
+        "insert": "Equinox",
+        "season_start": 2022,
+        "season_end": 2023,
+        "player": "Paolo Banchero",
+        "team": "Orlando Magic",
+        "card_number": "9",
+        "serial_total": 99,
+        "identity_status": "verified",
+        "image_reference_status": "pending_front_back_asset"
+      },
+      "aliases": []
+    },
+    {
+      "key": "obsidian-paolo-rja-226-2223",
+      "entity_type": "card",
+      "canonical_name": "2022-23 Obsidian Rookie Jersey Autographs #226 Paolo Banchero /99",
+      "source_key": "beckett-obsidian-2223",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2022-23 Panini Obsidian Basketball",
+        "insert": "Rookie Jersey Autographs",
+        "season_start": 2022,
+        "season_end": 2023,
+        "player": "Paolo Banchero",
+        "team": "Orlando Magic",
+        "card_number": "226",
+        "serial_total": 99,
+        "is_rookie_card": true,
+        "has_autograph": true,
+        "has_jersey": true,
+        "identity_status": "verified",
+        "not_automatically_rpa": true,
+        "memorabilia_provenance_requires_card_specific_evidence": true,
+        "image_reference_status": "pending_front_back_asset"
+      },
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {
+      "subject": "obsidian-2223",
+      "relation_type": "manufactured_by",
+      "object": "panini",
+      "reason": "Beckett identifies 2022-23 Panini Obsidian Basketball.",
+      "source_key": "beckett-obsidian-2223",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "obsidian-vitreous-2223",
+      "relation_type": "available_in",
+      "object": "obsidian-2223",
+      "reason": "Beckett lists Vitreous as a hobby-only Obsidian insert.",
+      "source_key": "beckett-obsidian-2223",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "obsidian-rookie-jersey-autographs-2223",
+      "relation_type": "available_in",
+      "object": "obsidian-2223",
+      "reason": "Checklist defines Rookie Jersey Autographs as base cards #201-240.",
+      "source_key": "beckett-obsidian-2223",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "obsidian-paolo-base-183-2223",
+      "relation_type": "belongs_to",
+      "object": "obsidian-2223",
+      "reason": "Beckett identifies Paolo Banchero as base #183 RC.",
+      "source_key": "beckett-obsidian-2223",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "obsidian-paolo-equinox-9-2223",
+      "relation_type": "belongs_to",
+      "object": "obsidian-2223",
+      "reason": "Beckett identifies Paolo Banchero as Equinox #9 /99 in this product; the full Equinox entity expansion is deferred.",
+      "source_key": "beckett-obsidian-2223",
+      "review_status": "approved",
+      "confidence": 0.8
+    },
+    {
+      "subject": "obsidian-paolo-rja-226-2223",
+      "relation_type": "belongs_to",
+      "object": "obsidian-rookie-jersey-autographs-2223",
+      "reason": "Beckett identifies Paolo Banchero as Rookie Jersey Autographs #226 /99.",
+      "source_key": "beckett-obsidian-2223",
+      "review_status": "approved",
+      "confidence": 0.99
+    }
+  ],
+  "applicability": [
+    {
+      "entity": "obsidian-rookie-jersey-autographs-2223",
+      "product": "obsidian-2223",
+      "season_start": 2022,
+      "season_end": 2023,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-obsidian-2223",
+      "attributes": {
+        "classification": "Rookie jersey-autograph subset; title does not prove patch/RPA status or material provenance."
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "manufacturer": "panini",
+      "product": "obsidian-2223",
+      "season_start": 2022,
+      "season_end": 2023,
+      "parallel": "obsidian-purple-electric-etch-99-2223",
+      "status": "covered",
+      "source_key": "beckett-obsidian-2223",
+      "notes": "Purple Electric Etch /99 verified as product-season scoped."
+    },
+    {
+      "manufacturer": "panini",
+      "product": "obsidian-2223",
+      "season_start": 2022,
+      "season_end": 2023,
+      "insert": "obsidian-vitreous-2223",
+      "status": "covered",
+      "source_key": "beckett-obsidian-2223",
+      "notes": "Hobby-only Vitreous verified without SSP/case-hit inference."
+    },
+    {
+      "manufacturer": "panini",
+      "product": "obsidian-2223",
+      "season_start": 2022,
+      "season_end": 2023,
+      "insert": "obsidian-rookie-jersey-autographs-2223",
+      "status": "covered",
+      "source_key": "beckett-obsidian-2223",
+      "notes": "Rookie Jersey Autographs and Paolo Banchero #226 /99 verified without RPA inference."
+    },
+    {
+      "manufacturer": "panini",
+      "product": "obsidian-2223",
+      "season_start": 2022,
+      "season_end": 2023,
+      "status": "partial",
+      "source_key": "beckett-obsidian-2223",
+      "notes": "Core product, one scoped parallel, hobby insert and three Paolo identities verified; complete insert/autograph/parallel matrix remains later work."
+    }
+  ]
+}

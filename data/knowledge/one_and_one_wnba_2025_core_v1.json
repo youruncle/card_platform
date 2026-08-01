@@ -1,0 +1,40 @@
+{
+  "batch_key": "one-and-one-wnba-2025-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2025 Panini One And One WNBA",
+    "2025 Panini One And One WNBA Kaboom!",
+    "2025 Panini One And One WNBA Base Holo Platinum Blue /1",
+    "2025 Panini One And One WNBA Dual Memorabilia WNBA Logo /1",
+    "2025 Panini One And One WNBA Kaboom! #1 Caitlin Clark"
+  ],
+  "sources": [
+    {"key":"beckett-one-and-one-wnba-2025","title":"2025 Panini One And One WNBA Checklist","url":"https://www.beckett.com/news/2025-panini-one-and-one-wnba-cards/","publisher":"Beckett","source_type":"beckett_checklist","retrieved_at":"2026-07-28T23:05:00+08:00","metadata":{"scope":"Full product checklist, box configuration, base/parallel, autograph, memorabilia, Kaboom and Caitlin Clark card identity."}},
+    {"key":"beckett-one-and-one-wnba-kaboom-2025","title":"2025 Panini One and One WNBA Kaboom Checklist","url":"https://www.beckett.com/basketball/2025/panini-one-and-one-wnba-kaboom/","publisher":"Beckett","source_type":"beckett_checklist","retrieved_at":"2026-07-28T23:05:00+08:00","metadata":{"scope":"Independent database listing for the product-scoped Kaboom checklist."}}
+  ],
+  "entities": [
+    {"key":"panini","entity_type":"manufacturer","canonical_name":"Panini","source_key":"beckett-one-and-one-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"industry_roles":["manufacturer","brand","issuer"]},"aliases":[]},
+    {"key":"one-and-one","entity_type":"brand","canonical_name":"One And One","source_key":"beckett-one-and-one-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","semantic_scope":"premium trading-card product brand","product_name_normalization":"One And One; do not merge with One and One references without product/season/league scope."},"aliases":[{"value":"One and One","alias_type":"synonym","source_key":"beckett-one-and-one-wnba-2025","review_status":"approved","confidence":0.99}]},
+    {"key":"one-and-one-wnba-2025","entity_type":"product","canonical_name":"2025 Panini One And One WNBA","source_key":"beckett-one-and-one-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","brand":"One And One","year":2025,"league":"WNBA","base_checklist_size":100,"base_serial_total":99,"hobby_box_configuration":"2 cards: 1 autograph and 1 base, parallel, insert, or memorabilia card","product_distinction":"First One And One WNBA product; distinct from NBA, NFL and other One And One product-season checklists."},"aliases":[]},
+    {"key":"one-and-one-wnba-kaboom-2025","entity_type":"insert","canonical_name":"2025 Panini One And One WNBA Kaboom!","source_key":"beckett-one-and-one-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"product":"2025 Panini One And One WNBA","year":2025,"semantic_type":"SSP_insert","checklist_size":20,"rarity_description":"SSP","scope_key":"one-and-one-wnba-2025-kaboom","not_cross_product_equivalent":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"one-and-one-wnba-base-holo-platinum-blue-1of1-2025","entity_type":"parallel","canonical_name":"2025 Panini One And One WNBA Base Holo Platinum Blue /1","source_key":"beckett-one-and-one-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"product":"2025 Panini One And One WNBA","year":2025,"parallel_scope":"base","serial_total":1,"scope_key":"one-and-one-wnba-2025-base-holo-platinum-blue","not_cross_product_equivalent":true},"aliases":[]},
+    {"key":"one-and-one-wnba-dual-memorabilia-logo-1of1-2025","entity_type":"insert","canonical_name":"2025 Panini One And One WNBA Dual Memorabilia WNBA Logo /1","source_key":"beckett-one-and-one-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"product":"2025 Panini One And One WNBA","year":2025,"semantic_type":"dual_memorabilia_parallel","serial_total":1,"material_feature":"WNBA Logo patch","material_scope":"Dual Memorabilia only","scope_key":"one-and-one-wnba-2025-dual-memorabilia-logo","not_cross_product_equivalent":true,"not_equivalent_to_nba_logoman":true,"memorabilia_provenance_requires_card_specific_evidence":true},"aliases":[]},
+    {"key":"one-and-one-wnba-kaboom-clark-caitlin-1-2025","entity_type":"card","canonical_name":"2025 Panini One And One WNBA Kaboom! #1 Caitlin Clark","source_key":"beckett-one-and-one-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"product":"2025 Panini One And One WNBA","insert":"2025 Panini One And One WNBA Kaboom!","year":2025,"player":"Caitlin Clark","team":"Indiana Fever","card_number":"1","identity_status":"verified","not_rookie_card_inference":true,"image_reference_status":"pending_front_back_asset"},"aliases":[]}
+  ],
+  "relations": [
+    {"subject":"one-and-one-wnba-2025","relation_type":"manufactured_by","object":"panini","reason":"Beckett identifies the product as 2025 Panini One And One WNBA.","source_key":"beckett-one-and-one-wnba-2025","review_status":"approved","confidence":0.99},
+    {"subject":"one-and-one-wnba-kaboom-2025","relation_type":"available_in","object":"one-and-one-wnba-2025","reason":"Beckett identifies Kaboom as a 20-card SSP insert in this product.","source_key":"beckett-one-and-one-wnba-2025","review_status":"approved","confidence":0.99},
+    {"subject":"one-and-one-wnba-dual-memorabilia-logo-1of1-2025","relation_type":"available_in","object":"one-and-one-wnba-2025","reason":"Beckett lists WNBA Logo /1 as a Dual Memorabilia parallel.","source_key":"beckett-one-and-one-wnba-2025","review_status":"approved","confidence":0.99},
+    {"subject":"one-and-one-wnba-kaboom-clark-caitlin-1-2025","relation_type":"belongs_to","object":"one-and-one-wnba-kaboom-2025","reason":"Beckett's Kaboom checklist lists Caitlin Clark as card #1.","source_key":"beckett-one-and-one-wnba-2025","review_status":"approved","confidence":0.99}
+  ],
+  "applicability": [
+    {"entity":"one-and-one-wnba-kaboom-2025","product":"one-and-one-wnba-2025","season_start":2025,"season_end":2025,"status":"verified","review_status":"approved","source_key":"beckett-one-and-one-wnba-2025","attributes":{"classification":"Product-season SSP insert; case-hit status is not inferred."}},
+    {"entity":"one-and-one-wnba-dual-memorabilia-logo-1of1-2025","product":"one-and-one-wnba-2025","season_start":2025,"season_end":2025,"status":"verified","review_status":"approved","source_key":"beckett-one-and-one-wnba-2025","attributes":{"classification":"WNBA Logo /1 is scoped to Dual Memorabilia. It is not generic Logoman or generic memorabilia provenance."}}
+  ],
+  "coverage": [
+    {"manufacturer":"panini","product":"one-and-one-wnba-2025","season_start":2025,"season_end":2025,"insert":"one-and-one-wnba-kaboom-2025","status":"covered","source_key":"beckett-one-and-one-wnba-2025","notes":"20-card Kaboom SSP checklist and Caitlin Clark #1 identity verified without case-hit or RC inference."},
+    {"manufacturer":"panini","product":"one-and-one-wnba-2025","season_start":2025,"season_end":2025,"insert":"one-and-one-wnba-dual-memorabilia-logo-1of1-2025","status":"covered","source_key":"beckett-one-and-one-wnba-2025","notes":"Dual Memorabilia WNBA Logo /1 is explicitly product/set-scoped; generic material provenance is not inferred."},
+    {"manufacturer":"panini","product":"one-and-one-wnba-2025","season_start":2025,"season_end":2025,"status":"partial","source_key":"beckett-one-and-one-wnba-2025","notes":"Product, base, selected base 1/1 parallel, Kaboom, dual memorabilia and Caitlin Clark identity verified; remaining autograph, memorabilia and parallel matrix is pending."}
+  ]
+}

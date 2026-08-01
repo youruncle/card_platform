@@ -1,0 +1,24 @@
+{
+  "batch_key": "card-identity-one-one-2324-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": ["Luka Doncic", "2023-24 One and One Downtown #25 Luka Doncic", "2023-24 One and One Downtown Variation #3 Luka Doncic"],
+  "sources": [
+    {"key": "beckett-one-one-2324-card-identity", "title": "2023-24 Panini One and One Basketball Checklist", "url": "https://www.beckett.com/news/2023-24-panini-one-and-one-basketball-cards/", "publisher": "Beckett", "source_type": "beckett_checklist", "retrieved_at": "2026-07-28T18:30:00+08:00", "metadata": {"scope": "One and One Dallas checklist entries including Luka Doncic Downtown #25 and Downtown Variations #3"}},
+    {"key": "tcdb-one-one-downtown-2324", "title": "2023-24 Panini One and One Downtown Checklist", "url": "https://www.tcdb.com/Checklist.cfm/sid/481824/2023-24-Panini-One-and-One-Downtown", "publisher": "Trading Card Database", "source_type": "other", "retrieved_at": "2026-07-28T18:30:00+08:00", "metadata": {"scope": "card number 25 Luka Doncic identity corroboration"}},
+    {"key": "tcdb-one-one-downtown-variation-luka", "title": "2023-24 Panini One and One Downtown Variation #3 Luka Doncic", "url": "https://www.tcdb.com/ViewCard.cfm/sid/481825/cid/28828485/2023-24-Panini-One-and-One---Downtown-Variation-3-Luka-Doncic?PageIndex=1", "publisher": "Trading Card Database", "source_type": "other", "retrieved_at": "2026-07-28T18:30:00+08:00", "metadata": {"scope": "specific card identity and front-image reference"}}
+  ],
+  "entities": [
+    {"key": "luka-doncic", "entity_type": "player", "canonical_name": "Luka Doncic", "source_key": "tcdb-one-one-downtown-2324", "review_status": "approved", "confidence": 0.99, "attributes": {"sport": "basketball"}, "aliases": [{"value": "卢卡·东契奇", "language": "zh", "alias_type": "translation", "confidence": 0.99}]},
+    {"key": "one-one", "entity_type": "product", "canonical_name": "One and One", "source_key": "beckett-one-one-2324-card-identity", "review_status": "approved", "confidence": 0.99, "attributes": {"manufacturer": "Panini", "season_start": 2023, "season_end": 2024, "league": "NBA"}, "aliases": []},
+    {"key": "downtown", "entity_type": "insert", "canonical_name": "2023-24 One and One Downtown", "source_key": "beckett-one-one-2324-card-identity", "review_status": "approved", "confidence": 0.99, "attributes": {"product": "One and One", "season_start": 2023, "season_end": 2024, "semantic_type": "insert", "scope_key": "one-one-2023-24"}, "aliases": []},
+    {"key": "downtown-variation", "entity_type": "insert", "canonical_name": "2023-24 One and One Downtown Variations", "source_key": "beckett-one-one-2324-card-identity", "review_status": "approved", "confidence": 0.99, "attributes": {"product": "One and One", "season_start": 2023, "season_end": 2024, "semantic_type": "insert_variation", "scope_key": "one-one-2023-24"}, "aliases": []},
+    {"key": "luka-downtown-25", "entity_type": "card", "canonical_name": "2023-24 One and One Downtown #25 Luka Doncic", "source_key": "tcdb-one-one-downtown-2324", "review_status": "approved", "confidence": 0.99, "attributes": {"player": "Luka Doncic", "card_number": "25", "team": "Dallas Mavericks", "product": "One and One", "insert": "Downtown", "season_start": 2023, "season_end": 2024, "identity_status": "verified", "visual_features": ["Downtown insert artwork"], "image_reference_status": "pending_front_back_asset", "scope_key": "one-one-2023-24-downtown"}, "aliases": []},
+    {"key": "luka-downtown-variation-3", "entity_type": "card", "canonical_name": "2023-24 One and One Downtown Variation #3 Luka Doncic", "source_key": "tcdb-one-one-downtown-variation-luka", "review_status": "approved", "confidence": 0.99, "attributes": {"player": "Luka Doncic", "card_number": "3", "team": "Dallas Mavericks", "product": "One and One", "insert": "Downtown Variations", "season_start": 2023, "season_end": 2024, "identity_status": "verified", "visual_features": ["horizontal Downtown variation"], "image_references": [{"side": "front", "source_url": "https://www.tcdb.com/ViewCard.cfm/sid/481825/cid/28828485/2023-24-Panini-One-and-One---Downtown-Variation-3-Luka-Doncic?PageIndex=1", "status": "remote_reference"}], "scope_key": "one-one-2023-24-downtown-variation"}, "aliases": []}
+  ],
+  "relations": [
+    {"subject": "luka-downtown-25", "relation_type": "belongs_to", "object": "downtown", "reason": "Beckett and TCDB identify Luka Doncic as card #25 in 2023-24 One and One Downtown.", "source_key": "tcdb-one-one-downtown-2324", "review_status": "approved", "confidence": 0.99},
+    {"subject": "luka-downtown-variation-3", "relation_type": "belongs_to", "object": "downtown-variation", "reason": "Beckett and TCDB identify Luka Doncic as card #3 in 2023-24 One and One Downtown Variations.", "source_key": "tcdb-one-one-downtown-variation-luka", "review_status": "approved", "confidence": 0.99}
+  ],
+  "coverage": []
+}

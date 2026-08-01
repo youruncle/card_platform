@@ -1,0 +1,159 @@
+{
+  "batch_key": "national-treasures-2425-inserts-booklets-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2024-25 Panini National Treasures Basketball",
+    "2024-25 National Treasures Hometown Heroes",
+    "2024-25 National Treasures Gladiators",
+    "2024-25 National Treasures Treasures Autographs Booklet",
+    "2024-25 National Treasures Rookie First Edition Signatures Booklet",
+    "2024-25 National Treasures Highly Treasured #1 Zacharie Risacher"
+  ],
+  "sources": [
+    {
+      "key": "beckett-national-treasures-2425-inserts-booklets",
+      "title": "2024-25 Panini National Treasures Basketball Checklist, Team Set Lists and Details",
+      "url": "https://www.beckett.com/news/2024-25-panini-national-treasures-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-29T15:10:00+08:00",
+      "metadata": {
+        "scope": "2024-25 National Treasures overview and team checklist entries for new autograph/inserts, booklets and selected player-card identities."
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "panini",
+      "entity_type": "manufacturer",
+      "canonical_name": "Panini",
+      "source_key": "beckett-national-treasures-2425-inserts-booklets",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"industry_roles": ["manufacturer", "brand", "issuer"]},
+      "aliases": []
+    },
+    {
+      "key": "national-treasures-2425",
+      "entity_type": "product",
+      "canonical_name": "2024-25 Panini National Treasures Basketball",
+      "source_key": "beckett-national-treasures-2425-inserts-booklets",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"manufacturer": "Panini", "brand": "National Treasures", "season_start": 2024, "season_end": 2025, "league": "NBA", "product_distinction": "All new entries in this batch are scoped to the 2024-25 NBA product, not to National Treasures generally."},
+      "aliases": []
+    },
+    {
+      "key": "nt-2425-hometown-heroes",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 National Treasures Hometown Heroes",
+      "source_key": "beckett-national-treasures-2425-inserts-booklets",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"product": "2024-25 Panini National Treasures Basketball", "season_start": 2024, "season_end": 2025, "semantic_type": "autograph_insert", "new_for_season": true, "scope_key": "national-treasures-2024-25-hometown-heroes", "not_cross_product_equivalent": true, "not_rpa_inference": true},
+      "aliases": []
+    },
+    {
+      "key": "nt-2425-gladiators",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 National Treasures Gladiators",
+      "source_key": "beckett-national-treasures-2425-inserts-booklets",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"product": "2024-25 Panini National Treasures Basketball", "season_start": 2024, "season_end": 2025, "semantic_type": "autograph_insert", "new_for_season": true, "scope_key": "national-treasures-2024-25-gladiators", "not_cross_product_equivalent": true, "not_rpa_inference": true},
+      "aliases": []
+    },
+    {
+      "key": "nt-2425-international-treasure-autographs",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 National Treasures International Treasure Autographs",
+      "source_key": "beckett-national-treasures-2425-inserts-booklets",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"product": "2024-25 Panini National Treasures Basketball", "season_start": 2024, "season_end": 2025, "semantic_type": "autograph_insert", "new_for_season": true, "scope_key": "national-treasures-2024-25-international-treasure-autographs", "not_cross_product_equivalent": true, "not_rpa_inference": true},
+      "aliases": []
+    },
+    {
+      "key": "nt-2425-hardwood-graphs",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 National Treasures Hardwood Graphs",
+      "source_key": "beckett-national-treasures-2425-inserts-booklets",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"product": "2024-25 Panini National Treasures Basketball", "season_start": 2024, "season_end": 2025, "semantic_type": "autograph_insert", "new_for_season": true, "scope_key": "national-treasures-2024-25-hardwood-graphs", "not_cross_product_equivalent": true, "not_rpa_inference": true},
+      "aliases": []
+    },
+    {
+      "key": "nt-2425-treasures-autographs-booklet",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 National Treasures Treasures Autographs Booklet",
+      "source_key": "beckett-national-treasures-2425-inserts-booklets",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"product": "2024-25 Panini National Treasures Basketball", "season_start": 2024, "season_end": 2025, "semantic_type": "autograph_booklet", "format": "vertical booklet", "scope_key": "national-treasures-2024-25-treasures-autographs-booklet", "not_cross_product_equivalent": true, "not_rpa_inference": true},
+      "aliases": []
+    },
+    {
+      "key": "nt-2425-rookie-first-edition-signatures-booklet",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 National Treasures Rookie First Edition Signatures Booklet",
+      "source_key": "beckett-national-treasures-2425-inserts-booklets",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"product": "2024-25 Panini National Treasures Basketball", "season_start": 2024, "season_end": 2025, "semantic_type": "rookie_autograph_booklet", "scope_key": "national-treasures-2024-25-rookie-first-edition-signatures-booklet", "not_cross_product_equivalent": true, "not_rpa_inference": true, "memorabilia_content_not_inferred": true},
+      "aliases": []
+    },
+    {
+      "key": "nt-2425-highly-treasured",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 National Treasures Highly Treasured",
+      "source_key": "beckett-national-treasures-2425-inserts-booklets",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"product": "2024-25 Panini National Treasures Basketball", "season_start": 2024, "season_end": 2025, "semantic_type": "insert", "scope_key": "national-treasures-2024-25-highly-treasured", "not_cross_product_equivalent": true, "not_ssp_inference": true, "not_case_hit_inference": true},
+      "aliases": []
+    },
+    {
+      "key": "nt-2425-highly-treasured-risacher-1",
+      "entity_type": "card",
+      "canonical_name": "2024-25 National Treasures Highly Treasured #1 Zacharie Risacher",
+      "source_key": "beckett-national-treasures-2425-inserts-booklets",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"product": "2024-25 Panini National Treasures Basketball", "insert": "Highly Treasured", "season_start": 2024, "season_end": 2025, "player": "Zacharie Risacher", "team": "Atlanta Hawks", "card_number": "1", "serial_total": 1, "identity_status": "verified", "not_rookie_card_inference": true, "image_reference_status": "source_page_reference"},
+      "aliases": []
+    },
+    {
+      "key": "nt-2425-rookie-first-edition-signatures-booklet-walter-6",
+      "entity_type": "card",
+      "canonical_name": "2024-25 National Treasures Rookie First Edition Signatures Booklet #6 Ja'Kobe Walter",
+      "source_key": "beckett-national-treasures-2425-inserts-booklets",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"product": "2024-25 Panini National Treasures Basketball", "insert": "Rookie First Edition Signatures Booklet", "season_start": 2024, "season_end": 2025, "player": "Ja'Kobe Walter", "team": "Toronto Raptors", "card_number": "6", "serial_total": 49, "identity_status": "verified", "is_autograph": true, "not_rpa_inference": true, "image_reference_status": "source_page_reference"},
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {"subject": "national-treasures-2425", "relation_type": "manufactured_by", "object": "panini", "reason": "Beckett identifies the product as 2024-25 Panini National Treasures Basketball.", "source_key": "beckett-national-treasures-2425-inserts-booklets", "review_status": "approved", "confidence": 0.99},
+    {"subject": "nt-2425-hometown-heroes", "relation_type": "available_in", "object": "national-treasures-2425", "reason": "Beckett identifies Hometown Heroes as a new autograph set in this product.", "source_key": "beckett-national-treasures-2425-inserts-booklets", "review_status": "approved", "confidence": 0.99},
+    {"subject": "nt-2425-gladiators", "relation_type": "available_in", "object": "national-treasures-2425", "reason": "Beckett identifies Gladiators as a new autograph set in this product.", "source_key": "beckett-national-treasures-2425-inserts-booklets", "review_status": "approved", "confidence": 0.99},
+    {"subject": "nt-2425-treasures-autographs-booklet", "relation_type": "available_in", "object": "national-treasures-2425", "reason": "Beckett describes Treasures Autographs Booklet as a vertical autograph booklet set.", "source_key": "beckett-national-treasures-2425-inserts-booklets", "review_status": "approved", "confidence": 0.99},
+    {"subject": "nt-2425-highly-treasured-risacher-1", "relation_type": "belongs_to", "object": "nt-2425-highly-treasured", "reason": "Beckett's Atlanta checklist lists Zacharie Risacher as Highly Treasured #1 /1.", "source_key": "beckett-national-treasures-2425-inserts-booklets", "review_status": "approved", "confidence": 0.99},
+    {"subject": "nt-2425-rookie-first-edition-signatures-booklet-walter-6", "relation_type": "belongs_to", "object": "nt-2425-rookie-first-edition-signatures-booklet", "reason": "Beckett's Toronto checklist lists Ja'Kobe Walter as Rookie First Edition Signatures Booklet #6 /49.", "source_key": "beckett-national-treasures-2425-inserts-booklets", "review_status": "approved", "confidence": 0.99}
+  ],
+  "applicability": [
+    {"entity": "nt-2425-treasures-autographs-booklet", "product": "national-treasures-2425", "season_start": 2024, "season_end": 2025, "status": "verified", "review_status": "approved", "source_key": "beckett-national-treasures-2425-inserts-booklets", "attributes": {"classification": "Autograph booklet; its format does not establish memorabilia, patch, rookie-card, RPA, SSP or case-hit status."}},
+    {"entity": "nt-2425-rookie-first-edition-signatures-booklet", "product": "national-treasures-2425", "season_start": 2024, "season_end": 2025, "status": "verified", "review_status": "approved", "source_key": "beckett-national-treasures-2425-inserts-booklets", "attributes": {"classification": "Rookie autograph booklet; neither patch content nor RPA classification is inferred from its name."}}
+  ],
+  "coverage": [
+    {"manufacturer": "panini", "product": "national-treasures-2425", "season_start": 2024, "season_end": 2025, "insert": "nt-2425-hometown-heroes", "status": "covered", "source_key": "beckett-national-treasures-2425-inserts-booklets", "notes": "Hometown Heroes is verified as a new 2024-25 autograph set; no generic RPA conclusion."},
+    {"manufacturer": "panini", "product": "national-treasures-2425", "season_start": 2024, "season_end": 2025, "insert": "nt-2425-gladiators", "status": "covered", "source_key": "beckett-national-treasures-2425-inserts-booklets", "notes": "Gladiators is verified as a new 2024-25 autograph set, product-scoped."},
+    {"manufacturer": "panini", "product": "national-treasures-2425", "season_start": 2024, "season_end": 2025, "insert": "nt-2425-international-treasure-autographs", "status": "covered", "source_key": "beckett-national-treasures-2425-inserts-booklets", "notes": "International Treasure Autographs is a new product-scoped autograph set."},
+    {"manufacturer": "panini", "product": "national-treasures-2425", "season_start": 2024, "season_end": 2025, "insert": "nt-2425-treasures-autographs-booklet", "status": "covered", "source_key": "beckett-national-treasures-2425-inserts-booklets", "notes": "Vertical autograph booklet classification is verified; material and RPA status are intentionally not inferred."},
+    {"manufacturer": "panini", "product": "national-treasures-2425", "season_start": 2024, "season_end": 2025, "insert": "nt-2425-rookie-first-edition-signatures-booklet", "status": "covered", "source_key": "beckett-national-treasures-2425-inserts-booklets", "notes": "Rookie First Edition Signatures Booklet and Ja'Kobe Walter #6 /49 identity verified without patch/RPA inference."},
+    {"manufacturer": "panini", "product": "national-treasures-2425", "season_start": 2024, "season_end": 2025, "insert": "nt-2425-highly-treasured", "status": "covered", "source_key": "beckett-national-treasures-2425-inserts-booklets", "notes": "Highly Treasured and Zacharie Risacher #1 /1 identity verified; /1 does not automatically create SSP or case-hit equivalence."},
+    {"manufacturer": "panini", "product": "national-treasures-2425", "season_start": 2024, "season_end": 2025, "status": "partial", "source_key": "beckett-national-treasures-2425-inserts-booklets", "notes": "New named autograph/insert groups, two booklet classifications and selected card identities are verified; full National Treasures matrix remains a later source-backed task."}
+  ]
+}

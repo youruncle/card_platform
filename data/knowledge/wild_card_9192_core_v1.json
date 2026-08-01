@@ -1,0 +1,216 @@
+{
+  "batch_key": "wild-card-9192-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "Wild Card",
+    "1991-92 Wild Card Basketball",
+    "1991-92 Wild Card 100 Stripe Basketball",
+    "1991-92 Wild Card Redemption Prototypes"
+  ],
+  "sources": [
+    {
+      "key": "beckett-wild-card-9192",
+      "title": "1991-92 Wild Card #120 Checklist 3",
+      "url": "https://www.beckett.com/basketball/1991-92/wild-card/120-checklist-3-3042816",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-29T16:05:00+08:00",
+      "metadata": {
+        "scope": "Card-level evidence that 1991-92 Wild Card is a basketball set whose manufacturer and brand are Wild Card."
+      }
+    },
+    {
+      "key": "beckett-wild-card-prototypes-9192",
+      "title": "1991-92 Wild Card Redemption Prototypes Set Information",
+      "url": "https://www.beckett.com/basketball/1991-92/wild-card-redemption-prototypes/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-29T16:05:00+08:00",
+      "metadata": {
+        "scope": "Six-card redemption-prototype set intended to preview the forthcoming Wild Card basketball set."
+      }
+    },
+    {
+      "key": "beckett-wild-card-100-stripe-9192",
+      "title": "1991-92 Wild Card 100 Stripe #120 Checklist 3",
+      "url": "https://www.beckett.com/basketball/1991-92/wild-card-100-stripe/120-checklist-3-5494981",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-29T16:05:00+08:00",
+      "metadata": {
+        "scope": "Product-title evidence for the separately named 1991-92 Wild Card 100 Stripe release."
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "wild-card",
+      "entity_type": "manufacturer",
+      "canonical_name": "Wild Card",
+      "source_key": "beckett-wild-card-9192",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "industry_roles": [
+          "historical_manufacturer",
+          "issuer",
+          "brand"
+        ],
+        "evidence_scope": "1991-92 Wild Card basketball product; no league-license status is inferred."
+      },
+      "aliases": []
+    },
+    {
+      "key": "wild-card-brand",
+      "entity_type": "brand",
+      "canonical_name": "Wild Card Brand",
+      "source_key": "beckett-wild-card-9192",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Wild Card",
+        "taxonomy": "brand identity retained separately from manufacturer entity for product relations",
+        "scope_key": "wild-card-basketball-1991-92"
+      },
+      "aliases": []
+    },
+    {
+      "key": "wild-card-9192",
+      "entity_type": "product",
+      "canonical_name": "1991-92 Wild Card Basketball",
+      "source_key": "beckett-wild-card-9192",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Wild Card",
+        "brand": "Wild Card",
+        "season_start": 1991,
+        "season_end": 1992,
+        "league": "basketball_unspecified",
+        "product_distinction": "Historical basketball product; not a generic current Wild Card or a license claim."
+      },
+      "aliases": []
+    },
+    {
+      "key": "wild-card-redemption-prototypes-9192",
+      "entity_type": "insert",
+      "canonical_name": "1991-92 Wild Card Redemption Prototypes",
+      "source_key": "beckett-wild-card-prototypes-9192",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "1991-92 Wild Card Basketball",
+        "season_start": 1991,
+        "season_end": 1992,
+        "semantic_type": "redemption_prototype_set",
+        "checklist_size": 6,
+        "card_number_prefix": "P",
+        "distribution": "received with replacement card after qualifying Collegiate surprise-card redemption",
+        "not_parallel": true,
+        "not_rookie_card_inference": true,
+        "scope_key": "wild-card-1991-92-redemption-prototypes"
+      },
+      "aliases": []
+    },
+    {
+      "key": "wild-card-100-stripe-9192",
+      "entity_type": "product",
+      "canonical_name": "1991-92 Wild Card 100 Stripe Basketball",
+      "source_key": "beckett-wild-card-100-stripe-9192",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Wild Card",
+        "brand": "Wild Card",
+        "season_start": 1991,
+        "season_end": 1992,
+        "league": "basketball_unspecified",
+        "product_distinction": "Separately named 100 Stripe release; no parent/parallel relationship to base Wild Card is inferred from title alone."
+      },
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {
+      "subject": "wild-card-9192",
+      "relation_type": "manufactured_by",
+      "object": "wild-card",
+      "reason": "Beckett's card-level record labels 1991-92 Wild Card with Manufacturer Wild Card.",
+      "source_key": "beckett-wild-card-9192",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "wild-card-brand",
+      "relation_type": "belongs_to",
+      "object": "wild-card",
+      "reason": "Beckett labels the same 1991-92 basketball product with Brand Wild Card and Manufacturer Wild Card.",
+      "source_key": "beckett-wild-card-9192",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "wild-card-redemption-prototypes-9192",
+      "relation_type": "available_in",
+      "object": "wild-card-9192",
+      "reason": "Beckett describes the six-card prototypes as previewing the forthcoming Wild Card basketball set.",
+      "source_key": "beckett-wild-card-prototypes-9192",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "wild-card-100-stripe-9192",
+      "relation_type": "manufactured_by",
+      "object": "wild-card",
+      "reason": "Beckett's 100 Stripe card record identifies Wild Card as manufacturer.",
+      "source_key": "beckett-wild-card-100-stripe-9192",
+      "review_status": "approved",
+      "confidence": 0.99
+    }
+  ],
+  "applicability": [
+    {
+      "entity": "wild-card-redemption-prototypes-9192",
+      "product": "wild-card-9192",
+      "season_start": 1991,
+      "season_end": 1992,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-wild-card-prototypes-9192",
+      "attributes": {
+        "classification": "Six-card redemption prototype set; it is not a base parallel and does not establish RC, autograph, memorabilia, SSP, or case-hit status."
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "manufacturer": "wild-card",
+      "product": "wild-card-9192",
+      "season_start": 1991,
+      "season_end": 1992,
+      "insert": "wild-card-redemption-prototypes-9192",
+      "status": "covered",
+      "source_key": "beckett-wild-card-prototypes-9192",
+      "notes": "Prototype/redemption mechanism and six-card scope verified without generic rarity or RC inference."
+    },
+    {
+      "manufacturer": "wild-card",
+      "product": "wild-card-9192",
+      "season_start": 1991,
+      "season_end": 1992,
+      "status": "partial",
+      "source_key": "beckett-wild-card-9192",
+      "notes": "Manufacturer/brand and product identity plus prototype subset are verified; full base/checklist/stripe relationship requires later source-backed expansion."
+    },
+    {
+      "manufacturer": "wild-card",
+      "product": "wild-card-100-stripe-9192",
+      "season_start": 1991,
+      "season_end": 1992,
+      "status": "partial",
+      "source_key": "beckett-wild-card-100-stripe-9192",
+      "notes": "100 Stripe is tracked as a distinct product name under Wild Card; its full checklist and relationship to the base product are pending evidence."
+    }
+  ]
+}

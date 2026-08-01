@@ -1,0 +1,585 @@
+{
+  "batch_key": "bowmans-best-9798-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "1997-98 Bowman's Best Basketball",
+    "Bowman's Best",
+    "1997-98 Bowman's Best Veterans Base",
+    "1997-98 Bowman's Best Best Performances",
+    "1997-98 Bowman's Best Rookies Base",
+    "1997-98 Bowman's Best Atomic Refractors",
+    "1997-98 Bowman's Best Techniques",
+    "1997-98 Bowman's Best Mirror Image",
+    "1997-98 Bowman's Best #106 Tim Duncan RC"
+  ],
+  "sources": [
+    {
+      "key": "beckett-bowmans-best-9798",
+      "title": "1997-98 Bowman's Best Basketball Set Information",
+      "url": "https://www.beckett.com/basketball/1997-98/bowmans-best/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T23:31:00+08:00",
+      "metadata": {
+        "scope": "125-card one-series Bowman's Best product: 90 veterans, 10 Best Performances and 25 rookies; six-card packs."
+      }
+    },
+    {
+      "key": "tcdb-bowmans-best-9798",
+      "title": "1997-98 Bowman's Best Basketball Checklist",
+      "url": "https://www.tcdb.com/Checklist.cfm/sid/2610/1997-98-Bowman%27s-Best",
+      "publisher": "Trading Card Database",
+      "source_type": "other",
+      "retrieved_at": "2026-07-28T23:31:00+08:00",
+      "metadata": {
+        "scope": "Independent 125-card checklist and product-related-set boundary."
+      }
+    },
+    {
+      "key": "beckett-bowmans-best-atomic-9798",
+      "title": "1997-98 Bowman's Best Atomic Refractors Set Information",
+      "url": "https://www.beckett.com/basketball/1997-98/bowmans-best-atomic-refractors/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T23:31:00+08:00",
+      "metadata": {
+        "scope": "125-card full-base Atomic Refractors parallel, hyper-plaid refractor pattern and 1:24 pack odds."
+      }
+    },
+    {
+      "key": "tcdb-bowmans-best-techniques-9798",
+      "title": "1997-98 Bowman's Best Techniques Checklist",
+      "url": "https://www.tcdb.com/Checklist.cfm/sid/2614/1997-98-Bowmans-Best-Techniques",
+      "publisher": "Trading Card Database",
+      "source_type": "other",
+      "retrieved_at": "2026-07-28T23:31:00+08:00",
+      "metadata": {
+        "scope": "10-card Techniques insert at 1:12 packs, including Michael Jordan T2 and Kobe Bryant T4."
+      }
+    },
+    {
+      "key": "tcdb-bowmans-best-techniques-atomic-9798",
+      "title": "1997-98 Bowman's Best Techniques Atomic Refractors Checklist",
+      "url": "https://www.tcdb.com/Checklist.cfm/sid/25751/1997-98-",
+      "publisher": "Trading Card Database",
+      "source_type": "other",
+      "retrieved_at": "2026-07-28T23:31:00+08:00",
+      "metadata": {
+        "scope": "10-card Atomic Refractor parallel to the Techniques insert at 1:96 packs."
+      }
+    },
+    {
+      "key": "tcdb-bowmans-best-mirror-image-9798",
+      "title": "1997-98 Bowman's Best Mirror Image Checklist",
+      "url": "https://www.tcdb.com/Checklist.cfm/sid/2612/1997-98-Bowman%27s-Best---Mirror-Image",
+      "publisher": "Trading Card Database",
+      "source_type": "other",
+      "retrieved_at": "2026-07-28T23:31:00+08:00",
+      "metadata": {
+        "scope": "10-card Mirror Image insert at 1:48 packs, including four-player MI1."
+      }
+    },
+    {
+      "key": "beckett-bowmans-best-duncan-106-9798",
+      "title": "1997-98 Bowman's Best #106 Tim Duncan RC",
+      "url": "https://www.beckett.com/basketball/1997-98/bowmans-best/106-tim-duncan-rc-3147179",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T23:31:00+08:00",
+      "metadata": {
+        "scope": "Tim Duncan #106 verified rookie-card identity plus Topps Co. manufacturer and Bowman's Best brand."
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "topps",
+      "entity_type": "manufacturer",
+      "canonical_name": "Topps",
+      "source_key": "beckett-bowmans-best-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "industry_roles": [
+          "historical_manufacturer",
+          "issuer",
+          "brand"
+        ],
+        "parent_company": "Fanatics Collectibles"
+      },
+      "aliases": []
+    },
+    {
+      "key": "bowmans-best-brand",
+      "entity_type": "brand",
+      "canonical_name": "Bowman's Best",
+      "source_key": "beckett-bowmans-best-duncan-106-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Topps",
+        "parent_brand": "Bowman",
+        "semantic_scope": "Topps-produced historical basketball brand; not a manufacturer and not Bowman Chrome University or Bowman's Best University."
+      },
+      "aliases": [
+        {
+          "value": "Bowmans Best",
+          "alias_type": "misspelling",
+          "locale": "en",
+          "source_key": "beckett-bowmans-best-duncan-106-9798",
+          "review_status": "approved",
+          "confidence": 0.96
+        }
+      ]
+    },
+    {
+      "key": "bowmans-best-9798",
+      "entity_type": "product",
+      "canonical_name": "1997-98 Bowman's Best Basketball",
+      "source_key": "beckett-bowmans-best-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Topps",
+        "brand": "Bowman's Best",
+        "season_start": 1997,
+        "season_end": 1998,
+        "league": "NBA",
+        "base_set_size": 125,
+        "series_count": 1,
+        "cards_per_pack": 6,
+        "base_structure": {
+          "veterans": 90,
+          "best_performances": 10,
+          "rookies": 25
+        },
+        "product_distinction": "Topps-made Bowman's Best product. ‘Bowman's Best’ is a brand/product line under Topps, never a manufacturer; distinct from 1997-98 Topps, Topps Chrome, Finest, and modern Bowman's Best University."
+      },
+      "aliases": []
+    },
+    {
+      "key": "bowmans-best-veterans-9798",
+      "entity_type": "attribute",
+      "canonical_name": "1997-98 Bowman's Best Veterans Base",
+      "source_key": "beckett-bowmans-best-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "1997-98 Bowman's Best Basketball",
+        "season_start": 1997,
+        "season_end": 1998,
+        "semantic_type": "base_section",
+        "checklist_size": 90,
+        "card_number_range": "1-90",
+        "not_parallel": true,
+        "scope_key": "bowmans-best-1997-98-veterans"
+      },
+      "aliases": []
+    },
+    {
+      "key": "bowmans-best-best-performances-9798",
+      "entity_type": "attribute",
+      "canonical_name": "1997-98 Bowman's Best Best Performances",
+      "source_key": "beckett-bowmans-best-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "1997-98 Bowman's Best Basketball",
+        "season_start": 1997,
+        "season_end": 1998,
+        "semantic_type": "base_subset",
+        "checklist_size": 10,
+        "card_number_range": "91-100",
+        "not_parallel": true,
+        "scope_key": "bowmans-best-1997-98-best-performances"
+      },
+      "aliases": []
+    },
+    {
+      "key": "bowmans-best-rookies-9798",
+      "entity_type": "attribute",
+      "canonical_name": "1997-98 Bowman's Best Rookies Base",
+      "source_key": "beckett-bowmans-best-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "1997-98 Bowman's Best Basketball",
+        "season_start": 1997,
+        "season_end": 1998,
+        "semantic_type": "rookie_base_section",
+        "checklist_size": 25,
+        "card_number_range": "101-125",
+        "not_parallel": true,
+        "not_automatic_rc_identity": true,
+        "scope_key": "bowmans-best-1997-98-rookies"
+      },
+      "aliases": []
+    },
+    {
+      "key": "bowmans-best-atomic-refractors-9798",
+      "entity_type": "parallel",
+      "canonical_name": "1997-98 Bowman's Best Atomic Refractors",
+      "source_key": "beckett-bowmans-best-atomic-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "1997-98 Bowman's Best Basketball",
+        "season_start": 1997,
+        "season_end": 1998,
+        "parallel_scope": "entire 125-card base set",
+        "checklist_size": 125,
+        "parallel_family": "Atomic Refractor",
+        "refractor_pattern": "hyper-plaid",
+        "pack_odds": "1:24 packs",
+        "not_cross_product_equivalent": true,
+        "scope_key": "bowmans-best-1997-98-base-atomic-refractors"
+      },
+      "aliases": []
+    },
+    {
+      "key": "bowmans-best-techniques-9798",
+      "entity_type": "insert",
+      "canonical_name": "1997-98 Bowman's Best Techniques",
+      "source_key": "tcdb-bowmans-best-techniques-9798",
+      "review_status": "approved",
+      "confidence": 0.98,
+      "attributes": {
+        "product": "1997-98 Bowman's Best Basketball",
+        "season_start": 1997,
+        "season_end": 1998,
+        "checklist_size": 10,
+        "card_number_pattern": "T1-T10",
+        "pack_odds": "1:12 packs",
+        "not_parallel": true,
+        "not_cross_product_equivalent": true,
+        "scope_key": "bowmans-best-1997-98-techniques"
+      },
+      "aliases": []
+    },
+    {
+      "key": "bowmans-best-techniques-atomic-9798",
+      "entity_type": "parallel",
+      "canonical_name": "1997-98 Bowman's Best Techniques Atomic Refractors",
+      "source_key": "tcdb-bowmans-best-techniques-atomic-9798",
+      "review_status": "approved",
+      "confidence": 0.98,
+      "attributes": {
+        "product": "1997-98 Bowman's Best Basketball",
+        "season_start": 1997,
+        "season_end": 1998,
+        "parent_insert": "Techniques",
+        "checklist_size": 10,
+        "parallel_family": "Atomic Refractor",
+        "pack_odds": "1:96 packs",
+        "not_cross_product_equivalent": true,
+        "scope_key": "bowmans-best-1997-98-techniques-atomic-refractors"
+      },
+      "aliases": []
+    },
+    {
+      "key": "bowmans-best-mirror-image-9798",
+      "entity_type": "insert",
+      "canonical_name": "1997-98 Bowman's Best Mirror Image",
+      "source_key": "tcdb-bowmans-best-mirror-image-9798",
+      "review_status": "approved",
+      "confidence": 0.98,
+      "attributes": {
+        "product": "1997-98 Bowman's Best Basketball",
+        "season_start": 1997,
+        "season_end": 1998,
+        "checklist_size": 10,
+        "card_number_pattern": "MI1-MI10",
+        "pack_odds": "1:48 packs",
+        "not_parallel": true,
+        "not_cross_product_equivalent": true,
+        "scope_key": "bowmans-best-1997-98-mirror-image"
+      },
+      "aliases": []
+    },
+    {
+      "key": "bowmans-best-duncan-106-9798",
+      "entity_type": "card",
+      "canonical_name": "1997-98 Bowman's Best #106 Tim Duncan RC",
+      "source_key": "beckett-bowmans-best-duncan-106-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "1997-98 Bowman's Best Basketball",
+        "season_start": 1997,
+        "season_end": 1998,
+        "player": "Tim Duncan",
+        "team": "San Antonio Spurs",
+        "card_number": "106",
+        "base_section": "Rookies",
+        "is_rookie_card": true,
+        "is_autograph": false,
+        "has_memorabilia": false,
+        "identity_status": "verified",
+        "image_reference_status": "source_page_has_front_back_reference"
+      },
+      "aliases": []
+    },
+    {
+      "key": "bowmans-best-techniques-jordan-t2-9798",
+      "entity_type": "card",
+      "canonical_name": "1997-98 Bowman's Best Techniques #T2 Michael Jordan",
+      "source_key": "tcdb-bowmans-best-techniques-9798",
+      "review_status": "approved",
+      "confidence": 0.98,
+      "attributes": {
+        "product": "1997-98 Bowman's Best Basketball",
+        "insert": "Techniques",
+        "season_start": 1997,
+        "season_end": 1998,
+        "player": "Michael Jordan",
+        "team": "Chicago Bulls",
+        "card_number": "T2",
+        "is_rookie_card": false,
+        "is_autograph": false,
+        "has_memorabilia": false,
+        "identity_status": "verified",
+        "image_reference_status": "tcdb_gallery_reference_available"
+      },
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {
+      "subject": "bowmans-best-brand",
+      "relation_type": "belongs_to",
+      "object": "topps",
+      "reason": "Beckett's Tim Duncan card detail identifies Topps Co. as manufacturer and Bowman's Best as brand.",
+      "source_key": "beckett-bowmans-best-duncan-106-9798",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "bowmans-best-9798",
+      "relation_type": "manufactured_by",
+      "object": "topps",
+      "reason": "Beckett identifies the product as 1997-98 Bowman's Best and card detail identifies Topps Co. as manufacturer.",
+      "source_key": "beckett-bowmans-best-9798",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "bowmans-best-veterans-9798",
+      "relation_type": "available_in",
+      "object": "bowmans-best-9798",
+      "reason": "Beckett identifies the 90-card veterans base section.",
+      "source_key": "beckett-bowmans-best-9798",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "bowmans-best-best-performances-9798",
+      "relation_type": "available_in",
+      "object": "bowmans-best-9798",
+      "reason": "Beckett identifies the 10-card Best Performances base subset.",
+      "source_key": "beckett-bowmans-best-9798",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "bowmans-best-rookies-9798",
+      "relation_type": "available_in",
+      "object": "bowmans-best-9798",
+      "reason": "Beckett identifies the 25-card rookies base section.",
+      "source_key": "beckett-bowmans-best-9798",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "bowmans-best-atomic-refractors-9798",
+      "relation_type": "available_in",
+      "object": "bowmans-best-9798",
+      "reason": "Beckett identifies the 125-card Atomic Refractors base parallel at 1:24 packs.",
+      "source_key": "beckett-bowmans-best-atomic-9798",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "bowmans-best-techniques-9798",
+      "relation_type": "available_in",
+      "object": "bowmans-best-9798",
+      "reason": "TCDB lists Techniques as a 10-card product-specific insert at 1:12 packs.",
+      "source_key": "tcdb-bowmans-best-techniques-9798",
+      "review_status": "approved",
+      "confidence": 0.98
+    },
+    {
+      "subject": "bowmans-best-techniques-atomic-9798",
+      "relation_type": "available_in",
+      "object": "bowmans-best-9798",
+      "reason": "TCDB identifies Techniques Atomic Refractors as a 10-card parallel to the Techniques insert.",
+      "source_key": "tcdb-bowmans-best-techniques-atomic-9798",
+      "review_status": "approved",
+      "confidence": 0.98
+    },
+    {
+      "subject": "bowmans-best-mirror-image-9798",
+      "relation_type": "available_in",
+      "object": "bowmans-best-9798",
+      "reason": "TCDB lists Mirror Image as a 10-card product-specific insert at 1:48 packs.",
+      "source_key": "tcdb-bowmans-best-mirror-image-9798",
+      "review_status": "approved",
+      "confidence": 0.98
+    },
+    {
+      "subject": "bowmans-best-duncan-106-9798",
+      "relation_type": "belongs_to",
+      "object": "bowmans-best-9798",
+      "reason": "Beckett identifies Tim Duncan as Bowman's Best base #106 with RC attribute.",
+      "source_key": "beckett-bowmans-best-duncan-106-9798",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "bowmans-best-techniques-jordan-t2-9798",
+      "relation_type": "belongs_to",
+      "object": "bowmans-best-9798",
+      "reason": "TCDB identifies Michael Jordan as Techniques #T2.",
+      "source_key": "tcdb-bowmans-best-techniques-9798",
+      "review_status": "approved",
+      "confidence": 0.98
+    }
+  ],
+  "applicability": [
+    {
+      "entity": "bowmans-best-veterans-9798",
+      "product": "bowmans-best-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-bowmans-best-9798",
+      "attributes": {
+        "classification": "Product-season base section, not a parallel."
+      }
+    },
+    {
+      "entity": "bowmans-best-best-performances-9798",
+      "product": "bowmans-best-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-bowmans-best-9798",
+      "attributes": {
+        "classification": "Product-season base subset, not an insert or parallel."
+      }
+    },
+    {
+      "entity": "bowmans-best-rookies-9798",
+      "product": "bowmans-best-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-bowmans-best-9798",
+      "attributes": {
+        "classification": "Rookie base section. Individual RC status must remain card-specific rather than inferred from membership in the entire section."
+      }
+    },
+    {
+      "entity": "bowmans-best-atomic-refractors-9798",
+      "product": "bowmans-best-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-bowmans-best-atomic-9798",
+      "attributes": {
+        "classification": "Product-scoped 125-card base parallel at 1:24 packs with hyper-plaid refractor pattern."
+      }
+    },
+    {
+      "entity": "bowmans-best-techniques-9798",
+      "product": "bowmans-best-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "tcdb-bowmans-best-techniques-9798",
+      "attributes": {
+        "classification": "Ten-card insert at 1:12 packs; not a parallel or automatic SSP."
+      }
+    },
+    {
+      "entity": "bowmans-best-techniques-atomic-9798",
+      "product": "bowmans-best-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "tcdb-bowmans-best-techniques-atomic-9798",
+      "attributes": {
+        "classification": "Ten-card Atomic Refractor parallel only to the Techniques insert; it must not be merged into the 125-card base Atomic Refractor parallel."
+      }
+    },
+    {
+      "entity": "bowmans-best-mirror-image-9798",
+      "product": "bowmans-best-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "tcdb-bowmans-best-mirror-image-9798",
+      "attributes": {
+        "classification": "Ten-card product-specific insert at 1:48 packs; no generic Mirror Image equivalence inferred."
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "manufacturer": "topps",
+      "product": "bowmans-best-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "parallel": "bowmans-best-atomic-refractors-9798",
+      "status": "covered",
+      "source_key": "beckett-bowmans-best-atomic-9798",
+      "notes": "Full 125-card hyper-plaid Atomic Refractors base parallel at 1:24 packs."
+    },
+    {
+      "manufacturer": "topps",
+      "product": "bowmans-best-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "parallel": "bowmans-best-techniques-atomic-9798",
+      "status": "covered",
+      "source_key": "tcdb-bowmans-best-techniques-atomic-9798",
+      "notes": "Ten-card Atomic Refractor parallel scoped to Techniques, distinct from base Atomic Refractors."
+    },
+    {
+      "manufacturer": "topps",
+      "product": "bowmans-best-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "insert": "bowmans-best-techniques-9798",
+      "status": "covered",
+      "source_key": "tcdb-bowmans-best-techniques-9798",
+      "notes": "Ten-card Techniques insert at 1:12 packs, including Michael Jordan #T2."
+    },
+    {
+      "manufacturer": "topps",
+      "product": "bowmans-best-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "insert": "bowmans-best-mirror-image-9798",
+      "status": "covered",
+      "source_key": "tcdb-bowmans-best-mirror-image-9798",
+      "notes": "Ten-card Mirror Image insert at 1:48 packs."
+    },
+    {
+      "manufacturer": "topps",
+      "product": "bowmans-best-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "status": "partial",
+      "source_key": "beckett-bowmans-best-9798",
+      "notes": "Topps manufacturer, Bowman's Best brand, base sections, Atomic Refractors, selected inserts and Duncan #106 RC identity verified. Autograph and Best Cuts matrices remain later audited work."
+    }
+  ]
+}

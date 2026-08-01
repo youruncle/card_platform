@@ -1,0 +1,58 @@
+{
+  "batch_key": "donruss-elite-2223-parallel-insert-expansion-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2022-23 Donruss Elite Aspirations",
+    "2022-23 Donruss Elite Status",
+    "2022-23 Donruss Elite Base Elite 1/1",
+    "2022-23 Donruss Elite Next Up",
+    "2022-23 Donruss Elite Back to the Future"
+  ],
+  "sources": [
+    {
+      "key": "beckett-donruss-elite-2223-expansion",
+      "title": "2022-23 Donruss Elite Basketball Checklist, Team Sets and Details",
+      "url": "https://www.beckett.com/news/2022-23-donruss-elite-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-29T03:00:00+08:00",
+      "metadata": {"scope": "250-card base; per-card Aspirations and Status print runs; Elite 1/1; Back to the Future; and Dimensions/Next Up lenticular SSP inserts."}
+    },
+    {
+      "key": "panini-donruss-elite-2223-hobby-sell-sheet",
+      "title": "2022-23 Donruss Elite Basketball Hobby Product Information Sheet",
+      "url": "https://blog.paniniamerica.net/wp-content/uploads/2023/03/22-23EliteBK_PIS_Hobby.pdf",
+      "publisher": "Panini America",
+      "source_type": "official_product",
+      "retrieved_at": "2026-07-29T03:00:00+08:00",
+      "metadata": {"scope": "Official hobby product sheet identifying Status, Aspirations and the one-of-a-kind Base Elite parallel."}
+    }
+  ],
+  "entities": [
+    {"key":"panini","entity_type":"manufacturer","canonical_name":"Panini","source_key":"panini-donruss-elite-2223-hobby-sell-sheet","review_status":"approved","confidence":0.99,"attributes":{"industry_roles":["manufacturer","brand","issuer"]},"aliases":[]},
+    {"key":"donruss-elite-2223","entity_type":"product","canonical_name":"2022-23 Donruss Elite Basketball","source_key":"panini-donruss-elite-2223-hobby-sell-sheet","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","brand":"Donruss Elite","season_start":2022,"season_end":2023,"league":"NBA","product_distinction":"Standalone foil Donruss Elite release; not Panini Donruss or Donruss Optic."},"aliases":[]},
+    {"key":"donruss-elite-aspirations-2223","entity_type":"parallel","canonical_name":"2022-23 Donruss Elite Aspirations","source_key":"beckett-donruss-elite-2223-expansion","review_status":"approved","confidence":0.99,"attributes":{"product":"2022-23 Donruss Elite Basketball","parent_set":"Base / Base Rookies","season_start":2022,"season_end":2023,"parallel_family":"Aspirations","serial_numbering":"varies by card; verified range is /99 or less","die_cut":true,"scope_key":"donruss-elite-2022-23-base","not_cross_product_equivalent":true,"not_automatically_ssp":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"donruss-elite-status-2223","entity_type":"parallel","canonical_name":"2022-23 Donruss Elite Status","source_key":"beckett-donruss-elite-2223-expansion","review_status":"approved","confidence":0.99,"attributes":{"product":"2022-23 Donruss Elite Basketball","parent_set":"Base / Base Rookies","season_start":2022,"season_end":2023,"parallel_family":"Status","serial_numbering":"varies by card; Base is /99 or less and Base Rookies is /35 or less","die_cut":true,"scope_key":"donruss-elite-2022-23-base","not_cross_product_equivalent":true,"not_automatically_ssp":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"donruss-elite-base-elite-1-2223","entity_type":"parallel","canonical_name":"2022-23 Donruss Elite Base Elite 1/1","source_key":"panini-donruss-elite-2223-hobby-sell-sheet","review_status":"approved","confidence":0.99,"attributes":{"product":"2022-23 Donruss Elite Basketball","parent_set":"Base","season_start":2022,"season_end":2023,"parallel_name":"Elite","serial_total":1,"scope_key":"donruss-elite-2022-23-base","not_cross_product_equivalent":true,"not_automatically_ssp":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"donruss-elite-back-to-the-future-2223","entity_type":"insert","canonical_name":"2022-23 Donruss Elite Back to the Future","source_key":"beckett-donruss-elite-2223-expansion","review_status":"approved","confidence":0.99,"attributes":{"product":"2022-23 Donruss Elite Basketball","season_start":2022,"season_end":2023,"semantic_type":"insert","checklist_size":10,"parallel_ladder":"Gold /10; Black 1/1; Asia Red; Asia Gold /10","scope_key":"donruss-elite-2022-23-back-to-the-future","not_cross_product_equivalent":true,"not_automatically_ssp":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"donruss-elite-next-up-2223","entity_type":"insert","canonical_name":"2022-23 Donruss Elite Next Up","source_key":"beckett-donruss-elite-2223-expansion","review_status":"approved","confidence":0.99,"attributes":{"product":"2022-23 Donruss Elite Basketball","season_start":2022,"season_end":2023,"semantic_type":"short_print_insert","visual_technology":"lenticular","scope_key":"donruss-elite-2022-23-next-up","not_cross_product_equivalent":true,"ssp_status":"reported_ssp_by_source","not_automatically_case_hit":true},"aliases":[]}
+  ],
+  "relations": [
+    {"subject":"donruss-elite-2223","relation_type":"manufactured_by","object":"panini","reason":"Panini's official product sheet identifies this as Donruss Elite Basketball.","source_key":"panini-donruss-elite-2223-hobby-sell-sheet","review_status":"approved","confidence":0.99},
+    {"subject":"donruss-elite-back-to-the-future-2223","relation_type":"available_in","object":"donruss-elite-2223","reason":"Beckett lists the ten-card Back to the Future insert and its ladder in this product.","source_key":"beckett-donruss-elite-2223-expansion","review_status":"approved","confidence":0.99},
+    {"subject":"donruss-elite-next-up-2223","relation_type":"available_in","object":"donruss-elite-2223","reason":"Beckett identifies Next Up as a lenticular SSP insert in this product.","source_key":"beckett-donruss-elite-2223-expansion","review_status":"approved","confidence":0.99}
+  ],
+  "applicability": [
+    {"entity":"donruss-elite-aspirations-2223","product":"donruss-elite-2223","season_start":2022,"season_end":2023,"status":"verified","review_status":"approved","source_key":"beckett-donruss-elite-2223-expansion","attributes":{"classification":"Product-season-specific die-cut parallel with card-dependent numbering; not a generic Aspirations record."}},
+    {"entity":"donruss-elite-next-up-2223","product":"donruss-elite-2223","season_start":2022,"season_end":2023,"status":"verified","review_status":"approved","source_key":"beckett-donruss-elite-2223-expansion","attributes":{"classification":"Lenticular SSP insert. The source does not establish case-hit equivalence."}}
+  ],
+  "coverage": [
+    {"manufacturer":"panini","product":"donruss-elite-2223","season_start":2022,"season_end":2023,"parallel":"donruss-elite-aspirations-2223","status":"covered","source_key":"beckett-donruss-elite-2223-expansion","notes":"Aspirations is product-scoped and print run varies by card."},
+    {"manufacturer":"panini","product":"donruss-elite-2223","season_start":2022,"season_end":2023,"parallel":"donruss-elite-status-2223","status":"covered","source_key":"beckett-donruss-elite-2223-expansion","notes":"Status is product-scoped and base/rookie run ranges differ."},
+    {"manufacturer":"panini","product":"donruss-elite-2223","season_start":2022,"season_end":2023,"parallel":"donruss-elite-base-elite-1-2223","status":"covered","source_key":"panini-donruss-elite-2223-hobby-sell-sheet","notes":"Official sheet confirms one-of-a-kind Base Elite parallel."},
+    {"manufacturer":"panini","product":"donruss-elite-2223","season_start":2022,"season_end":2023,"insert":"donruss-elite-back-to-the-future-2223","status":"covered","source_key":"beckett-donruss-elite-2223-expansion","notes":"Checklist size and insert-specific parallel ladder verified."},
+    {"manufacturer":"panini","product":"donruss-elite-2223","season_start":2022,"season_end":2023,"insert":"donruss-elite-next-up-2223","status":"covered","source_key":"beckett-donruss-elite-2223-expansion","notes":"Next Up is source-described as a lenticular SSP; not recorded as a case hit."},
+    {"manufacturer":"panini","product":"donruss-elite-2223","season_start":2022,"season_end":2023,"status":"partial","source_key":"beckett-donruss-elite-2223-expansion","notes":"Selected base endpoints and inserts verified; remaining autograph and insert matrix remains source-gated."}
+  ]
+}

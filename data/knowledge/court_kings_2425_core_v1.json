@@ -1,0 +1,346 @@
+{
+  "batch_key": "court-kings-2425-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2024-25 Panini Court Kings Basketball",
+    "2024-25 Court Kings First Steps",
+    "2024-25 Court Kings Blank Slate",
+    "2024-25 Court Kings Acetate Rookies",
+    "2024-25 Court Kings Rookies 0"
+  ],
+  "sources": [
+    {
+      "key": "beckett-court-kings-2425",
+      "title": "2024-25 Panini Court Kings Basketball Checklist, Teams, Box Info",
+      "url": "https://www.beckett.com/news/2024-25-panini-court-kings-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T17:32:00+08:00",
+      "metadata": {
+        "scope": "265-card checklist, hobby/international-blaster configuration, base/rookie levels, named inserts, selected memorabilia and base parallel constraints."
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "panini",
+      "entity_type": "manufacturer",
+      "canonical_name": "Panini",
+      "source_key": "beckett-court-kings-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "industry_roles": [
+          "manufacturer",
+          "brand",
+          "issuer"
+        ]
+      },
+      "aliases": []
+    },
+    {
+      "key": "court-kings-2425",
+      "entity_type": "product",
+      "canonical_name": "2024-25 Panini Court Kings Basketball",
+      "source_key": "beckett-court-kings-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Panini",
+        "brand": "Court Kings",
+        "season_start": 2024,
+        "season_end": 2025,
+        "league": "NBA",
+        "base_set_size": 265,
+        "design_theme": "art-inspired",
+        "hobby_configuration": {
+          "cards_per_pack": 10,
+          "packs_per_box": 1,
+          "autographs_per_box": 1,
+          "memorabilia_cards_per_box": 1
+        },
+        "international_blaster_configuration": {
+          "cards_per_pack": 6,
+          "packs_per_box": 6
+        },
+        "scope_key": "court-kings-2024-25"
+      },
+      "aliases": []
+    },
+    {
+      "key": "court-kings-rookies-i-2425",
+      "entity_type": "attribute",
+      "canonical_name": "2024-25 Court Kings Rookies I",
+      "source_key": "beckett-court-kings-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Panini Court Kings Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "rookie_base_level",
+        "card_number_range": "101-133",
+        "not_parallel": true,
+        "scope_key": "court-kings-2024-25-rookies-i"
+      },
+      "aliases": []
+    },
+    {
+      "key": "court-kings-rookies-zero-2425",
+      "entity_type": "attribute",
+      "canonical_name": "2024-25 Court Kings Rookies 0",
+      "source_key": "beckett-court-kings-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Panini Court Kings Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "rookie_base_level",
+        "card_number_range": "233-265",
+        "not_parallel": true,
+        "scope_key": "court-kings-2024-25-rookies-0"
+      },
+      "aliases": []
+    },
+    {
+      "key": "court-kings-ruby-149-2425",
+      "entity_type": "parallel",
+      "canonical_name": "2024-25 Court Kings Ruby /149",
+      "source_key": "beckett-court-kings-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Panini Court Kings Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "color": "Ruby",
+        "serial_numbered_to": 149,
+        "base_card_scope": "#1-100 only",
+        "scope_key": "court-kings-2024-25-ruby-149",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "court-kings-masterpiece-1-1-2425",
+      "entity_type": "parallel",
+      "canonical_name": "2024-25 Court Kings Masterpiece 1/1",
+      "source_key": "beckett-court-kings-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Panini Court Kings Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "serial_numbered_to": 1,
+        "base_card_scope": "#1-100 only",
+        "scope_key": "court-kings-2024-25-masterpiece",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "court-kings-first-steps-2425",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 Court Kings First Steps",
+      "source_key": "beckett-court-kings-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Panini Court Kings Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "rookie_insert",
+        "scope_key": "court-kings-2024-25-first-steps",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "court-kings-blank-slate-2425",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 Court Kings Blank Slate",
+      "source_key": "beckett-court-kings-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Panini Court Kings Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "insert",
+        "scope_key": "court-kings-2024-25-blank-slate",
+        "not_cross_product_equivalent": true,
+        "scarcity_status": "not_inferred"
+      },
+      "aliases": []
+    },
+    {
+      "key": "court-kings-acetate-rookies-2425",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 Court Kings Acetate Rookies",
+      "source_key": "beckett-court-kings-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Panini Court Kings Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "rookie_insert",
+        "card_material": "acetate",
+        "checklist_size": 33,
+        "distribution": "International blaster only",
+        "scope_key": "court-kings-2024-25-acetate-rookies",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "court-kings-art-nouveau-2425",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 Court Kings Art Nouveau",
+      "source_key": "beckett-court-kings-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Panini Court Kings Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "memorabilia_set",
+        "checklist_size": 25,
+        "scope_key": "court-kings-2024-25-art-nouveau",
+        "not_cross_product_equivalent": true,
+        "provenance_status": "not_inferred"
+      },
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {
+      "subject": "court-kings-2425",
+      "relation_type": "manufactured_by",
+      "object": "panini",
+      "reason": "Beckett identifies this as 2024-25 Panini Court Kings Basketball.",
+      "source_key": "beckett-court-kings-2425",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "court-kings-first-steps-2425",
+      "relation_type": "available_in",
+      "object": "court-kings-2425",
+      "reason": "Beckett checklist includes First Steps in this product.",
+      "source_key": "beckett-court-kings-2425",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "court-kings-blank-slate-2425",
+      "relation_type": "available_in",
+      "object": "court-kings-2425",
+      "reason": "Beckett checklist includes Blank Slate in this product.",
+      "source_key": "beckett-court-kings-2425",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "court-kings-acetate-rookies-2425",
+      "relation_type": "available_in",
+      "object": "court-kings-2425",
+      "reason": "Beckett lists 33 Acetate Rookies cards as International blaster only.",
+      "source_key": "beckett-court-kings-2425",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "court-kings-art-nouveau-2425",
+      "relation_type": "available_in",
+      "object": "court-kings-2425",
+      "reason": "Beckett lists the 25-card Art Nouveau memorabilia checklist.",
+      "source_key": "beckett-court-kings-2425",
+      "review_status": "approved",
+      "confidence": 0.99
+    }
+  ],
+  "applicability": [
+    {
+      "entity": "court-kings-ruby-149-2425",
+      "product": "court-kings-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-court-kings-2425",
+      "attributes": {
+        "classification": "base parallel only for cards #1-100; Ruby names elsewhere must not be merged."
+      }
+    },
+    {
+      "entity": "court-kings-acetate-rookies-2425",
+      "product": "court-kings-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-court-kings-2425",
+      "attributes": {
+        "classification": "International-blaster-only rookie insert, distinct from base rookie levels."
+      }
+    },
+    {
+      "entity": "court-kings-blank-slate-2425",
+      "product": "court-kings-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-court-kings-2425",
+      "attributes": {
+        "classification": "product-season insert; source does not establish an SSP or case-hit label."
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "manufacturer": "panini",
+      "product": "court-kings-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "insert": "court-kings-first-steps-2425",
+      "status": "covered",
+      "source_key": "beckett-court-kings-2425",
+      "notes": "First Steps product-season rookie insert verified."
+    },
+    {
+      "manufacturer": "panini",
+      "product": "court-kings-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "insert": "court-kings-blank-slate-2425",
+      "status": "covered",
+      "source_key": "beckett-court-kings-2425",
+      "notes": "Blank Slate scoped as an insert without unsupported scarcity claims."
+    },
+    {
+      "manufacturer": "panini",
+      "product": "court-kings-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "insert": "court-kings-acetate-rookies-2425",
+      "parallel": "court-kings-ruby-149-2425",
+      "status": "covered",
+      "source_key": "beckett-court-kings-2425",
+      "notes": "International blaster acetate-rookie insert and #1-100-only Ruby /149 base parallel verified."
+    },
+    {
+      "manufacturer": "panini",
+      "product": "court-kings-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "status": "partial",
+      "source_key": "beckett-court-kings-2425",
+      "notes": "Core product, selected rookie levels/inserts, configuration, memorabilia-set classification and selected base parallels are verified; full autograph and parallel matrices remain later work."
+    }
+  ]
+}

@@ -1,0 +1,222 @@
+{
+  "batch_key": "topps-three-2526-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2025-26 Topps Three Basketball",
+    "2025-26 Topps Three First Day Issue Rookie Patch Autographs",
+    "2025-26 Topps Three Monsters of Deep",
+    "2025-26 Topps Three #61 Cooper Flagg RC"
+  ],
+  "sources": [
+    {
+      "key": "topps-three-2526",
+      "title": "Topps Three Basketball",
+      "url": "https://www.topps.com/pages/topps-three-basketball",
+      "publisher": "Topps",
+      "source_type": "official_product",
+      "retrieved_at": "2026-07-28T20:15:00+08:00",
+      "metadata": {"scope": "Official 2025-26 Topps Three premium basketball product page."}
+    },
+    {
+      "key": "beckett-topps-three-2526",
+      "title": "2025-26 Topps Three Basketball Checklist",
+      "url": "https://www.beckett.com/news/2025-26-topps-three-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T20:15:00+08:00",
+      "metadata": {"scope": "Configuration, base checklist, First Day Issue RPA and selected insert/parallel evidence."}
+    },
+    {
+      "key": "topps-three-2526-jp",
+      "title": "2025-26 Topps Three Basketball product information",
+      "url": "https://jp.topps.com/pages/topps-three-basketball",
+      "publisher": "Topps",
+      "source_type": "official_product",
+      "retrieved_at": "2026-07-28T20:15:00+08:00",
+      "metadata": {"scope": "Official named insert and autograph/relic set lineup."}
+    }
+  ],
+  "entities": [
+    {
+      "key": "topps",
+      "entity_type": "manufacturer",
+      "canonical_name": "Topps",
+      "source_key": "topps-three-2526",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"industry_roles": ["manufacturer", "brand", "issuer"]},
+      "aliases": []
+    },
+    {
+      "key": "topps-three-2526",
+      "entity_type": "product",
+      "canonical_name": "2025-26 Topps Three Basketball",
+      "source_key": "topps-three-2526",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Topps",
+        "brand": "Topps Three",
+        "season_start": 2025,
+        "season_end": 2026,
+        "league": "NBA",
+        "nba_license_status": "fully_licensed",
+        "card_configuration": "four cards per hobby box: three autographs or autograph relics plus one base, parallel or insert",
+        "base_checklist_size": 100,
+        "product_distinction": "Ultra-premium Topps Three product, separate from Topps Midnight and Panini One and One."
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-three-fdi-rpa-2526",
+      "entity_type": "insert",
+      "canonical_name": "2025-26 Topps Three First Day Issue Rookie Patch Autographs",
+      "source_key": "beckett-topps-three-2526",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2025-26 Topps Three Basketball",
+        "season_start": 2025,
+        "season_end": 2026,
+        "semantic_type": "rookie_patch_autograph_set",
+        "distribution": "First Day Issue box exclusive",
+        "requires": ["RC", "AUTO", "Patch"],
+        "memorabilia_provenance_requires_card_specific_evidence": true,
+        "scope_key": "topps-three-2025-26-fdi-rpa",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-three-monsters-deep-2526",
+      "entity_type": "insert",
+      "canonical_name": "2025-26 Topps Three Monsters of Deep",
+      "source_key": "topps-three-2526-jp",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2025-26 Topps Three Basketball",
+        "season_start": 2025,
+        "season_end": 2026,
+        "semantic_type": "insert",
+        "scope_key": "topps-three-2025-26-monsters-of-deep",
+        "not_cross_product_equivalent": true,
+        "not_automatically_ssp": true,
+        "not_automatically_case_hit": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-three-base-platinum-2526",
+      "entity_type": "parallel",
+      "canonical_name": "2025-26 Topps Three Base Platinum",
+      "source_key": "beckett-topps-three-2526",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2025-26 Topps Three Basketball",
+        "season_start": 2025,
+        "season_end": 2026,
+        "parallel_scope": "base",
+        "hobby_pack_odds": "1:229",
+        "scope_key": "topps-three-2025-26-base-platinum",
+        "not_cross_product_equivalent": true,
+        "not_serial_number_inference": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-three-flag-cooper-61-2526",
+      "entity_type": "card",
+      "canonical_name": "2025-26 Topps Three #61 Cooper Flagg RC",
+      "source_key": "beckett-topps-three-2526",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2025-26 Topps Three Basketball",
+        "season_start": 2025,
+        "season_end": 2026,
+        "player": "Cooper Flagg",
+        "team": "Dallas Mavericks",
+        "card_number": "61",
+        "is_rookie_card": true,
+        "identity_status": "verified",
+        "image_reference_status": "pending_front_back_asset"
+      },
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {
+      "subject": "topps-three-2526",
+      "relation_type": "manufactured_by",
+      "object": "topps",
+      "reason": "Topps official product page identifies the 2025-26 Topps Three Basketball release.",
+      "source_key": "topps-three-2526",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "topps-three-fdi-rpa-2526",
+      "relation_type": "available_in",
+      "object": "topps-three-2526",
+      "reason": "Beckett identifies First Day Issue box-exclusive Rookie Patch Autographs in this product.",
+      "source_key": "beckett-topps-three-2526",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "topps-three-monsters-deep-2526",
+      "relation_type": "available_in",
+      "object": "topps-three-2526",
+      "reason": "Topps official product information names Monsters of Deep in the insert lineup.",
+      "source_key": "topps-three-2526-jp",
+      "review_status": "approved",
+      "confidence": 0.99
+    }
+  ],
+  "applicability": [
+    {
+      "entity": "topps-three-fdi-rpa-2526",
+      "product": "topps-three-2526",
+      "season_start": 2025,
+      "season_end": 2026,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-topps-three-2526",
+      "attributes": {"classification": "Product-season RPA set; physical-material provenance remains card-specific."}
+    }
+  ],
+  "coverage": [
+    {
+      "manufacturer": "topps",
+      "product": "topps-three-2526",
+      "season_start": 2025,
+      "season_end": 2026,
+      "insert": "topps-three-fdi-rpa-2526",
+      "status": "covered",
+      "source_key": "beckett-topps-three-2526",
+      "notes": "First Day Issue-exclusive RPA set is verified; no generic memorabilia provenance is inferred."
+    },
+    {
+      "manufacturer": "topps",
+      "product": "topps-three-2526",
+      "season_start": 2025,
+      "season_end": 2026,
+      "insert": "topps-three-monsters-deep-2526",
+      "status": "covered",
+      "source_key": "topps-three-2526-jp",
+      "notes": "Named insert verified, without unsourced SSP or case-hit classification."
+    },
+    {
+      "manufacturer": "topps",
+      "product": "topps-three-2526",
+      "season_start": 2025,
+      "season_end": 2026,
+      "status": "partial",
+      "source_key": "beckett-topps-three-2526",
+      "notes": "Product, configuration, 100-card base, selected RPA/insert/parallel evidence and Cooper Flagg RC verified; full checklist and parallel matrix remain pending."
+    }
+  ]
+}

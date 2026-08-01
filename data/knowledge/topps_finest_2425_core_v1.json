@@ -1,0 +1,395 @@
+{
+  "batch_key": "topps-finest-2425-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2024-25 Topps Finest Basketball",
+    "2024-25 Topps Finest Rare Tier",
+    "2024-25 Topps Finest Centurions",
+    "2024-25 Topps Finest The Man",
+    "2024-25 Topps Finest #83 Victor Wembanyama"
+  ],
+  "sources": [
+    {
+      "key": "topps-finest-2425-official",
+      "title": "2024-25 Topps Finest Basketball — Hobby Box",
+      "url": "https://www.topps.com/products/2024-25-topps-finest-basketball-hobby-box",
+      "publisher": "Topps",
+      "source_type": "official_product",
+      "retrieved_at": "2026-07-28T17:20:00+08:00",
+      "metadata": {
+        "scope": "Official product configuration, 300-card three-tier base set, inserts and explicit SSP case-hit wording."
+      }
+    },
+    {
+      "key": "beckett-topps-finest-2425",
+      "title": "2024-25 Topps Finest Basketball Checklist and Set Details",
+      "url": "https://www.beckett.com/news/2024-25-topps-finest-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T17:20:00+08:00",
+      "metadata": {
+        "scope": "300-card checklist, tier ranges, named inserts, autographs and selected player/card identity."
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "topps",
+      "entity_type": "manufacturer",
+      "canonical_name": "Topps",
+      "source_key": "topps-finest-2425-official",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "industry_roles": [
+          "manufacturer",
+          "issuer",
+          "brand"
+        ],
+        "parent_company": "Fanatics Collectibles"
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-2425",
+      "entity_type": "product",
+      "canonical_name": "2024-25 Topps Finest Basketball",
+      "source_key": "topps-finest-2425-official",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Topps",
+        "brand": "Topps Finest",
+        "season_start": 2024,
+        "season_end": 2025,
+        "league": "NBA",
+        "base_set_size": 300,
+        "card_technology": "chromium",
+        "hobby_configuration": {
+          "cards_per_pack": 10,
+          "packs_per_box": 6,
+          "autographs_per_box_average": 2
+        },
+        "base_tier_model": "Common, Uncommon, Rare",
+        "scope_key": "topps-finest-2024-25"
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-common-tier-2425",
+      "entity_type": "attribute",
+      "canonical_name": "2024-25 Topps Finest Common Tier",
+      "source_key": "beckett-topps-finest-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Topps Finest Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "base_tier",
+        "card_number_range": "1-100",
+        "not_parallel": true,
+        "scope_key": "topps-finest-2024-25-common-tier"
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-uncommon-tier-2425",
+      "entity_type": "attribute",
+      "canonical_name": "2024-25 Topps Finest Uncommon Tier",
+      "source_key": "beckett-topps-finest-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Topps Finest Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "base_tier",
+        "card_number_range": "101-200",
+        "not_parallel": true,
+        "scope_key": "topps-finest-2024-25-uncommon-tier"
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-rare-tier-2425",
+      "entity_type": "attribute",
+      "canonical_name": "2024-25 Topps Finest Rare Tier",
+      "source_key": "beckett-topps-finest-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Topps Finest Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "base_tier",
+        "card_number_range": "201-300",
+        "not_parallel": true,
+        "scope_key": "topps-finest-2024-25-rare-tier"
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-arrivals-2425",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 Topps Finest Arrivals",
+      "source_key": "topps-finest-2425-official",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Topps Finest Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "insert",
+        "scope_key": "topps-finest-2024-25-arrivals",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-debut-2425",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 Topps Finest Debut",
+      "source_key": "topps-finest-2425-official",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Topps Finest Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "insert",
+        "scope_key": "topps-finest-2024-25-debut",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-showstoppers-2425",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 Topps Finest Showstoppers",
+      "source_key": "topps-finest-2425-official",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Topps Finest Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "insert",
+        "scope_key": "topps-finest-2024-25-showstoppers",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-finishers-2425",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 Topps Finest Finishers",
+      "source_key": "topps-finest-2425-official",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Topps Finest Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "insert",
+        "scope_key": "topps-finest-2024-25-finishers",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-centurions-2425",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 Topps Finest Centurions",
+      "source_key": "topps-finest-2425-official",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Topps Finest Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "ssp_case_hit",
+        "explicit_ssp": true,
+        "explicit_case_hit": true,
+        "scope_key": "topps-finest-2024-25-centurions",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-the-man-2425",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 Topps Finest The Man",
+      "source_key": "topps-finest-2425-official",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Topps Finest Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "ssp_case_hit",
+        "explicit_ssp": true,
+        "explicit_case_hit": true,
+        "scope_key": "topps-finest-2024-25-the-man",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-wemby-83-2425",
+      "entity_type": "card",
+      "canonical_name": "2024-25 Topps Finest #83 Victor Wembanyama",
+      "source_key": "beckett-topps-finest-2425",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Topps Finest Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "player": "Victor Wembanyama",
+        "team": "San Antonio Spurs",
+        "card_number": "83",
+        "base_tier": "Common",
+        "is_rookie_card": false,
+        "identity_status": "verified",
+        "image_reference_status": "pending_front_back_asset"
+      },
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {
+      "subject": "topps-finest-2425",
+      "relation_type": "manufactured_by",
+      "object": "topps",
+      "reason": "Topps identifies this as a Topps Finest Basketball hobby product.",
+      "source_key": "topps-finest-2425-official",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "topps-finest-arrivals-2425",
+      "relation_type": "available_in",
+      "object": "topps-finest-2425",
+      "reason": "Topps lists Arrivals in the 2024-25 Finest lineup.",
+      "source_key": "topps-finest-2425-official",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "topps-finest-debut-2425",
+      "relation_type": "available_in",
+      "object": "topps-finest-2425",
+      "reason": "Topps lists Debut in the 2024-25 Finest lineup.",
+      "source_key": "topps-finest-2425-official",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "topps-finest-showstoppers-2425",
+      "relation_type": "available_in",
+      "object": "topps-finest-2425",
+      "reason": "Topps lists Showstoppers in the 2024-25 Finest lineup.",
+      "source_key": "topps-finest-2425-official",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "topps-finest-finishers-2425",
+      "relation_type": "available_in",
+      "object": "topps-finest-2425",
+      "reason": "Topps lists Finishers in the 2024-25 Finest lineup.",
+      "source_key": "topps-finest-2425-official",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "topps-finest-centurions-2425",
+      "relation_type": "available_in",
+      "object": "topps-finest-2425",
+      "reason": "Topps explicitly calls Centurions an SSP case hit for this release.",
+      "source_key": "topps-finest-2425-official",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "topps-finest-the-man-2425",
+      "relation_type": "available_in",
+      "object": "topps-finest-2425",
+      "reason": "Topps explicitly calls The Man an SSP case hit for this release.",
+      "source_key": "topps-finest-2425-official",
+      "review_status": "approved",
+      "confidence": 0.99
+    }
+  ],
+  "applicability": [
+    {
+      "entity": "topps-finest-rare-tier-2425",
+      "product": "topps-finest-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-topps-finest-2425",
+      "attributes": {
+        "classification": "product-season base tier, not a parallel."
+      }
+    },
+    {
+      "entity": "topps-finest-centurions-2425",
+      "product": "topps-finest-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "topps-finest-2425-official",
+      "attributes": {
+        "classification": "Topps explicitly describes this product-season insert as an SSP case hit; this evidence does not generalize to similarly named inserts."
+      }
+    },
+    {
+      "entity": "topps-finest-the-man-2425",
+      "product": "topps-finest-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "topps-finest-2425-official",
+      "attributes": {
+        "classification": "Topps explicitly describes this product-season insert as an SSP case hit; this evidence does not generalize to similarly named inserts."
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "manufacturer": "topps",
+      "product": "topps-finest-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "insert": "topps-finest-centurions-2425",
+      "status": "covered",
+      "source_key": "topps-finest-2425-official",
+      "notes": "Officially labeled an SSP case hit for this release."
+    },
+    {
+      "manufacturer": "topps",
+      "product": "topps-finest-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "insert": "topps-finest-the-man-2425",
+      "status": "covered",
+      "source_key": "topps-finest-2425-official",
+      "notes": "Officially labeled an SSP case hit for this release."
+    },
+    {
+      "manufacturer": "topps",
+      "product": "topps-finest-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "status": "partial",
+      "source_key": "beckett-topps-finest-2425",
+      "notes": "Base tiers, five named inserts, two explicitly SSP case hits, configuration and a Wembanyama identity are verified; complete Refractor matrix and autograph checklist remain later work."
+    }
+  ]
+}

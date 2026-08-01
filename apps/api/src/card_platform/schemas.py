@@ -1,10 +1,10 @@
 from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class ApiModel(BaseModel):
@@ -41,6 +41,21 @@ class CardIdentityInput(ApiModel):
     parallel_name: str | None = Field(default=None, max_length=180)
     is_rookie: bool = False
     is_autograph: bool = False
+    autograph_type: Literal["on_card", "sticker", "cut", "unknown", "none"] = "none"
+    has_inscription: bool = False
+    inscription_text: str | None = Field(default=None, max_length=500)
+    is_memorabilia: bool = False
+    memorabilia_types: list[str] = Field(default_factory=list)
+    memorabilia_usage: Literal[
+        "game_used",
+        "player_worn",
+        "event_worn",
+        "not_from_specific_game_or_event",
+        "manufactured",
+        "unknown",
+        "none",
+    ] = "none"
+    memorabilia_player: str | None = Field(default=None, max_length=160)
     is_patch: bool = False
     is_case_hit: bool = False
     print_run: int | None = Field(default=None, gt=0)
@@ -52,6 +67,28 @@ class CardIdentityInput(ApiModel):
             self.season_start + 1,
         }:
             raise ValueError("season_end must equal season_start or season_start + 1")
+        if self.inscription_text:
+            self.has_inscription = True
+        if self.has_inscription:
+            self.is_autograph = True
+        if not self.is_autograph:
+            self.autograph_type = "none"
+            self.has_inscription = False
+            self.inscription_text = None
+        elif self.autograph_type == "none":
+            self.autograph_type = "unknown"
+        if not self.has_inscription:
+            self.inscription_text = None
+        if self.is_patch:
+            self.is_memorabilia = True
+            if "patch" not in self.memorabilia_types:
+                self.memorabilia_types.append("patch")
+        if not self.is_memorabilia:
+            self.memorabilia_types = []
+            self.memorabilia_usage = "none"
+            self.memorabilia_player = None
+        elif self.memorabilia_usage == "none":
+            self.memorabilia_usage = "unknown"
         return self
 
 
@@ -62,6 +99,7 @@ class PurchaseInput(ApiModel):
     currency: str = Field(default="CNY", min_length=3, max_length=3)
     fx_rate_to_base: Decimal = Field(default=Decimal("1"), gt=0, max_digits=18, decimal_places=8)
     venue: str | None = Field(default=None, max_length=120)
+    external_order_id: str | None = Field(default=None, max_length=160)
     notes: str | None = None
 
 
@@ -122,6 +160,54 @@ class CreatedResource(ApiModel):
     id: UUID
 
 
+class CardHobbyOrderCapture(ApiModel):
+    external_order_id: str | None = Field(default=None, max_length=160)
+    cardhobby_item_id: str = Field(min_length=1, max_length=40)
+    item_url: str = Field(min_length=1, max_length=500)
+    title: str = Field(min_length=1, max_length=1000)
+    image_urls: list[str] = Field(default_factory=list, max_length=10)
+    purchased_at: datetime | None = None
+    sale_price: Decimal | None = Field(default=None, ge=0, max_digits=18, decimal_places=2)
+    shipping_price: Decimal = Field(default=Decimal("0"), ge=0, max_digits=18, decimal_places=2)
+    currency: str = Field(default="CNY", min_length=3, max_length=3)
+    raw_text: str | None = Field(default=None, max_length=10000)
+
+
+class CardHobbyImportPreviewRequest(ApiModel):
+    owner_id: UUID
+    source_url: str = Field(min_length=1, max_length=500)
+    orders: list[CardHobbyOrderCapture] = Field(min_length=1, max_length=100)
+
+
+class CardHobbyImportDraft(ApiModel):
+    id: UUID
+    duplicate: bool = False
+    status: str
+    capture: CardHobbyOrderCapture
+    proposed_item: CollectionItemCreate | None = None
+    warnings: list[str] = Field(default_factory=list)
+
+
+class CardHobbyImportPreviewResult(ApiModel):
+    batch_id: UUID
+    drafts: list[CardHobbyImportDraft]
+
+
+class CardHobbyImportConfirmation(ApiModel):
+    draft_id: UUID
+    item: CollectionItemCreate
+
+
+class CardHobbyImportConfirmRequest(ApiModel):
+    owner_id: UUID
+    items: list[CardHobbyImportConfirmation] = Field(min_length=1, max_length=100)
+
+
+class CardHobbyImportConfirmResult(ApiModel):
+    imported_item_ids: list[UUID] = Field(default_factory=list)
+    skipped_draft_ids: list[UUID] = Field(default_factory=list)
+
+
 class UserCreate(ApiModel):
     email: str = Field(min_length=3, max_length=320)
     display_name: str = Field(min_length=1, max_length=120)
@@ -143,6 +229,13 @@ class PortfolioItem(ApiModel):
     parallel_name: str | None
     is_rookie: bool
     is_autograph: bool
+    autograph_type: str
+    has_inscription: bool
+    inscription_text: str | None
+    is_memorabilia: bool
+    memorabilia_types: list[str]
+    memorabilia_usage: str
+    memorabilia_player: str | None
     is_patch: bool
     serial_number: int | None
     serial_total: int | None
@@ -163,6 +256,17 @@ class PortfolioItem(ApiModel):
     valuation_status: str | None = None
     valuation_job_id: UUID | None = None
     valuation_error: str | None = None
+    deleted_at: datetime | None = None
+    deleted_reason: str | None = None
+
+
+class CollectionItemDelete(ApiModel):
+    owner_id: UUID
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class CollectionItemOwnerAction(ApiModel):
+    owner_id: UUID
 
 
 class PortfolioSummary(ApiModel):
@@ -355,6 +459,16 @@ class MarketCompCreate(ApiModel):
     grade_value: Decimal | None = Field(default=None, ge=0, le=10)
     listing_title: str | None = None
     source_url: str | None = None
+    source_code: str = Field(
+        default="market_import",
+        pattern="^(market_import|cardhobby|ebay|130point|weikajia)$",
+    )
+    external_id: str | None = Field(default=None, max_length=300)
+    origin_source_code: str | None = Field(
+        default=None,
+        pattern="^(cardhobby|ebay|130point|weikajia)$",
+    )
+    source_reliability: Decimal | None = Field(default=None, ge=0, le=1)
     match_confidence: Decimal = Field(default=Decimal("0.8"), ge=0, le=1)
 
 
@@ -370,6 +484,10 @@ class MarketCompView(ApiModel):
     listing_title: str | None
     source_url: str | None
     match_confidence: Decimal | None
+    source_reliability: Decimal | None = None
+    similarity: Decimal | None = None
+    comparable_tier: str | None = None
+    classification: dict = Field(default_factory=dict)
 
 
 class MarketEstimateCreate(ApiModel):
@@ -417,15 +535,7 @@ class ImageUploadResult(ApiModel):
     image_url: str
 
 
-class CardWebCandidate(ApiModel):
-    title: str
-    source_urls: list[str] = Field(default_factory=list)
-    matching_fields: list[str] = Field(default_factory=list)
-    conflicts: list[str] = Field(default_factory=list)
-    match_confidence: Decimal = Field(ge=0, le=1)
-
-
-class CardRecognitionResult(ApiModel):
+class CardCandidateIdentity(ApiModel):
     player_name: str | None = None
     season_start: int | None = Field(default=None, ge=1940, le=2200)
     season_end: int | None = Field(default=None, ge=1940, le=2200)
@@ -436,18 +546,159 @@ class CardRecognitionResult(ApiModel):
     card_number: str | None = None
     serial_number: int | None = Field(default=None, gt=0)
     serial_total: int | None = Field(default=None, gt=0)
-    is_rookie: bool = False
-    is_autograph: bool = False
-    is_patch: bool = False
+    is_numbered: bool | None = None
+    grade_company: str | None = None
+    grade_value: Decimal | None = Field(default=None, ge=0, le=10)
+    is_rookie: bool | None = None
+    rookie_evidence: list[str] = Field(default_factory=list)
+    is_autograph: bool | None = None
+    autograph_type: Literal["on_card", "sticker", "cut", "unknown", "none"] | None = None
+    has_inscription: bool | None = None
+    inscription_text: str | None = None
+    is_memorabilia: bool | None = None
+    memorabilia_types: list[str] = Field(default_factory=list)
+    memorabilia_usage: Literal[
+        "game_used",
+        "player_worn",
+        "event_worn",
+        "not_from_specific_game_or_event",
+        "manufactured",
+        "unknown",
+        "none",
+    ] | None = None
+    memorabilia_player: str | None = None
+    is_patch: bool | None = None
+
+    @field_validator("rookie_evidence", "memorabilia_types", mode="before")
+    @classmethod
+    def normalize_list_fields(cls, value):
+        if value in (None, ""):
+            return []
+        return [value] if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def normalize_attributes(self):
+        if self.serial_number is not None or self.serial_total is not None:
+            self.is_numbered = True
+        if self.inscription_text:
+            self.has_inscription = True
+        if self.has_inscription is True:
+            self.is_autograph = True
+        if self.is_autograph is False:
+            self.autograph_type = "none"
+            self.has_inscription = False
+            self.inscription_text = None
+        elif self.is_autograph is True and self.autograph_type in {None, "none"}:
+            self.autograph_type = "unknown"
+        if self.is_memorabilia is False:
+            self.memorabilia_types = []
+            self.memorabilia_usage = "none"
+            self.memorabilia_player = None
+            self.is_patch = False
+        elif self.is_memorabilia is True and self.memorabilia_usage in {None, "none"}:
+            self.memorabilia_usage = "unknown"
+        if self.is_patch is True:
+            self.is_memorabilia = True
+            if "patch" not in self.memorabilia_types:
+                self.memorabilia_types.append("patch")
+        return self
+
+
+class CardWebCandidate(ApiModel):
+    title: str
+    identity: CardCandidateIdentity = Field(default_factory=CardCandidateIdentity)
+    source_urls: list[str] = Field(default_factory=list)
+    image_url: str | None = None
+    matching_fields: list[str] = Field(default_factory=list)
+    conflicts: list[str] = Field(default_factory=list)
+    match_confidence: Decimal = Field(ge=0, le=1)
+
+
+class CardRecognitionResult(ApiModel):
+    image_role: Literal["front", "back", "ad", "unknown"] = "unknown"
+    player_name: str | None = None
+    season_start: int | None = Field(default=None, ge=1940, le=2200)
+    season_end: int | None = Field(default=None, ge=1940, le=2200)
+    copyright_year: int | None = Field(default=None, ge=1940, le=2200)
+    brand_name: str | None = None
+    product_name: str | None = None
+    insert_name: str | None = None
+    parallel_name: str | None = None
+    card_number: str | None = None
+    serial_number: int | None = Field(default=None, gt=0)
+    serial_total: int | None = Field(default=None, gt=0)
+    is_numbered: bool | None = None
+    grade_company: str | None = None
+    grade_value: Decimal | None = Field(default=None, ge=0, le=10)
+    is_rookie: bool | None = None
+    rookie_evidence: list[str] = Field(default_factory=list)
+    is_autograph: bool | None = None
+    autograph_type: Literal["on_card", "sticker", "cut", "unknown", "none"] | None = None
+    has_inscription: bool | None = None
+    inscription_text: str | None = None
+    is_memorabilia: bool | None = None
+    memorabilia_types: list[str] = Field(default_factory=list)
+    memorabilia_usage: Literal[
+        "game_used",
+        "player_worn",
+        "event_worn",
+        "not_from_specific_game_or_event",
+        "manufactured",
+        "unknown",
+        "none",
+    ] | None = None
+    memorabilia_player: str | None = None
+    is_patch: bool | None = None
     confidence: Decimal = Field(ge=0, le=1)
     caveats: list[str] = Field(default_factory=list)
     search_queries: list[str] = Field(default_factory=list)
     field_evidence: dict[str, list[str]] = Field(default_factory=dict)
     web_candidates: list[CardWebCandidate] = Field(default_factory=list)
+    reference_image_front_url: str | None = None
+    reference_image_back_url: str | None = None
+    reference_image_source_url: str | None = None
+    reference_image_provider: str | None = None
+    reference_image_match_confidence: Decimal | None = Field(default=None, ge=0, le=1)
+
+    @field_validator("rookie_evidence", mode="before")
+    @classmethod
+    def normalize_rookie_evidence(cls, value):
+        if value in (None, ""):
+            return []
+        return [value] if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def normalize_card_attributes(self):
+        if self.serial_number is not None or self.serial_total is not None:
+            self.is_numbered = True
+        if self.inscription_text:
+            self.has_inscription = True
+        if self.has_inscription is True:
+            self.is_autograph = True
+        if self.is_autograph is False:
+            self.autograph_type = "none"
+            self.has_inscription = False
+            self.inscription_text = None
+        elif self.is_autograph is True and self.autograph_type in {None, "none"}:
+            self.autograph_type = "unknown"
+        if self.has_inscription is False:
+            self.inscription_text = None
+        if self.is_memorabilia is False:
+            self.memorabilia_types = []
+            self.memorabilia_usage = "none"
+            self.memorabilia_player = None
+            self.is_patch = False
+        elif self.is_memorabilia is True and self.memorabilia_usage in {None, "none"}:
+            self.memorabilia_usage = "unknown"
+        if self.is_patch is True:
+            self.is_memorabilia = True
+            if "patch" not in self.memorabilia_types:
+                self.memorabilia_types.append("patch")
+        return self
 
 
 class CardSearchEnrichment(ApiModel):
-    resolved_fields: dict[str, str | int | bool | None] = Field(default_factory=dict)
+    resolved_fields: dict[str, object] = Field(default_factory=dict)
     field_evidence: dict[str, list[str]] = Field(default_factory=dict)
     candidates: list[CardWebCandidate] = Field(default_factory=list)
     caveats: list[str] = Field(default_factory=list)

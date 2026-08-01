@@ -10,6 +10,8 @@ import httpx
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 
+from card_platform.knowledge import KnowledgeResolver
+
 
 CARDHOBBY_DOMAIN = "cardhobby.com.cn"
 CARDHOBBY_SEARCH_URL = "https://www.cardhobby.com.cn/NewCommodity/SearchCommodity"
@@ -31,6 +33,32 @@ PATCH_PATTERN = re.compile(r"球衣|物料|切割|patch|jersey|relic|\brpa\b", r
 MULTI_PLAYER_PATTERN = re.compile(
     r"双人|三人|四人|多人|双签|三签|四签|\bdual\b|\btriple\b|\bquad\b", re.I
 )
+CARDHOBBY_IMAGE_PATTERN = re.compile(
+    r"https://images\.cardhobby\.com/[^\"'<>?\s]+\.(?:jpe?g|png|webp)",
+    re.IGNORECASE,
+)
+PRODUCT_SEARCH_ALIASES = {
+    "national treasures": ("国宝", "National Treasures"),
+    "one and one": ("One and One", "One & One", "壹和壹"),
+    "one & one": ("One and One", "One & One", "壹和壹"),
+    "topps three": ("Topps 3",),
+    "topps 3": ("Topps 3",),
+    "court kings": ("油画", "Court Kings"),
+}
+PARALLEL_SEARCH_ALIASES = {
+    "silver": "银折",
+    "silver parallel": "银折",
+    "red": "红折",
+    "red parallel": "红折",
+    "blue": "蓝折",
+    "blue parallel": "蓝折",
+    "gold": "金折",
+    "gold parallel": "金折",
+    "green": "绿折",
+    "green parallel": "绿折",
+    "purple": "紫折",
+    "purple parallel": "紫折",
+}
 
 
 class CardHobbySale(BaseModel):
@@ -50,12 +78,46 @@ class CardHobbySale(BaseModel):
     matching_fields: list[str] = Field(default_factory=list)
     conflicts: list[str] = Field(default_factory=list)
     match_confidence: Decimal = Field(ge=0, le=1)
+    source_reliability: Decimal = Field(default=Decimal("0.70"), ge=0, le=1)
+    image_url: str | None = None
 
 
 class CardHobbySearchResult(BaseModel):
     search_queries: list[str] = Field(default_factory=list)
     sales: list[CardHobbySale] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
+
+
+class CardHobbyReferenceImages(BaseModel):
+    title: str
+    source_url: str
+    front_url: str
+    back_url: str | None = None
+    match_confidence: Decimal = Field(ge=0, le=1)
+
+
+def extract_cardhobby_images(html: str) -> list[str]:
+    return list(dict.fromkeys(CARDHOBBY_IMAGE_PATTERN.findall(html)))
+
+
+def is_exact_cardhobby_reference(identity: dict, sale: CardHobbySale) -> bool:
+    title = sale.title
+    required = (
+        identity.get("player_name"),
+        identity.get("product_name"),
+        identity.get("card_number"),
+    )
+    if any(value and not _contains_phrase(title, value) for value in required):
+        return False
+    season_start = identity.get("season_start")
+    season_end = identity.get("season_end")
+    season_tokens = {str(season_start)} if season_start else set()
+    if season_start and season_end:
+        season_tokens.add(f"{season_start}-{str(season_end)[-2:]}")
+    if season_tokens and not any(token in title for token in season_tokens):
+        return False
+    score, conflicts = assess_cardhobby_match(identity, sale)
+    return score >= Decimal("0.65") and not conflicts and bool(sale.image_url)
 
 
 def cardhobby_item_id(url: str) -> str | None:
@@ -125,13 +187,13 @@ def assess_cardhobby_match(identity: dict, sale: CardHobbySale) -> tuple[Decimal
         if item_id is not None:
             conflicts.append("商品详情页只能证明结束拍卖，不能证明交易完成")
             return Decimal("0"), conflicts
-        score_cap = Decimal("0.95")
+        source_reliability = Decimal("0.95")
     elif (
         sale.evidence_level == "ended_auction"
         and item_id is not None
         and (sale.bid_count or 0) > 0
     ):
-        score_cap = Decimal("0.70")
+        source_reliability = Decimal("0.70")
     else:
         conflicts.append("未证明为已确认交易或有出价的结束拍卖")
         return Decimal("0"), conflicts
@@ -183,6 +245,7 @@ def assess_cardhobby_match(identity: dict, sale: CardHobbySale) -> tuple[Decimal
     if season_start and season_end and season_end != season_start:
         season_tokens.update(
             {
+                str(season_end),
                 f"{season_start}-{str(season_end)[-2:]}",
                 f"{season_start}-{season_end}",
             }
@@ -207,7 +270,10 @@ def assess_cardhobby_match(identity: dict, sale: CardHobbySale) -> tuple[Decimal
     print_run = identity.get("serial_total") or identity.get("print_run")
     explicit_print_runs = {
         int(value)
-        for groups in re.findall(r"(?:/\s*(\d+)\b|\b(\d+)\s*编)", title)
+        for groups in re.findall(
+            r"(?:/\s*(\d+)(?!\d)|(?<!\d)(\d+)\s*[编遍])",
+            title,
+        )
         for value in groups
         if value
     }
@@ -215,7 +281,9 @@ def assess_cardhobby_match(identity: dict, sale: CardHobbySale) -> tuple[Decimal
         conflicts.append("明确限编与目标卡不一致")
         return Decimal("0"), conflicts
     if print_run and re.search(
-        rf"(?:/\s*{int(print_run)}\b|\b{int(print_run)}\s*编)", title, re.IGNORECASE
+        rf"(?:/\s*{int(print_run)}(?!\d)|(?<!\d){int(print_run)}\s*[编遍])",
+        title,
+        re.IGNORECASE,
     ):
         score += Decimal("0.08")
     if identity.get("is_autograph") and title_is_autograph:
@@ -223,16 +291,24 @@ def assess_cardhobby_match(identity: dict, sale: CardHobbySale) -> tuple[Decimal
     if identity.get("is_patch") and title_is_patch:
         score += Decimal("0.05")
 
-    return min(score, sale.match_confidence, score_cap), conflicts
+    sale.source_reliability = source_reliability
+    return min(score, Decimal("1")), conflicts
 
 
 class CardHobbyProvider:
     """Fetches CardHobby's public sold-item search, with model search as fallback."""
 
-    def __init__(self, client: AsyncOpenAI, model: str, timeout: float = 15.0) -> None:
+    def __init__(
+        self,
+        client: AsyncOpenAI,
+        model: str,
+        timeout: float = 15.0,
+        resolver: KnowledgeResolver | None = None,
+    ) -> None:
         self.client = client
         self.model = model
         self.timeout = timeout
+        self.resolver = resolver
 
     async def search(self, identity: dict) -> CardHobbySearchResult:
         try:
@@ -244,8 +320,48 @@ class CardHobbyProvider:
         fallback = await self._search_model(identity)
         return fallback.model_copy(update={"notes": [*direct.notes, *fallback.notes]})
 
+    async def reference_images(self, identity: dict) -> CardHobbyReferenceImages | None:
+        direct = await self._search_direct(identity)
+        exact = [sale for sale in direct.sales if is_exact_cardhobby_reference(identity, sale)]
+        if not exact:
+            return None
+        exact.sort(
+            key=lambda sale: (
+                _contains_phrase(sale.title, identity.get("card_number")),
+                sale.match_confidence,
+                sale.occurred_at,
+            ),
+            reverse=True,
+        )
+        sale = exact[0]
+        headers = {
+            "Referer": "https://www.cardhobby.com.cn/",
+            "User-Agent": "Mozilla/5.0 AppleWebKit/537.36 Chrome/139 Safari/537.36",
+        }
+        async with httpx.AsyncClient(
+            timeout=self.timeout, follow_redirects=True, headers=headers
+        ) as client:
+            response = await client.get(sale.source_url)
+            response.raise_for_status()
+        images = extract_cardhobby_images(response.text)
+        front_url = sale.image_url or (images[0] if images else None)
+        if not front_url:
+            return None
+        ordered = [front_url, *(url for url in images if url != front_url)]
+        return CardHobbyReferenceImages(
+            title=sale.title,
+            source_url=sale.source_url,
+            front_url=ordered[0],
+            back_url=ordered[1] if len(ordered) > 1 else None,
+            match_confidence=Decimal("0.98"),
+        )
+
     async def _search_direct(self, identity: dict) -> CardHobbySearchResult:
-        queries = self.build_queries(identity)
+        queries = (
+            [stage.query for stage in self.resolver.build_query_plan(identity)]
+            if self.resolver and self.resolver.entities
+            else self.build_queries(identity)
+        )
         headers = {
             "Accept": "application/json, text/plain, */*",
             "X-Requested-With": "XMLHttpRequest",
@@ -295,9 +411,67 @@ class CardHobbyProvider:
     def build_queries(identity: dict) -> list[str]:
         player = str(identity.get("player_name") or "").strip()
         product = str(identity.get("product_name") or "").strip()
-        specific = " ".join(part for part in (player, product) if part)
-        queries = [specific, player]
-        return list(dict.fromkeys(query for query in queries if query))
+        product_aliases = PRODUCT_SEARCH_ALIASES.get(
+            product.casefold(),
+            (product,),
+        )
+        print_run = identity.get("serial_total") or identity.get("print_run")
+        insert = str(identity.get("insert") or identity.get("insert_name") or "").strip()
+        card_type = (
+            "RPA"
+            if identity.get("is_autograph") and identity.get("is_patch")
+            else "AUTO"
+            if identity.get("is_autograph")
+            else "RC"
+            if identity.get("is_rookie")
+            else ""
+        )
+        season_start = identity.get("season_start")
+        season_end = identity.get("season_end")
+        season = (
+            f"{season_start}-{str(season_end)[-2:]}"
+            if season_start and season_end and season_start != season_end
+            else str(season_start or "")
+        )
+        serial = f"{int(print_run)}编" if print_run else ""
+        parallel = PARALLEL_SEARCH_ALIASES.get(
+            str(identity.get("parallel_name") or "").casefold(),
+            "",
+        )
+
+        def query(*parts: object) -> str:
+            return " ".join(str(part).strip() for part in parts if str(part).strip())
+
+        queries: list[str] = []
+        for alias in product_aliases:
+            # CardHobby behaves like an AND search. Start with four durable seller
+            # tokens, then progressively remove the least reliable constraints.
+            if insert:
+                queries.extend(
+                    [
+                        query(player, alias, insert, serial),
+                        query(player, insert, serial),
+                        query(player, insert),
+                    ]
+                )
+            queries.extend(
+                [
+                    query(player, season, serial, alias),
+                    query(player, alias, card_type, serial),
+                    query(player, season, alias),
+                    query(player, alias, parallel, serial),
+                    query(player, alias, serial),
+                    query(player, alias),
+                ]
+            )
+        queries.extend(
+            [
+                query(player, season, serial),
+                query(player, card_type, serial),
+                player,
+            ]
+        )
+        return list(dict.fromkeys(value for value in queries if value))[:12]
 
     @staticmethod
     def search_params(search_key: str, page_index: int) -> dict[str, str | int]:
@@ -368,6 +542,7 @@ class CardHobbyProvider:
             grade_value=grade_value,
             matching_fields=["cardhobby_status_sold", "cardhobby_bid_count"],
             match_confidence=Decimal("0.95"),
+            image_url=str(row.get("TitImg") or "").strip() or None,
         )
 
     async def _search_model(self, identity: dict) -> CardHobbySearchResult:

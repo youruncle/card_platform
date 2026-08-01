@@ -1,0 +1,58 @@
+{
+  "batch_key": "donruss-2223-insert-parallel-expansion-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2022-23 Panini Donruss Basketball",
+    "2022-23 Donruss Base Black Laser Holo 1/1",
+    "2022-23 Donruss Bomb Squad",
+    "2022-23 Donruss Magicians",
+    "2022-23 Donruss Animation #9 Paolo Banchero"
+  ],
+  "sources": [
+    {
+      "key": "beckett-donruss-2223-insert-parallel-expansion",
+      "title": "2022-23 Donruss Basketball Checklist, Box Info, Release Date",
+      "url": "https://www.beckett.com/news/2022-23-donruss-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-29T01:40:00+08:00",
+      "metadata": {"scope": "Base parallel ladder, Animation, Bomb Squad, Magicians and Paolo Banchero Animation #9 checklist identity."}
+    },
+    {
+      "key": "panini-donruss-2223-hobby-sell-sheet",
+      "title": "2022-23 Donruss Basketball Hobby Product Information Sheet",
+      "url": "https://blog.paniniamerica.net/wp-content/uploads/2023/03/22-23DonrussBK_PIS_Hobby.pdf",
+      "publisher": "Panini America",
+      "source_type": "official_product",
+      "retrieved_at": "2026-07-29T01:40:00+08:00",
+      "metadata": {"scope": "Official Donruss hobby configuration and listed product insert families."}
+    }
+  ],
+  "entities": [
+    {"key":"panini","entity_type":"manufacturer","canonical_name":"Panini","source_key":"beckett-donruss-2223-insert-parallel-expansion","review_status":"approved","confidence":0.99,"attributes":{"industry_roles":["manufacturer","brand","issuer"]},"aliases":[]},
+    {"key":"donruss-2223","entity_type":"product","canonical_name":"2022-23 Panini Donruss Basketball","source_key":"beckett-donruss-2223-insert-parallel-expansion","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","brand":"Donruss","season_start":2022,"season_end":2023,"league":"NBA","product_distinction":"Paper Donruss product; all insert and parallel facts in this batch exclude Donruss Optic."},"aliases":[]},
+    {"key":"donruss-base-black-laser-holo-1-2223","entity_type":"parallel","canonical_name":"2022-23 Donruss Base Black Laser Holo 1/1","source_key":"beckett-donruss-2223-insert-parallel-expansion","review_status":"approved","confidence":0.99,"attributes":{"product":"2022-23 Panini Donruss Basketball","parent_set":"Base","season_start":2022,"season_end":2023,"finish":"Laser Holo","color":"Black","serial_total":1,"scope_key":"donruss-2022-23-base","not_cross_product_equivalent":true,"not_automatically_ssp":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"donruss-bomb-squad-2223","entity_type":"insert","canonical_name":"2022-23 Donruss Bomb Squad","source_key":"beckett-donruss-2223-insert-parallel-expansion","review_status":"approved","confidence":0.99,"attributes":{"product":"2022-23 Panini Donruss Basketball","season_start":2022,"season_end":2023,"semantic_type":"insert","checklist_size":20,"parallel_ladder":"Purple Laser Holo /99; Pink Laser Holo /50; Yellow Laser Holo /25; Red and Blue Laser Holo /15","scope_key":"donruss-2022-23-bomb-squad","not_cross_product_equivalent":true,"not_automatically_ssp":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"donruss-magicians-2223","entity_type":"insert","canonical_name":"2022-23 Donruss Magicians","source_key":"beckett-donruss-2223-insert-parallel-expansion","review_status":"approved","confidence":0.99,"attributes":{"product":"2022-23 Panini Donruss Basketball","season_start":2022,"season_end":2023,"semantic_type":"insert","checklist_size":10,"parallel_ladder":"Purple Laser Holo /99; Pink Laser Holo /50; Yellow Laser Holo /25; Red and Blue Laser Holo /15","scope_key":"donruss-2022-23-magicians","not_cross_product_equivalent":true,"not_automatically_ssp":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"donruss-animation-2223","entity_type":"insert","canonical_name":"2022-23 Donruss Animation","source_key":"beckett-donruss-2223-insert-parallel-expansion","review_status":"approved","confidence":0.99,"attributes":{"product":"2022-23 Panini Donruss Basketball","season_start":2022,"season_end":2023,"semantic_type":"insert","checklist_size":10,"scope_key":"donruss-2022-23-animation","not_cross_product_equivalent":true,"not_automatically_ssp":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"donruss-animation-paolo-9-2223","entity_type":"card","canonical_name":"2022-23 Donruss Animation #9 Paolo Banchero","source_key":"beckett-donruss-2223-insert-parallel-expansion","review_status":"approved","confidence":0.99,"attributes":{"product":"2022-23 Panini Donruss Basketball","insert":"Animation","season_start":2022,"season_end":2023,"player":"Paolo Banchero","team":"Orlando Magic","card_number":"9","identity_status":"verified","not_rookie_card_inference":true,"image_reference_status":"source_page_reference"},"aliases":[]}
+  ],
+  "relations": [
+    {"subject":"donruss-2223","relation_type":"manufactured_by","object":"panini","reason":"Beckett and Panini's sell sheet identify 2022-23 Donruss Basketball as a Panini product.","source_key":"panini-donruss-2223-hobby-sell-sheet","review_status":"approved","confidence":0.99},
+    {"subject":"donruss-bomb-squad-2223","relation_type":"available_in","object":"donruss-2223","reason":"Beckett lists Bomb Squad as a 2022-23 Donruss insert with its own ladder.","source_key":"beckett-donruss-2223-insert-parallel-expansion","review_status":"approved","confidence":0.99},
+    {"subject":"donruss-animation-2223","relation_type":"available_in","object":"donruss-2223","reason":"Beckett lists the ten-card Animation insert in 2022-23 Donruss.","source_key":"beckett-donruss-2223-insert-parallel-expansion","review_status":"approved","confidence":0.99},
+    {"subject":"donruss-animation-paolo-9-2223","relation_type":"belongs_to","object":"donruss-animation-2223","reason":"Beckett lists Paolo Banchero as Animation #9.","source_key":"beckett-donruss-2223-insert-parallel-expansion","review_status":"approved","confidence":0.99}
+  ],
+  "applicability": [
+    {"entity":"donruss-base-black-laser-holo-1-2223","product":"donruss-2223","season_start":2022,"season_end":2023,"status":"verified","review_status":"approved","source_key":"beckett-donruss-2223-insert-parallel-expansion","attributes":{"classification":"Base-scoped Black Laser Holo 1/1; it is not a generic Black, Optic Holo, SSP, or case-hit record."}},
+    {"entity":"donruss-animation-2223","product":"donruss-2223","season_start":2022,"season_end":2023,"status":"verified","review_status":"approved","source_key":"beckett-donruss-2223-insert-parallel-expansion","attributes":{"classification":"Ten-card product-season insert; Paolo's insertion does not by itself establish a separate RC."}}
+  ],
+  "coverage": [
+    {"manufacturer":"panini","product":"donruss-2223","season_start":2022,"season_end":2023,"parallel":"donruss-base-black-laser-holo-1-2223","status":"covered","source_key":"beckett-donruss-2223-insert-parallel-expansion","notes":"Black Laser Holo 1/1 is verified only for the Donruss base rainbow."},
+    {"manufacturer":"panini","product":"donruss-2223","season_start":2022,"season_end":2023,"insert":"donruss-bomb-squad-2223","status":"covered","source_key":"beckett-donruss-2223-insert-parallel-expansion","notes":"Bomb Squad's 20-card checklist and scoped ladder verified."},
+    {"manufacturer":"panini","product":"donruss-2223","season_start":2022,"season_end":2023,"insert":"donruss-magicians-2223","status":"covered","source_key":"beckett-donruss-2223-insert-parallel-expansion","notes":"Magicians' ten-card checklist and scoped ladder verified."},
+    {"manufacturer":"panini","product":"donruss-2223","season_start":2022,"season_end":2023,"insert":"donruss-animation-2223","status":"covered","source_key":"beckett-donruss-2223-insert-parallel-expansion","notes":"Animation and Paolo Banchero #9 identity verified without RC/SSP/case-hit inference."},
+    {"manufacturer":"panini","product":"donruss-2223","season_start":2022,"season_end":2023,"status":"partial","source_key":"beckett-donruss-2223-insert-parallel-expansion","notes":"Selected base endpoint and three inserts are verified; remaining autograph and insert matrix stays source-gated."}
+  ]
+}

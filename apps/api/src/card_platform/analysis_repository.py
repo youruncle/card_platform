@@ -67,7 +67,7 @@ class AnalysisRepository:
                 FROM player_event
                 WHERE player_id = p.id AND occurred_at >= now() - interval '180 days'
             ) events ON true
-            WHERE ci.id = %s AND ci.owner_id = %s
+            WHERE ci.id = %s AND ci.owner_id = %s AND ci.deleted_at IS NULL
             """,
             (payload.currency.upper(), item_id, payload.owner_id),
         )
@@ -100,7 +100,7 @@ class AnalysisRepository:
                 """
                 SELECT ci.id
                 FROM collection_item ci
-                WHERE ci.id = %s AND ci.owner_id = %s
+                WHERE ci.id = %s AND ci.owner_id = %s AND ci.deleted_at IS NULL
                 FOR UPDATE
                 """,
                 (item_id, payload.owner_id),

@@ -1,0 +1,260 @@
+{
+  "campaign": "codex-cardhobby-image-text-1000",
+  "target_samples": 1000,
+  "batch_size": 100,
+  "batch_count": 10,
+  "status": "batch_6_collected_pending_prediction",
+  "completed_samples": 500,
+  "resume_from_batch": 6,
+  "resume_pipeline_version": "image-v5.0.0",
+  "active_batch": {
+    "number": 6,
+    "batch_id": "ef2f66fc-254b-499f-b54d-ce5a14ae235b",
+    "sample_count": 100,
+    "prediction_count": 0,
+    "assisted_label_count": 0,
+    "resume_action": "run sampling audit, then start image-v5.0.0 prediction"
+  },
+  "source_scope": {
+    "provider": "cardhobby",
+    "sport": "Basketball",
+    "category": "single_card",
+    "status": "sold",
+    "minimum_price_cny_exclusive": 20,
+    "max_samples_per_seller": 2
+  },
+  "truth_policy": {
+    "type": "machine_assisted_training_only",
+    "blind_prediction_before_source_reveal": true,
+    "inputs": [
+      "card images",
+      "CardHobby listing title",
+      "CardHobby sold-item metadata"
+    ],
+    "private_chain_of_thought_stored": false,
+    "auditable_evidence_and_short_reason_stored": true,
+    "human_acceptance_claim": false,
+    "parallel_taxonomy": "canonical_color_v2"
+  },
+  "batches": [
+    {
+      "number": 1,
+      "batch_id": "8cea7592-0a94-4128-aec5-1ee2f529061a",
+      "pipeline_version": "image-v4.5.0",
+      "sample_count": 100,
+      "sampling_conforms": true,
+      "prediction_failures": 0,
+      "label_counts": {
+        "top1_correct": 42,
+        "top2_correct": 2,
+        "top3_correct": 1,
+        "none_correct": 53,
+        "insufficient_image": 1,
+        "source_error": 1
+      },
+      "scored_count": 98,
+      "provisional_top1_accuracy": 0.4286,
+      "provisional_top3_recall": 0.4592,
+      "mean_assisted_confidence": 0.9439,
+      "primary_error_angles": [
+        {"field": "parallel_name", "errors": 32},
+        {"field": "season_start", "errors": 19},
+        {"field": "season_end", "errors": 19},
+        {"field": "serial_total", "errors": 5},
+        {"field": "product_name", "errors": 5},
+        {"field": "memorabilia_types", "errors": 4}
+      ],
+      "reflection": [
+        "RC evidence wording is provenance, not an exact-card identity key.",
+        "English color words matching player surnames must not create parallel labels.",
+        "Generic jersey cutouts are memorabilia but are not automatically patches.",
+        "Cross-year season, color parallel and explicit serial fractions need stronger priority.",
+        "Non-basketball leakage must be marked source_error."
+      ],
+      "changes_for_next_batch": [
+        "Added auditable source-assisted truth rules and tests.",
+        "Added non-basketball and lot source-error gates.",
+        "Added machine-training card entities to future catalog retrieval.",
+        "Advanced recognition pipeline to image-v4.6.0.",
+        "Promoted 89 high-confidence exact CardHobby sales into the machine evidence layer after taxonomy normalization.",
+        "Verified zero cross-identity sale conflicts for the batch."
+      ]
+    },
+    {
+      "number": 2,
+      "batch_id": "8730d310-9460-41ec-aad0-22632cdf3bfb",
+      "pipeline_version": "image-v4.6.0",
+      "sample_count": 100,
+      "sampling_conforms": true,
+      "overlap_with_previous_batches": 0,
+      "prediction_failures": 0,
+      "label_counts": {
+        "top1_correct": 46,
+        "top2_correct": 0,
+        "top3_correct": 0,
+        "none_correct": 52,
+        "insufficient_image": 2,
+        "source_error": 0
+      },
+      "scored_count": 98,
+      "provisional_top1_accuracy": 0.4694,
+      "provisional_top3_recall": 0.4694,
+      "mean_assisted_confidence": 0.9243,
+      "primary_error_angles": [
+        {"field": "season_start", "errors": 23},
+        {"field": "season_end", "errors": 23},
+        {"field": "parallel_name", "errors": 25},
+        {"field": "memorabilia_types", "errors": 6},
+        {"field": "product_name", "errors": 5},
+        {"field": "serial_total", "errors": 5}
+      ],
+      "reflection": [
+        "Exact-card memorization did not generalize across mostly unique players/cards.",
+        "Adjacent-season errors caused by copyright/release-year ambiguity remain the largest addressable Top-3 gap.",
+        "Product-scoped parallel knowledge is more reusable than whole-card memorization.",
+        "Machine metrics remain training diagnostics and are not acceptance proof."
+      ],
+      "changes_for_next_batch": [
+        "Added adjacent season +1/-1 structured Top-3 candidates.",
+        "Advanced recognition pipeline to image-v4.7.0.",
+        "Promoted 78 high-confidence exact CardHobby sales into the machine evidence layer.",
+        "Verified zero cross-identity sale conflicts for the batch."
+      ]
+    },
+    {
+      "number": 3,
+      "batch_id": "a8ff943e-21c1-4c94-bc6d-5dcea7f30ca8",
+      "pipeline_version": "image-v4.7.0",
+      "sample_count": 100,
+      "sampling_conforms": true,
+      "overlap_with_previous_batches": 0,
+      "prediction_failures": 0,
+      "label_counts": {
+        "top1_correct": 36,
+        "top2_correct": 0,
+        "top3_correct": 0,
+        "none_correct": 64,
+        "insufficient_image": 0,
+        "source_error": 0
+      },
+      "scored_count": 100,
+      "provisional_top1_accuracy": 0.36,
+      "provisional_top3_recall": 0.36,
+      "mean_assisted_confidence": 0.9454,
+      "primary_error_angles": [
+        {"field": "parallel_name", "errors": 35},
+        {"field": "season_end", "errors": 21},
+        {"field": "season_start", "errors": 20},
+        {"field": "memorabilia_types", "errors": 10},
+        {"field": "product_name", "errors": 8},
+        {"field": "autograph_type", "errors": 4}
+      ],
+      "reflection": [
+        "The adjacent-season candidates existed but were appended after both Top-3 slots were already consumed.",
+        "Whole-card memory again showed little transfer to unique items.",
+        "Parallel identity and memorabilia subtype remain the largest reusable knowledge gaps.",
+        "Batch orchestration stopped after prediction because auto-label/evidence stages were not chained."
+      ],
+      "changes_for_next_batch": [
+        "Reserved one Top-3 slot for the highest-confidence adjacent-season alternative.",
+        "Advanced recognition pipeline to image-v4.8.0.",
+        "Added a durable batch runner chaining prediction, retry, Codex labeling and evidence promotion.",
+        "Promoted 86 high-confidence exact CardHobby sales into the machine evidence layer."
+      ]
+    },
+    {
+      "number": 4,
+      "batch_id": "9fcf3951-194b-48f3-bedc-6dffc3e70eae",
+      "pipeline_version": "image-v4.8.0",
+      "sample_count": 100,
+      "sampling_conforms": true,
+      "overlap_with_previous_batches": 0,
+      "prediction_failures": 0,
+      "label_counts": {
+        "top1_correct": 38,
+        "top2_correct": 1,
+        "top3_correct": 2,
+        "none_correct": 55,
+        "insufficient_image": 4,
+        "source_error": 0
+      },
+      "scored_count": 96,
+      "provisional_top1_accuracy": 0.3958,
+      "provisional_top3_recall": 0.4271,
+      "mean_assisted_confidence": 0.919,
+      "primary_error_angles": [
+        {"field": "parallel_name", "errors": 26},
+        {"field": "season_end", "errors": 17},
+        {"field": "season_start", "errors": 14},
+        {"field": "serial_total", "errors": 12},
+        {"field": "product_name", "errors": 9},
+        {"field": "memorabilia_types", "errors": 8}
+      ],
+      "reflection": [
+        "Parallel identity and season ambiguity remain the largest reusable recognition gaps.",
+        "Serial numbering errors increased and should be separated into OCR misses versus checklist misses.",
+        "Waiting for all 100 predictions before source-assisted labeling wastes wall-clock time without improving blind-test integrity.",
+        "Incremental labeling is safe only when current-batch labels are excluded from every prediction job in that batch."
+      ],
+      "changes_for_next_batch": [
+        "Added incremental ready-only Codex labeling while prediction jobs are still running.",
+        "Excluded the current batch from machine-training catalog retrieval to prevent label leakage across prediction chunks.",
+        "Kept final batch metrics calculation as a whole-batch operation after all predictions finish.",
+        "Promoted 85 high-confidence exact CardHobby sales into the machine evidence layer after taxonomy normalization.",
+        "Advanced recognition pipeline to image-v4.9.0 after completing the batch-level optimization loop.",
+        "Added copyright-anchored season alternatives for college-record and career-year pollution; targeted replay recovered four former Top-3 misses as Top-2 candidates.",
+        "Normalized Topps base Refractor to the training taxonomy Silver; all four affected batch samples had Silver truth and one recovered exact Top-1 with no observed rule regression.",
+        "Added a lower-right high-resolution serial-number crop; serial OCR now covers upper-right, lower-left and lower-right placements.",
+        "Kept Top-1 conservative after an initial aggressive rule replay showed regressions; copyright ambiguity is exposed in Top-3 instead of overwriting the primary identity.",
+        "Validated v4.9 with 92 recognition and benchmark regression tests."
+      ]
+    },
+    {
+      "number": 5,
+      "batch_id": "99580a0b-ec2e-4d39-9bb0-4a96e2c5f5e6",
+      "pipeline_version": "image-v4.9.0",
+      "sample_count": 100,
+      "sampling_conforms": true,
+      "overlap_with_previous_batches": 0,
+      "prediction_failures": 0,
+      "label_counts": {
+        "top1_correct": 35,
+        "top2_correct": 1,
+        "top3_correct": 0,
+        "none_correct": 61,
+        "insufficient_image": 3,
+        "source_error": 0
+      },
+      "scored_count": 97,
+      "provisional_top1_accuracy": 0.3608,
+      "provisional_top3_recall": 0.3711,
+      "mean_assisted_confidence": 0.9414,
+      "primary_error_angles": [
+        {"field": "parallel_name", "errors": 32},
+        {"field": "season_end", "errors": 18},
+        {"field": "season_start", "errors": 17},
+        {"field": "product_name", "errors": 9},
+        {"field": "serial_total", "errors": 8},
+        {"field": "memorabilia_types", "errors": 4}
+      ],
+      "reflection": [
+        "v4.9 did not generalize: Top-1 and Top-3 fell to 36.08% and 37.11% on a zero-overlap batch.",
+        "Parallel errors were dominated by taxonomy pollution: product logos and finish words were stored as parallel names instead of canonical colors.",
+        "Machine truth itself used inconsistent full-finish versus color-only parallel names, invalidating earlier cross-batch comparisons.",
+        "Strict season and exact-card identity remain major unsolved errors; no unvalidated retrieval heuristic was promoted.",
+        "Long collection requests exposed retry idempotency and concurrent top-up races."
+      ],
+      "changes_for_next_batch": [
+        "Advanced recognition pipeline to image-v5.0.0.",
+        "Unified source-assisted truth and prediction parallel taxonomy to canonical colors.",
+        "Normalized compound names such as Gold Refractor, Sky Blue Refractor and Blue Prizm to Gold or Blue.",
+        "Cleared generic Prizm, Prizm Black and Obsidian product-logo pollution when no concrete color or pattern was identified.",
+        "Strengthened the vision prompt so product logos and card tiers cannot populate parallel_name.",
+        "Backtested all 500 samples: 32 wrong parallel fields became correct, 22 remained wrong and zero correct fields regressed.",
+        "Added same-name collection idempotency, advisory locks and target-size caps for concurrent top-ups.",
+        "Promoted 87 high-confidence exact CardHobby sales into the machine evidence layer.",
+        "Validated v5.0 and the normalized labeler with 100 regression tests."
+      ]
+    }
+  ]
+}

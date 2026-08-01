@@ -1,0 +1,41 @@
+{
+  "batch_key": "select-wnba-2025-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2025 Panini Select WNBA",
+    "2025 Panini Select WNBA Black Color Blast",
+    "2025 Panini Select WNBA Concourse Tiger Prizms",
+    "2025 Panini Select WNBA Courtside #242 Caitlin Clark",
+    "2025 Panini Select WNBA Black Color Blast #7 Caitlin Clark"
+  ],
+  "sources": [
+    {"key":"panini-select-wnba-2025-mega","title":"2025 Panini Select WNBA Trading Card Box (Hobby Mega Box)","url":"https://www.paniniamerica.net/2025-panini-select-wnba-trading-card-box-hobby-mega-box","publisher":"Panini America","source_type":"official_product","retrieved_at":"2026-07-28T23:48:00+08:00","metadata":{"scope":"Official WNBA Select product identity and Green Ice, Tiger and numbered parallel statements."}},
+    {"key":"panini-select-wnba-2025-blog","title":"Tune In: 2025 Panini Select WNBA Hits Every Frequency","url":"https://blog.paniniamerica.net/tune-in-2025-panini-select-wnba-hits-every-frequency/","publisher":"Panini America","source_type":"official_product","retrieved_at":"2026-07-28T23:48:00+08:00","metadata":{"scope":"Official Select WNBA overview: product configuration and explicit SSP semantics for Zebra and Black Color Blast."}},
+    {"key":"beckett-select-wnba-2025","title":"2025 Panini Select WNBA Checklist","url":"https://www.beckett.com/news/2025-panini-select-wnba-basketball-cards/","publisher":"Beckett","source_type":"beckett_checklist","retrieved_at":"2026-07-28T23:48:00+08:00","metadata":{"scope":"Full 250-card tiered checklist, product-specific parallels and Caitlin Clark Courtside/Black Color Blast identities."}}
+  ],
+  "entities": [
+    {"key":"panini","entity_type":"manufacturer","canonical_name":"Panini","source_key":"panini-select-wnba-2025-mega","review_status":"approved","confidence":0.99,"attributes":{"industry_roles":["manufacturer","brand","issuer"]},"aliases":[]},
+    {"key":"select","entity_type":"brand","canonical_name":"Select","source_key":"panini-select-wnba-2025-mega","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","semantic_scope":"tiered chromium trading-card product brand"},"aliases":[]},
+    {"key":"select-wnba-2025","entity_type":"product","canonical_name":"2025 Panini Select WNBA","source_key":"beckett-select-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","brand":"Select","year":2025,"league":"WNBA","base_checklist_size":250,"base_structure":"Concourse #1-100; Premier Level #101-200; Courtside #201-250","hobby_box_configuration":"3 autographs or memorabilia cards and 12 Prizm parallels","product_distinction":"WNBA product-season with tiered base and parallel matrix distinct from NBA, EuroLeague and other Select products."},"aliases":[]},
+    {"key":"select-wnba-black-color-blast-2025","entity_type":"insert","canonical_name":"2025 Panini Select WNBA Black Color Blast","source_key":"panini-select-wnba-2025-blog","review_status":"approved","confidence":0.99,"attributes":{"product":"2025 Panini Select WNBA","year":2025,"semantic_type":"SSP_insert","checklist_size":10,"rarity_description":"SSP","scope_key":"select-wnba-2025-black-color-blast","not_cross_product_equivalent":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"select-wnba-concourse-tiger-2025","entity_type":"parallel","canonical_name":"2025 Panini Select WNBA Concourse Tiger Prizms","source_key":"beckett-select-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"product":"2025 Panini Select WNBA","year":2025,"parallel_scope":"Concourse #1-100","rarity_description":"super rare","visual_features":["tiger pattern"],"scope_key":"select-wnba-2025-concourse-tiger","not_cross_product_equivalent":true,"not_automatically_ssp":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"select-wnba-courtside-clark-caitlin-242-2025","entity_type":"card","canonical_name":"2025 Panini Select WNBA Courtside #242 Caitlin Clark","source_key":"beckett-select-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"product":"2025 Panini Select WNBA","base_tier":"Courtside","year":2025,"player":"Caitlin Clark","team":"Indiana Fever","card_number":"242","identity_status":"verified","not_rookie_card_inference":true,"image_reference_status":"pending_front_back_asset"},"aliases":[]},
+    {"key":"select-wnba-black-color-blast-clark-caitlin-7-2025","entity_type":"card","canonical_name":"2025 Panini Select WNBA Black Color Blast #7 Caitlin Clark","source_key":"beckett-select-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"product":"2025 Panini Select WNBA","insert":"2025 Panini Select WNBA Black Color Blast","year":2025,"player":"Caitlin Clark","team":"Indiana Fever","card_number":"7","identity_status":"verified","not_rookie_card_inference":true,"image_reference_status":"pending_front_back_asset"},"aliases":[]}
+  ],
+  "relations": [
+    {"subject":"select-wnba-2025","relation_type":"manufactured_by","object":"panini","reason":"Panini and Beckett identify the product as 2025 Panini Select WNBA.","source_key":"panini-select-wnba-2025-mega","review_status":"approved","confidence":0.99},
+    {"subject":"select-wnba-black-color-blast-2025","relation_type":"available_in","object":"select-wnba-2025","reason":"Panini explicitly identifies Black Color Blast as an SSP insert in 2025 Select WNBA; Beckett provides its 10-card checklist.","source_key":"panini-select-wnba-2025-blog","review_status":"approved","confidence":0.99},
+    {"subject":"select-wnba-courtside-clark-caitlin-242-2025","relation_type":"belongs_to","object":"select-wnba-2025","reason":"Beckett's Courtside checklist identifies Caitlin Clark as #242.","source_key":"beckett-select-wnba-2025","review_status":"approved","confidence":0.99},
+    {"subject":"select-wnba-black-color-blast-clark-caitlin-7-2025","relation_type":"belongs_to","object":"select-wnba-black-color-blast-2025","reason":"Beckett's Black Color Blast checklist identifies Caitlin Clark as #7.","source_key":"beckett-select-wnba-2025","review_status":"approved","confidence":0.99}
+  ],
+  "applicability": [
+    {"entity":"select-wnba-black-color-blast-2025","product":"select-wnba-2025","season_start":2025,"season_end":2025,"status":"verified","review_status":"approved","source_key":"panini-select-wnba-2025-blog","attributes":{"classification":"Product-season SSP insert. Case-hit status is not inferred from the source."}},
+    {"entity":"select-wnba-concourse-tiger-2025","product":"select-wnba-2025","season_start":2025,"season_end":2025,"status":"verified","review_status":"approved","source_key":"beckett-select-wnba-2025","attributes":{"classification":"Concourse-only Tiger pattern parallel. 'Super rare' is not converted into SSP or case-hit without explicit evidence."}}
+  ],
+  "coverage": [
+    {"manufacturer":"panini","product":"select-wnba-2025","season_start":2025,"season_end":2025,"insert":"select-wnba-black-color-blast-2025","status":"covered","source_key":"beckett-select-wnba-2025","notes":"Black Color Blast SSP and Caitlin Clark #7 identity verified at product-season scope; case-hit status is not inferred."},
+    {"manufacturer":"panini","product":"select-wnba-2025","season_start":2025,"season_end":2025,"parallel":"select-wnba-concourse-tiger-2025","status":"covered","source_key":"beckett-select-wnba-2025","notes":"Tiger pattern is scoped to Concourse only and retained as super rare rather than automatically SSP/case hit."},
+    {"manufacturer":"panini","product":"select-wnba-2025","season_start":2025,"season_end":2025,"status":"partial","source_key":"beckett-select-wnba-2025","notes":"Tiered product/base, selected SSP and parallel semantics, plus two Caitlin Clark identities verified; remaining autograph, relic, insert and tier-specific parallel matrix is pending."}
+  ]
+}

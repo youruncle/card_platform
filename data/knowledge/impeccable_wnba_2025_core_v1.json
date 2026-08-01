@@ -1,0 +1,42 @@
+{
+  "batch_key": "impeccable-wnba-2025-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2025 Panini Impeccable WNBA",
+    "2025 Panini Impeccable WNBA Base Platinum /1",
+    "2025 Panini Impeccable WNBA Stainless Stars",
+    "2025 Panini Impeccable WNBA Elegance Jersey Autographs",
+    "2025 Panini Impeccable WNBA Stainless Stars #23 Caitlin Clark"
+  ],
+  "sources": [
+    {"key":"beckett-impeccable-wnba-2025","title":"2025 Panini Impeccable WNBA Checklist","url":"https://www.beckett.com/news/2025-panini-impeccable-wnba-cards/","publisher":"Beckett","source_type":"beckett_checklist","retrieved_at":"2026-07-28T23:18:00+08:00","metadata":{"scope":"Full WNBA product checklist: product configuration, on-card autograph concept, base/parallel, selected autograph/relic sets, Stainless Stars and Caitlin Clark identity."}}
+  ],
+  "entities": [
+    {"key":"panini","entity_type":"manufacturer","canonical_name":"Panini","source_key":"beckett-impeccable-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"industry_roles":["manufacturer","brand","issuer"]},"aliases":[]},
+    {"key":"impeccable","entity_type":"brand","canonical_name":"Impeccable","source_key":"beckett-impeccable-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","semantic_scope":"premium trading-card product brand"},"aliases":[]},
+    {"key":"impeccable-wnba-2025","entity_type":"product","canonical_name":"2025 Panini Impeccable WNBA","source_key":"beckett-impeccable-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","brand":"Impeccable","year":2025,"league":"WNBA","base_checklist_size":100,"base_serial_total":75,"hobby_box_configuration":"9 cards: 5 autographs, 3 base or base parallels, and 1 special insert","product_distinction":"First Impeccable WNBA product; distinct from NBA and other-sport Impeccable product seasons."},"aliases":[]},
+    {"key":"impeccable-wnba-base-platinum-1of1-2025","entity_type":"parallel","canonical_name":"2025 Panini Impeccable WNBA Base Platinum /1","source_key":"beckett-impeccable-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"product":"2025 Panini Impeccable WNBA","year":2025,"parallel_scope":"base","serial_total":1,"scope_key":"impeccable-wnba-2025-base-platinum","not_cross_product_equivalent":true},"aliases":[]},
+    {"key":"impeccable-wnba-stainless-stars-2025","entity_type":"insert","canonical_name":"2025 Panini Impeccable WNBA Stainless Stars","source_key":"beckett-impeccable-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"product":"2025 Panini Impeccable WNBA","year":2025,"semantic_type":"metal_insert","material":"metal","checklist_size":25,"base_serial_total":99,"scope_key":"impeccable-wnba-2025-stainless-stars","not_cross_product_equivalent":true,"not_automatically_ssp":true},"aliases":[]},
+    {"key":"impeccable-wnba-elegance-jersey-autos-2025","entity_type":"insert","canonical_name":"2025 Panini Impeccable WNBA Elegance Jersey Autographs","source_key":"beckett-impeccable-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"product":"2025 Panini Impeccable WNBA","year":2025,"semantic_type":"autograph_relic_set","requires":["AUTO","Relic"],"memorabilia_provenance_requires_card_specific_evidence":true,"scope_key":"impeccable-wnba-2025-elegance-jersey-autographs","not_cross_product_equivalent":true},"aliases":[]},
+    {"key":"impeccable-wnba-jersey-number-autos-2025","entity_type":"insert","canonical_name":"2025 Panini Impeccable WNBA Impeccable Jersey Number Autographs","source_key":"beckett-impeccable-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"product":"2025 Panini Impeccable WNBA","year":2025,"semantic_type":"on_card_autograph_set","autograph_format":"on_card","visual_features":["holographic foil player uniform number above signature"],"not_a_relic_inference":true,"scope_key":"impeccable-wnba-2025-jersey-number-autographs","not_cross_product_equivalent":true},"aliases":[]},
+    {"key":"impeccable-wnba-stainless-stars-clark-caitlin-23-2025","entity_type":"card","canonical_name":"2025 Panini Impeccable WNBA Stainless Stars #23 Caitlin Clark","source_key":"beckett-impeccable-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"product":"2025 Panini Impeccable WNBA","insert":"2025 Panini Impeccable WNBA Stainless Stars","year":2025,"player":"Caitlin Clark","team":"Indiana Fever","card_number":"23","serial_total":99,"identity_status":"verified","not_rookie_card_inference":true,"image_reference_status":"pending_front_back_asset"},"aliases":[]}
+  ],
+  "relations": [
+    {"subject":"impeccable-wnba-2025","relation_type":"manufactured_by","object":"panini","reason":"Beckett identifies the product as 2025 Panini Impeccable WNBA.","source_key":"beckett-impeccable-wnba-2025","review_status":"approved","confidence":0.99},
+    {"subject":"impeccable-wnba-stainless-stars-2025","relation_type":"available_in","object":"impeccable-wnba-2025","reason":"Beckett lists the 25-card Stainless Stars metal insert in this product.","source_key":"beckett-impeccable-wnba-2025","review_status":"approved","confidence":0.99},
+    {"subject":"impeccable-wnba-elegance-jersey-autos-2025","relation_type":"available_in","object":"impeccable-wnba-2025","reason":"Beckett identifies Elegance Jersey Autographs as combining memorabilia and autographs.","source_key":"beckett-impeccable-wnba-2025","review_status":"approved","confidence":0.99},
+    {"subject":"impeccable-wnba-jersey-number-autos-2025","relation_type":"available_in","object":"impeccable-wnba-2025","reason":"Beckett identifies Impeccable Jersey Number Autographs and its holographic-number presentation.","source_key":"beckett-impeccable-wnba-2025","review_status":"approved","confidence":0.99},
+    {"subject":"impeccable-wnba-stainless-stars-clark-caitlin-23-2025","relation_type":"belongs_to","object":"impeccable-wnba-stainless-stars-2025","reason":"Beckett's Stainless Stars checklist identifies Caitlin Clark as #23 /99.","source_key":"beckett-impeccable-wnba-2025","review_status":"approved","confidence":0.99}
+  ],
+  "applicability": [
+    {"entity":"impeccable-wnba-stainless-stars-2025","product":"impeccable-wnba-2025","season_start":2025,"season_end":2025,"status":"verified","review_status":"approved","source_key":"beckett-impeccable-wnba-2025","attributes":{"classification":"25-card metal insert. Metal material is not a parallel, relic, or scarcity inference."}},
+    {"entity":"impeccable-wnba-elegance-jersey-autos-2025","product":"impeccable-wnba-2025","season_start":2025,"season_end":2025,"status":"verified","review_status":"approved","source_key":"beckett-impeccable-wnba-2025","attributes":{"classification":"Autograph-relic set; game-used, player-worn, or event-used provenance is not inferred."}},
+    {"entity":"impeccable-wnba-jersey-number-autos-2025","product":"impeccable-wnba-2025","season_start":2025,"season_end":2025,"status":"verified","review_status":"approved","source_key":"beckett-impeccable-wnba-2025","attributes":{"classification":"On-card autograph set with jersey-number visual feature; it is not a relic classification."}}
+  ],
+  "coverage": [
+    {"manufacturer":"panini","product":"impeccable-wnba-2025","season_start":2025,"season_end":2025,"insert":"impeccable-wnba-stainless-stars-2025","status":"covered","source_key":"beckett-impeccable-wnba-2025","notes":"25-card metal insert and Caitlin Clark #23 /99 identity verified."},
+    {"manufacturer":"panini","product":"impeccable-wnba-2025","season_start":2025,"season_end":2025,"insert":"impeccable-wnba-elegance-jersey-autos-2025","status":"covered","source_key":"beckett-impeccable-wnba-2025","notes":"Autograph-relic classification verified without generic material-provenance inference."},
+    {"manufacturer":"panini","product":"impeccable-wnba-2025","season_start":2025,"season_end":2025,"status":"partial","source_key":"beckett-impeccable-wnba-2025","notes":"Product, base, selected 1/1 parallel, metal insert, autograph/relic semantics and Caitlin Clark identity verified; remaining autograph, insert, logo and card-identity matrix is pending."}
+  ]
+}

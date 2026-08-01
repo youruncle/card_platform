@@ -1,0 +1,26 @@
+{
+  "batch_key": "topps-chrome-ote-2324-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": ["2023-24 Topps Chrome Overtime Elite Basketball", "2023-24 Topps Chrome Overtime Elite Exposé", "2023-24 Topps Chrome Overtime Elite Superfractor 1/1"],
+  "sources": [
+    {"key":"topps-ote-2324-official","title":"2023-24 Topps Overtime Elite Chrome","url":"https://www.topps.com/products/2023-24-topps-overtime-elite-chrome","publisher":"Topps","source_type":"official_product","retrieved_at":"2026-07-29T06:05:00+08:00","metadata":{"scope":"Official product page for OTE-specific inserts."}},
+    {"key":"beckett-topps-ote-2324","title":"2023-24 Topps Chrome Overtime Elite Basketball Checklist","url":"https://www.beckett.com/news/2023-24-topps-chrome-overtime-elite-basketball-cards/","publisher":"Beckett","source_type":"beckett_checklist","retrieved_at":"2026-07-29T06:05:00+08:00","metadata":{"scope":"100-card OTE prospect product, inserts and product-specific parallel ladder."}}
+  ],
+  "entities": [
+    {"key":"topps","entity_type":"manufacturer","canonical_name":"Topps","source_key":"topps-ote-2324-official","review_status":"approved","confidence":0.99,"attributes":{"industry_roles":["manufacturer","issuer","brand"],"parent_company":"Fanatics Collectibles"},"aliases":[]},
+    {"key":"topps-chrome-ote-2324","entity_type":"product","canonical_name":"2023-24 Topps Chrome Overtime Elite Basketball","source_key":"beckett-topps-ote-2324","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Topps","brand":"Topps Chrome","season_start":2023,"season_end":2024,"competition":"Overtime Elite","base_set_size":100,"card_technology":"chromium","player_scope":"OTE prospects; not an NBA checklist","not_same_product_as":"2023-24 Topps Chrome Basketball"},"aliases":[{"value":"2023-24 Topps Chrome OTE Basketball","alias_type":"synonym","language":"en","source_key":"beckett-topps-ote-2324","review_status":"approved","confidence":0.99}]},
+    {"key":"topps-chrome-ote-expose-2324","entity_type":"insert","canonical_name":"2023-24 Topps Chrome Overtime Elite Exposé","source_key":"beckett-topps-ote-2324","review_status":"approved","confidence":0.99,"attributes":{"product":"2023-24 Topps Chrome Overtime Elite Basketball","season_start":2023,"season_end":2024,"semantic_type":"SSP_insert","classification":"SSP","scope_key":"topps-chrome-ote-2023-24-expose","not_cross_product_equivalent":true},"aliases":[]},
+    {"key":"topps-chrome-ote-superfractor-2324","entity_type":"parallel","canonical_name":"2023-24 Topps Chrome Overtime Elite Superfractor 1/1","source_key":"beckett-topps-ote-2324","review_status":"approved","confidence":0.99,"attributes":{"product":"2023-24 Topps Chrome Overtime Elite Basketball","season_start":2023,"season_end":2024,"parallel_family":"Superfractor","serial_total":1,"scope_key":"topps-chrome-ote-2023-24-base","not_cross_product_equivalent":true},"aliases":[]}
+  ],
+  "relations": [
+    {"subject":"topps-chrome-ote-2324","relation_type":"manufactured_by","object":"topps","reason":"Topps official product page and Beckett identify this Topps Chrome Overtime Elite release.","source_key":"topps-ote-2324-official","review_status":"approved","confidence":0.99},
+    {"subject":"topps-chrome-ote-expose-2324","relation_type":"available_in","object":"topps-chrome-ote-2324","reason":"Beckett identifies Exposé as an SSP set in this OTE product.","source_key":"beckett-topps-ote-2324","review_status":"approved","confidence":0.99}
+  ],
+  "applicability": [{"entity":"topps-chrome-ote-expose-2324","product":"topps-chrome-ote-2324","season_start":2023,"season_end":2024,"status":"verified","review_status":"approved","source_key":"beckett-topps-ote-2324","attributes":{"classification":"SSP status is source-backed only for this OTE product-season insert."}}],
+  "coverage": [
+    {"manufacturer":"topps","product":"topps-chrome-ote-2324","season_start":2023,"season_end":2024,"insert":"topps-chrome-ote-expose-2324","status":"covered","source_key":"beckett-topps-ote-2324","notes":"Exposé SSP insert verified in OTE context."},
+    {"manufacturer":"topps","product":"topps-chrome-ote-2324","season_start":2023,"season_end":2024,"parallel":"topps-chrome-ote-superfractor-2324","status":"covered","source_key":"beckett-topps-ote-2324","notes":"Base Superfractor 1/1 verified; scope is OTE product only."},
+    {"manufacturer":"topps","product":"topps-chrome-ote-2324","season_start":2023,"season_end":2024,"status":"partial","source_key":"beckett-topps-ote-2324","notes":"Product competition context, base size, selected SSP insert and selected 1/1 parallel verified; full prospect, autograph and insert matrix remains deferred."}
+  ]
+}

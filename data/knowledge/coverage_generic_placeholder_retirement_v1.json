@@ -1,0 +1,17 @@
+{
+  "batch_key": "coverage-generic-placeholder-retirement-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [],
+  "sources": [],
+  "entities": [],
+  "relations": [],
+  "applicability": [],
+  "coverage": [],
+  "retire_coverage": [
+    {"manufacturer_name":"Panini","product_name":"Court Kings","reason":"Retire unsourced seasonless placeholder: verified product-season coverage exists and this generic row cannot represent a checklist."},
+    {"manufacturer_name":"Panini","product_name":"Flawless","reason":"Retire unsourced seasonless placeholder: verified product-season coverage exists and this generic row cannot represent a checklist."},
+    {"manufacturer_name":"Panini","product_name":"Immaculate","reason":"Retire unsourced seasonless placeholder: verified product-season coverage exists and this generic row cannot represent a checklist."},
+    {"manufacturer_name":"Panini","product_name":"Select","reason":"Retire unsourced seasonless placeholder: verified product-season coverage exists and this generic row cannot represent a checklist."}
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "batch_key": "material-visual-terms-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": ["Jumbo Patch", "Logoman", "大比例", "大窗", "三窗"],
+  "sources": [
+    {"key": "beckett-nt-2324-material", "title": "2023-24 Panini National Treasures Basketball Checklist", "url": "https://www.beckett.com/news/2023-24-panini-national-treasures-basketball-cards/", "publisher": "Beckett", "source_type": "beckett_checklist", "retrieved_at": "2026-07-28T21:30:00+08:00", "metadata": {"scope": "National Treasures Rookie Patch Autographs, jumbo patch construction and Logoman naming."}}
+  ],
+  "entities": [
+    {"key": "jumbo-patch", "entity_type": "attribute", "canonical_name": "Jumbo Patch", "source_key": "beckett-nt-2324-material", "review_status": "approved", "confidence": 0.99, "attributes": {"semantic_type": "memorabilia_scale", "classification": "material_or_visual_feature", "not_parallel": true, "not_scarcity_claim": true, "requires_product_season_evidence": true}, "aliases": []},
+    {"key": "logoman", "entity_type": "attribute", "canonical_name": "Logoman", "source_key": "beckett-nt-2324-material", "review_status": "approved", "confidence": 0.99, "attributes": {"semantic_type": "memorabilia_mark", "classification": "material_feature", "not_parallel": true, "not_scarcity_claim": true, "provenance_requires_card_specific_evidence": true}, "aliases": [{"value": "logo man", "language": "en", "alias_type": "synonym", "confidence": 0.99}, {"value": "logo patch", "language": "en", "alias_type": "seller_term", "confidence": 0.85}]},
+    {"key": "large-window-candidate", "entity_type": "attribute", "canonical_name": "Large Memorabilia Window", "source_key": "beckett-nt-2324-material", "review_status": "draft", "confidence": 0.55, "attributes": {"semantic_type": "visual_layout_candidate", "candidate_reason": "Seller terms require product/card-level image or checklist evidence before approval; they are not synonyms of Jumbo Patch by default.", "not_parallel": true, "not_scarcity_claim": true}, "aliases": [{"value": "大比例", "language": "zh", "alias_type": "seller_term", "confidence": 0.55}, {"value": "大窗", "language": "zh", "alias_type": "seller_term", "confidence": 0.55}, {"value": "三窗", "language": "zh", "alias_type": "seller_term", "confidence": 0.55}]}
+  ],
+  "relations": [],
+  "coverage": []
+}

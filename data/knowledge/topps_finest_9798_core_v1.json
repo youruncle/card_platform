@@ -1,0 +1,367 @@
+{
+  "batch_key": "topps-finest-9798-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "1997-98 Topps Finest Basketball",
+    "1997-98 Finest Bronze Base Tier",
+    "1997-98 Finest Silver Base Tier",
+    "1997-98 Finest Gold Base Tier",
+    "1997-98 Finest Base Refractors",
+    "1997-98 Finest Refractors #154 Michael Jordan Gold /289"
+  ],
+  "sources": [
+    {
+      "key": "beckett-finest-9798",
+      "title": "1997-98 Finest Basketball Set Information",
+      "url": "https://www.beckett.com/basketball/1997-98/finest/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T21:30:00+08:00",
+      "metadata": {
+        "scope": "326-card, two-series Finest product; Bronze/Silver/Gold base-tier card ranges and pack rates."
+      }
+    },
+    {
+      "key": "tcdb-finest-9798",
+      "title": "1997-98 Finest Basketball Checklist",
+      "url": "https://www.tcdb.com/Checklist.cfm/sid/2624/1997-98-Finest",
+      "publisher": "Trading Card Database",
+      "source_type": "other",
+      "retrieved_at": "2026-07-28T21:30:00+08:00",
+      "metadata": {
+        "scope": "Independent checklist confirmation of the two-series, three-tier base structure."
+      }
+    },
+    {
+      "key": "beckett-finest-refractors-9798",
+      "title": "1997-98 Finest Refractors Checklist",
+      "url": "https://www.beckett.com/basketball/1997-98/finest-refractors/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T21:30:00+08:00",
+      "metadata": {
+        "scope": "326-card Finest Refractors parallel, including tier-specific odds and serial totals."
+      }
+    },
+    {
+      "key": "beckett-finest-jordan-154-9798",
+      "title": "1997-98 Finest Refractors #154 Michael Jordan Gold",
+      "url": "https://www.beckett.com/basketball/1997-98/finest-refractors/154-michael-jordan-g-3145620",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T21:30:00+08:00",
+      "metadata": {
+        "scope": "Specific-card identity: Michael Jordan, Chicago Bulls, card #154, Gold Refractor print run 289, Topps Co., Finest brand."
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "topps",
+      "entity_type": "manufacturer",
+      "canonical_name": "Topps",
+      "source_key": "beckett-finest-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "industry_roles": [
+          "historical_manufacturer",
+          "issuer",
+          "brand"
+        ],
+        "parent_company": "Fanatics Collectibles"
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-9798",
+      "entity_type": "product",
+      "canonical_name": "1997-98 Topps Finest Basketball",
+      "source_key": "beckett-finest-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Topps",
+        "brand": "Finest",
+        "season_start": 1997,
+        "season_end": 1998,
+        "league": "NBA",
+        "base_set_size": 326,
+        "series_structure": {
+          "series_one": 173,
+          "series_two": 153
+        },
+        "cards_per_pack": 6,
+        "base_structure": "three_tier",
+        "product_distinction": "Historical Finest release. Bronze, Silver and Gold are product-season base tiers, not parallel names and not a statement about any other Finest release."
+      },
+      "aliases": [
+        {
+          "value": "1997-98 Finest",
+          "alias_type": "synonym",
+          "locale": "en",
+          "source_key": "beckett-finest-9798",
+          "review_status": "approved",
+          "confidence": 0.99
+        }
+      ]
+    },
+    {
+      "key": "topps-finest-bronze-tier-9798",
+      "entity_type": "attribute",
+      "canonical_name": "1997-98 Finest Bronze Base Tier",
+      "source_key": "beckett-finest-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "1997-98 Topps Finest Basketball",
+        "season_start": 1997,
+        "season_end": 1998,
+        "semantic_type": "base_tier",
+        "rarity_label": "common",
+        "card_number_ranges": [
+          "1-120",
+          "174-273"
+        ],
+        "not_parallel": true,
+        "scope_key": "topps-finest-1997-98-bronze-base"
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-silver-tier-9798",
+      "entity_type": "attribute",
+      "canonical_name": "1997-98 Finest Silver Base Tier",
+      "source_key": "beckett-finest-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "1997-98 Topps Finest Basketball",
+        "season_start": 1997,
+        "season_end": 1998,
+        "semantic_type": "base_tier",
+        "rarity_label": "uncommon",
+        "card_number_ranges": [
+          "121-153",
+          "274-306"
+        ],
+        "pack_odds": "1:4 packs",
+        "not_parallel": true,
+        "scope_key": "topps-finest-1997-98-silver-base"
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-gold-tier-9798",
+      "entity_type": "attribute",
+      "canonical_name": "1997-98 Finest Gold Base Tier",
+      "source_key": "beckett-finest-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "1997-98 Topps Finest Basketball",
+        "season_start": 1997,
+        "season_end": 1998,
+        "semantic_type": "base_tier",
+        "rarity_label": "rare",
+        "card_number_ranges": [
+          "154-173",
+          "307-326"
+        ],
+        "pack_odds": "1:24 packs",
+        "not_parallel": true,
+        "scope_key": "topps-finest-1997-98-gold-base"
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-refractors-9798",
+      "entity_type": "parallel",
+      "canonical_name": "1997-98 Finest Base Refractors",
+      "source_key": "beckett-finest-refractors-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "1997-98 Topps Finest Basketball",
+        "season_start": 1997,
+        "season_end": 1998,
+        "parallel_family": "Refractor",
+        "checklist_size": 326,
+        "parallel_scope": "all three 1997-98 Finest base tiers",
+        "tier_configuration": {
+          "Bronze": {
+            "checklist_size": 220,
+            "pack_odds": "1:12 packs",
+            "serial_total": null
+          },
+          "Silver": {
+            "checklist_size": 66,
+            "pack_odds": "1:48 packs",
+            "serial_total": 1090
+          },
+          "Gold": {
+            "checklist_size": 40,
+            "pack_odds": "1:288 packs",
+            "serial_total": 289
+          }
+        },
+        "not_cross_product_equivalent": true,
+        "scope_key": "topps-finest-1997-98-base-refractors"
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-jordan-154-gold-refractor-9798",
+      "entity_type": "card",
+      "canonical_name": "1997-98 Finest Refractors #154 Michael Jordan Gold /289",
+      "source_key": "beckett-finest-jordan-154-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "1997-98 Topps Finest Basketball",
+        "parallel": "1997-98 Finest Base Refractors",
+        "base_tier": "Gold",
+        "season_start": 1997,
+        "season_end": 1998,
+        "player": "Michael Jordan",
+        "team": "Chicago Bulls",
+        "card_number": "154",
+        "serial_total": 289,
+        "is_rookie_card": false,
+        "is_autograph": false,
+        "has_memorabilia": false,
+        "identity_status": "verified",
+        "image_reference_status": "source_page_has_front_back_reference"
+      },
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {
+      "subject": "topps-finest-9798",
+      "relation_type": "manufactured_by",
+      "object": "topps",
+      "reason": "Beckett identifies the 1997-98 Finest product and the card detail identifies Topps Co. as manufacturer.",
+      "source_key": "beckett-finest-9798",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "topps-finest-bronze-tier-9798",
+      "relation_type": "available_in",
+      "object": "topps-finest-9798",
+      "reason": "Beckett lists Bronze as the common base tier in this product-season.",
+      "source_key": "beckett-finest-9798",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "topps-finest-silver-tier-9798",
+      "relation_type": "available_in",
+      "object": "topps-finest-9798",
+      "reason": "Beckett lists Silver as the uncommon 1:4 base tier in this product-season.",
+      "source_key": "beckett-finest-9798",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "topps-finest-gold-tier-9798",
+      "relation_type": "available_in",
+      "object": "topps-finest-9798",
+      "reason": "Beckett lists Gold as the rare 1:24 base tier in this product-season.",
+      "source_key": "beckett-finest-9798",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "topps-finest-refractors-9798",
+      "relation_type": "available_in",
+      "object": "topps-finest-9798",
+      "reason": "Beckett lists the 326-card Refractors set as the product-specific parallel across the three Finest base tiers.",
+      "source_key": "beckett-finest-refractors-9798",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "topps-finest-jordan-154-gold-refractor-9798",
+      "relation_type": "belongs_to",
+      "object": "topps-finest-9798",
+      "reason": "Beckett identifies #154 Michael Jordan Gold as a 1997-98 Finest Refractors card.",
+      "source_key": "beckett-finest-jordan-154-9798",
+      "review_status": "approved",
+      "confidence": 0.99
+    }
+  ],
+  "applicability": [
+    {
+      "entity": "topps-finest-bronze-tier-9798",
+      "product": "topps-finest-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-finest-9798",
+      "attributes": {
+        "classification": "Product-season base tier, not a parallel."
+      }
+    },
+    {
+      "entity": "topps-finest-silver-tier-9798",
+      "product": "topps-finest-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-finest-9798",
+      "attributes": {
+        "classification": "Product-season base tier at 1:4 packs, not a parallel."
+      }
+    },
+    {
+      "entity": "topps-finest-gold-tier-9798",
+      "product": "topps-finest-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-finest-9798",
+      "attributes": {
+        "classification": "Product-season base tier at 1:24 packs, not a parallel."
+      }
+    },
+    {
+      "entity": "topps-finest-refractors-9798",
+      "product": "topps-finest-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-finest-refractors-9798",
+      "attributes": {
+        "classification": "Product-specific base parallel. Tier-specific odds and serial totals must not be generalized to other Finest seasons or products."
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "manufacturer": "topps",
+      "product": "topps-finest-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "parallel": "topps-finest-refractors-9798",
+      "status": "covered",
+      "source_key": "beckett-finest-refractors-9798",
+      "notes": "All 326 base cards have a Refractor counterpart; Bronze 1:12, Silver /1090 at 1:48, Gold /289 at 1:288."
+    },
+    {
+      "manufacturer": "topps",
+      "product": "topps-finest-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "status": "partial",
+      "source_key": "beckett-finest-9798",
+      "notes": "Product boundary, base tiers, base Refractor matrix, and Jordan #154 Gold /289 identity verified. Embossed families, inserts, promos and full player checklist remain an audited later batch."
+    }
+  ]
+}

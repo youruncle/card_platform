@@ -1,0 +1,274 @@
+{
+  "batch_key": "topps-finest-9798-embossed-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "1997-98 Topps Finest Basketball",
+    "1997-98 Finest Embossed",
+    "1997-98 Finest Embossed Refractors"
+  ],
+  "sources": [
+    {
+      "key": "beckett-finest-embossed-9798",
+      "title": "1997-98 Finest Embossed Set Information",
+      "url": "https://www.beckett.com/basketball/1997-98/finest-embossed/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T21:48:00+08:00",
+      "metadata": {
+        "scope": "106-card Finest Embossed semi-parallel: Silver embossing and Gold embossed die-cut subsets across both series."
+      }
+    },
+    {
+      "key": "beckett-finest-embossed-refractors-9798",
+      "title": "1997-98 Finest Embossed Refractors Set Information",
+      "url": "https://www.beckett.com/basketball/1997-98/finest-embossed-refractors/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T21:48:00+08:00",
+      "metadata": {
+        "scope": "106-card parallel to the Finest Embossed subsets, with Silver /263 and Gold die-cut /74 tier-specific rates."
+      }
+    },
+    {
+      "key": "psa-finest-9798-cardfacts",
+      "title": "1997 Finest Basketball Set Profile",
+      "url": "https://www.psacard.com/cardfacts/basketball-cards/1997-finest/33118",
+      "publisher": "PSA",
+      "source_type": "other",
+      "retrieved_at": "2026-07-28T21:48:00+08:00",
+      "metadata": {
+        "scope": "Independent taxonomy evidence: PSA calls Embossed and Embossed Refractors inserts, whereas Beckett calls Embossed a semi-parallel."
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "topps",
+      "entity_type": "manufacturer",
+      "canonical_name": "Topps",
+      "source_key": "beckett-finest-embossed-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "industry_roles": [
+          "historical_manufacturer",
+          "issuer",
+          "brand"
+        ],
+        "parent_company": "Fanatics Collectibles"
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-9798",
+      "entity_type": "product",
+      "canonical_name": "1997-98 Topps Finest Basketball",
+      "source_key": "beckett-finest-embossed-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Topps",
+        "brand": "Finest",
+        "season_start": 1997,
+        "season_end": 1998,
+        "league": "NBA",
+        "base_set_size": 326,
+        "series_structure": {
+          "series_one": 173,
+          "series_two": 153
+        },
+        "cards_per_pack": 6,
+        "base_structure": "three_tier",
+        "product_distinction": "Historical Finest release. Bronze, Silver and Gold are product-season base tiers, not parallel names and not a statement about any other Finest release."
+      },
+      "aliases": [
+        {
+          "value": "1997-98 Finest",
+          "alias_type": "synonym",
+          "locale": "en",
+          "source_key": "beckett-finest-embossed-9798",
+          "review_status": "approved",
+          "confidence": 0.99
+        }
+      ]
+    },
+    {
+      "key": "topps-finest-embossed-9798",
+      "entity_type": "parallel",
+      "canonical_name": "1997-98 Finest Embossed",
+      "source_key": "beckett-finest-embossed-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "1997-98 Topps Finest Basketball",
+        "season_start": 1997,
+        "season_end": 1998,
+        "checklist_size": 106,
+        "parallel_scope": "only the Silver and Gold base tiers from both series",
+        "tier_configuration": {
+          "Silver": {
+            "checklist_size": 66,
+            "card_number_ranges": [
+              "121-153",
+              "274-306"
+            ],
+            "pack_odds": "1:16 packs",
+            "finish": "embossed",
+            "serial_total": null
+          },
+          "Gold": {
+            "checklist_size": 40,
+            "card_number_ranges": [
+              "154-173",
+              "307-326"
+            ],
+            "pack_odds": "1:96 packs",
+            "finish": "embossed die-cut",
+            "serial_total": null
+          }
+        },
+        "classification_evidence": {
+          "beckett": "semi-parallel",
+          "psa": "insert taxonomy"
+        },
+        "not_full_base_parallel": true,
+        "not_cross_product_equivalent": true,
+        "scope_key": "topps-finest-1997-98-embossed"
+      },
+      "aliases": []
+    },
+    {
+      "key": "topps-finest-embossed-refractors-9798",
+      "entity_type": "parallel",
+      "canonical_name": "1997-98 Finest Embossed Refractors",
+      "source_key": "beckett-finest-embossed-refractors-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "1997-98 Topps Finest Basketball",
+        "season_start": 1997,
+        "season_end": 1998,
+        "checklist_size": 106,
+        "parent_parallel": "1997-98 Finest Embossed",
+        "parallel_scope": "the 106-card Finest Embossed subsets only",
+        "tier_configuration": {
+          "Silver": {
+            "checklist_size": 66,
+            "card_number_ranges": [
+              "121-153",
+              "274-306"
+            ],
+            "pack_odds": "1:192 packs",
+            "finish": "embossed refractor",
+            "serial_total": 263
+          },
+          "Gold": {
+            "checklist_size": 40,
+            "card_number_ranges": [
+              "154-173",
+              "307-326"
+            ],
+            "pack_odds": "1:1,152 packs",
+            "finish": "embossed die-cut refractor",
+            "serial_total": 74
+          }
+        },
+        "classification_evidence": {
+          "beckett": "parallel to the Embossed sets",
+          "psa": "insert taxonomy for Embossed Refractors"
+        },
+        "not_full_base_parallel": true,
+        "not_cross_product_equivalent": true,
+        "scope_key": "topps-finest-1997-98-embossed-refractors"
+      },
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {
+      "subject": "topps-finest-9798",
+      "relation_type": "manufactured_by",
+      "object": "topps",
+      "reason": "Beckett identifies Topps Co. as manufacturer for this 1997-98 Finest product family.",
+      "source_key": "beckett-finest-embossed-9798",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "topps-finest-embossed-9798",
+      "relation_type": "available_in",
+      "object": "topps-finest-9798",
+      "reason": "Beckett identifies the 106-card Embossed semi-parallel as pack-inserted subsets from the 1997-98 Finest Silver and Gold base tiers.",
+      "source_key": "beckett-finest-embossed-9798",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "topps-finest-embossed-refractors-9798",
+      "relation_type": "available_in",
+      "object": "topps-finest-9798",
+      "reason": "Beckett identifies the 106-card Embossed Refractors as pack-inserted parallels to the Embossed sets.",
+      "source_key": "beckett-finest-embossed-refractors-9798",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "topps-finest-embossed-refractors-9798",
+      "relation_type": "requires",
+      "object": "topps-finest-embossed-9798",
+      "reason": "The Embossed Refractors set explicitly parallels the Embossed sets; it is not a direct full-base Refractor counterpart.",
+      "source_key": "beckett-finest-embossed-refractors-9798",
+      "review_status": "approved",
+      "confidence": 0.99
+    }
+  ],
+  "applicability": [
+    {
+      "entity": "topps-finest-embossed-9798",
+      "product": "topps-finest-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-finest-embossed-9798",
+      "attributes": {
+        "classification": "Beckett semi-parallel, with PSA alternate insert taxonomy retained. It covers only the Silver/Gold 106-card subset, never Bronze."
+      }
+    },
+    {
+      "entity": "topps-finest-embossed-refractors-9798",
+      "product": "topps-finest-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-finest-embossed-refractors-9798",
+      "attributes": {
+        "classification": "Parallel to the 106-card Embossed subsets, not to all 326 base cards. Silver is /263; Gold die-cut is /74."
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "manufacturer": "topps",
+      "product": "topps-finest-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "parallel": "topps-finest-embossed-9798",
+      "status": "covered",
+      "source_key": "beckett-finest-embossed-9798",
+      "notes": "Embossed is a 106-card Silver/Gold-only semi-parallel. Its source taxonomy is retained rather than collapsed to a global insert rule."
+    },
+    {
+      "manufacturer": "topps",
+      "product": "topps-finest-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "parallel": "topps-finest-embossed-refractors-9798",
+      "status": "covered",
+      "source_key": "beckett-finest-embossed-refractors-9798",
+      "notes": "Embossed Refractors are a 106-card parallel to Embossed: Silver /263 at 1:192 and Gold die-cut /74 at 1:1,152."
+    }
+  ]
+}

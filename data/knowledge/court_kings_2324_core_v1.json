@@ -1,0 +1,194 @@
+{
+  "batch_key": "court-kings-2324-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2023-24 Panini Court Kings Basketball",
+    "2023-24 Court Kings First Steps",
+    "2023-24 Court Kings Blank Slate",
+    "2023-24 Court Kings First Steps Masterpiece 1/1"
+  ],
+  "sources": [
+    {
+      "key": "beckett-court-kings-2324",
+      "title": "2023-24 Panini Court Kings Basketball Checklist",
+      "url": "https://www.beckett.com/news/2023-24-panini-court-kings-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-29T00:40:00+08:00",
+      "metadata": {
+        "scope": "199-card art-inspired Court Kings product; First Steps and Blank Slate insert subsets."
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "panini",
+      "entity_type": "manufacturer",
+      "canonical_name": "Panini",
+      "source_key": "beckett-court-kings-2324",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "industry_roles": [
+          "manufacturer",
+          "brand",
+          "issuer"
+        ]
+      },
+      "aliases": []
+    },
+    {
+      "key": "court-kings-2324",
+      "entity_type": "product",
+      "canonical_name": "2023-24 Panini Court Kings Basketball",
+      "source_key": "beckett-court-kings-2324",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Panini",
+        "brand": "Court Kings",
+        "season_start": 2023,
+        "season_end": 2024,
+        "league": "NBA",
+        "base_set_size": 199,
+        "design_theme": "art-inspired"
+      },
+      "aliases": []
+    },
+    {
+      "key": "court-kings-first-steps-2324",
+      "entity_type": "insert",
+      "canonical_name": "2023-24 Court Kings First Steps",
+      "source_key": "beckett-court-kings-2324",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2023-24 Panini Court Kings Basketball",
+        "season_start": 2023,
+        "season_end": 2024,
+        "semantic_type": "rookie_insert",
+        "checklist_size": 10,
+        "scope_key": "court-kings-2023-24-first-steps",
+        "not_parallel": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "court-kings-blank-slate-2324",
+      "entity_type": "insert",
+      "canonical_name": "2023-24 Court Kings Blank Slate",
+      "source_key": "beckett-court-kings-2324",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2023-24 Panini Court Kings Basketball",
+        "season_start": 2023,
+        "season_end": 2024,
+        "semantic_type": "insert",
+        "scope_key": "court-kings-2023-24-blank-slate",
+        "not_parallel": true
+      },
+      "aliases": [
+        {
+          "value": "白板",
+          "language": "zh",
+          "alias_type": "seller_term",
+          "confidence": 0.8
+        }
+      ]
+    },
+    {
+      "key": "court-kings-first-steps-masterpiece-2324",
+      "entity_type": "parallel",
+      "canonical_name": "2023-24 Court Kings First Steps Masterpiece 1/1",
+      "source_key": "beckett-court-kings-2324",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2023-24 Panini Court Kings Basketball",
+        "parent_insert": "2023-24 Court Kings First Steps",
+        "season_start": 2023,
+        "season_end": 2024,
+        "pattern": "Masterpiece",
+        "serial_total": 1,
+        "scope_key": "court-kings-2023-24-first-steps"
+      },
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {
+      "subject": "court-kings-2324",
+      "relation_type": "manufactured_by",
+      "object": "panini",
+      "reason": "Beckett checklist identifies Panini Court Kings Basketball.",
+      "source_key": "beckett-court-kings-2324",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "court-kings-first-steps-2324",
+      "relation_type": "available_in",
+      "object": "court-kings-2324",
+      "reason": "Checklist lists First Steps as a 10-card Court Kings insert.",
+      "source_key": "beckett-court-kings-2324",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "court-kings-blank-slate-2324",
+      "relation_type": "available_in",
+      "object": "court-kings-2324",
+      "reason": "Checklist lists Blank Slate within 2023-24 Court Kings.",
+      "source_key": "beckett-court-kings-2324",
+      "review_status": "approved",
+      "confidence": 0.99
+    }
+  ],
+  "applicability": [
+    {
+      "entity": "court-kings-first-steps-2324",
+      "product": "court-kings-2324",
+      "season_start": 2023,
+      "season_end": 2024,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-court-kings-2324",
+      "attributes": {
+        "classification": "product-specific insert; its named parallels are not generic Court Kings or NBA parallels."
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "manufacturer": "panini",
+      "product": "court-kings-2324",
+      "season_start": 2023,
+      "season_end": 2024,
+      "insert": "court-kings-first-steps-2324",
+      "status": "covered",
+      "source_key": "beckett-court-kings-2324",
+      "notes": "First Steps and Masterpiece 1/1 ladder verified."
+    },
+    {
+      "manufacturer": "panini",
+      "product": "court-kings-2324",
+      "season_start": 2023,
+      "season_end": 2024,
+      "insert": "court-kings-blank-slate-2324",
+      "status": "covered",
+      "source_key": "beckett-court-kings-2324",
+      "notes": "Blank Slate product-scoped insert verified."
+    },
+    {
+      "manufacturer": "panini",
+      "product": "court-kings-2324",
+      "season_start": 2023,
+      "season_end": 2024,
+      "status": "partial",
+      "source_key": "beckett-court-kings-2324",
+      "notes": "Selected inserts verified; full base levels, autos and memorabilia remain later evidence batches."
+    }
+  ]
+}

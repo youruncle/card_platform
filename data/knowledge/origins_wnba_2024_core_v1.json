@@ -1,0 +1,43 @@
+{
+  "batch_key": "origins-wnba-2024-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2024 Panini Origins WNBA",
+    "2024 Panini Origins WNBA Base Black 1/1",
+    "2024 Panini Origins WNBA Sneaker Spotlight",
+    "2024 Panini Origins WNBA Art Nouveau Memorabilia",
+    "2024 Panini Origins WNBA Base #13 Caitlin Clark RC"
+  ],
+  "sources": [
+    {"key":"beckett-origins-wnba-2024","title":"2024 Panini Origins WNBA Checklist","url":"https://www.beckett.com/news/2024-panini-origins-wnba-basketball-cards/","publisher":"Beckett","source_type":"beckett_checklist","retrieved_at":"2026-07-29T00:02:00+08:00","metadata":{"scope":"Full WNBA product checklist, base/parallel, autograph, memorabilia and insert set semantics."}},
+    {"key":"beckett-clark-rookie-guide-2024","title":"Caitlin Clark Rookie Card Guide","url":"https://www.beckett.com/news/caitlin-clark-rookie-card-guide-and-other-key-early-cards/","publisher":"Beckett","source_type":"other","retrieved_at":"2026-07-29T00:02:00+08:00","metadata":{"scope":"Caitlin Clark rookie-card designation: 2024 Panini Origins WNBA #13 RC."}}
+  ],
+  "entities": [
+    {"key":"panini","entity_type":"manufacturer","canonical_name":"Panini","source_key":"beckett-origins-wnba-2024","review_status":"approved","confidence":0.99,"attributes":{"industry_roles":["manufacturer","brand","issuer"]},"aliases":[]},
+    {"key":"origins","entity_type":"brand","canonical_name":"Origins","source_key":"beckett-origins-wnba-2024","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","semantic_scope":"trading-card product brand"},"aliases":[]},
+    {"key":"origins-wnba-2024","entity_type":"product","canonical_name":"2024 Panini Origins WNBA","source_key":"beckett-origins-wnba-2024","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","brand":"Origins","year":2024,"league":"WNBA","base_checklist_size":100,"hobby_box_configuration":"10 cards; 2 autographs, 1 memorabilia card and 2 inserts","product_distinction":"WNBA product-season with dedicated checklist and first-year-player RC status; distinct from NBA and EuroLeague Origins."},"aliases":[]},
+    {"key":"origins-wnba-base-black-1of1-2024","entity_type":"parallel","canonical_name":"2024 Panini Origins WNBA Base Black 1/1","source_key":"beckett-origins-wnba-2024","review_status":"approved","confidence":0.99,"attributes":{"product":"2024 Panini Origins WNBA","year":2024,"parallel_scope":"base","serial_total":1,"scope_key":"origins-wnba-2024-base-black","not_cross_product_equivalent":true},"aliases":[]},
+    {"key":"origins-wnba-sneaker-spotlight-2024","entity_type":"insert","canonical_name":"2024 Panini Origins WNBA Sneaker Spotlight","source_key":"beckett-origins-wnba-2024","review_status":"approved","confidence":0.99,"attributes":{"product":"2024 Panini Origins WNBA","year":2024,"semantic_type":"visual_insert","visual_features":["player footwear focus"],"scope_key":"origins-wnba-2024-sneaker-spotlight","not_cross_product_equivalent":true,"not_a_relic_inference":true,"not_automatically_ssp":true},"aliases":[]},
+    {"key":"origins-wnba-art-nouveau-memorabilia-2024","entity_type":"insert","canonical_name":"2024 Panini Origins WNBA Art Nouveau Memorabilia","source_key":"beckett-origins-wnba-2024","review_status":"approved","confidence":0.99,"attributes":{"product":"2024 Panini Origins WNBA","year":2024,"semantic_type":"memorabilia_set","checklist_size":30,"memorabilia_provenance_requires_card_specific_evidence":true,"scope_key":"origins-wnba-2024-art-nouveau-memorabilia","not_cross_product_equivalent":true},"aliases":[]},
+    {"key":"origins-wnba-blank-slate-2024","entity_type":"insert","canonical_name":"2024 Panini Origins WNBA Blank Slate","source_key":"beckett-origins-wnba-2024","review_status":"approved","confidence":0.99,"attributes":{"product":"2024 Panini Origins WNBA","year":2024,"semantic_type":"insert","checklist_size":10,"scope_key":"origins-wnba-2024-blank-slate","not_cross_product_equivalent":true,"not_automatically_ssp":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"origins-wnba-clark-caitlin-13-2024","entity_type":"card","canonical_name":"2024 Panini Origins WNBA Base #13 Caitlin Clark RC","source_key":"beckett-clark-rookie-guide-2024","review_status":"approved","confidence":0.99,"attributes":{"product":"2024 Panini Origins WNBA","year":2024,"player":"Caitlin Clark","team":"Indiana Fever","card_number":"13","is_rookie_card":true,"identity_status":"verified","image_reference_status":"pending_front_back_asset"},"aliases":[]}
+  ],
+  "relations": [
+    {"subject":"origins-wnba-2024","relation_type":"manufactured_by","object":"panini","reason":"Beckett identifies the product as 2024 Panini Origins WNBA.","source_key":"beckett-origins-wnba-2024","review_status":"approved","confidence":0.99},
+    {"subject":"origins-wnba-sneaker-spotlight-2024","relation_type":"available_in","object":"origins-wnba-2024","reason":"Beckett identifies Sneaker Spotlight as making its WNBA Origins debut.","source_key":"beckett-origins-wnba-2024","review_status":"approved","confidence":0.99},
+    {"subject":"origins-wnba-art-nouveau-memorabilia-2024","relation_type":"available_in","object":"origins-wnba-2024","reason":"Beckett lists the 30-card Art Nouveau Memorabilia set in this product.","source_key":"beckett-origins-wnba-2024","review_status":"approved","confidence":0.99},
+    {"subject":"origins-wnba-blank-slate-2024","relation_type":"available_in","object":"origins-wnba-2024","reason":"Beckett lists the 10-card Blank Slate insert in this product.","source_key":"beckett-origins-wnba-2024","review_status":"approved","confidence":0.99},
+    {"subject":"origins-wnba-clark-caitlin-13-2024","relation_type":"belongs_to","object":"origins-wnba-2024","reason":"Beckett's rookie guide identifies 2024 Panini Origins WNBA #13 Caitlin Clark as an RC.","source_key":"beckett-clark-rookie-guide-2024","review_status":"approved","confidence":0.99}
+  ],
+  "applicability": [
+    {"entity":"origins-wnba-sneaker-spotlight-2024","product":"origins-wnba-2024","season_start":2024,"season_end":2024,"status":"verified","review_status":"approved","source_key":"beckett-origins-wnba-2024","attributes":{"classification":"Footwear-focused visual insert, not a sneaker swatch/relic assertion."}},
+    {"entity":"origins-wnba-art-nouveau-memorabilia-2024","product":"origins-wnba-2024","season_start":2024,"season_end":2024,"status":"verified","review_status":"approved","source_key":"beckett-origins-wnba-2024","attributes":{"classification":"30-card memorabilia set. Game-used, player-worn and event-used provenance remain card-specific."}},
+    {"entity":"origins-wnba-clark-caitlin-13-2024","product":"origins-wnba-2024","season_start":2024,"season_end":2024,"status":"verified","review_status":"approved","source_key":"beckett-clark-rookie-guide-2024","attributes":{"classification":"Explicitly identified RC, not inferred from first-year inclusion alone."}}
+  ],
+  "coverage": [
+    {"manufacturer":"panini","product":"origins-wnba-2024","season_start":2024,"season_end":2024,"insert":"origins-wnba-sneaker-spotlight-2024","status":"covered","source_key":"beckett-origins-wnba-2024","notes":"Sneaker Spotlight verified as visual insert without relic inference."},
+    {"manufacturer":"panini","product":"origins-wnba-2024","season_start":2024,"season_end":2024,"insert":"origins-wnba-art-nouveau-memorabilia-2024","status":"covered","source_key":"beckett-origins-wnba-2024","notes":"30-card memorabilia set verified; no blanket material-provenance claim."},
+    {"manufacturer":"panini","product":"origins-wnba-2024","season_start":2024,"season_end":2024,"status":"partial","source_key":"beckett-origins-wnba-2024","notes":"Product, base 1/1, selected inserts/memorabilia semantics and Caitlin Clark #13 RC verified; remaining autograph, insert, memorabilia and parallel matrix is pending."}
+  ]
+}

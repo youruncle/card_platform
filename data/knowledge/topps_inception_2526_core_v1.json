@@ -1,0 +1,38 @@
+{
+  "batch_key": "topps-inception-2526-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2025-26 Topps Inception Basketball",
+    "2025-26 Topps Inception NBA First Milestone Autograph Relics",
+    "2025-26 Topps Inception Rookie Relic Autograph Booklets",
+    "2025-26 Topps Inception Base Inception 1/1",
+    "2025-26 Topps Inception #79 Cedric Coward RC"
+  ],
+  "sources": [
+    {"key":"topps-inception-2526","title":"2025-26 Topps Inception Basketball Hobby Box","url":"https://uk.topps.com/products/2025-26-topps-inception-basketball-hobby-box","publisher":"Topps","source_type":"official_product","retrieved_at":"2026-07-28T21:15:00+08:00","metadata":{"scope":"Official 2025-26 Inception product identity."}},
+    {"key":"beckett-topps-inception-2526","title":"2025-26 Topps Inception Basketball Checklist","url":"https://www.beckett.com/news/2025-26-topps-inception-basketball-cards/","publisher":"Beckett","source_type":"beckett_checklist","retrieved_at":"2026-07-28T21:15:00+08:00","metadata":{"scope":"Fully licensed product, base, autograph/relic set semantics, selected parallel and Cedric Coward checklist identity."}}
+  ],
+  "entities": [
+    {"key":"topps","entity_type":"manufacturer","canonical_name":"Topps","source_key":"topps-inception-2526","review_status":"approved","confidence":0.99,"attributes":{"industry_roles":["manufacturer","brand","issuer"]},"aliases":[]},
+    {"key":"topps-inception-2526","entity_type":"product","canonical_name":"2025-26 Topps Inception Basketball","source_key":"beckett-topps-inception-2526","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Topps","brand":"Topps Inception","season_start":2025,"season_end":2026,"league":"NBA","nba_license_status":"fully_licensed","base_checklist_size":100,"hobby_box_configuration":"seven cards, one autograph","product_distinction":"Fully licensed 2025-26 Inception product; distinct from 2024-25 NBA Players Association version."},"aliases":[]},
+    {"key":"topps-inception-first-milestone-auto-relics-2526","entity_type":"insert","canonical_name":"2025-26 Topps Inception NBA First Milestone Autograph Relics","source_key":"beckett-topps-inception-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Topps Inception Basketball","season_start":2025,"season_end":2026,"semantic_type":"autograph_relic_set","memorabilia_provenance":"game_used","provenance_scope":"Cards include game-used memorabilia from players' early-career NBA first milestones.","scope_key":"topps-inception-2025-26-first-milestone-auto-relics","not_cross_product_equivalent":true},"aliases":[]},
+    {"key":"topps-inception-rookie-relic-auto-booklets-2526","entity_type":"insert","canonical_name":"2025-26 Topps Inception Rookie Relic Autograph Booklets","source_key":"beckett-topps-inception-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Topps Inception Basketball","season_start":2025,"season_end":2026,"semantic_type":"rookie_relic_autograph_booklet_set","signatures_per_card":2,"memorabilia_pieces_per_card":2,"requires":["RC","AUTO","Relic"],"memorabilia_provenance_requires_card_specific_evidence":true,"scope_key":"topps-inception-2025-26-rookie-relic-auto-booklets","not_cross_product_equivalent":true},"aliases":[]},
+    {"key":"topps-inception-inception-1of1-2526","entity_type":"parallel","canonical_name":"2025-26 Topps Inception Base Inception 1/1","source_key":"beckett-topps-inception-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Topps Inception Basketball","season_start":2025,"season_end":2026,"parallel_scope":"base","serial_total":1,"hobby_pack_odds":"1:534","scope_key":"topps-inception-2025-26-base-inception-1of1","not_cross_product_equivalent":true},"aliases":[]},
+    {"key":"topps-inception-coward-cedric-79-2526","entity_type":"card","canonical_name":"2025-26 Topps Inception #79 Cedric Coward RC","source_key":"beckett-topps-inception-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Topps Inception Basketball","season_start":2025,"season_end":2026,"player":"Cedric Coward","team":"Memphis Grizzlies","card_number":"79","is_rookie_card":true,"identity_status":"verified","image_reference_status":"pending_front_back_asset"},"aliases":[]}
+  ],
+  "relations": [
+    {"subject":"topps-inception-2526","relation_type":"manufactured_by","object":"topps","reason":"Topps and Beckett identify the 2025-26 Topps Inception Basketball release.","source_key":"topps-inception-2526","review_status":"approved","confidence":0.99},
+    {"subject":"topps-inception-first-milestone-auto-relics-2526","relation_type":"available_in","object":"topps-inception-2526","reason":"Beckett lists NBA First Milestone Autograph Relics in this product.","source_key":"beckett-topps-inception-2526","review_status":"approved","confidence":0.99},
+    {"subject":"topps-inception-rookie-relic-auto-booklets-2526","relation_type":"available_in","object":"topps-inception-2526","reason":"Beckett identifies Rookie Relic Autograph Booklets in this product.","source_key":"beckett-topps-inception-2526","review_status":"approved","confidence":0.99}
+  ],
+  "applicability": [
+    {"entity":"topps-inception-first-milestone-auto-relics-2526","product":"topps-inception-2526","season_start":2025,"season_end":2026,"status":"verified","review_status":"approved","source_key":"beckett-topps-inception-2526","attributes":{"classification":"Autograph-relic set with explicitly game-used material scope."}},
+    {"entity":"topps-inception-rookie-relic-auto-booklets-2526","product":"topps-inception-2526","season_start":2025,"season_end":2026,"status":"verified","review_status":"approved","source_key":"beckett-topps-inception-2526","attributes":{"classification":"Two-autograph/two-relic rookie booklet; game/player-worn provenance is not inferred."}}
+  ],
+  "coverage": [
+    {"manufacturer":"topps","product":"topps-inception-2526","season_start":2025,"season_end":2026,"insert":"topps-inception-first-milestone-auto-relics-2526","status":"covered","source_key":"beckett-topps-inception-2526","notes":"Game-used provenance is explicitly documented for this set only."},
+    {"manufacturer":"topps","product":"topps-inception-2526","season_start":2025,"season_end":2026,"insert":"topps-inception-rookie-relic-auto-booklets-2526","status":"covered","source_key":"beckett-topps-inception-2526","notes":"Two-signature/two-relic rookie booklet composition verified without generic provenance inference."},
+    {"manufacturer":"topps","product":"topps-inception-2526","season_start":2025,"season_end":2026,"status":"partial","source_key":"beckett-topps-inception-2526","notes":"Product, full-license status, base, selected relic/autograph semantics, 1/1 parallel and Cedric Coward RC verified; remaining insert/autograph/parallel matrix is pending."}
+  ]
+}

@@ -1,0 +1,94 @@
+{
+  "batch_key": "manufacturer-landscape-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": ["Upper Deck", "Leaf", "Exquisite Collection Basketball", "2022-23 Leaf Vivid Basketball"],
+  "sources": [
+    {
+      "key": "upper-deck-exquisite-history",
+      "title": "An Exquisite History",
+      "url": "https://upperdeck.com/an-exquisite-history/",
+      "publisher": "Upper Deck",
+      "source_type": "official_product",
+      "retrieved_at": "2026-07-28T17:00:00+08:00",
+      "metadata": {"scope": "Upper Deck and Exquisite Collection Basketball history"}
+    },
+    {
+      "key": "leaf-vivid-2223",
+      "title": "2022-23 Leaf Vivid Basketball",
+      "url": "https://www.leaftradingcards.com/products/2022-23-leaf-vivid-basketball",
+      "publisher": "Leaf Trading Cards",
+      "source_type": "official_product",
+      "retrieved_at": "2026-07-28T17:00:00+08:00",
+      "metadata": {"scope": "Leaf basketball product, release date, configuration and checklist entry point"}
+    }
+  ],
+  "entities": [
+    {
+      "key": "upper-deck",
+      "entity_type": "manufacturer",
+      "canonical_name": "Upper Deck",
+      "source_key": "upper-deck-exquisite-history",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"industry_roles": ["manufacturer", "brand", "issuer"], "country": "US", "era_note": "Product and license applicability must be established per season."},
+      "aliases": []
+    },
+    {
+      "key": "exquisite-basketball-0304",
+      "entity_type": "product",
+      "canonical_name": "2003-04 Exquisite Collection Basketball",
+      "source_key": "upper-deck-exquisite-history",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"manufacturer": "Upper Deck", "brand": "Exquisite Collection", "season_start": 2003, "season_end": 2004, "league": "NBA", "tier": "high_end"},
+      "aliases": [{"value": "Exquisite Collection Basketball", "language": "en", "alias_type": "synonym", "confidence": 0.99}]
+    },
+    {
+      "key": "leaf",
+      "entity_type": "manufacturer",
+      "canonical_name": "Leaf",
+      "source_key": "leaf-vivid-2223",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"industry_roles": ["manufacturer", "brand", "issuer"], "country": "US", "license_note": "League/team-logo licensing must be verified per product; never infer it from issuer identity."},
+      "aliases": []
+    },
+    {
+      "key": "leaf-vivid-2223",
+      "entity_type": "product",
+      "canonical_name": "2022-23 Leaf Vivid Basketball",
+      "source_key": "leaf-vivid-2223",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"manufacturer": "Leaf", "brand": "Leaf Vivid", "season_start": 2022, "season_end": 2023, "league": "basketball", "configuration": "6 autograph cards per box"},
+      "aliases": []
+    },
+    {
+      "key": "fleer-candidate",
+      "entity_type": "manufacturer",
+      "canonical_name": "Fleer",
+      "review_status": "draft",
+      "confidence": 0.5,
+      "attributes": {"candidate_reason": "Historical manufacturer/brand relationship needs an archival or primary source before publication."},
+      "aliases": []
+    },
+    {
+      "key": "skybox-candidate",
+      "entity_type": "brand",
+      "canonical_name": "SkyBox",
+      "review_status": "draft",
+      "confidence": 0.5,
+      "attributes": {"candidate_reason": "Historical brand ownership and season scope require an archival or primary source before publication."},
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {"subject": "exquisite-basketball-0304", "relation_type": "manufactured_by", "object": "upper-deck", "reason": "Upper Deck's history describes the first Exquisite Collection Basketball release.", "source_key": "upper-deck-exquisite-history", "review_status": "approved", "confidence": 0.99},
+    {"subject": "leaf-vivid-2223", "relation_type": "manufactured_by", "object": "leaf", "reason": "Leaf's official product page identifies 2022-23 Leaf Vivid Basketball.", "source_key": "leaf-vivid-2223", "review_status": "approved", "confidence": 0.99}
+  ],
+  "coverage": [
+    {"manufacturer": "upper-deck", "product": "exquisite-basketball-0304", "season_start": 2003, "season_end": 2004, "status": "partial", "source_key": "upper-deck-exquisite-history", "notes": "Product identity and issuer verified; full checklist, inserts and parallels await a dedicated source batch."},
+    {"manufacturer": "leaf", "product": "leaf-vivid-2223", "season_start": 2022, "season_end": 2023, "status": "partial", "source_key": "leaf-vivid-2223", "notes": "Official product identity, configuration and checklist entry point verified; card-level checklist import is next."}
+  ]
+}

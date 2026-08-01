@@ -1,0 +1,58 @@
+{
+  "batch_key": "coverage-unsourced-seasonless-pending-retirement-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [],
+  "sources": [],
+  "entities": [],
+  "relations": [],
+  "applicability": [],
+  "coverage": [],
+  "retire_coverage": [
+    {
+      "manufacturer_name": "Fanatics Collectibles",
+      "product_name": "Bowman Chrome",
+      "reason": "Retire an unsourced, seasonless planning placeholder. Basketball-specific Bowman Chrome product-seasons must be represented only by directly sourced checklist rows; this retirement does not mark any facet covered."
+    },
+    {
+      "manufacturer_name": "Panini",
+      "product_name": "Chronicles",
+      "reason": "Retire an unsourced, seasonless planning placeholder. Product-season facets remain governed by directly sourced checklist rows; this retirement does not mark any facet covered."
+    },
+    {
+      "manufacturer_name": "Panini",
+      "product_name": "Contenders",
+      "reason": "Retire an unsourced, seasonless planning placeholder. Product-season facets remain governed by directly sourced checklist rows; this retirement does not mark any facet covered."
+    },
+    {
+      "manufacturer_name": "Panini",
+      "product_name": "Hoops",
+      "reason": "Retire an unsourced, seasonless planning placeholder. Manufacturer and license context must be established per product-season; this retirement does not mark any facet covered."
+    },
+    {
+      "manufacturer_name": "Panini",
+      "product_name": "Mosaic",
+      "reason": "Retire an unsourced, seasonless planning placeholder. Product-season facets remain governed by directly sourced checklist rows; this retirement does not mark any facet covered."
+    },
+    {
+      "manufacturer_name": "Panini",
+      "product_name": "Noir",
+      "reason": "Retire an unsourced, seasonless planning placeholder. Product-season facets remain governed by directly sourced checklist rows; this retirement does not mark any facet covered."
+    },
+    {
+      "manufacturer_name": "Panini",
+      "product_name": "Origins",
+      "reason": "Retire an unsourced, seasonless planning placeholder. Product-season facets remain governed by directly sourced checklist rows; this retirement does not mark any facet covered."
+    },
+    {
+      "manufacturer_name": "Panini",
+      "product_name": "Revolution",
+      "reason": "Retire an unsourced, seasonless planning placeholder. Product-season facets remain governed by directly sourced checklist rows; this retirement does not mark any facet covered."
+    },
+    {
+      "manufacturer_name": "Panini",
+      "product_name": "Spectra",
+      "reason": "Retire an unsourced, seasonless planning placeholder. Product-season facets remain governed by directly sourced checklist rows; this retirement does not mark any facet covered."
+    }
+  ]
+}

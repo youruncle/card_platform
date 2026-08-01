@@ -1,0 +1,211 @@
+{
+  "batch_key": "card-identity-national-treasures-wembanyama-2324-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2023-24 National Treasures Base #14 Victor Wembanyama RC /99",
+    "2023-24 National Treasures Rookie Patches #154 Victor Wembanyama RC /99"
+  ],
+  "sources": [
+    {
+      "key": "beckett-national-treasures-2324-wembanyama",
+      "title": "2023-24 Panini National Treasures Basketball Checklist, Box Info",
+      "url": "https://www.beckett.com/news/2023-24-panini-national-treasures-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-29T17:10:00+08:00",
+      "metadata": {
+        "scope": "Base #14 Victor Wembanyama /99, Rookie Patches #154 Victor Wembanyama /99, Rookie Patches card-number range 151-163, and explicit absence of a Wembanyama autograph in the product.",
+        "evidence": "The base checklist identifies #14 Victor Wembanyama /99 and separates Rookie Patch Autographs #101-150 from Rookie Patches #151-163. The checklist and Beckett rookie-card guide identify Wembanyama Rookie Patches #154 /99; the overview states that Wembanyama has no autograph in the set."
+      }
+    },
+    {
+      "key": "beckett-wembanyama-rookie-guide-nt-154",
+      "title": "Victor Wembanyama Rookie Card Countdown",
+      "url": "https://www.beckett.com/news/victor-wembanyama-rookie-card-guide/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-29T17:10:00+08:00",
+      "metadata": {
+        "scope": "Corroborates 2023-24 Panini National Treasures #154 Victor Wembanyama JSY RC /99.",
+        "evidence": "Beckett lists National Treasures #154 as a Victor Wembanyama jersey rookie card numbered to 99."
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "panini",
+      "entity_type": "manufacturer",
+      "canonical_name": "Panini",
+      "source_key": "beckett-national-treasures-2324-wembanyama",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "industry_roles": [
+          "manufacturer",
+          "brand",
+          "issuer"
+        ]
+      },
+      "aliases": []
+    },
+    {
+      "key": "national-treasures-2324",
+      "entity_type": "product",
+      "canonical_name": "National Treasures",
+      "source_key": "beckett-national-treasures-2324-wembanyama",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Panini",
+        "season_start": 2023,
+        "season_end": 2024,
+        "league": "NBA",
+        "scope_key": "national-treasures-2023-24"
+      },
+      "aliases": []
+    },
+    {
+      "key": "victor-wembanyama",
+      "entity_type": "player",
+      "canonical_name": "Victor Wembanyama",
+      "source_key": "beckett-national-treasures-2324-wembanyama",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "sport": "basketball"
+      },
+      "aliases": []
+    },
+    {
+      "key": "nt-rookie-patches-2324",
+      "entity_type": "insert",
+      "canonical_name": "2023-24 National Treasures Rookie Patches",
+      "source_key": "beckett-national-treasures-2324-wembanyama",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "National Treasures",
+        "season_start": 2023,
+        "season_end": 2024,
+        "semantic_type": "rookie_memorabilia_set",
+        "card_number_range": "151-163",
+        "base_serial_total": 99,
+        "has_memorabilia": true,
+        "has_autograph": false,
+        "not_rpa": true,
+        "memorabilia_provenance_requires_card_specific_evidence": true,
+        "scope_key": "national-treasures-2023-24-rookie-patches"
+      },
+      "aliases": []
+    },
+    {
+      "key": "nt-wembanyama-base-14-2324",
+      "entity_type": "card",
+      "canonical_name": "2023-24 National Treasures Base #14 Victor Wembanyama RC /99",
+      "source_key": "beckett-national-treasures-2324-wembanyama",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "National Treasures",
+        "season_start": 2023,
+        "season_end": 2024,
+        "player": "Victor Wembanyama",
+        "team": "San Antonio Spurs",
+        "card_number": "14",
+        "serial_total": 99,
+        "is_rookie_card": true,
+        "has_autograph": false,
+        "has_memorabilia": false,
+        "identity_status": "verified",
+        "image_reference_status": "pending_front_back_asset",
+        "scope_key": "national-treasures-2023-24-base"
+      },
+      "aliases": []
+    },
+    {
+      "key": "nt-wembanyama-rookie-patches-154-2324",
+      "entity_type": "card",
+      "canonical_name": "2023-24 National Treasures Rookie Patches #154 Victor Wembanyama RC /99",
+      "source_key": "beckett-wembanyama-rookie-guide-nt-154",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "National Treasures",
+        "insert": "Rookie Patches",
+        "season_start": 2023,
+        "season_end": 2024,
+        "player": "Victor Wembanyama",
+        "team": "San Antonio Spurs",
+        "card_number": "154",
+        "serial_total": 99,
+        "is_rookie_card": true,
+        "has_memorabilia": true,
+        "material_type": "jersey",
+        "has_autograph": false,
+        "is_rpa": false,
+        "memorabilia_provenance": "not_claimed",
+        "identity_status": "verified",
+        "image_reference_status": "pending_front_back_asset",
+        "scope_key": "national-treasures-2023-24-rookie-patches"
+      },
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {
+      "subject": "national-treasures-2324",
+      "relation_type": "manufactured_by",
+      "object": "panini",
+      "reason": "Beckett identifies the release as 2023-24 Panini National Treasures Basketball.",
+      "source_key": "beckett-national-treasures-2324-wembanyama",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "nt-rookie-patches-2324",
+      "relation_type": "available_in",
+      "object": "national-treasures-2324",
+      "reason": "The checklist defines Rookie Patches as cards 151-163, distinct from Rookie Patch Autographs 101-150.",
+      "source_key": "beckett-national-treasures-2324-wembanyama",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "nt-wembanyama-rookie-patches-154-2324",
+      "relation_type": "belongs_to",
+      "object": "nt-rookie-patches-2324",
+      "reason": "Beckett identifies Victor Wembanyama as National Treasures Rookie Patches #154 /99; it is memorabilia without an autograph, not an RPA.",
+      "source_key": "beckett-wembanyama-rookie-guide-nt-154",
+      "review_status": "approved",
+      "confidence": 0.99
+    }
+  ],
+  "applicability": [
+    {
+      "entity": "nt-rookie-patches-2324",
+      "product": "national-treasures-2324",
+      "season_start": 2023,
+      "season_end": 2024,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-national-treasures-2324-wembanyama",
+      "attributes": {
+        "classification": "Rookie Patches is a memorabilia-only checklist segment. It must not be normalized to Rookie Patch Autographs or RPA.",
+        "material_provenance": "No game-used or player-worn claim is made without card-specific evidence."
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "manufacturer": "panini",
+      "product": "national-treasures-2324",
+      "season_start": 2023,
+      "season_end": 2024,
+      "insert": "nt-rookie-patches-2324",
+      "status": "covered",
+      "source_key": "beckett-national-treasures-2324-wembanyama",
+      "notes": "Rookie Patches 151-163 and Wembanyama #154 /99 identity verified as memorabilia-only; no RPA, game-used, player-worn, SSP or case-hit inference."
+    }
+  ]
+}

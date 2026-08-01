@@ -1,0 +1,198 @@
+{
+  "batch_key": "spectra-2324-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2023-24 Panini Spectra Basketball",
+    "2023-24 Spectra Color Blast",
+    "2023-24 Spectra Rookie Jersey Autographs",
+    "2023-24 Spectra Color Blast #20 Victor Wembanyama"
+  ],
+  "sources": [
+    {
+      "key": "beckett-spectra-2324",
+      "title": "2023-24 Panini Spectra Basketball Checklist",
+      "url": "https://www.beckett.com/news/2023-24-panini-spectra-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-29T01:20:00+08:00",
+      "metadata": {
+        "scope": "242-card chromium Spectra product, Color Blast insert and Rookie Jersey Autographs."
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "panini",
+      "entity_type": "manufacturer",
+      "canonical_name": "Panini",
+      "source_key": "beckett-spectra-2324",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "industry_roles": [
+          "manufacturer",
+          "brand",
+          "issuer"
+        ]
+      },
+      "aliases": []
+    },
+    {
+      "key": "spectra-2324",
+      "entity_type": "product",
+      "canonical_name": "2023-24 Panini Spectra Basketball",
+      "source_key": "beckett-spectra-2324",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Panini",
+        "brand": "Spectra",
+        "season_start": 2023,
+        "season_end": 2024,
+        "league": "NBA",
+        "base_set_size": 242,
+        "construction": "chromium",
+        "tier": "high_end"
+      },
+      "aliases": []
+    },
+    {
+      "key": "spectra-color-blast-2324",
+      "entity_type": "insert",
+      "canonical_name": "2023-24 Spectra Color Blast",
+      "source_key": "beckett-spectra-2324",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2023-24 Panini Spectra Basketball",
+        "season_start": 2023,
+        "season_end": 2024,
+        "semantic_type": "insert",
+        "scope_key": "spectra-2023-24-color-blast",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "spectra-rja-2324",
+      "entity_type": "insert",
+      "canonical_name": "2023-24 Spectra Rookie Jersey Autographs",
+      "source_key": "beckett-spectra-2324",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2023-24 Panini Spectra Basketball",
+        "season_start": 2023,
+        "season_end": 2024,
+        "semantic_type": "autograph_memorabilia_insert",
+        "scope_key": "spectra-2023-24-rja",
+        "memorabilia_provenance": "not_inferred"
+      },
+      "aliases": []
+    },
+    {
+      "key": "spectra-wemby-color-blast-2324",
+      "entity_type": "card",
+      "canonical_name": "2023-24 Spectra Color Blast #20 Victor Wembanyama",
+      "source_key": "beckett-spectra-2324",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "player": "Victor Wembanyama",
+        "team": "San Antonio Spurs",
+        "product": "2023-24 Panini Spectra Basketball",
+        "insert": "2023-24 Spectra Color Blast",
+        "season_start": 2023,
+        "season_end": 2024,
+        "card_number": "20",
+        "identity_status": "verified",
+        "image_reference_status": "pending_front_back_asset"
+      },
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {
+      "subject": "spectra-2324",
+      "relation_type": "manufactured_by",
+      "object": "panini",
+      "reason": "Beckett checklist identifies Panini Spectra Basketball.",
+      "source_key": "beckett-spectra-2324",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "spectra-color-blast-2324",
+      "relation_type": "available_in",
+      "object": "spectra-2324",
+      "reason": "Beckett checklist lists Color Blast in 2023-24 Spectra.",
+      "source_key": "beckett-spectra-2324",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "spectra-rja-2324",
+      "relation_type": "available_in",
+      "object": "spectra-2324",
+      "reason": "Beckett checklist lists Rookie Jersey Autographs in 2023-24 Spectra.",
+      "source_key": "beckett-spectra-2324",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "spectra-wemby-color-blast-2324",
+      "relation_type": "belongs_to",
+      "object": "spectra-color-blast-2324",
+      "reason": "Beckett checklist identifies Victor Wembanyama as Color Blast card #20.",
+      "source_key": "beckett-spectra-2324",
+      "review_status": "approved",
+      "confidence": 0.99
+    }
+  ],
+  "applicability": [
+    {
+      "entity": "spectra-color-blast-2324",
+      "product": "spectra-2324",
+      "season_start": 2023,
+      "season_end": 2024,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-spectra-2324",
+      "attributes": {
+        "classification": "Spectra product-season-specific Color Blast insert; not a generic visual term or global parallel."
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "manufacturer": "panini",
+      "product": "spectra-2324",
+      "season_start": 2023,
+      "season_end": 2024,
+      "insert": "spectra-color-blast-2324",
+      "status": "covered",
+      "source_key": "beckett-spectra-2324",
+      "notes": "Color Blast verified."
+    },
+    {
+      "manufacturer": "panini",
+      "product": "spectra-2324",
+      "season_start": 2023,
+      "season_end": 2024,
+      "insert": "spectra-rja-2324",
+      "status": "covered",
+      "source_key": "beckett-spectra-2324",
+      "notes": "Rookie Jersey Autographs verified; provenance remains unasserted."
+    },
+    {
+      "manufacturer": "panini",
+      "product": "spectra-2324",
+      "season_start": 2023,
+      "season_end": 2024,
+      "status": "partial",
+      "source_key": "beckett-spectra-2324",
+      "notes": "Core product, Color Blast and RJA verified; full parallel and autograph subsets remain later work."
+    }
+  ]
+}

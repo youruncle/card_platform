@@ -20,9 +20,13 @@ class Settings(BaseSettings):
     card_search_enabled: bool = True
     card_search_model: str = "qwen-plus"
     card_search_timeout_seconds: float = 45.0
+    recognition_vision_stage_timeout_seconds: float = 240.0
+    recognition_enrichment_stage_timeout_seconds: float = 90.0
+    recognition_sample_timeout_seconds: float = 650.0
     valuation_search_model: str = "qwen-plus"
     valuation_search_timeout_seconds: float = 90.0
     valuation_worker_enabled: bool = True
+    recognition_worker_enabled: bool = True
     valuation_worker_poll_seconds: float = 2.0
     valuation_verify_sources: bool = True
     valuation_source_verify_timeout_seconds: float = 8.0
@@ -34,6 +38,19 @@ class Settings(BaseSettings):
         "https://news.google.com/rss/search?q={player}+NBA+injury&hl=en-US&gl=US&ceid=US:en"
     )
     provider_timeout_seconds: float = 15.0
+    cardhobby_concurrent_limit: int = 1
+    cardhobby_min_interval_ms: int = 1500
+    cardhobby_error_budget: int = 5
+    ebay_client_id: str | None = None
+    ebay_client_secret: str | None = None
+    ebay_marketplace_id: str = "EBAY_US"
+    ebay_token_url: str = "https://api.ebay.com/identity/v1/oauth2/token"
+    ebay_insights_url: str = (
+        "https://api.ebay.com/buy/marketplace_insights/v1_beta/item_sales/search"
+    )
+    market_hot_ttl_seconds: int = 7200
+    market_warm_ttl_seconds: int = 28800
+    market_cold_ttl_seconds: int = 172800
     upload_dir: str = "uploads"
     max_image_bytes: int = 10 * 1024 * 1024
 

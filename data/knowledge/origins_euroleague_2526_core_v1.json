@@ -1,0 +1,34 @@
+{
+  "batch_key": "origins-euroleague-2526-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2025-26 Panini Origins EuroLeague Basketball",
+    "2025-26 Origins EuroLeague Tiger Eyes",
+    "2025-26 Origins EuroLeague Base Black 1/1",
+    "2025-26 Origins EuroLeague Club Roots #2 Victor Wembanyama"
+  ],
+  "sources": [
+    {"key":"beckett-origins-euroleague-2526","title":"2025-26 Panini Origins EuroLeague Basketball Checklist","url":"https://www.beckett.com/news/2025-26-panini-origins-euroleague-basketball-cards/","publisher":"Beckett","source_type":"beckett_checklist","retrieved_at":"2026-07-28T22:45:00+08:00","metadata":{"scope":"Debut Origins EuroLeague product, base/parallel, short-print insert and Victor Wembanyama Club Roots identity."}}
+  ],
+  "entities": [
+    {"key":"panini","entity_type":"manufacturer","canonical_name":"Panini","source_key":"beckett-origins-euroleague-2526","review_status":"approved","confidence":0.99,"attributes":{"industry_roles":["manufacturer","brand","issuer"]},"aliases":[]},
+    {"key":"origins-euroleague-2526","entity_type":"product","canonical_name":"2025-26 Panini Origins EuroLeague Basketball","source_key":"beckett-origins-euroleague-2526","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","brand":"Origins","season_start":2025,"season_end":2026,"league":"EuroLeague","base_checklist_size":100,"product_distinction":"Debut Origins EuroLeague product, separate from NBA Origins releases and other Panini EuroLeague product lines."},"aliases":[]},
+    {"key":"origins-euroleague-tiger-eyes-2526","entity_type":"insert","canonical_name":"2025-26 Origins EuroLeague Tiger Eyes","source_key":"beckett-origins-euroleague-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Panini Origins EuroLeague Basketball","season_start":2025,"season_end":2026,"semantic_type":"short_print_insert","visual_features":["player cutout","live tiger closeup"],"scope_key":"origins-euroleague-2025-26-tiger-eyes","not_cross_product_equivalent":true,"not_automatically_ssp":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"origins-euroleague-base-black-1of1-2526","entity_type":"parallel","canonical_name":"2025-26 Origins EuroLeague Base Black 1/1","source_key":"beckett-origins-euroleague-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Panini Origins EuroLeague Basketball","season_start":2025,"season_end":2026,"parallel_scope":"base","serial_total":1,"scope_key":"origins-euroleague-2025-26-base","not_cross_product_equivalent":true},"aliases":[]},
+    {"key":"origins-euroleague-wemby-club-roots-2-2526","entity_type":"card","canonical_name":"2025-26 Origins EuroLeague Club Roots #2 Victor Wembanyama","source_key":"beckett-origins-euroleague-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Panini Origins EuroLeague Basketball","insert":"2025-26 Origins EuroLeague Club Roots","season_start":2025,"season_end":2026,"player":"Victor Wembanyama","team":"LDLC ASVEL Villeurbanne","card_number":"2","serial_total":1,"is_memorabilia_card":true,"memorabilia_provenance_requires_card_specific_evidence":true,"identity_status":"verified","not_rookie_card_inference":true,"image_reference_status":"pending_front_back_asset"},"aliases":[]}
+  ],
+  "relations": [
+    {"subject":"origins-euroleague-2526","relation_type":"manufactured_by","object":"panini","reason":"Beckett identifies the product as 2025-26 Panini Origins EuroLeague Basketball.","source_key":"beckett-origins-euroleague-2526","review_status":"approved","confidence":0.99},
+    {"subject":"origins-euroleague-tiger-eyes-2526","relation_type":"available_in","object":"origins-euroleague-2526","reason":"Beckett identifies Tiger Eyes as a short-print insert in this product.","source_key":"beckett-origins-euroleague-2526","review_status":"approved","confidence":0.99}
+  ],
+  "applicability": [
+    {"entity":"origins-euroleague-tiger-eyes-2526","product":"origins-euroleague-2526","season_start":2025,"season_end":2026,"league":"EuroLeague","status":"verified","review_status":"approved","source_key":"beckett-origins-euroleague-2526","attributes":{"classification":"Product-season short-print insert; neither SSP nor case-hit is inferred."}},
+    {"entity":"origins-euroleague-base-black-1of1-2526","product":"origins-euroleague-2526","season_start":2025,"season_end":2026,"league":"EuroLeague","status":"verified","review_status":"approved","source_key":"beckett-origins-euroleague-2526","attributes":{"classification":"Base-only 1/1 parallel."}}
+  ],
+  "coverage": [
+    {"manufacturer":"panini","product":"origins-euroleague-2526","season_start":2025,"season_end":2026,"insert":"origins-euroleague-tiger-eyes-2526","status":"covered","source_key":"beckett-origins-euroleague-2526","notes":"Tiger Eyes visual short-print insert verified without SSP/case-hit inference."},
+    {"manufacturer":"panini","product":"origins-euroleague-2526","season_start":2025,"season_end":2026,"parallel":"origins-euroleague-base-black-1of1-2526","status":"covered","source_key":"beckett-origins-euroleague-2526","notes":"Base Black 1/1 verified as product-season specific."},
+    {"manufacturer":"panini","product":"origins-euroleague-2526","season_start":2025,"season_end":2026,"status":"partial","source_key":"beckett-origins-euroleague-2526","notes":"Debut product, base, selected short-print/parallel and Wembanyama Club Roots identity verified; full autograph, booklet, relic and insert matrix remains pending."}
+  ]
+}

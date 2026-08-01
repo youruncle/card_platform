@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>卡淘一键导入</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <strong>卡淘一键导入</strong>
+      <span>登录信息不会离开卡淘页面</span>
+    </header>
+    <section class="settings">
+      <label>Card Platform API <input id="apiUrl" value="http://127.0.0.1:8000" /></label>
+      <label>收藏者 ID <input id="ownerId" placeholder="UUID" /></label>
+      <button id="saveSettings" class="secondary">保存设置</button>
+    </section>
+    <div class="actions">
+      <button id="scan">扫描当前订单页</button>
+      <button id="confirm" disabled>导入已勾选且信息完整的卡片</button>
+    </div>
+    <p id="status" role="status">请先登录卡淘并打开“我买到的”页面。</p>
+    <main id="drafts"></main>
+    <script src="popup.js"></script>
+  </body>
+</html>

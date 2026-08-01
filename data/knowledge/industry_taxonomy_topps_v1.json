@@ -1,0 +1,76 @@
+{
+  "batch_key": "industry-taxonomy-topps-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": ["Topps", "2025-26 Topps Basketball"],
+  "sources": [
+    {
+      "key": "fanatics-topps-acquisition",
+      "title": "Fanatics Acquires Topps Trading Cards and Collectibles Business",
+      "url": "https://www.fanaticsinc.com/press-releases/fanatics-acquires-topps-trading-cards-and-collectibles-business",
+      "publisher": "Fanatics Inc.",
+      "source_type": "official_product",
+      "retrieved_at": "2026-07-28T16:30:00+08:00",
+      "metadata": {"scope": "Topps trading-card business, acquisition, manufacturing capability"}
+    },
+    {
+      "key": "topps-2526-basketball",
+      "title": "2025-26 Topps Basketball Hobby Box",
+      "url": "https://www.topps.com/products/2025-26-topps-basketball-hobby-box",
+      "publisher": "Topps",
+      "source_type": "official_product",
+      "retrieved_at": "2026-07-28T16:30:00+08:00",
+      "metadata": {"scope": "2025-26 NBA Topps Basketball product, checklist and odds entry points"}
+    }
+  ],
+  "entities": [
+    {
+      "key": "topps-manufacturer",
+      "entity_type": "manufacturer",
+      "canonical_name": "Topps",
+      "source_key": "fanatics-topps-acquisition",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "claim": "Topps is a sports-card manufacturer/issuer in hobby taxonomy; it operates as a Fanatics Collectibles brand after the acquisition.",
+      "attributes": {
+        "industry_roles": ["manufacturer", "brand", "issuer"],
+        "parent_organization": "Fanatics Collectibles",
+        "role_scope": "Sports-card industry taxonomy; do not replace Topps with its parent in product identity.",
+        "era_note": "Ownership and league licensing must remain season-scoped."
+      },
+      "aliases": [{"value": "Topps (Fanatics)", "language": "en", "alias_type": "synonym", "confidence": 0.95}]
+    },
+    {
+      "key": "topps-basketball-2526",
+      "entity_type": "product",
+      "canonical_name": "2025-26 Topps Basketball",
+      "source_key": "topps-2526-basketball",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"manufacturer": "Topps", "brand": "Topps", "season_start": 2025, "season_end": 2026, "league": "NBA", "product_family": "Topps Basketball"},
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {
+      "subject": "topps-basketball-2526",
+      "relation_type": "manufactured_by",
+      "object": "topps-manufacturer",
+      "reason": "The official 2025-26 Topps Basketball product page identifies the Topps basketball release.",
+      "source_key": "topps-2526-basketball",
+      "review_status": "approved",
+      "confidence": 0.99
+    }
+  ],
+  "coverage": [
+    {
+      "manufacturer": "topps-manufacturer",
+      "product": "topps-basketball-2526",
+      "season_start": 2025,
+      "season_end": 2026,
+      "status": "partial",
+      "source_key": "topps-2526-basketball",
+      "notes": "Official product identity, checklist and odds entry points verified. Insert/parallel/card-level import is a subsequent batch."
+    }
+  ]
+}

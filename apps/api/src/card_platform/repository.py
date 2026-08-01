@@ -33,6 +33,10 @@ class PositionError(Exception):
     pass
 
 
+class ConflictError(Exception):
+    pass
+
+
 class PortfolioRepository:
     async def create_user(self, connection: AsyncConnection, payload: UserCreate) -> UUID:
         result = await connection.execute(
@@ -94,8 +98,9 @@ class PortfolioRepository:
                     """
                     INSERT INTO card_transaction (
                         collection_item_id, transaction_type, transacted_at, quantity,
-                        unit_price, fee_amount, currency, fx_rate_to_base, venue, notes
-                    ) VALUES (%s, 'buy', %s, 1, %s, %s, %s, %s, %s, %s)
+                        unit_price, fee_amount, currency, fx_rate_to_base, venue,
+                        external_order_id, notes
+                    ) VALUES (%s, 'buy', %s, 1, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         item_id,
@@ -105,6 +110,7 @@ class PortfolioRepository:
                         purchase.currency.upper(),
                         purchase.fx_rate_to_base,
                         purchase.venue,
+                        purchase.external_order_id,
                         purchase.notes,
                     ),
                 )
@@ -197,8 +203,14 @@ class PortfolioRepository:
             """
             INSERT INTO card_definition (
                 card_set_id, player_id, card_number, insert_name, parallel_name,
-                is_rookie, is_autograph, is_patch, is_case_hit, print_run
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                is_rookie, is_autograph, autograph_type,
+                has_inscription, inscription_text,
+                is_memorabilia, memorabilia_types, memorabilia_usage,
+                memorabilia_player, is_patch, is_case_hit, print_run
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s
+            )
             ON CONFLICT (
                 card_set_id, player_id,
                 (COALESCE(card_number, '')),
@@ -207,6 +219,36 @@ class PortfolioRepository:
             ) DO UPDATE SET
                 is_rookie = card_definition.is_rookie OR EXCLUDED.is_rookie,
                 is_autograph = card_definition.is_autograph OR EXCLUDED.is_autograph,
+                autograph_type = CASE
+                    WHEN card_definition.autograph_type IN ('none', 'unknown')
+                    THEN EXCLUDED.autograph_type
+                    ELSE card_definition.autograph_type
+                END,
+                has_inscription = (
+                    card_definition.has_inscription OR EXCLUDED.has_inscription
+                ),
+                inscription_text = COALESCE(
+                    card_definition.inscription_text,
+                    EXCLUDED.inscription_text
+                ),
+                is_memorabilia = (
+                    card_definition.is_memorabilia OR EXCLUDED.is_memorabilia
+                ),
+                memorabilia_types = ARRAY(
+                    SELECT DISTINCT unnest(
+                        card_definition.memorabilia_types
+                        || EXCLUDED.memorabilia_types
+                    )
+                ),
+                memorabilia_usage = CASE
+                    WHEN card_definition.memorabilia_usage IN ('none', 'unknown')
+                    THEN EXCLUDED.memorabilia_usage
+                    ELSE card_definition.memorabilia_usage
+                END,
+                memorabilia_player = COALESCE(
+                    card_definition.memorabilia_player,
+                    EXCLUDED.memorabilia_player
+                ),
                 is_patch = card_definition.is_patch OR EXCLUDED.is_patch,
                 is_case_hit = card_definition.is_case_hit OR EXCLUDED.is_case_hit,
                 print_run = COALESCE(card_definition.print_run, EXCLUDED.print_run)
@@ -220,6 +262,13 @@ class PortfolioRepository:
                 card.parallel_name,
                 card.is_rookie,
                 card.is_autograph,
+                card.autograph_type,
+                card.has_inscription,
+                card.inscription_text,
+                card.is_memorabilia,
+                card.memorabilia_types,
+                card.memorabilia_usage,
+                card.memorabilia_player,
                 card.is_patch,
                 card.is_case_hit,
                 card.print_run,
@@ -228,11 +277,20 @@ class PortfolioRepository:
         return (await result.fetchone())["id"]
 
     async def add_transaction(
-        self, connection: AsyncConnection, item_id: UUID, payload: TransactionCreate
+        self,
+        connection: AsyncConnection,
+        item_id: UUID,
+        owner_id: UUID,
+        payload: TransactionCreate,
     ) -> UUID:
         async with connection.transaction():
             item = await connection.execute(
-                "SELECT id FROM collection_item WHERE id = %s FOR UPDATE", (item_id,)
+                """
+                SELECT id FROM collection_item
+                WHERE id = %s AND owner_id = %s AND deleted_at IS NULL
+                FOR UPDATE
+                """,
+                (item_id, owner_id),
             )
             if await item.fetchone() is None:
                 raise NotFoundError("collection item not found")
@@ -269,10 +327,18 @@ class PortfolioRepository:
             return (await result.fetchone())["id"]
 
     async def add_valuation(
-        self, connection: AsyncConnection, item_id: UUID, payload: ValuationCreate
+        self,
+        connection: AsyncConnection,
+        item_id: UUID,
+        owner_id: UUID,
+        payload: ValuationCreate,
     ) -> UUID:
         exists = await connection.execute(
-            "SELECT id FROM collection_item WHERE id = %s", (item_id,)
+            """
+            SELECT id FROM collection_item
+            WHERE id = %s AND owner_id = %s AND deleted_at IS NULL
+            """,
+            (item_id, owner_id),
         )
         if await exists.fetchone() is None:
             raise NotFoundError("collection item not found")
@@ -298,17 +364,28 @@ class PortfolioRepository:
         )
         return (await result.fetchone())["id"]
 
-    async def list_items(self, connection: AsyncConnection, owner_id: UUID) -> list[PortfolioItem]:
+    async def list_items(
+        self,
+        connection: AsyncConnection,
+        owner_id: UUID,
+        *,
+        deleted_only: bool = False,
+    ) -> list[PortfolioItem]:
+        deleted_filter = "ci.deleted_at IS NOT NULL" if deleted_only else "ci.deleted_at IS NULL"
         result = await connection.execute(
-            """
+            f"""
             SELECT
                 ci.id, ci.owner_id, p.id AS player_id, p.full_name AS player_name,
                 b.name AS brand_name,
                 cs.season_start, cs.season_end, cs.product_name, cs.set_name,
                 cd.card_number, cd.insert_name, cd.parallel_name,
-                cd.is_rookie, cd.is_autograph, cd.is_patch,
+                cd.is_rookie, cd.is_autograph, cd.autograph_type,
+                cd.has_inscription, cd.inscription_text,
+                cd.is_memorabilia, cd.memorabilia_types,
+                cd.memorabilia_usage, cd.memorabilia_player, cd.is_patch,
                 ci.serial_number, ci.serial_total, ci.grade_company, ci.grade_value,
                 ci.strategy_tags, ci.image_front_url, ci.image_back_url, u.base_currency,
+                ci.deleted_at, ci.deleted_reason,
                 CASE WHEN vj.created_at > lv.valued_at AND vj.status <> 'succeeded'
                      THEN NULL ELSE lv.currency END AS valuation_currency,
                 CASE WHEN vj.created_at > lv.valued_at AND vj.status <> 'succeeded'
@@ -334,7 +411,7 @@ class PortfolioRepository:
                 WHERE collection_item_id = ci.id
                 ORDER BY created_at DESC LIMIT 1
             ) vj ON true
-            WHERE ci.owner_id = %s
+            WHERE ci.owner_id = %s AND {deleted_filter}
             ORDER BY ci.created_at DESC
             """,
             (owner_id,),
@@ -362,6 +439,91 @@ class PortfolioRepository:
                 )
             )
         return items
+
+    async def list_deleted_items(
+        self, connection: AsyncConnection, owner_id: UUID
+    ) -> list[PortfolioItem]:
+        return await self.list_items(connection, owner_id, deleted_only=True)
+
+    async def soft_delete_item(
+        self,
+        connection: AsyncConnection,
+        item_id: UUID,
+        owner_id: UUID,
+        reason: str | None,
+    ) -> None:
+        result = await connection.execute(
+            """
+            UPDATE collection_item
+            SET deleted_at = COALESCE(deleted_at, now()),
+                deleted_reason = CASE
+                    WHEN deleted_at IS NULL THEN %s
+                    ELSE deleted_reason
+                END,
+                deleted_by = COALESCE(deleted_by, %s),
+                updated_at = now()
+            WHERE id = %s AND owner_id = %s
+            RETURNING id
+            """,
+            (reason, owner_id, item_id, owner_id),
+        )
+        if await result.fetchone() is None:
+            raise NotFoundError("collection item not found")
+        await connection.execute(
+            """
+            UPDATE valuation_job
+            SET status = 'failed',
+                error_message = '卡片已移入回收站',
+                finished_at = COALESCE(finished_at, now()),
+                updated_at = now()
+            WHERE collection_item_id = %s
+              AND status IN ('queued', 'identifying', 'searching', 'calculating')
+            """,
+            (item_id,),
+        )
+
+    async def restore_item(
+        self, connection: AsyncConnection, item_id: UUID, owner_id: UUID
+    ) -> None:
+        result = await connection.execute(
+            """
+            UPDATE collection_item
+            SET deleted_at = NULL, deleted_reason = NULL, deleted_by = NULL, updated_at = now()
+            WHERE id = %s AND owner_id = %s
+            RETURNING id
+            """,
+            (item_id, owner_id),
+        )
+        if await result.fetchone() is None:
+            raise NotFoundError("collection item not found")
+
+    async def permanently_delete_item(
+        self, connection: AsyncConnection, item_id: UUID, owner_id: UUID
+    ) -> tuple[str | None, str | None]:
+        async with connection.transaction():
+            item = await connection.execute(
+                """
+                SELECT image_front_url, image_back_url
+                FROM collection_item
+                WHERE id = %s AND owner_id = %s AND deleted_at IS NOT NULL
+                FOR UPDATE
+                """,
+                (item_id, owner_id),
+            )
+            row = await item.fetchone()
+            if row is None:
+                exists = await connection.execute(
+                    "SELECT 1 FROM collection_item WHERE id = %s AND owner_id = %s",
+                    (item_id, owner_id),
+                )
+                if await exists.fetchone():
+                    raise ConflictError("collection item must be in trash before permanent deletion")
+                raise NotFoundError("collection item not found")
+            await connection.execute(
+                "DELETE FROM collection_item WHERE id = %s AND owner_id = %s",
+                (item_id, owner_id),
+            )
+            return row["image_front_url"], row["image_back_url"]
 
     async def summary(self, connection: AsyncConnection, owner_id: UUID) -> PortfolioSummary:
         user_result = await connection.execute(
@@ -452,7 +614,7 @@ class PortfolioRepository:
                    t.unit_price, t.fee_amount, t.fx_rate_to_base
             FROM card_transaction t
             JOIN collection_item ci ON ci.id = t.collection_item_id
-            WHERE ci.owner_id = %s
+            WHERE ci.owner_id = %s AND ci.deleted_at IS NULL
             ORDER BY t.collection_item_id, t.transacted_at, t.created_at, t.id
             """,
             (owner_id,),

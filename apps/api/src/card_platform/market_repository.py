@@ -1,3 +1,6 @@
+import hashlib
+import re
+from urllib.parse import urlparse
 from uuid import UUID
 
 from psycopg import AsyncConnection
@@ -16,10 +19,78 @@ from card_platform.schemas import (
 
 
 class MarketRepository:
+    SOURCE_HOSTS = {
+        "cardhobby": {"cardhobby.com.cn"},
+        "ebay": {"ebay.com"},
+        "130point": {"130point.com"},
+    }
+
+    @staticmethod
+    def _external_id_from_url(source_code: str, source_url: str | None) -> str | None:
+        path = urlparse(source_url or "").path.rstrip("/")
+        patterns = {
+            "ebay": r"/itm/(?:[^/]+/)?(\d+)$",
+            "cardhobby": r"/market/item/(\d+)$",
+        }
+        pattern = patterns.get(source_code)
+        if not pattern:
+            return None
+        match = re.search(pattern, path, re.IGNORECASE)
+        return match.group(1) if match else None
+
+    @classmethod
+    def _validate_source(cls, payload: MarketCompCreate) -> str:
+        expected_hosts = cls.SOURCE_HOSTS.get(payload.source_code)
+        if expected_hosts:
+            hostname = (
+                (urlparse(payload.source_url or "").hostname or "")
+                .lower()
+                .removeprefix("www.")
+            )
+            if not any(
+                hostname == host or hostname.endswith(f".{host}")
+                for host in expected_hosts
+            ):
+                raise ValueError(
+                    f"{payload.source_code} evidence requires a matching source URL"
+                )
+        if payload.source_code == "weikajia" and not (
+            payload.external_id or payload.source_url
+        ):
+            raise ValueError("weikajia evidence requires an external_id or source_url")
+        if (
+            payload.source_code == "130point"
+            and payload.origin_source_code
+            and payload.origin_source_code != "130point"
+            and not payload.external_id
+        ):
+            raise ValueError(
+                "130point aggregated evidence requires the underlying marketplace "
+                "external_id for cross-channel deduplication"
+            )
+        resolved_external_id = payload.external_id or cls._external_id_from_url(
+            payload.source_code,
+            payload.source_url,
+        )
+        fingerprint = "|".join(
+            (
+                payload.source_code,
+                resolved_external_id or "",
+                payload.source_url or "",
+                payload.occurred_at.isoformat(),
+                str(payload.sale_price),
+                payload.listing_title or "",
+            )
+        )
+        return resolved_external_id or hashlib.sha256(fingerprint.encode()).hexdigest()
+
     async def _definition_id(
         self, connection: AsyncConnection, item_id: UUID, owner_id: UUID | None = None
     ) -> UUID:
-        query = "SELECT card_definition_id FROM collection_item WHERE id = %s"
+        query = (
+            "SELECT card_definition_id FROM collection_item "
+            "WHERE id = %s AND deleted_at IS NULL"
+        )
         params: tuple = (item_id,)
         if owner_id:
             query += " AND owner_id = %s"
@@ -37,15 +108,62 @@ class MarketRepository:
         payload: MarketCompCreate,
     ) -> UUID:
         definition_id = await self._definition_id(connection, item_id, payload.owner_id)
-        source = await connection.execute("SELECT id FROM data_source WHERE code = 'market_import'")
-        source_id = (await source.fetchone())["id"]
+        external_id = self._validate_source(payload)
+        source = await connection.execute(
+            "SELECT id FROM data_source WHERE code = %s AND active",
+            (payload.source_code,),
+        )
+        source_row = await source.fetchone()
+        if source_row is None:
+            raise ValueError("market source is not registered or active")
+        source_id = source_row["id"]
+        existing_identity = await connection.execute(
+            """
+            SELECT card_definition_id
+            FROM market_comp
+            WHERE data_source_id = %s AND external_id = %s
+            LIMIT 1
+            """,
+            (source_id, external_id),
+        )
+        existing_identity_row = await existing_identity.fetchone()
+        if (
+            existing_identity_row is not None
+            and existing_identity_row["card_definition_id"] != definition_id
+        ):
+            raise ValueError(
+                "this underlying sale is already bound to a different card identity; "
+                "review the card identity before importing it again"
+            )
         result = await connection.execute(
             """
             INSERT INTO market_comp (
                 card_definition_id, data_source_id, occurred_at, sale_price,
                 shipping_price, currency, fx_rate_to_base, grade_company,
-                grade_value, listing_title, source_url, match_confidence
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                grade_value, listing_title, source_url, external_id,
+                source_reliability, match_confidence, classification
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                jsonb_build_object(
+                    'source_code', %s::text,
+                    'origin_source_code', %s::text,
+                    'ingestion', 'authorized_import'
+                )
+            )
+            ON CONFLICT (card_definition_id, data_source_id, external_id)
+            DO UPDATE SET
+                occurred_at = EXCLUDED.occurred_at,
+                sale_price = EXCLUDED.sale_price,
+                shipping_price = EXCLUDED.shipping_price,
+                currency = EXCLUDED.currency,
+                fx_rate_to_base = EXCLUDED.fx_rate_to_base,
+                grade_company = EXCLUDED.grade_company,
+                grade_value = EXCLUDED.grade_value,
+                listing_title = EXCLUDED.listing_title,
+                source_url = EXCLUDED.source_url,
+                source_reliability = EXCLUDED.source_reliability,
+                match_confidence = EXCLUDED.match_confidence,
+                classification = market_comp.classification || EXCLUDED.classification
             RETURNING id
             """,
             (
@@ -60,7 +178,11 @@ class MarketRepository:
                 payload.grade_value,
                 payload.listing_title,
                 payload.source_url,
+                external_id,
+                payload.source_reliability,
                 payload.match_confidence,
+                payload.source_code,
+                payload.origin_source_code or payload.source_code,
             ),
         )
         return (await result.fetchone())["id"]
@@ -73,7 +195,8 @@ class MarketRepository:
             """
             SELECT id, occurred_at, sale_price, shipping_price, currency,
                    fx_rate_to_base, grade_company, grade_value, listing_title,
-                   source_url, match_confidence
+                   source_url, match_confidence, source_reliability, similarity,
+                   comparable_tier, classification
             FROM market_comp WHERE card_definition_id = %s
             ORDER BY occurred_at DESC, created_at DESC LIMIT 100
             """,
@@ -91,7 +214,7 @@ class MarketRepository:
         result = await connection.execute(
             """
             SELECT id,
-                   (sale_price + shipping_price) * COALESCE(fx_rate_to_base, 1) AS value_base,
+                   sale_price * COALESCE(fx_rate_to_base, 1) AS value_base,
                    GREATEST(0, EXTRACT(day FROM now() - occurred_at))::int AS age_days,
                    COALESCE(match_confidence, 0.5) AS match_confidence
             FROM market_comp
@@ -131,7 +254,12 @@ class MarketRepository:
                 estimate.fair,
                 estimate.high,
                 estimate.confidence,
-                Jsonb({"market_comp_ids": [str(row["id"]) for row in rows]}),
+                Jsonb(
+                    {
+                        "market_comp_ids": [str(row["id"]) for row in rows],
+                        "price_basis": "sale_price_excluding_shipping",
+                    }
+                ),
             ),
         )
         valuation_id = (await valuation_result.fetchone())["id"]
@@ -187,6 +315,30 @@ class MarketRepository:
     ) -> UUID:
         await self._definition_id(connection, item_id, owner_id)
         async with connection.transaction():
+            await connection.execute(
+                """
+                UPDATE market_identity_cache c
+                SET freshness = 'stale', next_refresh_at = now(), updated_at = now()
+                FROM market_identity_binding b
+                WHERE b.collection_item_id = %s
+                  AND b.identity_fingerprint = c.identity_fingerprint
+                """,
+                (item_id,),
+            )
+            await connection.execute(
+                """
+                INSERT INTO market_refresh_job (
+                    identity_fingerprint, requested_by, reason
+                )
+                SELECT b.identity_fingerprint, %s, 'user_retry'
+                FROM market_identity_binding b
+                WHERE b.collection_item_id = %s
+                ON CONFLICT (identity_fingerprint)
+                    WHERE status IN ('queued', 'running')
+                DO UPDATE SET updated_at = now()
+                """,
+                (owner_id, item_id),
+            )
             await connection.execute(
                 """
                 UPDATE valuation_job SET status = 'failed',

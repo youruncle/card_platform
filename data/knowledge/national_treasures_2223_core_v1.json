@@ -1,0 +1,64 @@
+{
+  "batch_key":"national-treasures-2223-core-v1",
+  "catalog_enabled":true,
+  "manifest_version":1,
+  "required_regressions":[
+    "2022-23 Panini National Treasures Basketball",
+    "2022-23 National Treasures Rookie Patch Autographs",
+    "2022-23 National Treasures Court Pass",
+    "2022-23 National Treasures Colossal",
+    "2022-23 National Treasures Colossal Logoman",
+    "2022-23 National Treasures Rookie Patch Autographs #110 Paolo Banchero RC /99"
+  ],
+  "sources":[
+    {
+      "key":"beckett-national-treasures-2223",
+      "title":"2022-23 Panini National Treasures Basketball Checklist, Box Info",
+      "url":"https://www.beckett.com/news/2022-23-panini-national-treasures-basketball-cards/",
+      "publisher":"Beckett",
+      "source_type":"beckett_checklist",
+      "retrieved_at":"2026-07-28T16:10:00+08:00",
+      "metadata":{"scope":"NBA 150-card product; hobby configuration, base/RPA range, autograph and memorabilia set descriptions, and checklist identifiers."}
+    },
+    {
+      "key":"cardboard-national-treasures-2223",
+      "title":"2022-23 Panini National Treasures Basketball Checklist",
+      "url":"https://www.cardboardconnection.com/2022-23-panini-national-treasures-basketball-cards",
+      "publisher":"Cardboard Connection",
+      "source_type":"cardboard_connection",
+      "retrieved_at":"2026-07-28T16:10:00+08:00",
+      "metadata":{"scope":"Cross-check of the Orlando Magic team checklist, including Paolo Banchero RPA #110 and Court Pass #3."}
+    }
+  ],
+  "entities":[
+    {"key":"panini","entity_type":"manufacturer","canonical_name":"Panini","source_key":"beckett-national-treasures-2223","review_status":"approved","confidence":0.99,"attributes":{"industry_roles":["manufacturer","brand","issuer"]},"aliases":[]},
+    {"key":"national-treasures-2223","entity_type":"product","canonical_name":"2022-23 Panini National Treasures Basketball","source_key":"beckett-national-treasures-2223","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","brand":"National Treasures","season_start":2022,"season_end":2023,"league":"NBA","base_checklist_size":150,"hobby_configuration":{"cards_per_pack":10,"packs_per_box":1,"autographs":4,"memorabilia_cards":4,"printing_plates":1,"base_or_parallel":1},"product_distinction":"National Treasures is a distinct high-end Panini product. Its product name and expensive market position do not, by themselves, classify every card as RPA, Logoman, SSP, or game-used."},"aliases":[{"value":"2022-23 Panini NT Basketball","alias_type":"seller_term","locale":"en","source_key":"cardboard-national-treasures-2223","review_status":"approved","confidence":0.91}]},
+    {"key":"nt-rookie-patch-autographs-2223","entity_type":"insert","canonical_name":"2022-23 National Treasures Rookie Patch Autographs","source_key":"beckett-national-treasures-2223","review_status":"approved","confidence":0.99,"attributes":{"product":"2022-23 Panini National Treasures Basketball","season_start":2022,"season_end":2023,"semantic_type":"rookie_patch_autograph_set","card_number_range":"101-150","base_serial_total":99,"scope_key":"national-treasures-2022-23-rookie-patch-autographs","not_cross_product_equivalent":true,"is_rpa_set":true,"has_autograph":true,"has_patch":true,"memorabilia_provenance_requires_card_specific_evidence":true},"aliases":[{"value":"2022-23 National Treasures RPA","alias_type":"seller_term","locale":"en","source_key":"beckett-national-treasures-2223","review_status":"approved","confidence":0.99},{"value":"2022-23 国宝新秀签字球衣","alias_type":"translation","locale":"zh-CN","source_key":"beckett-national-treasures-2223","review_status":"approved","confidence":0.91}]},
+    {"key":"nt-court-pass-2223","entity_type":"insert","canonical_name":"2022-23 National Treasures Court Pass","source_key":"beckett-national-treasures-2223","review_status":"approved","confidence":0.98,"attributes":{"product":"2022-23 Panini National Treasures Basketball","season_start":2022,"season_end":2023,"semantic_type":"autograph_insert","scope_key":"national-treasures-2022-23-court-pass","not_cross_product_equivalent":true,"not_automatically_ssp":true,"not_automatically_case_hit":true},"aliases":[{"value":"2022-23 国宝 Court Pass","alias_type":"translation","locale":"zh-CN","source_key":"beckett-national-treasures-2223","review_status":"approved","confidence":0.89}]},
+    {"key":"nt-colossal-2223","entity_type":"insert","canonical_name":"2022-23 National Treasures Colossal","source_key":"beckett-national-treasures-2223","review_status":"approved","confidence":0.98,"attributes":{"product":"2022-23 Panini National Treasures Basketball","season_start":2022,"season_end":2023,"semantic_type":"memorabilia_set","visual_feature":"jumbo_swatch","scope_key":"national-treasures-2022-23-colossal","not_cross_product_equivalent":true,"not_automatically_rpa":true,"not_automatically_ssp":true,"memorabilia_provenance_requires_card_specific_evidence":true},"aliases":[{"value":"2022-23 国宝大比例","alias_type":"translation","locale":"zh-CN","source_key":"beckett-national-treasures-2223","review_status":"approved","confidence":0.92}]},
+    {"key":"nt-colossal-logoman-2223","entity_type":"insert","canonical_name":"2022-23 National Treasures Colossal Logoman","source_key":"beckett-national-treasures-2223","review_status":"approved","confidence":0.99,"attributes":{"product":"2022-23 Panini National Treasures Basketball","season_start":2022,"season_end":2023,"semantic_type":"memorabilia_set","visual_feature":"logoman","serial_total":1,"scope_key":"national-treasures-2022-23-colossal-logoman","not_cross_product_equivalent":true,"not_automatically_rpa":true,"memorabilia_provenance_requires_card_specific_evidence":true},"aliases":[{"value":"2022-23 国宝大比例 Logoman","alias_type":"translation","locale":"zh-CN","source_key":"beckett-national-treasures-2223","review_status":"approved","confidence":0.93}]},
+    {"key":"nt-paolo-banchero-rpa-110-2223","entity_type":"card","canonical_name":"2022-23 National Treasures Rookie Patch Autographs #110 Paolo Banchero RC /99","source_key":"cardboard-national-treasures-2223","review_status":"approved","confidence":0.99,"attributes":{"product":"2022-23 Panini National Treasures Basketball","insert":"Rookie Patch Autographs","season_start":2022,"season_end":2023,"player":"Paolo Banchero","team":"Orlando Magic","card_number":"110","serial_total":99,"is_rookie_card":true,"is_rpa":true,"has_autograph":true,"has_patch":true,"identity_status":"verified","memorabilia_provenance_requires_card_specific_evidence":true,"image_reference_status":"pending_front_back_asset"},"aliases":[]},
+    {"key":"nt-paolo-banchero-court-pass-3-2223","entity_type":"card","canonical_name":"2022-23 National Treasures Court Pass #3 Paolo Banchero /10","source_key":"cardboard-national-treasures-2223","review_status":"approved","confidence":0.99,"attributes":{"product":"2022-23 Panini National Treasures Basketball","insert":"Court Pass","season_start":2022,"season_end":2023,"player":"Paolo Banchero","team":"Orlando Magic","card_number":"3","serial_total":10,"has_autograph":true,"identity_status":"verified","not_rookie_card_inference":true,"image_reference_status":"pending_front_back_asset"},"aliases":[]}
+  ],
+  "relations":[
+    {"subject":"national-treasures-2223","relation_type":"manufactured_by","object":"panini","reason":"Beckett identifies the product as 2022-23 Panini National Treasures Basketball.","source_key":"beckett-national-treasures-2223","review_status":"approved","confidence":0.99},
+    {"subject":"nt-rookie-patch-autographs-2223","relation_type":"available_in","object":"national-treasures-2223","reason":"Beckett defines Rookie Patch Autographs as cards 101-150 in the product base checklist.","source_key":"beckett-national-treasures-2223","review_status":"approved","confidence":0.99},
+    {"subject":"nt-court-pass-2223","relation_type":"available_in","object":"national-treasures-2223","reason":"Beckett identifies Court Pass as a new autograph set in the product.","source_key":"beckett-national-treasures-2223","review_status":"approved","confidence":0.98},
+    {"subject":"nt-colossal-2223","relation_type":"available_in","object":"national-treasures-2223","reason":"Beckett identifies Colossal as a returning memorabilia theme with jumbo swatches.","source_key":"beckett-national-treasures-2223","review_status":"approved","confidence":0.98},
+    {"subject":"nt-colossal-logoman-2223","relation_type":"available_in","object":"national-treasures-2223","reason":"Beckett explicitly describes one-of-one Colossal Logoman cards.","source_key":"beckett-national-treasures-2223","review_status":"approved","confidence":0.99},
+    {"subject":"nt-paolo-banchero-rpa-110-2223","relation_type":"belongs_to","object":"nt-rookie-patch-autographs-2223","reason":"Cardboard Connection's Orlando Magic checklist identifies Paolo Banchero as Rookie Patch Autographs #110 /99.","source_key":"cardboard-national-treasures-2223","review_status":"approved","confidence":0.99},
+    {"subject":"nt-paolo-banchero-court-pass-3-2223","relation_type":"belongs_to","object":"nt-court-pass-2223","reason":"Cardboard Connection's Orlando Magic checklist identifies Paolo Banchero as Court Pass #3 /10.","source_key":"cardboard-national-treasures-2223","review_status":"approved","confidence":0.99}
+  ],
+  "applicability":[
+    {"entity":"nt-rookie-patch-autographs-2223","product":"national-treasures-2223","season_start":2022,"season_end":2023,"status":"verified","review_status":"approved","source_key":"beckett-national-treasures-2223","attributes":{"classification":"RPA is source-confirmed only for this named product-season set; it is not a generic synonym for every rookie autograph or memorabilia card."}},
+    {"entity":"nt-colossal-2223","product":"national-treasures-2223","season_start":2022,"season_end":2023,"status":"verified","review_status":"approved","source_key":"beckett-national-treasures-2223","attributes":{"classification":"Colossal's jumbo swatch is a visual/material feature, not a scarcity tier, parallel, or automatic RPA classification."}},
+    {"entity":"nt-colossal-logoman-2223","product":"national-treasures-2223","season_start":2022,"season_end":2023,"status":"verified","review_status":"approved","source_key":"beckett-national-treasures-2223","attributes":{"classification":"Colossal Logoman is product-season-specific and numbered 1/1; no player-worn or game-used claim is inferred."}}
+  ],
+  "coverage":[
+    {"manufacturer":"panini","product":"national-treasures-2223","season_start":2022,"season_end":2023,"insert":"nt-rookie-patch-autographs-2223","status":"covered","source_key":"beckett-national-treasures-2223","notes":"Rookie Patch Autographs 101-150 and Paolo Banchero #110 /99 identity verified."},
+    {"manufacturer":"panini","product":"national-treasures-2223","season_start":2022,"season_end":2023,"insert":"nt-court-pass-2223","status":"covered","source_key":"cardboard-national-treasures-2223","notes":"Court Pass product scope and Paolo Banchero #3 /10 verified; no automatic case-hit/SSP label."},
+    {"manufacturer":"panini","product":"national-treasures-2223","season_start":2022,"season_end":2023,"insert":"nt-colossal-2223","status":"covered","source_key":"beckett-national-treasures-2223","notes":"Colossal is represented as a jumbo-swatch visual/material set, not as an automatic RPA."},
+    {"manufacturer":"panini","product":"national-treasures-2223","season_start":2022,"season_end":2023,"insert":"nt-colossal-logoman-2223","status":"covered","source_key":"beckett-national-treasures-2223","notes":"Product-specific Colossal Logoman 1/1 semantic boundary verified."},
+    {"manufacturer":"panini","product":"national-treasures-2223","season_start":2022,"season_end":2023,"status":"partial","source_key":"beckett-national-treasures-2223","notes":"Core 10-card hobby configuration, RPA, Court Pass, Colossal, Colossal Logoman and two Paolo Banchero identities are verified; remaining autograph, memorabilia and parallel matrix remains later work."}
+  ]
+}

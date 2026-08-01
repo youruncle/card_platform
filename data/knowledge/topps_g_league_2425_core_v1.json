@@ -1,0 +1,41 @@
+{
+  "batch_key": "topps-g-league-2425-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2024-25 Topps G-League Basketball",
+    "2024-25 Topps G-League Base Platinum /1",
+    "2024-25 Topps G-League Chrome",
+    "2024-25 Topps G-League Base #36 PJ Hall"
+  ],
+  "sources": [
+    {"key":"topps-g-league-product-2425","title":"2024-25 Topps G-League Basketball Hobby Box","url":"https://www.topps.com/products/2024-25-topps-g-league-basketball-hobby-box","publisher":"Topps","source_type":"official_product","retrieved_at":"2026-07-29T02:10:00+08:00","metadata":{"scope":"Official product page: Topps issuer, 100-card base set, one Chrome autograph per box, named insert program and exclusive SSP statement."}},
+    {"key":"beckett-g-league-2425","title":"2024-25 Topps G League Basketball Cards","url":"https://www.beckett.com/news/2024-25-topps-g-league-basketball-cards/","publisher":"Beckett","source_type":"beckett_checklist","retrieved_at":"2026-07-29T02:10:00+08:00","metadata":{"scope":"Checklist: base, parallel serial numbers, insert checklist sizes and PJ Hall base-card identity."}}
+  ],
+  "entities": [
+    {"key":"topps","entity_type":"manufacturer","canonical_name":"Topps","source_key":"topps-g-league-product-2425","review_status":"approved","confidence":0.99,"attributes":{"industry_roles":["manufacturer","brand","issuer"],"parent_company":"Fanatics Collectibles"},"aliases":[]},
+    {"key":"topps-g-league","entity_type":"brand","canonical_name":"Topps G-League","source_key":"topps-g-league-product-2425","review_status":"approved","confidence":0.98,"attributes":{"manufacturer":"Topps","semantic_scope":"Topps basketball-card line for NBA G League subjects; it is not an NBA-licensed flagship product brand."},"aliases":[]},
+    {"key":"topps-g-league-2425","entity_type":"product","canonical_name":"2024-25 Topps G-League Basketball","source_key":"topps-g-league-product-2425","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Topps","brand":"Topps G-League","season_start":2024,"season_end":2025,"league":"NBA G League","base_checklist_size":100,"autograph_configuration":"one Chrome autograph per hobby box","product_distinction":"G League prospect product. A G League appearance is not by itself an NBA rookie-card assertion.","configuration_source_conflict":"Topps product page and Beckett disagree on cards-per-pack versus packs-per-box. Exact pack/card totals are intentionally withheld pending a manufacturer checklist resolution."},"aliases":[]},
+    {"key":"topps-g-league-base-platinum-1-2425","entity_type":"parallel","canonical_name":"2024-25 Topps G-League Base Platinum /1","source_key":"beckett-g-league-2425","review_status":"approved","confidence":0.99,"attributes":{"product":"2024-25 Topps G-League Basketball","season_start":2024,"season_end":2025,"parallel_scope":"base set only","serial_total":1,"scope_key":"topps-g-league-2024-25-base-platinum","not_cross_product_equivalent":true},"aliases":[]},
+    {"key":"topps-g-league-chrome-2425","entity_type":"insert","canonical_name":"2024-25 Topps G-League Chrome","source_key":"beckett-g-league-2425","review_status":"approved","confidence":0.99,"attributes":{"product":"2024-25 Topps G-League Basketball","season_start":2024,"season_end":2025,"semantic_type":"chrome_insert","checklist_size":75,"scope_key":"topps-g-league-2024-25-chrome","not_cross_product_equivalent":true,"not_automatically_parallel":true,"not_automatically_rookie_card":true},"aliases":[]},
+    {"key":"topps-g-league-marksmen-2425","entity_type":"insert","canonical_name":"2024-25 Topps G-League Marksmen","source_key":"beckett-g-league-2425","review_status":"approved","confidence":0.99,"attributes":{"product":"2024-25 Topps G-League Basketball","season_start":2024,"season_end":2025,"semantic_type":"insert","checklist_size":25,"scope_key":"topps-g-league-2024-25-marksmen","not_cross_product_equivalent":true,"not_automatically_ssp":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"topps-g-league-pj-hall-36-2425","entity_type":"card","canonical_name":"2024-25 Topps G-League Base #36 PJ Hall","source_key":"beckett-g-league-2425","review_status":"approved","confidence":0.99,"attributes":{"product":"2024-25 Topps G-League Basketball","season_start":2024,"season_end":2025,"player":"PJ Hall","team":"Grand Rapids Gold","card_number":"36","identity_status":"verified","not_automatically_nba_rookie_card":true,"image_reference_status":"pending_front_back_asset"},"aliases":[]}
+  ],
+  "relations": [
+    {"subject":"topps-g-league-2425","relation_type":"manufactured_by","object":"topps","reason":"Topps publishes the 2024-25 Topps G-League Basketball product page.","source_key":"topps-g-league-product-2425","review_status":"approved","confidence":0.99},
+    {"subject":"topps-g-league-chrome-2425","relation_type":"available_in","object":"topps-g-league-2425","reason":"Beckett lists the 75-card G-League Chrome insert in this product.","source_key":"beckett-g-league-2425","review_status":"approved","confidence":0.99},
+    {"subject":"topps-g-league-marksmen-2425","relation_type":"available_in","object":"topps-g-league-2425","reason":"Beckett lists the 25-card Marksmen insert in this product.","source_key":"beckett-g-league-2425","review_status":"approved","confidence":0.99},
+    {"subject":"topps-g-league-pj-hall-36-2425","relation_type":"belongs_to","object":"topps-g-league-2425","reason":"Beckett's base checklist identifies PJ Hall as card #36.","source_key":"beckett-g-league-2425","review_status":"approved","confidence":0.99}
+  ],
+  "applicability": [
+    {"entity":"topps-g-league-base-platinum-1-2425","product":"topps-g-league-2425","season_start":2024,"season_end":2025,"status":"verified","review_status":"approved","source_key":"beckett-g-league-2425","attributes":{"classification":"Base-set Platinum /1 only; the same color/name is not equivalent across Topps products."}},
+    {"entity":"topps-g-league-chrome-2425","product":"topps-g-league-2425","season_start":2024,"season_end":2025,"status":"verified","review_status":"approved","source_key":"beckett-g-league-2425","attributes":{"classification":"75-card Chrome insert, not a generic parallel or an NBA RC classification."}},
+    {"entity":"topps-g-league-marksmen-2425","product":"topps-g-league-2425","season_start":2024,"season_end":2025,"status":"verified","review_status":"approved","source_key":"beckett-g-league-2425","attributes":{"classification":"25-card insert. Official product copy mentions exclusive SSP inserts generally, but does not identify Marksmen as SSP; no such inference is stored."}}
+  ],
+  "coverage": [
+    {"manufacturer":"topps","product":"topps-g-league-2425","season_start":2024,"season_end":2025,"parallel":"topps-g-league-base-platinum-1-2425","status":"covered","source_key":"beckett-g-league-2425","notes":"Base Platinum /1 verified with product-specific scope."},
+    {"manufacturer":"topps","product":"topps-g-league-2425","season_start":2024,"season_end":2025,"insert":"topps-g-league-chrome-2425","status":"covered","source_key":"beckett-g-league-2425","notes":"75-card Chrome insert verified without generic RC or parallel inference."},
+    {"manufacturer":"topps","product":"topps-g-league-2425","season_start":2024,"season_end":2025,"insert":"topps-g-league-marksmen-2425","status":"covered","source_key":"beckett-g-league-2425","notes":"25-card Marksmen insert verified; it is not classified as SSP/case hit absent set-specific evidence."},
+    {"manufacturer":"topps","product":"topps-g-league-2425","season_start":2024,"season_end":2025,"status":"partial","source_key":"topps-g-league-product-2425","notes":"Product, base size, Chrome autograph configuration, a base /1 parallel, two inserts and PJ Hall #36 identity verified. Remaining parallel/insert and card-identity matrix is pending."}
+  ]
+}

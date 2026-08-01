@@ -1,12 +1,19 @@
 import asyncio
 from io import BytesIO
+from uuid import uuid4
 
 import pytest
 from fastapi import UploadFile
 from starlette.datastructures import Headers
 
 from card_platform.config import Settings
-from card_platform.image_service import CardVisionService, InvalidImageError, read_validated_image
+from card_platform.image_service import (
+    CardVisionService,
+    ImageStorageService,
+    InvalidImageError,
+    detect_image_content_type,
+    read_validated_image,
+)
 from card_platform.schemas import (
     CardRecognitionResult,
     SheetCardRecognitionItem,
@@ -27,6 +34,12 @@ def test_image_validation_accepts_supported_content() -> None:
     assert content == b"\xff\xd8\xffjpeg-bytes"
 
 
+def test_remote_image_signature_can_correct_wrong_declared_type() -> None:
+    assert detect_image_content_type(b"\xff\xd8\xffjpeg-bytes") == "image/jpeg"
+    assert detect_image_content_type(b"\x89PNG\r\n\x1a\nbytes") == "image/png"
+    assert detect_image_content_type(b"not-an-image") is None
+
+
 @pytest.mark.parametrize("content_type", ["text/plain", "image/gif", "application/pdf"])
 def test_image_validation_rejects_unsupported_content_type(content_type: str) -> None:
     with pytest.raises(InvalidImageError, match="JPEG, PNG, or WebP"):
@@ -43,6 +56,29 @@ def test_image_validation_rejects_empty_and_oversized_content() -> None:
 def test_image_validation_rejects_spoofed_mime_type() -> None:
     with pytest.raises(InvalidImageError, match="does not match"):
         asyncio.run(read_validated_image(upload(b"not-a-real-jpeg"), 100))
+
+
+def test_item_image_cleanup_only_removes_owned_filename(tmp_path) -> None:
+    item_id = uuid4()
+    service = ImageStorageService(Settings(upload_dir=str(tmp_path)))
+    owned = tmp_path / f"{item_id}-front-{'a' * 32}.jpg"
+    unrelated = tmp_path / f"{uuid4()}-front-{'b' * 32}.jpg"
+    suspicious = tmp_path / "outside.jpg"
+    owned.write_bytes(b"owned")
+    unrelated.write_bytes(b"unrelated")
+    suspicious.write_bytes(b"suspicious")
+
+    service.delete_item_images(
+        item_id,
+        (
+            f"/uploads/{owned.name}",
+            "/uploads/../outside.jpg",
+        ),
+    )
+
+    assert not owned.exists()
+    assert unrelated.exists()
+    assert suspicious.exists()
 
 
 class FakeVisionProvider:

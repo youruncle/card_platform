@@ -1,0 +1,40 @@
+{
+  "batch_key": "prizm-wnba-2025-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2025 Panini Prizm WNBA",
+    "2025 Panini Prizm WNBA Color Blast",
+    "2025 Panini Prizm WNBA Base Prizms Purple Velocity /59",
+    "2025 Panini Prizm WNBA Base #22 Caitlin Clark",
+    "2025 Panini Prizm WNBA Color Blast #3 Caitlin Clark"
+  ],
+  "sources": [
+    {"key":"panini-prizm-wnba-2025","title":"2025 Panini Prizm WNBA Trading Card Box (Hobby)","url":"https://www.paniniamerica.net/2025-panini-prizm-wnba-trading-card-box-hobby","publisher":"Panini America","source_type":"official_product","retrieved_at":"2026-07-28T23:34:00+08:00","metadata":{"scope":"Official product identity and hobby configuration."}},
+    {"key":"beckett-prizm-wnba-2025","title":"2025 Panini Prizm WNBA Checklist","url":"https://www.beckett.com/news/2025-panini-prizm-wnba-basketball-cards/","publisher":"Beckett","source_type":"beckett_checklist","retrieved_at":"2026-07-28T23:34:00+08:00","metadata":{"scope":"Full 150-card checklist, product-specific parallels, inserts, SSP/case-hit semantics and Caitlin Clark identities."}}
+  ],
+  "entities": [
+    {"key":"panini","entity_type":"manufacturer","canonical_name":"Panini","source_key":"panini-prizm-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"industry_roles":["manufacturer","brand","issuer"]},"aliases":[]},
+    {"key":"prizm","entity_type":"brand","canonical_name":"Prizm","source_key":"panini-prizm-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","semantic_scope":"chromium trading-card product brand"},"aliases":[]},
+    {"key":"prizm-wnba-2025","entity_type":"product","canonical_name":"2025 Panini Prizm WNBA","source_key":"beckett-prizm-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","brand":"Prizm","year":2025,"league":"WNBA","base_checklist_size":150,"hobby_box_configuration":"144 cards; 2 autographs, 24 Prizm parallels and 10 inserts","product_distinction":"WNBA product-season with its own parallel/checklist matrix; do not merge with NBA or other-sport Prizm releases."},"aliases":[]},
+    {"key":"prizm-wnba-color-blast-2025","entity_type":"insert","canonical_name":"2025 Panini Prizm WNBA Color Blast","source_key":"beckett-prizm-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"product":"2025 Panini Prizm WNBA","year":2025,"semantic_type":"SSP_case_hit_insert","checklist_size":10,"rarity_description":"SSP case hit","scope_key":"prizm-wnba-2025-color-blast","not_cross_product_equivalent":true,"case_hit_evidence":"Explicitly identified as SSP case-hit by source for this product-season only."},"aliases":[]},
+    {"key":"prizm-wnba-base-purple-velocity-59-2025","entity_type":"parallel","canonical_name":"2025 Panini Prizm WNBA Base Prizms Purple Velocity /59","source_key":"beckett-prizm-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"product":"2025 Panini Prizm WNBA","year":2025,"parallel_scope":"base","serial_total":59,"scope_key":"prizm-wnba-2025-base-purple-velocity","not_cross_product_equivalent":true},"aliases":[]},
+    {"key":"prizm-wnba-base-clark-caitlin-22-2025","entity_type":"card","canonical_name":"2025 Panini Prizm WNBA Base #22 Caitlin Clark","source_key":"beckett-prizm-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"product":"2025 Panini Prizm WNBA","year":2025,"player":"Caitlin Clark","team":"Indiana Fever","card_number":"22","identity_status":"verified","not_rookie_card_inference":true,"image_reference_status":"pending_front_back_asset"},"aliases":[]},
+    {"key":"prizm-wnba-color-blast-clark-caitlin-3-2025","entity_type":"card","canonical_name":"2025 Panini Prizm WNBA Color Blast #3 Caitlin Clark","source_key":"beckett-prizm-wnba-2025","review_status":"approved","confidence":0.99,"attributes":{"product":"2025 Panini Prizm WNBA","insert":"2025 Panini Prizm WNBA Color Blast","year":2025,"player":"Caitlin Clark","team":"Indiana Fever","card_number":"3","identity_status":"verified","not_rookie_card_inference":true,"image_reference_status":"pending_front_back_asset"},"aliases":[]}
+  ],
+  "relations": [
+    {"subject":"prizm-wnba-2025","relation_type":"manufactured_by","object":"panini","reason":"Panini and Beckett identify the product as 2025 Panini Prizm WNBA.","source_key":"panini-prizm-wnba-2025","review_status":"approved","confidence":0.99},
+    {"subject":"prizm-wnba-color-blast-2025","relation_type":"available_in","object":"prizm-wnba-2025","reason":"Beckett lists a 10-card Color Blast insert and explicitly calls it an SSP case hit for this product.","source_key":"beckett-prizm-wnba-2025","review_status":"approved","confidence":0.99},
+    {"subject":"prizm-wnba-base-clark-caitlin-22-2025","relation_type":"belongs_to","object":"prizm-wnba-2025","reason":"Beckett's base checklist identifies Caitlin Clark as #22.","source_key":"beckett-prizm-wnba-2025","review_status":"approved","confidence":0.99},
+    {"subject":"prizm-wnba-color-blast-clark-caitlin-3-2025","relation_type":"belongs_to","object":"prizm-wnba-color-blast-2025","reason":"Beckett's Color Blast checklist identifies Caitlin Clark as #3.","source_key":"beckett-prizm-wnba-2025","review_status":"approved","confidence":0.99}
+  ],
+  "applicability": [
+    {"entity":"prizm-wnba-color-blast-2025","product":"prizm-wnba-2025","season_start":2025,"season_end":2025,"status":"verified","review_status":"approved","source_key":"beckett-prizm-wnba-2025","attributes":{"classification":"Product-season SSP case-hit insert, explicitly sourced; this status is not generalized to other Color Blast products."}},
+    {"entity":"prizm-wnba-base-purple-velocity-59-2025","product":"prizm-wnba-2025","season_start":2025,"season_end":2025,"status":"verified","review_status":"approved","source_key":"beckett-prizm-wnba-2025","attributes":{"classification":"Base-only Purple Velocity /59 parallel, not a generic Prizm parallel across products."}}
+  ],
+  "coverage": [
+    {"manufacturer":"panini","product":"prizm-wnba-2025","season_start":2025,"season_end":2025,"insert":"prizm-wnba-color-blast-2025","status":"covered","source_key":"beckett-prizm-wnba-2025","notes":"10-card Color Blast SSP case-hit checklist and Caitlin Clark #3 identity verified for this product-season."},
+    {"manufacturer":"panini","product":"prizm-wnba-2025","season_start":2025,"season_end":2025,"parallel":"prizm-wnba-base-purple-velocity-59-2025","status":"covered","source_key":"beckett-prizm-wnba-2025","notes":"New WNBA Purple Velocity /59 is recorded as base-scoped only."},
+    {"manufacturer":"panini","product":"prizm-wnba-2025","season_start":2025,"season_end":2025,"status":"partial","source_key":"beckett-prizm-wnba-2025","notes":"Product, base, selected base parallel, Color Blast and two Caitlin Clark identities verified; remaining autograph, insert and parallel matrix is pending."}
+  ]
+}

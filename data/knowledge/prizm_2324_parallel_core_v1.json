@@ -1,0 +1,35 @@
+{
+  "batch_key": "prizm-2324-parallel-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": ["Prizm", "2023-24 Prizm Base Gold Prizms /10", "2023-24 Prizm Base Black Gold Prizms /5", "2023-24 Prizm Base Choice Tiger Stripe Prizms"],
+  "sources": [
+    {"key": "beckett-prizm-2324-full", "title": "2023-24 Panini Prizm Basketball Checklist", "url": "https://www.beckett.com/news/2023-24-panini-prizm-basketball-cards/", "publisher": "Beckett", "source_type": "beckett_checklist", "retrieved_at": "2026-07-28T18:45:00+08:00", "metadata": {"scope": "300-card base and named 2023-24 Prizm Basketball base parallels"}}
+  ],
+  "entities": [
+    {"key": "panini", "entity_type": "manufacturer", "canonical_name": "Panini", "source_key": "beckett-prizm-2324-full", "review_status": "approved", "confidence": 0.99, "attributes": {"industry_roles": ["manufacturer", "brand", "issuer"]}, "aliases": []},
+    {"key": "prizm", "entity_type": "product", "canonical_name": "Prizm", "source_key": "beckett-prizm-2324-full", "review_status": "approved", "confidence": 0.99, "attributes": {"manufacturer": "Panini", "season_start": 2023, "season_end": 2024, "league": "NBA", "base_card_count": 300, "construction": "chromium"}, "aliases": []},
+    {"key": "prizm-red-299", "entity_type": "parallel", "canonical_name": "2023-24 Prizm Base Red Prizms /299", "source_key": "beckett-prizm-2324-full", "review_status": "approved", "confidence": 0.99, "attributes": {"product": "Prizm", "season_start": 2023, "season_end": 2024, "parent_set": "Base", "color": "Red", "serial_total": 299, "scope_key": "prizm-2023-24-base"}, "aliases": []},
+    {"key": "prizm-blue-199", "entity_type": "parallel", "canonical_name": "2023-24 Prizm Base Blue Prizms /199", "source_key": "beckett-prizm-2324-full", "review_status": "approved", "confidence": 0.99, "attributes": {"product": "Prizm", "season_start": 2023, "season_end": 2024, "parent_set": "Base", "color": "Blue", "serial_total": 199, "scope_key": "prizm-2023-24-base"}, "aliases": []},
+    {"key": "prizm-orange-49", "entity_type": "parallel", "canonical_name": "2023-24 Prizm Base Orange Prizms /49", "source_key": "beckett-prizm-2324-full", "review_status": "approved", "confidence": 0.99, "attributes": {"product": "Prizm", "season_start": 2023, "season_end": 2024, "parent_set": "Base", "color": "Orange", "serial_total": 49, "scope_key": "prizm-2023-24-base"}, "aliases": []},
+    {"key": "prizm-gold-10", "entity_type": "parallel", "canonical_name": "2023-24 Prizm Base Gold Prizms /10", "source_key": "beckett-prizm-2324-full", "review_status": "approved", "confidence": 0.99, "attributes": {"product": "Prizm", "season_start": 2023, "season_end": 2024, "parent_set": "Base", "color": "Gold", "serial_total": 10, "scope_key": "prizm-2023-24-base"}, "aliases": []},
+    {"key": "prizm-black-gold-5", "entity_type": "parallel", "canonical_name": "2023-24 Prizm Base Black Gold Prizms /5", "source_key": "beckett-prizm-2324-full", "review_status": "approved", "confidence": 0.99, "attributes": {"product": "Prizm", "season_start": 2023, "season_end": 2024, "parent_set": "Base", "color": "Black Gold", "serial_total": 5, "scope_key": "prizm-2023-24-base"}, "aliases": []},
+    {"key": "prizm-choice-tiger", "entity_type": "parallel", "canonical_name": "2023-24 Prizm Base Choice Tiger Stripe Prizms", "source_key": "beckett-prizm-2324-full", "review_status": "approved", "confidence": 0.99, "attributes": {"product": "Prizm", "season_start": 2023, "season_end": 2024, "parent_set": "Base", "configuration": "Choice", "pattern": "Tiger Stripe", "numbering_status": "not_announced", "scope_key": "prizm-2023-24-base"}, "aliases": [{"value": "Tiger", "language": "en", "alias_type": "seller_term", "confidence": 0.9, "claim": "Only in 2023-24 Prizm Choice context; never resolve globally."}]}
+  ],
+  "relations": [
+    {"subject": "prizm", "relation_type": "manufactured_by", "object": "panini", "reason": "Beckett's 2023-24 Prizm Basketball checklist identifies Panini product.", "source_key": "beckett-prizm-2324-full", "review_status": "approved", "confidence": 0.99}
+  ],
+  "applicability": [
+    {"entity": "prizm-gold-10", "product": "prizm", "season_start": 2023, "season_end": 2024, "status": "verified", "review_status": "approved", "source_key": "beckett-prizm-2324-full", "attributes": {"parent_set": "Base"}},
+    {"entity": "prizm-black-gold-5", "product": "prizm", "season_start": 2023, "season_end": 2024, "status": "verified", "review_status": "approved", "source_key": "beckett-prizm-2324-full", "attributes": {"parent_set": "Base"}},
+    {"entity": "prizm-choice-tiger", "product": "prizm", "season_start": 2023, "season_end": 2024, "status": "verified", "review_status": "approved", "source_key": "beckett-prizm-2324-full", "attributes": {"configuration": "Choice", "numbering_status": "not_announced"}}
+  ],
+  "coverage": [
+    {"manufacturer": "panini", "product": "prizm", "season_start": 2023, "season_end": 2024, "parallel": "prizm-red-299", "status": "covered", "source_key": "beckett-prizm-2324-full", "notes": "Base Red Prizms /299 verified."},
+    {"manufacturer": "panini", "product": "prizm", "season_start": 2023, "season_end": 2024, "parallel": "prizm-blue-199", "status": "covered", "source_key": "beckett-prizm-2324-full", "notes": "Base Blue Prizms /199 verified."},
+    {"manufacturer": "panini", "product": "prizm", "season_start": 2023, "season_end": 2024, "parallel": "prizm-orange-49", "status": "covered", "source_key": "beckett-prizm-2324-full", "notes": "Base Orange Prizms /49 verified."},
+    {"manufacturer": "panini", "product": "prizm", "season_start": 2023, "season_end": 2024, "parallel": "prizm-gold-10", "status": "covered", "source_key": "beckett-prizm-2324-full", "notes": "Base Gold Prizms /10 verified."},
+    {"manufacturer": "panini", "product": "prizm", "season_start": 2023, "season_end": 2024, "parallel": "prizm-black-gold-5", "status": "covered", "source_key": "beckett-prizm-2324-full", "notes": "Base Black Gold Prizms /5 verified."},
+    {"manufacturer": "panini", "product": "prizm", "season_start": 2023, "season_end": 2024, "parallel": "prizm-choice-tiger", "status": "covered", "source_key": "beckett-prizm-2324-full", "notes": "Choice Tiger Stripe is verified as a named base parallel; no unannounced serial or SSP label is inferred."}
+  ]
+}

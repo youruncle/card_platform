@@ -1,0 +1,289 @@
+{
+  "batch_key": "recognition-failures-threads-1011-hoops-slam-2021-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2010-11 Panini Threads Basketball",
+    "2010-11 Panini Threads Rookie Team Threads #33 Paul George",
+    "2020-21 Panini NBA Hoops Basketball",
+    "2020-21 Panini NBA Hoops SLAM",
+    "2020-21 Panini NBA Hoops SLAM #5 Luka Doncic"
+  ],
+  "sources": [
+    {
+      "key": "scr-threads-1011",
+      "title": "2010/11 Panini Threads Basketball Box Checklist",
+      "url": "https://www.sportscardradio.com/10-11-panini-threads-basketball-box-checklist/",
+      "publisher": "Sports Card Radio",
+      "source_type": "other",
+      "retrieved_at": "2026-07-29T16:00:00+08:00",
+      "metadata": {
+        "scope": "Product identity and Rookie Team Threads Home/Road checklist, including Paul George card 33."
+      }
+    },
+    {
+      "key": "tcdb-hoops-slam-2021",
+      "title": "2020-21 Hoops - Slam Basketball Checklist",
+      "url": "https://www.tcdb.com/Checklist.cfm/sid/259534/2020-21-Hoops---Slam",
+      "publisher": "Trading Card Database",
+      "source_type": "other",
+      "retrieved_at": "2026-07-29T16:00:00+08:00",
+      "metadata": {
+        "scope": "Twenty-card SLAM insert checklist, including Luka Doncic card 5."
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "panini",
+      "entity_type": "manufacturer",
+      "canonical_name": "Panini",
+      "source_key": "scr-threads-1011",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "industry_roles": ["manufacturer", "brand", "issuer"]
+      },
+      "aliases": []
+    },
+    {
+      "key": "threads-1011",
+      "entity_type": "product",
+      "canonical_name": "2010-11 Panini Threads Basketball",
+      "source_key": "scr-threads-1011",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Panini",
+        "brand": "Threads",
+        "season_start": 2010,
+        "season_end": 2011,
+        "league": "NBA"
+      },
+      "aliases": [
+        {
+          "value": "2010/11 Panini Threads",
+          "alias_type": "synonym",
+          "locale": "en"
+        }
+      ]
+    },
+    {
+      "key": "rookie-team-threads-1011",
+      "entity_type": "insert",
+      "canonical_name": "2010-11 Panini Threads Rookie Team Threads",
+      "source_key": "scr-threads-1011",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2010-11 Panini Threads Basketball",
+        "season_start": 2010,
+        "season_end": 2011,
+        "insert_name": "Rookie Team Threads",
+        "design": "Home and Road jersey-shaped die-cut versions",
+        "is_memorabilia": false,
+        "classification_note": "The jersey-shaped base design is not memorabilia; autograph parallels are separately listed."
+      },
+      "aliases": [
+        {
+          "value": "Team Threads",
+          "alias_type": "synonym",
+          "locale": "en"
+        }
+      ]
+    },
+    {
+      "key": "threads-paul-george-rtt-33-1011",
+      "entity_type": "card",
+      "canonical_name": "2010-11 Panini Threads Rookie Team Threads #33 Paul George",
+      "source_key": "scr-threads-1011",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Panini",
+        "brand": "Panini",
+        "product": "2010-11 Panini Threads Basketball",
+        "insert": "Rookie Team Threads",
+        "season_start": 2010,
+        "season_end": 2011,
+        "player": "Paul George",
+        "card_number": "33",
+        "is_rookie": true,
+        "is_autograph": false,
+        "is_memorabilia": false,
+        "identity_status": "verified",
+        "image_reference_status": "pending_front_back_asset"
+      },
+      "aliases": []
+    },
+    {
+      "key": "nba-hoops-2021",
+      "entity_type": "product",
+      "canonical_name": "2020-21 Panini NBA Hoops Basketball",
+      "source_key": "tcdb-hoops-slam-2021",
+      "review_status": "approved",
+      "confidence": 0.98,
+      "attributes": {
+        "manufacturer": "Panini",
+        "brand": "NBA Hoops",
+        "season_start": 2020,
+        "season_end": 2021,
+        "league": "NBA"
+      },
+      "aliases": [
+        {
+          "value": "2020-21 Hoops",
+          "alias_type": "synonym",
+          "locale": "en"
+        }
+      ]
+    },
+    {
+      "key": "nba-hoops-slam-2021",
+      "entity_type": "insert",
+      "canonical_name": "2020-21 Panini NBA Hoops SLAM",
+      "source_key": "tcdb-hoops-slam-2021",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2020-21 Panini NBA Hoops Basketball",
+        "season_start": 2020,
+        "season_end": 2021,
+        "insert_name": "SLAM",
+        "checklist_size": 20,
+        "design": "Magazine-cover style basketball card insert",
+        "not_a_magazine": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "nba-hoops-slam-luka-5-2021",
+      "entity_type": "card",
+      "canonical_name": "2020-21 Panini NBA Hoops SLAM #5 Luka Doncic",
+      "source_key": "tcdb-hoops-slam-2021",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Panini",
+        "brand": "Panini",
+        "product": "2020-21 Panini NBA Hoops Basketball",
+        "insert": "SLAM",
+        "season_start": 2020,
+        "season_end": 2021,
+        "player": "Luka Doncic",
+        "team": "Dallas Mavericks",
+        "card_number": "5",
+        "is_rookie": false,
+        "is_autograph": false,
+        "is_memorabilia": false,
+        "identity_status": "verified",
+        "image_reference_status": "pending_front_back_asset"
+      },
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {
+      "subject": "threads-1011",
+      "relation_type": "manufactured_by",
+      "object": "panini",
+      "reason": "The checklist identifies the product as Panini Threads.",
+      "source_key": "scr-threads-1011",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "rookie-team-threads-1011",
+      "relation_type": "available_in",
+      "object": "threads-1011",
+      "reason": "The checklist lists Home and Road Rookie Team Threads within the product.",
+      "source_key": "scr-threads-1011",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "threads-paul-george-rtt-33-1011",
+      "relation_type": "belongs_to",
+      "object": "rookie-team-threads-1011",
+      "reason": "The Rookie Team Threads checklist lists Paul George as card 33.",
+      "source_key": "scr-threads-1011",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "nba-hoops-2021",
+      "relation_type": "manufactured_by",
+      "object": "panini",
+      "reason": "The cataloged product is Panini NBA Hoops.",
+      "source_key": "tcdb-hoops-slam-2021",
+      "review_status": "approved",
+      "confidence": 0.98
+    },
+    {
+      "subject": "nba-hoops-slam-2021",
+      "relation_type": "available_in",
+      "object": "nba-hoops-2021",
+      "reason": "TCDB catalogs SLAM as a 2020-21 Hoops insert.",
+      "source_key": "tcdb-hoops-slam-2021",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "nba-hoops-slam-luka-5-2021",
+      "relation_type": "belongs_to",
+      "object": "nba-hoops-slam-2021",
+      "reason": "The SLAM checklist identifies Luka Doncic as card 5.",
+      "source_key": "tcdb-hoops-slam-2021",
+      "review_status": "approved",
+      "confidence": 0.99
+    }
+  ],
+  "applicability": [
+    {
+      "entity": "rookie-team-threads-1011",
+      "product": "threads-1011",
+      "season_start": 2010,
+      "season_end": 2011,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "scr-threads-1011",
+      "attributes": {
+        "classification": "Jersey-shaped die-cut insert; autograph parallels are separate and the base shape is not material."
+      }
+    },
+    {
+      "entity": "nba-hoops-slam-2021",
+      "product": "nba-hoops-2021",
+      "season_start": 2020,
+      "season_end": 2021,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "tcdb-hoops-slam-2021",
+      "attributes": {
+        "classification": "Twenty-card basketball insert styled as magazine covers."
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "manufacturer": "panini",
+      "product": "threads-1011",
+      "insert": "rookie-team-threads-1011",
+      "season_start": 2010,
+      "season_end": 2011,
+      "status": "covered",
+      "source_key": "scr-threads-1011",
+      "notes": "Rookie Team Threads structure and Paul George card 33 are verified."
+    },
+    {
+      "manufacturer": "panini",
+      "product": "nba-hoops-2021",
+      "insert": "nba-hoops-slam-2021",
+      "season_start": 2020,
+      "season_end": 2021,
+      "status": "covered",
+      "source_key": "tcdb-hoops-slam-2021",
+      "notes": "SLAM insert identity and Luka Doncic card 5 are verified."
+    }
+  ]
+}

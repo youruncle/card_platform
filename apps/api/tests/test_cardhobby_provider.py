@@ -6,6 +6,8 @@ from card_platform.ingestion.cardhobby import (
     CardHobbySale,
     assess_cardhobby_match,
     cardhobby_item_id,
+    extract_cardhobby_images,
+    is_exact_cardhobby_reference,
 )
 
 
@@ -68,6 +70,33 @@ def test_exact_raw_cardhobby_sale_gets_high_match_score() -> None:
     assert conflicts == []
 
 
+def test_cardhobby_accepts_end_year_shorthand_for_cross_year_product() -> None:
+    score, conflicts = assess_cardhobby_match(
+        {
+            **_raw_identity(),
+            "player_name": "Collin Murray-Boyles",
+            "brand_name": "Topps",
+            "season_start": 2025,
+            "season_end": 2026,
+            "product_name": "Topps Three",
+            "parallel_name": "Base",
+            "serial_total": 49,
+            "is_autograph": True,
+        },
+        _sale(
+            item_id="123866225",
+            source_url="https://www.cardhobby.com.cn/market/item/123866225",
+            evidence_level="ended_auction",
+            title=(
+                "2026 Topps 3 Collin Murray-Boyles RC 41/49编 "
+                "三窗 RPA 球衣patch"
+            ),
+        ),
+    )
+    assert score >= Decimal("0.5")
+    assert conflicts == []
+
+
 def test_lot_is_rejected_even_when_identity_tokens_match() -> None:
     score, conflicts = assess_cardhobby_match(
         _raw_identity(), _sale(title="2021-22 Immaculate Tim Duncan /75 5卡 lot 打包")
@@ -110,7 +139,8 @@ def test_ended_auction_requires_item_page_and_positive_bid_count() -> None:
         bid_count=12,
     )
     score, conflicts = assess_cardhobby_match(_raw_identity(), ended)
-    assert Decimal("0.5") <= score <= Decimal("0.70")
+    assert Decimal("0.5") <= score <= Decimal("1")
+    assert ended.source_reliability == Decimal("0.70")
     assert conflicts == []
 
     no_bid_score, no_bid_conflicts = assess_cardhobby_match(
@@ -139,6 +169,58 @@ def test_search_params_use_cardhobby_sold_single_card_filters() -> None:
     assert params["sortType"] == "DESC"
     assert '"Key":"Status","Value":-2' in str(params["searchJson"])
     assert CARDHOBBY_SINGLE_CARD_CATEGORY_ID in str(params["searchJson"])
+
+
+def test_rpa_search_prioritizes_exact_print_run_and_uppercase_card_type() -> None:
+    queries = CardHobbyProvider.build_queries(
+        {
+            "player_name": "Collin Murray-Boyles",
+            "season_start": 2025,
+            "season_end": 2026,
+            "product_name": "Topps Three",
+            "serial_total": 49,
+            "is_autograph": True,
+            "is_patch": True,
+        }
+    )
+    assert queries[0] == "Collin Murray-Boyles 2025-26 49编 Topps 3"
+    assert queries[1] == "Collin Murray-Boyles Topps 3 RPA 49编"
+
+
+def test_cardhobby_queries_use_seller_aliases_and_progressively_remove_terms() -> None:
+    queries = CardHobbyProvider.build_queries(
+        {
+            "player_name": "JASON KIDD",
+            "season_start": 2023,
+            "season_end": 2024,
+            "product_name": "National Treasures",
+            "parallel_name": "Silver Parallel",
+            "serial_total": 35,
+            "is_autograph": True,
+            "is_patch": False,
+        }
+    )
+    assert queries[0] == "JASON KIDD 2023-24 35编 国宝"
+    assert "JASON KIDD 国宝 AUTO 35编" in queries
+    assert "JASON KIDD 国宝 银折 35编" in queries
+    assert "JASON KIDD 国宝" in queries
+    assert len(queries[-1].split()) < len(queries[0].split())
+
+
+def test_one_and_one_queries_keep_short_serial_product_search() -> None:
+    queries = CardHobbyProvider.build_queries(
+        {
+            "player_name": "Walker Kessler",
+            "season_start": 2022,
+            "season_end": 2023,
+            "product_name": "One And One",
+            "serial_total": 49,
+            "is_rookie": True,
+        }
+    )
+    assert queries[0] == "Walker Kessler 2022-23 49编 One and One"
+    assert "Walker Kessler One and One RC 49编" in queries
+    assert "Walker Kessler One and One" in queries
 
 
 def test_parse_market_item_uses_final_price_and_shipping() -> None:
@@ -175,6 +257,48 @@ def test_parse_market_item_rejects_active_or_zero_bid_rows() -> None:
     }
     assert CardHobbyProvider.parse_market_item(active) is None
     assert CardHobbyProvider.parse_market_item({**active, "Status": -2, "OutCount": 0}) is None
+
+
+def test_cardhobby_item_images_keep_front_back_order_and_remove_duplicates() -> None:
+    html = """
+    <img src="https://images.cardhobby.com/front.jpg">
+    <img src="https://images.cardhobby.com/back.jpg">
+    <img src="https://images.cardhobby.com/front.jpg">
+    """
+    assert extract_cardhobby_images(html) == [
+        "https://images.cardhobby.com/front.jpg",
+        "https://images.cardhobby.com/back.jpg",
+    ]
+
+
+def test_reference_image_requires_exact_player_product_and_card_number() -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "Kyrie Irving",
+        "season_start": 2012,
+        "season_end": 2013,
+        "product_name": "Elite",
+        "card_number": "B52",
+        "is_autograph": True,
+        "is_patch": False,
+    }
+    exact = _sale(
+        title="2012-13 Panini Elite Kyrie Irving RC 新秀签字 B52",
+        image_url="https://images.cardhobby.com/front.jpg",
+    )
+    assert is_exact_cardhobby_reference(identity, exact)
+    assert not is_exact_cardhobby_reference(
+        identity,
+        exact.model_copy(update={"title": "2012-13 Panini Elite Giannis B52"}),
+    )
+    assert not is_exact_cardhobby_reference(
+        identity,
+        exact.model_copy(update={"title": "2012-13 Panini Threads Kyrie Irving B52"}),
+    )
+    assert not is_exact_cardhobby_reference(
+        identity,
+        exact.model_copy(update={"title": "2012-13 Panini Elite Kyrie Irving B51"}),
+    )
 
 
 def test_autograph_multi_player_wrong_season_and_wrong_print_run_are_rejected() -> None:

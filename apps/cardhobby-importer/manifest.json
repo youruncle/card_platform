@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Card Platform · 卡淘一键导入",
+  "version": "0.1.0",
+  "description": "从已登录的卡淘订单页安全导入已买入卡片，不读取或保存登录密码。",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": [
+    "https://www.cardhobby.com.cn/*",
+    "http://127.0.0.1:8000/*",
+    "http://localhost:8000/*",
+    "http://127.0.0.1:3000/*",
+    "http://localhost:3000/*"
+  ],
+  "action": {
+    "default_title": "从卡淘导入",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.cardhobby.com.cn/order/myorders*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

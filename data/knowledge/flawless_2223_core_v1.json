@@ -1,0 +1,205 @@
+{
+  "batch_key": "flawless-2223-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2022-23 Panini Flawless Basketball",
+    "2022-23 Flawless Patch Autographs",
+    "2022-23 Flawless Logoman",
+    "2022-23 Flawless Team Logo Gems",
+    "2022-23 Flawless Base #27 Paolo Banchero RC",
+    "2022-23 Flawless Patch Autographs #7 Paolo Banchero /25",
+    "2022-23 Flawless Logoman #1 Paolo Banchero 1/1"
+  ],
+  "sources": [
+    {
+      "key": "beckett-flawless-2223",
+      "title": "2022-23 Panini Flawless Basketball Checklist",
+      "url": "https://www.beckett.com/news/2022-23-panini-flawless-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T21:00:00+08:00",
+      "metadata": {
+        "scope": "200-card base, base parallel ladder, named autograph/memorabilia/gem checklists, and selected Paolo Banchero identities."
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "panini",
+      "entity_type": "manufacturer",
+      "canonical_name": "Panini",
+      "source_key": "beckett-flawless-2223",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"industry_roles": ["manufacturer", "brand", "issuer"]},
+      "aliases": []
+    },
+    {
+      "key": "flawless-2223",
+      "entity_type": "product",
+      "canonical_name": "2022-23 Panini Flawless Basketball",
+      "source_key": "beckett-flawless-2223",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Panini",
+        "brand": "Flawless",
+        "season_start": 2022,
+        "season_end": 2023,
+        "league": "NBA",
+        "base_set_size": 200,
+        "hobby_configuration": {"cards_per_box": 10, "autographs_per_box": 8, "memorabilia_cards_per_box": 1},
+        "product_distinction": "Standalone premium NBA Flawless product; its Logoman, gem and patch-autograph sets are product-season scoped and must not be merged with National Treasures, Immaculate, or later Flawless releases."
+      },
+      "aliases": []
+    },
+    {
+      "key": "flawless-base-gold-10-2223",
+      "entity_type": "parallel",
+      "canonical_name": "2022-23 Flawless Base Gold /10",
+      "source_key": "beckett-flawless-2223",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2022-23 Panini Flawless Basketball",
+        "parent_subset": "Base",
+        "season_start": 2022,
+        "season_end": 2023,
+        "color": "Gold",
+        "serial_total": 10,
+        "scope_key": "flawless-2022-23-base",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "flawless-patch-autographs-2223",
+      "entity_type": "insert",
+      "canonical_name": "2022-23 Flawless Patch Autographs",
+      "source_key": "beckett-flawless-2223",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2022-23 Panini Flawless Basketball",
+        "season_start": 2022,
+        "season_end": 2023,
+        "semantic_type": "rookie_patch_autograph_set",
+        "checklist_size": 37,
+        "base_serial_total": 25,
+        "has_autograph": true,
+        "has_patch": true,
+        "is_rpa_set": true,
+        "scope_key": "flawless-2022-23-patch-autographs",
+        "not_cross_product_equivalent": true,
+        "memorabilia_provenance_requires_card_specific_evidence": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "flawless-logoman-2223",
+      "entity_type": "insert",
+      "canonical_name": "2022-23 Flawless Logoman",
+      "source_key": "beckett-flawless-2223",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2022-23 Panini Flawless Basketball",
+        "season_start": 2022,
+        "season_end": 2023,
+        "semantic_type": "memorabilia_mark_set",
+        "serial_total": 1,
+        "has_logoman": true,
+        "scope_key": "flawless-2022-23-logoman",
+        "not_cross_product_equivalent": true,
+        "memorabilia_provenance_requires_card_specific_evidence": true,
+        "not_automatically_rpa": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "flawless-team-logo-gems-2223",
+      "entity_type": "insert",
+      "canonical_name": "2022-23 Flawless Team Logo Gems",
+      "source_key": "beckett-flawless-2223",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2022-23 Panini Flawless Basketball",
+        "season_start": 2022,
+        "season_end": 2023,
+        "semantic_type": "gem_insert",
+        "serial_total": 1,
+        "scope_key": "flawless-2022-23-team-logo-gems",
+        "not_cross_product_equivalent": true,
+        "not_automatically_logoman": true,
+        "not_automatically_parallel": true,
+        "not_automatically_ssp": true,
+        "not_automatically_case_hit": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "flawless-paolo-base-27-2223",
+      "entity_type": "card",
+      "canonical_name": "2022-23 Flawless Base #27 Paolo Banchero RC",
+      "source_key": "beckett-flawless-2223",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"product": "2022-23 Panini Flawless Basketball", "season_start": 2022, "season_end": 2023, "player": "Paolo Banchero", "team": "Orlando Magic", "card_number": "27", "serial_total": 20, "is_rookie_card": true, "identity_status": "verified", "image_reference_status": "pending_front_back_asset"},
+      "aliases": []
+    },
+    {
+      "key": "flawless-paolo-patch-autographs-7-2223",
+      "entity_type": "card",
+      "canonical_name": "2022-23 Flawless Patch Autographs #7 Paolo Banchero /25",
+      "source_key": "beckett-flawless-2223",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"product": "2022-23 Panini Flawless Basketball", "insert": "Flawless Patch Autographs", "season_start": 2022, "season_end": 2023, "player": "Paolo Banchero", "team": "Orlando Magic", "card_number": "7", "serial_total": 25, "is_rookie_card": true, "is_rpa": true, "has_autograph": true, "has_patch": true, "identity_status": "verified", "memorabilia_provenance_requires_card_specific_evidence": true, "image_reference_status": "pending_front_back_asset"},
+      "aliases": []
+    },
+    {
+      "key": "flawless-paolo-logoman-1-2223",
+      "entity_type": "card",
+      "canonical_name": "2022-23 Flawless Logoman #1 Paolo Banchero 1/1",
+      "source_key": "beckett-flawless-2223",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"product": "2022-23 Panini Flawless Basketball", "insert": "Flawless Logoman", "season_start": 2022, "season_end": 2023, "player": "Paolo Banchero", "team": "Orlando Magic", "card_number": "1", "serial_total": 1, "has_logoman": true, "identity_status": "verified", "not_automatically_rpa": true, "memorabilia_provenance_requires_card_specific_evidence": true, "image_reference_status": "pending_front_back_asset"},
+      "aliases": []
+    },
+    {
+      "key": "flawless-paolo-team-logo-gems-1-2223",
+      "entity_type": "card",
+      "canonical_name": "2022-23 Flawless Team Logo Gems #1 Paolo Banchero 1/1",
+      "source_key": "beckett-flawless-2223",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"product": "2022-23 Panini Flawless Basketball", "insert": "Flawless Team Logo Gems", "season_start": 2022, "season_end": 2023, "player": "Paolo Banchero", "team": "Orlando Magic", "card_number": "1", "serial_total": 1, "identity_status": "verified", "not_automatically_logoman": true, "not_automatically_parallel": true, "image_reference_status": "pending_front_back_asset"},
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {"subject": "flawless-2223", "relation_type": "manufactured_by", "object": "panini", "reason": "Beckett identifies 2022-23 Panini Flawless Basketball.", "source_key": "beckett-flawless-2223", "review_status": "approved", "confidence": 0.99},
+    {"subject": "flawless-patch-autographs-2223", "relation_type": "available_in", "object": "flawless-2223", "reason": "Beckett lists the 37-card Flawless Patch Autographs set /25.", "source_key": "beckett-flawless-2223", "review_status": "approved", "confidence": 0.99},
+    {"subject": "flawless-logoman-2223", "relation_type": "available_in", "object": "flawless-2223", "reason": "Beckett lists product-specific Flawless Logoman 1/1 cards.", "source_key": "beckett-flawless-2223", "review_status": "approved", "confidence": 0.99},
+    {"subject": "flawless-team-logo-gems-2223", "relation_type": "available_in", "object": "flawless-2223", "reason": "Beckett lists the Team Logo Gems 1/1 checklist.", "source_key": "beckett-flawless-2223", "review_status": "approved", "confidence": 0.99},
+    {"subject": "flawless-paolo-base-27-2223", "relation_type": "belongs_to", "object": "flawless-2223", "reason": "Beckett identifies Paolo Banchero as base #27 /20 RC.", "source_key": "beckett-flawless-2223", "review_status": "approved", "confidence": 0.99},
+    {"subject": "flawless-paolo-patch-autographs-7-2223", "relation_type": "belongs_to", "object": "flawless-patch-autographs-2223", "reason": "Beckett lists Paolo Banchero as Flawless Patch Autographs #7 /25.", "source_key": "beckett-flawless-2223", "review_status": "approved", "confidence": 0.99},
+    {"subject": "flawless-paolo-logoman-1-2223", "relation_type": "belongs_to", "object": "flawless-logoman-2223", "reason": "Beckett lists Paolo Banchero as Flawless Logoman #1 1/1.", "source_key": "beckett-flawless-2223", "review_status": "approved", "confidence": 0.99},
+    {"subject": "flawless-paolo-team-logo-gems-1-2223", "relation_type": "belongs_to", "object": "flawless-team-logo-gems-2223", "reason": "Beckett lists Paolo Banchero as Team Logo Gems #1 1/1.", "source_key": "beckett-flawless-2223", "review_status": "approved", "confidence": 0.99}
+  ],
+  "applicability": [
+    {"entity": "flawless-patch-autographs-2223", "product": "flawless-2223", "season_start": 2022, "season_end": 2023, "status": "verified", "review_status": "approved", "source_key": "beckett-flawless-2223", "attributes": {"classification": "Explicit rookie patch-autograph set; memorabilia provenance remains card-specific."}},
+    {"entity": "flawless-logoman-2223", "product": "flawless-2223", "season_start": 2022, "season_end": 2023, "status": "verified", "review_status": "approved", "source_key": "beckett-flawless-2223", "attributes": {"classification": "Product-season Logoman 1/1 set; neither RPA status nor material provenance is inferred from the title alone."}},
+    {"entity": "flawless-team-logo-gems-2223", "product": "flawless-2223", "season_start": 2022, "season_end": 2023, "status": "verified", "review_status": "approved", "source_key": "beckett-flawless-2223", "attributes": {"classification": "Product-season gem insert; a team-logo/gem label is not automatically a Logoman, parallel, SSP, or case-hit classification."}}
+  ],
+  "coverage": [
+    {"manufacturer": "panini", "product": "flawless-2223", "season_start": 2022, "season_end": 2023, "parallel": "flawless-base-gold-10-2223", "status": "covered", "source_key": "beckett-flawless-2223", "notes": "Base Gold /10 is product-season scoped and verified."},
+    {"manufacturer": "panini", "product": "flawless-2223", "season_start": 2022, "season_end": 2023, "insert": "flawless-patch-autographs-2223", "status": "covered", "source_key": "beckett-flawless-2223", "notes": "Explicit RPA family and Paolo Banchero #7 /25 identity verified."},
+    {"manufacturer": "panini", "product": "flawless-2223", "season_start": 2022, "season_end": 2023, "insert": "flawless-logoman-2223", "status": "covered", "source_key": "beckett-flawless-2223", "notes": "Logoman 1/1 family and Paolo Banchero #1 identity verified without generic RPA/provenance inference."},
+    {"manufacturer": "panini", "product": "flawless-2223", "season_start": 2022, "season_end": 2023, "insert": "flawless-team-logo-gems-2223", "status": "covered", "source_key": "beckett-flawless-2223", "notes": "Team Logo Gems 1/1 family and Paolo Banchero #1 identity verified as a distinct gem insert."},
+    {"manufacturer": "panini", "product": "flawless-2223", "season_start": 2022, "season_end": 2023, "status": "partial", "source_key": "beckett-flawless-2223", "notes": "Core product, one scoped base parallel, RPA/Logoman/gem boundaries and four Paolo Banchero identities verified; complete autograph, memorabilia and parallel matrix remains later work."}
+  ]
+}

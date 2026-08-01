@@ -1,0 +1,36 @@
+{
+  "batch_key": "haunted-hoops-2425-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2024-25 Panini Haunted Hoops Basketball",
+    "2024-25 Haunted Hoops Holo Sky /31",
+    "2024-25 Haunted Hoops Extended Prospects",
+    "2024-25 Haunted Hoops Base #38 Kyrie Irving"
+  ],
+  "sources": [
+    {"key":"beckett-haunted-hoops-2425","title":"2024-25 Panini Haunted Hoops Basketball Checklist","url":"https://www.beckett.com/news/2024-25-panini-haunted-hoops-basketball-cards/","publisher":"Beckett","source_type":"beckett_checklist","retrieved_at":"2026-07-29T01:02:00+08:00","metadata":{"scope":"Full Haunted Hoops product checklist, Halloween-specific base parallel names, Tribute/Extended structure and Kyrie Irving identity."}}
+  ],
+  "entities": [
+    {"key":"panini","entity_type":"manufacturer","canonical_name":"Panini","source_key":"beckett-haunted-hoops-2425","review_status":"approved","confidence":0.99,"attributes":{"industry_roles":["manufacturer","brand","issuer"]},"aliases":[]},
+    {"key":"haunted-hoops","entity_type":"brand","canonical_name":"Haunted Hoops","source_key":"beckett-haunted-hoops-2425","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","semantic_scope":"Halloween-themed basketball card product brand"},"aliases":[]},
+    {"key":"haunted-hoops-2425","entity_type":"product","canonical_name":"2024-25 Panini Haunted Hoops Basketball","source_key":"beckett-haunted-hoops-2425","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","brand":"Haunted Hoops","season_start":2024,"season_end":2025,"league":"NBA","base_checklist_size":300,"base_structure":"280 veteran/rookie cards plus 20 Tribute cards; separate 25-card Extended prospects list","pack_configuration":"3 cards per pack; one Halloween-themed exclusive parallel per pack; 40 packs per box","product_distinction":"Halloween re-theme of NBA Hoops subject matter, but a separately issued product with its own checklist and parallel set; not a generic Hoops parallel."},"aliases":[]},
+    {"key":"haunted-hoops-holo-sky-31-2425","entity_type":"parallel","canonical_name":"2024-25 Haunted Hoops Holo Sky /31","source_key":"beckett-haunted-hoops-2425","review_status":"approved","confidence":0.99,"attributes":{"product":"2024-25 Panini Haunted Hoops Basketball","season_start":2024,"season_end":2025,"parallel_scope":"Haunted Hoops base","serial_total":31,"scope_key":"haunted-hoops-2024-25-holo-sky","not_cross_product_equivalent":true},"aliases":[]},
+    {"key":"haunted-hoops-extended-prospects-2425","entity_type":"insert","canonical_name":"2024-25 Haunted Hoops Extended Prospects","source_key":"beckett-haunted-hoops-2425","review_status":"approved","confidence":0.99,"attributes":{"product":"2024-25 Panini Haunted Hoops Basketball","season_start":2024,"season_end":2025,"semantic_type":"prospect_extension","checklist_size":25,"subject_status":"prospect","scope_key":"haunted-hoops-2024-25-extended-prospects","not_cross_product_equivalent":true,"not_automatically_rookie_card":true},"aliases":[]},
+    {"key":"haunted-hoops-kyrie-irving-38-2425","entity_type":"card","canonical_name":"2024-25 Haunted Hoops Base #38 Kyrie Irving","source_key":"beckett-haunted-hoops-2425","review_status":"approved","confidence":0.99,"attributes":{"product":"2024-25 Panini Haunted Hoops Basketball","season_start":2024,"season_end":2025,"player":"Kyrie Irving","team":"Dallas Mavericks","card_number":"38","identity_status":"verified","image_reference_status":"pending_front_back_asset"},"aliases":[]}
+  ],
+  "relations": [
+    {"subject":"haunted-hoops-2425","relation_type":"manufactured_by","object":"panini","reason":"Beckett identifies 2024-25 Panini Haunted Hoops Basketball.","source_key":"beckett-haunted-hoops-2425","review_status":"approved","confidence":0.99},
+    {"subject":"haunted-hoops-extended-prospects-2425","relation_type":"available_in","object":"haunted-hoops-2425","reason":"Beckett identifies the 25-card Extended prospect checklist in this product.","source_key":"beckett-haunted-hoops-2425","review_status":"approved","confidence":0.99},
+    {"subject":"haunted-hoops-kyrie-irving-38-2425","relation_type":"belongs_to","object":"haunted-hoops-2425","reason":"Beckett's base checklist identifies Kyrie Irving as #38.","source_key":"beckett-haunted-hoops-2425","review_status":"approved","confidence":0.99}
+  ],
+  "applicability": [
+    {"entity":"haunted-hoops-holo-sky-31-2425","product":"haunted-hoops-2425","season_start":2024,"season_end":2025,"status":"verified","review_status":"approved","source_key":"beckett-haunted-hoops-2425","attributes":{"classification":"Haunted Hoops base parallel only; color/name is not equivalent across Panini products."}},
+    {"entity":"haunted-hoops-extended-prospects-2425","product":"haunted-hoops-2425","season_start":2024,"season_end":2025,"status":"verified","review_status":"approved","source_key":"beckett-haunted-hoops-2425","attributes":{"classification":"25-card prospect extension. Prospective subjects are not automatically NBA rookie cards."}}
+  ],
+  "coverage": [
+    {"manufacturer":"panini","product":"haunted-hoops-2425","season_start":2024,"season_end":2025,"parallel":"haunted-hoops-holo-sky-31-2425","status":"covered","source_key":"beckett-haunted-hoops-2425","notes":"Holo Sky /31 is verified as a Haunted Hoops base parallel."},
+    {"manufacturer":"panini","product":"haunted-hoops-2425","season_start":2024,"season_end":2025,"insert":"haunted-hoops-extended-prospects-2425","status":"covered","source_key":"beckett-haunted-hoops-2425","notes":"25-card prospect extension verified without RC inference."},
+    {"manufacturer":"panini","product":"haunted-hoops-2425","season_start":2024,"season_end":2025,"status":"partial","source_key":"beckett-haunted-hoops-2425","notes":"Product, base structure, Holo Sky /31, prospect extension and Kyrie Irving #38 identity verified; remaining parallel and card-identity matrix is pending."}
+  ]
+}

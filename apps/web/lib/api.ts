@@ -10,6 +10,177 @@ export type PortfolioSummary = {
   realized_profit: string;
 };
 
+export type RecognitionBenchmarkMetrics = {
+  sample_count: number;
+  labeled_count: number;
+  scored_count: number;
+  top1_correct: number;
+  top3_correct: number;
+  top1_accuracy: number | null;
+  top3_recall: number | null;
+  insufficient_image_count: number;
+  source_error_count: number;
+};
+
+export type RecognitionBenchmark = {
+  id: string;
+  name: string;
+  source_code: string;
+  status: string;
+  sampling_config: Record<string, unknown>;
+  target_top1: string;
+  target_top3: string;
+  metrics: RecognitionBenchmarkMetrics;
+  sample_count: number;
+  labeled_count: number;
+  created_at: string;
+};
+
+export type MarketIdentityConflict = {
+  source_code: string;
+  external_id: string;
+  listing_title: string | null;
+  source_url: string | null;
+  occurred_at: string;
+  sale_price: string;
+  shipping_price: string;
+  currency: string;
+  bindings: Array<{
+    market_comp_id: string;
+    card_definition_id: string;
+    identity: Record<string, unknown>;
+    comparable_tier: string;
+    match_confidence: string | null;
+    source_reliability: string | null;
+  }>;
+};
+
+export type RecognitionBenchmarkSample = {
+  id: string;
+  batch_id: string;
+  source_item_id: string;
+  image_urls: string[];
+  prediction: null | {
+    candidates: Array<{
+      rank: number;
+      title: string;
+      identity?: Record<string, unknown>;
+      confidence?: string;
+      match_confidence?: string;
+      matching_fields?: string[];
+      conflicts?: string[];
+      source_urls?: string[];
+      image_url?: string | null;
+    }>;
+    field_evidence: Record<string, string[]>;
+    caveats: string[];
+  };
+  prediction_model: string | null;
+  prediction_pipeline_version: string | null;
+  source_audit?: null | {
+    status: "review" | "no_explicit_conflict";
+    conflicts: Array<{
+      field: string;
+      prediction: unknown;
+      source_hint: unknown;
+      reason: string;
+    }>;
+    disclaimer: string;
+  };
+  prediction_error: string | null;
+  label_status: string;
+  label_result: string | null;
+  corrected_identity: Record<string, unknown> | null;
+  label_notes: string | null;
+  label_pipeline_version: string | null;
+  assisted_label_result: string | null;
+  assisted_identity: Record<string, unknown> | null;
+  assisted_confidence: string | null;
+  assisted_evidence: string[];
+  assisted_labeler: string | null;
+  assisted_review_status: "pending" | "accepted" | "overridden" | null;
+  assisted_at: string | null;
+  source_url: string | null;
+  final_price: string | null;
+  currency: string | null;
+  revealed_reference: null | {
+    title?: string;
+    property_json?: string;
+    solr_title?: string;
+  };
+};
+
+export type RecognitionPredictionJob = {
+  id: string;
+  batch_id: string;
+  status: "queued" | "running" | "succeeded" | "partial" | "failed";
+  requested_count: number;
+  predicted_count: number;
+  failed_count: number;
+  error_message: string | null;
+};
+
+export type RecognitionFeedbackReport = {
+  label_counts: Record<string, number>;
+  corrected_sample_count: number;
+  knowledge_queue_count: number;
+  field_errors: Array<{
+    field: string;
+    errors: number;
+    corrections: number;
+    error_rate: number | null;
+    accuracy: number | null;
+  }>;
+};
+
+export type RecognitionVersionMetrics = {
+  minimum_acceptance_samples: number;
+  target_top1: number;
+  target_top3: number;
+  ground_truth_count: number;
+  scorable_ground_truth_count: number;
+  incomplete_ground_truth_count: number;
+  unresolved_labeled_count: number;
+  versions: Array<{
+    pipeline_version: string;
+    knowledge_version: string | null;
+    knowledge_version_number: number | null;
+    model: string | null;
+    history_sample_count: number;
+    sample_count: number;
+    prediction_error_count: number;
+    candidate_count_distribution: Record<string, number>;
+    multi_candidate_rate: number | null;
+    three_candidate_rate: number | null;
+    top1_correct: number;
+    top3_correct: number;
+    top1_accuracy: number | null;
+    top3_recall: number | null;
+    acceptance_evaluable: boolean;
+    acceptance_status: "pending" | "passed" | "failed";
+    field_metrics: Array<{
+      field: string;
+      correct: number;
+      total: number;
+      accuracy: number;
+    }>;
+  }>;
+};
+
+export type RecognitionSamplingAudit = {
+  sample_count: number;
+  unique_item_count: number;
+  unique_title_count: number;
+  unique_seller_count: number;
+  min_final_price: string;
+  max_final_price: string;
+  at_or_below_20_count: number;
+  non_single_card_count: number;
+  max_samples_per_seller: number;
+  sampling_config: Record<string, unknown>;
+  conforms: boolean;
+};
+
 export type PortfolioItem = {
   id: string;
   player_id: string;
@@ -24,6 +195,20 @@ export type PortfolioItem = {
   parallel_name: string | null;
   is_rookie: boolean;
   is_autograph: boolean;
+  autograph_type: "on_card" | "sticker" | "cut" | "unknown" | "none";
+  has_inscription: boolean;
+  inscription_text: string | null;
+  is_memorabilia: boolean;
+  memorabilia_types: string[];
+  memorabilia_usage:
+    | "game_used"
+    | "player_worn"
+    | "event_worn"
+    | "not_from_specific_game_or_event"
+    | "manufactured"
+    | "unknown"
+    | "none";
+  memorabilia_player: string | null;
   is_patch: boolean;
   serial_number: number | null;
   serial_total: number | null;
@@ -44,6 +229,8 @@ export type PortfolioItem = {
   valuation_status: string | null;
   valuation_job_id: string | null;
   valuation_error: string | null;
+  deleted_at: string | null;
+  deleted_reason: string | null;
 };
 
 export type MarketComp = {
@@ -58,6 +245,51 @@ export type MarketComp = {
   listing_title: string | null;
   source_url: string | null;
   match_confidence: string | null;
+  source_reliability: string | null;
+  classification: {
+    source_code?: string;
+    origin_source_code?: string;
+    ingestion?: string;
+  } | null;
+};
+
+export type CardHobbyImportCapture = {
+  external_order_id: string | null;
+  cardhobby_item_id: string;
+  item_url: string;
+  title: string;
+  image_urls: string[];
+  purchased_at: string | null;
+  sale_price: string | null;
+  shipping_price: string;
+  currency: string;
+  raw_text: string | null;
+};
+
+export type CardHobbyImportDraft = {
+  id: string;
+  duplicate: boolean;
+  status: string;
+  capture: CardHobbyImportCapture;
+  proposed_item: null | {
+    card: {
+      player_name: string;
+      brand_name: string;
+      season_start: number;
+      season_end: number | null;
+      product_name: string;
+      card_number: string | null;
+      insert_name: string | null;
+      parallel_name: string | null;
+    };
+    serial_total: number | null;
+  };
+  warnings: string[];
+};
+
+export type CardHobbyImportPreview = {
+  batch_id: string;
+  drafts: CardHobbyImportDraft[];
 };
 
 export type AutomatedValuationDetail = {
@@ -81,6 +313,8 @@ export type AutomatedValuationDetail = {
       formula?: string;
       search_queries?: string[];
       notes?: string[];
+      card_price?: { low: string; fair: string; high: string };
+      landed_price?: { low: string; fair: string; high: string };
       player_adjustments?: Array<{
         target_player: string;
         reference_player: string;
@@ -103,12 +337,27 @@ export type AutomatedValuationDetail = {
         title: string | null;
         source_url: string | null;
         occurred_at: string;
-        original_price: string;
+        original_price?: string;
+        sale_price?: string;
+        shipping_price?: string;
+        landed_price?: string;
         currency: string;
         fx_rate_to_base: string;
-        normalized_price: string;
-        match_confidence: string;
-        age_days: number;
+        normalized_price?: string;
+        normalized_card_price?: string;
+        normalized_landed_price?: string;
+        match_confidence?: string;
+        age_days?: number;
+        tier?: "T0" | "T1" | "T2" | "T3" | "rejected";
+        similarity?: string;
+        source_reliability?: string;
+        raw_weight?: string;
+        final_weight?: string;
+        used_for_center?: boolean;
+        hard_conflicts?: string[];
+        field_matches?: Record<string, boolean | null>;
+        adjustment_factor?: string;
+        adjustment_basis?: string;
         evidence_type?: string;
         source?: string;
         evidence_level?: "confirmed_transaction" | "ended_auction" | null;
@@ -123,6 +372,30 @@ export type AutomatedValuationDetail = {
     model_version: string | null;
   };
   comparables: MarketComp[];
+};
+
+export type IdentityCorrection = {
+  id: string;
+  field_name:
+    | "card_number"
+    | "insert_name"
+    | "parallel_name"
+    | "serial_total"
+    | "is_autograph"
+    | "is_patch";
+  current_value: string | number | boolean | null;
+  suggested_value: string | number | boolean;
+  confidence: string;
+  evidence: Array<{
+    title: string;
+    source_url: string;
+    market_comp_id: string;
+    source_reliability: string;
+    match_confidence: string;
+  }>;
+  detector_version: string;
+  status: string;
+  detected_at: string;
 };
 
 export type CardRecognition = {
@@ -146,10 +419,16 @@ export type CardRecognition = {
   web_candidates: Array<{
     title: string;
     source_urls: string[];
+    image_url?: string | null;
     matching_fields: string[];
     conflicts: string[];
     match_confidence: string;
   }>;
+  reference_image_front_url?: string | null;
+  reference_image_back_url?: string | null;
+  reference_image_source_url?: string | null;
+  reference_image_provider?: string | null;
+  reference_image_match_confidence?: string | null;
 };
 
 export type BatchCardRecognition = {
@@ -262,7 +541,112 @@ export type AINarrativeResult = {
   };
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+export type KnowledgeWorkspace = {
+  id: string;
+  name: string;
+  revision: number;
+  published_version_id: string | null;
+  published_version: number | null;
+  member_count: number;
+  runtime_version: number | null;
+  runtime_version_id: string | null;
+};
+
+export type KnowledgeAlias = {
+  id: string;
+  alias: string;
+  language: string;
+  alias_type: string;
+  review_status: string;
+};
+
+export type KnowledgeEntity = {
+  id: string;
+  entity_type: string;
+  canonical_name: string;
+  confidence: string;
+  review_status: string;
+  attributes: Record<string, unknown>;
+  aliases: KnowledgeAlias[];
+};
+
+export type KnowledgeVersion = {
+  id: string;
+  version_number: number;
+  status: string;
+  change_summary: Record<string, number>;
+  checksum: string;
+  release_notes: string | null;
+  published_at: string;
+};
+
+export type KnowledgeRelation = {
+  id: string;
+  subject_entity_id: string;
+  subject_name: string;
+  relation_type: string;
+  object_entity_id: string;
+  object_name: string;
+  reason: string | null;
+  review_status: string;
+};
+
+export type KnowledgeObservation = {
+  id: string;
+  observed_text: string;
+  occurrence_count: number;
+  proposed_entity_id: string | null;
+  proposed_alias: string | null;
+  confidence: string | null;
+  status: string;
+  replay_result: Record<string, unknown>;
+  last_seen_at: string;
+};
+
+export type KnowledgeImpact = {
+  object_type: "collection_item" | "market_comp";
+  object_id: string;
+  reason: Record<string, unknown>;
+  revaluation_status: string;
+  created_at: string;
+};
+
+export type KnowledgeCoverage = {
+  id: string;
+  manufacturer_name: string | null;
+  product_name: string | null;
+  season_start: number | null;
+  season_end: number | null;
+  insert_name: string | null;
+  parallel_name: string | null;
+  coverage_status: "covered" | "partial" | "needs_review" | "pending_source" | "not_applicable";
+  source_title: string | null;
+  source_url: string | null;
+  notes: string | null;
+};
+
+export type KnowledgeBatch = {
+  id: string;
+  batch_key: string;
+  status: string;
+  dry_run: boolean;
+  summary: Record<string, number>;
+  conflict_report: Array<Record<string, unknown>>;
+  replay_result: Record<string, boolean>;
+};
+
+export type KnowledgeBatchCatalogItem = {
+  batch_key: string;
+  manifest_version: number;
+  source_count: number;
+  entity_count: number;
+  path: string;
+};
+
+// Prefer same-origin requests. In local development next.config.ts proxies /v1
+// to the API, avoiding stale ports, CORS failures, and browser/host loopback
+// differences. Deployments that use a separate API origin can still opt in.
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 export function assetUrl(path: string | null): string | null {
   return path ? (path.startsWith("http") ? path : `${API_URL}${path}`) : null;
@@ -277,7 +661,335 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.detail ?? `请求失败 (${response.status})`);
   }
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
+}
+
+function knowledgeHeaders(actorId?: string, idempotencyKey?: string) {
+  return {
+    ...(actorId ? { "X-Knowledge-Actor": actorId } : {}),
+    ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+  };
+}
+
+export function getKnowledgeWorkspace(): Promise<KnowledgeWorkspace> {
+  return request("/v1/knowledge/workspace");
+}
+
+export function bootstrapKnowledge(actorId: string): Promise<{ role: string; user_id: string }> {
+  return request("/v1/knowledge/bootstrap", {
+    method: "POST",
+    headers: knowledgeHeaders(actorId),
+  });
+}
+
+export function getKnowledgeEntities(
+  entityType = "",
+  query = "",
+): Promise<KnowledgeEntity[]> {
+  const params = new URLSearchParams();
+  if (entityType) params.set("entity_type", entityType);
+  if (query) params.set("q", query);
+  return request(`/v1/knowledge/entities?${params}`);
+}
+
+export function createKnowledgeEntity(
+  actorId: string,
+  payload: { entity_type: string; canonical_name: string },
+): Promise<KnowledgeEntity> {
+  return request("/v1/knowledge/entities", {
+    method: "POST",
+    headers: knowledgeHeaders(actorId, crypto.randomUUID()),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getRecognitionBenchmarks(): Promise<RecognitionBenchmark[]> {
+  return request("/v1/recognition-benchmarks");
+}
+
+export function createRecognitionBenchmark(payload: {
+  name: string;
+  sample_size: number;
+  page_count: number;
+  seed: number;
+  max_per_seller: number;
+}): Promise<{ id: string }> {
+  return request("/v1/recognition-benchmarks", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getRecognitionBenchmarkSamples(
+  batchId: string,
+): Promise<RecognitionBenchmarkSample[]> {
+  return request(`/v1/recognition-benchmarks/${batchId}/samples`);
+}
+
+export function getRecognitionSamplingAudit(
+  batchId: string,
+): Promise<RecognitionSamplingAudit> {
+  return request(`/v1/recognition-benchmarks/${batchId}/sampling-audit`);
+}
+
+export function predictRecognitionBenchmark(
+  batchId: string,
+  limit = 10,
+  options: { retryErrors?: boolean; replayAll?: boolean } = {},
+): Promise<RecognitionPredictionJob> {
+  return request(`/v1/recognition-benchmarks/${batchId}/predict`, {
+    method: "POST",
+    body: JSON.stringify({
+      limit,
+      retry_errors: options.retryErrors ?? false,
+      replay_all: options.replayAll ?? false,
+    }),
+  });
+}
+
+export function getRecognitionPredictionJob(
+  batchId: string,
+  jobId: string,
+): Promise<RecognitionPredictionJob> {
+  return request(`/v1/recognition-benchmarks/${batchId}/prediction-jobs/${jobId}`);
+}
+
+export function getRecognitionFeedbackReport(
+  batchId: string,
+): Promise<RecognitionFeedbackReport> {
+  return request(`/v1/recognition-benchmarks/${batchId}/feedback-report`);
+}
+
+export function getRecognitionVersionMetrics(
+  batchId: string,
+): Promise<RecognitionVersionMetrics> {
+  return request(`/v1/recognition-benchmarks/${batchId}/version-metrics`);
+}
+
+export function createRecognitionKnowledgeProposals(
+  batchId: string,
+): Promise<{ proposal_count: number }> {
+  return request(`/v1/recognition-benchmarks/${batchId}/knowledge-proposals`, {
+    method: "POST",
+  });
+}
+
+export function labelRecognitionBenchmarkSample(
+  batchId: string,
+  sampleId: string,
+  result: string,
+  correctedIdentity?: Record<string, unknown>,
+  notes?: string,
+): Promise<{ id: string; metrics: RecognitionBenchmarkMetrics }> {
+  return request(`/v1/recognition-benchmarks/${batchId}/samples/${sampleId}/label`, {
+    method: "POST",
+    body: JSON.stringify({
+      result,
+      corrected_identity: correctedIdentity,
+      notes: notes || undefined,
+    }),
+  });
+}
+
+export function acceptRecognitionAssistedLabel(
+  batchId: string,
+  sampleId: string,
+): Promise<{ id: string; metrics: RecognitionBenchmarkMetrics }> {
+  return request(
+    `/v1/recognition-benchmarks/${batchId}/samples/${sampleId}/assisted-label/accept`,
+    { method: "POST" },
+  );
+}
+
+export function getMarketIdentityConflicts(): Promise<MarketIdentityConflict[]> {
+  return request("/v1/market-data/identity-conflicts");
+}
+
+export function resolveMarketIdentityConflict(
+  sourceCode: string,
+  externalId: string,
+  payload: { keep_market_comp_id?: string; reject_all?: boolean },
+): Promise<{
+  source_code: string;
+  external_id: string;
+  kept_market_comp_id: string | null;
+  rejected_count: number;
+}> {
+  return request(
+    `/v1/market-data/identity-conflicts/${encodeURIComponent(sourceCode)}/${encodeURIComponent(externalId)}/resolve`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function addKnowledgeAlias(
+  actorId: string,
+  entityId: string,
+  payload: { alias: string; language: string; alias_type: string },
+): Promise<KnowledgeAlias> {
+  return request(`/v1/knowledge/entities/${entityId}/aliases`, {
+    method: "POST",
+    headers: knowledgeHeaders(actorId, crypto.randomUUID()),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function reviewKnowledge(
+  actorId: string,
+  objectType: "entity" | "alias" | "relation",
+  objectId: string,
+  decision: "approved" | "rejected",
+): Promise<Record<string, unknown>> {
+  return request(`/v1/knowledge/${objectType}/${objectId}/review`, {
+    method: "POST",
+    headers: knowledgeHeaders(actorId, crypto.randomUUID()),
+    body: JSON.stringify({ decision }),
+  });
+}
+
+export function seedKnowledge(actorId: string): Promise<{ entities: number; aliases: number }> {
+  return request("/v1/knowledge/seed", {
+    method: "POST",
+    headers: knowledgeHeaders(actorId),
+  });
+}
+
+export function getKnowledgeVersions(): Promise<KnowledgeVersion[]> {
+  return request("/v1/knowledge/versions");
+}
+
+export function publishKnowledge(
+  actorId: string,
+  expectedRevision: number,
+  releaseNotes: string,
+): Promise<KnowledgeVersion> {
+  return request("/v1/knowledge/publish", {
+    method: "POST",
+    headers: knowledgeHeaders(actorId, crypto.randomUUID()),
+    body: JSON.stringify({ expected_revision: expectedRevision, release_notes: releaseNotes }),
+  });
+}
+
+export function rollbackKnowledge(
+  actorId: string,
+  expectedRevision: number,
+  targetVersionId: string,
+): Promise<KnowledgeVersion> {
+  return request("/v1/knowledge/rollback", {
+    method: "POST",
+    headers: knowledgeHeaders(actorId, crypto.randomUUID()),
+    body: JSON.stringify({
+      expected_revision: expectedRevision,
+      target_version_id: targetVersionId,
+    }),
+  });
+}
+
+export function getKnowledgeRelations(): Promise<KnowledgeRelation[]> {
+  return request("/v1/knowledge/relations");
+}
+
+export function createKnowledgeRelation(
+  actorId: string,
+  payload: {
+    subject_entity_id: string;
+    relation_type: string;
+    object_entity_id: string;
+    reason: string;
+  },
+): Promise<KnowledgeRelation> {
+  return request("/v1/knowledge/relations", {
+    method: "POST",
+    headers: knowledgeHeaders(actorId, crypto.randomUUID()),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getKnowledgeObservations(): Promise<KnowledgeObservation[]> {
+  return request("/v1/knowledge/observations");
+}
+
+export function reviewKnowledgeObservation(
+  actorId: string,
+  observationId: string,
+  payload: {
+    proposed_entity_id: string;
+    proposed_alias: string;
+    replay_result: Record<string, unknown>;
+    confidence: number;
+    decision: "validated" | "rejected";
+  },
+): Promise<KnowledgeObservation> {
+  return request(`/v1/knowledge/observations/${observationId}/review`, {
+    method: "POST",
+    headers: knowledgeHeaders(actorId),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function promoteKnowledgeObservation(
+  actorId: string,
+  observationId: string,
+): Promise<KnowledgeAlias> {
+  return request(`/v1/knowledge/observations/${observationId}/promote`, {
+    method: "POST",
+    headers: knowledgeHeaders(actorId, crypto.randomUUID()),
+  });
+}
+
+export function getKnowledgeImpact(versionId: string): Promise<KnowledgeImpact[]> {
+  return request(`/v1/knowledge/versions/${versionId}/impact`);
+}
+
+export function revalueKnowledgeImpact(
+  actorId: string,
+  versionId: string,
+): Promise<{ queued: number }> {
+  return request(`/v1/knowledge/versions/${versionId}/revalue`, {
+    method: "POST",
+    headers: knowledgeHeaders(actorId),
+  });
+}
+
+export function getKnowledgeCoverage(): Promise<{
+  counts: Record<string, number>;
+  rows: KnowledgeCoverage[];
+}> {
+  return request("/v1/knowledge/coverage");
+}
+
+export function getKnowledgeBatches(): Promise<KnowledgeBatch[]> {
+  return request("/v1/knowledge/batches");
+}
+
+export function getKnowledgeBatchCatalog(): Promise<KnowledgeBatchCatalogItem[]> {
+  return request("/v1/knowledge/batches/catalog");
+}
+
+export function applyKnowledgeCatalogBatch(
+  actorId: string,
+  batchKey: string,
+  dryRun: boolean,
+): Promise<KnowledgeBatch> {
+  return request(`/v1/knowledge/batches/${encodeURIComponent(batchKey)}`, {
+    method: "POST",
+    headers: knowledgeHeaders(actorId, crypto.randomUUID()),
+    body: JSON.stringify({ dry_run: dryRun }),
+  });
+}
+
+export function applyKnowledgeMvpBatch(
+  actorId: string,
+  dryRun: boolean,
+): Promise<KnowledgeBatch> {
+  return request("/v1/knowledge/batches/mvp-v3", {
+    method: "POST",
+    headers: knowledgeHeaders(actorId),
+    body: JSON.stringify({ dry_run: dryRun }),
+  });
 }
 
 export function createUser(payload: {
@@ -298,6 +1010,67 @@ export function getPortfolio(
     request<PortfolioSummary>(`/v1/portfolio/summary?owner_id=${ownerId}`),
     request<PortfolioItem[]>(`/v1/portfolio/items?owner_id=${ownerId}`),
   ]);
+}
+
+export function getIdentityCorrectionCounts(
+  ownerId: string,
+): Promise<Record<string, number>> {
+  return request(`/v1/portfolio/identity-corrections?owner_id=${ownerId}`);
+}
+
+export function getIdentityCorrections(
+  itemId: string,
+  ownerId: string,
+): Promise<IdentityCorrection[]> {
+  return request(
+    `/v1/portfolio/items/${itemId}/identity-corrections?owner_id=${ownerId}`,
+  );
+}
+
+export function applyIdentityCorrections(
+  itemId: string,
+  ownerId: string,
+  suggestionIds: string[] = [],
+): Promise<{ applied_count: number; valuation_job_id: string }> {
+  return request(`/v1/portfolio/items/${itemId}/identity-corrections/apply`, {
+    method: "POST",
+    body: JSON.stringify({
+      owner_id: ownerId,
+      suggestion_ids: suggestionIds,
+    }),
+  });
+}
+
+export function getTrash(ownerId: string): Promise<PortfolioItem[]> {
+  return request(`/v1/portfolio/trash?owner_id=${ownerId}`);
+}
+
+export function deleteItem(
+  itemId: string,
+  ownerId: string,
+  reason?: string,
+): Promise<void> {
+  return request(`/v1/portfolio/items/${itemId}`, {
+    method: "DELETE",
+    body: JSON.stringify({ owner_id: ownerId, reason: reason || null }),
+  });
+}
+
+export function restoreItem(itemId: string, ownerId: string): Promise<void> {
+  return request(`/v1/portfolio/items/${itemId}/restore`, {
+    method: "POST",
+    body: JSON.stringify({ owner_id: ownerId }),
+  });
+}
+
+export function permanentlyDeleteItem(
+  itemId: string,
+  ownerId: string,
+): Promise<void> {
+  return request(`/v1/portfolio/items/${itemId}/permanent`, {
+    method: "DELETE",
+    body: JSON.stringify({ owner_id: ownerId }),
+  });
 }
 
 export function createItem(payload: unknown): Promise<{ id: string }> {
@@ -376,11 +1149,33 @@ export function getItemDetail(
   return request(`/v1/portfolio/items/${itemId}/detail?owner_id=${ownerId}`);
 }
 
+export function getCardCatalog(
+  itemId: string,
+  ownerId: string,
+  forceRefresh = false,
+): Promise<CardRecognition> {
+  return request(
+    `/v1/portfolio/items/${itemId}/catalog-enrichment?owner_id=${ownerId}&force_refresh=${forceRefresh}`,
+  );
+}
+
+export function applyCatalogImages(
+  itemId: string,
+  ownerId: string,
+  side: "front" | "back" | "both",
+): Promise<Array<{ item_id: string; side: "front" | "back"; image_url: string }>> {
+  return request(
+    `/v1/portfolio/items/${itemId}/catalog-images/apply?owner_id=${ownerId}&side=${side}`,
+    { method: "POST" },
+  );
+}
+
 export function addTransaction(
   itemId: string,
+  ownerId: string,
   payload: unknown,
 ): Promise<{ id: string }> {
-  return request(`/v1/portfolio/items/${itemId}/transactions`, {
+  return request(`/v1/portfolio/items/${itemId}/transactions?owner_id=${ownerId}`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -388,9 +1183,10 @@ export function addTransaction(
 
 export function addValuation(
   itemId: string,
+  ownerId: string,
   payload: unknown,
 ): Promise<{ id: string }> {
-  return request(`/v1/portfolio/items/${itemId}/valuations`, {
+  return request(`/v1/portfolio/items/${itemId}/valuations?owner_id=${ownerId}`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -516,4 +1312,49 @@ export function uploadItemImage(
     `/v1/portfolio/items/${itemId}/images?owner_id=${ownerId}&side=${side}`,
     file,
   );
+}
+
+const CARDHOBBY_HELPER_URL =
+  process.env.NEXT_PUBLIC_CARDHOBBY_HELPER_URL ?? "http://127.0.0.1:8765";
+
+async function cardHobbyHelperRequest<T>(
+  path: string,
+  payload: Record<string, unknown> = {},
+): Promise<T> {
+  const response = await fetch(`${CARDHOBBY_HELPER_URL}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(result.error ?? `卡淘桌面助手请求失败 (${response.status})`);
+  }
+  return result as T;
+}
+
+export function launchCardHobbyDesktop(): Promise<{
+  order_url: string;
+  profile_dir: string;
+  reused_session: boolean;
+}> {
+  return cardHobbyHelperRequest("/launch");
+}
+
+export function scanCardHobbyDesktop(
+  ownerId: string,
+): Promise<CardHobbyImportPreview> {
+  return cardHobbyHelperRequest("/scan", { owner_id: ownerId });
+}
+
+export function confirmCardHobbyDesktop(
+  batchId: string,
+  ownerId: string,
+  items: Array<Record<string, unknown>>,
+): Promise<{ imported_item_ids: string[]; skipped_draft_ids: string[] }> {
+  return cardHobbyHelperRequest("/confirm", {
+    batch_id: batchId,
+    owner_id: ownerId,
+    items,
+  });
 }

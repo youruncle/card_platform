@@ -1,0 +1,24 @@
+{
+  "batch_key": "card-identity-exquisite-lebron-0304-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": ["LeBron James", "2003-04 Exquisite LeBron James RC #78 Auto Patch /99", "2003-04 Exquisite Collection Basketball"],
+  "sources": [
+    {"key": "beckett-exquisite-lebron-rc", "title": "LeBron James Rookie Card Rankings", "url": "https://www.beckett.com/news/lebron-james-rookie-cards/", "publisher": "Beckett", "source_type": "beckett_checklist", "retrieved_at": "2026-07-28T21:15:00+08:00", "metadata": {"scope": "2003-04 Exquisite LeBron James RC #78 Auto Patch /99 identity and multi-color swatch description."}},
+    {"key": "beckett-exquisite-lebron-card", "title": "The Daily: 2003-04 Upper Deck Exquisite LeBron James RC Auto Patch", "url": "https://www.beckett.com/news/daily-2003-04-upper-deck-exquisite-lebron-james-rc-auto-patch/", "publisher": "Beckett", "source_type": "beckett_checklist", "retrieved_at": "2026-07-28T21:15:00+08:00", "metadata": {"scope": "card number 78 and /99 serial identity."}},
+    {"key": "beckett-exquisite-lebron-provenance", "title": "2003-04 Upper Deck Exquisite LeBron James Rookie Card Sells for Over $190,000", "url": "https://www.beckett.com/news/2003-04-upper-deck-exquisite-lebron-james-rookie-card-sells-for-over-190000/", "publisher": "Beckett", "source_type": "beckett_checklist", "retrieved_at": "2026-07-28T21:15:00+08:00", "metadata": {"scope": "photo shoot-worn three-color patch provenance statement."}}
+  ],
+  "entities": [
+    {"key": "upper-deck", "entity_type": "manufacturer", "canonical_name": "Upper Deck", "source_key": "beckett-exquisite-lebron-rc", "review_status": "approved", "confidence": 0.99, "attributes": {"industry_roles": ["manufacturer", "brand", "issuer"]}, "aliases": []},
+    {"key": "lebron-james", "entity_type": "player", "canonical_name": "LeBron James", "source_key": "beckett-exquisite-lebron-rc", "review_status": "approved", "confidence": 0.99, "attributes": {"sport": "basketball"}, "aliases": [{"value": "勒布朗·詹姆斯", "language": "zh", "alias_type": "translation", "confidence": 0.99}]},
+    {"key": "exquisite-0304", "entity_type": "product", "canonical_name": "2003-04 Exquisite Collection Basketball", "source_key": "beckett-exquisite-lebron-rc", "review_status": "approved", "confidence": 0.99, "attributes": {"manufacturer": "Upper Deck", "season_start": 2003, "season_end": 2004, "historical_product": true}, "aliases": []},
+    {"key": "lebron-exquisite-78", "entity_type": "card", "canonical_name": "2003-04 Exquisite LeBron James RC #78 Auto Patch /99", "source_key": "beckett-exquisite-lebron-card", "review_status": "approved", "confidence": 0.99, "attributes": {"player": "LeBron James", "team": "Cleveland Cavaliers", "product": "2003-04 Exquisite Collection Basketball", "season_start": 2003, "season_end": 2004, "card_number": "78", "identity_status": "verified", "is_rookie_card": true, "is_autograph": true, "signature_application": "on_card", "is_patch": true, "serial_total": 99, "memorabilia_provenance": "photo_shoot_worn", "visual_features": ["multi-color patch swatch", "on-card autograph"], "terminology_note": "Historical RC auto patch; do not automatically normalize to Panini-era RPA.", "image_reference_status": "source_page_reference"}, "aliases": []}
+  ],
+  "relations": [
+    {"subject": "lebron-exquisite-78", "relation_type": "belongs_to", "object": "exquisite-0304", "reason": "Beckett identifies the card as 2003-04 Exquisite Collection LeBron James RC #78 Auto Patch /99.", "source_key": "beckett-exquisite-lebron-card", "review_status": "approved", "confidence": 0.99},
+    {"subject": "lebron-exquisite-78", "relation_type": "requires", "object": "lebron-james", "reason": "Beckett identifies LeBron James as the player on card #78.", "source_key": "beckett-exquisite-lebron-rc", "review_status": "approved", "confidence": 0.99}
+  ],
+  "coverage": [
+    {"manufacturer": "upper-deck", "product": "exquisite-0304", "season_start": 2003, "season_end": 2004, "status": "partial", "source_key": "beckett-exquisite-lebron-card", "notes": "Specific LeBron James RC #78 Auto Patch /99 identity verified; broader card-level historical checklist expansion remains pending."}
+  ]
+}

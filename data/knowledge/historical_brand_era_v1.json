@@ -1,0 +1,34 @@
+{
+  "batch_key": "historical-brand-era-v1",
+  "catalog_enabled": true,
+  "manifest_version": 2,
+  "required_regressions": ["Fleer", "SkyBox", "2010-11 Donruss Basketball", "2010-11 Donruss Rated Rookies", "1996-97 SkyBox E-X 2000 Basketball"],
+  "sources": [
+    {"key": "panini-donruss-then-now", "title": "Donruss Then and Now", "url": "https://assets.paniniamerica.net/resources/Whitepaper_Donruss.pdf", "publisher": "Panini America", "source_type": "official_product", "retrieved_at": "2026-07-28T18:10:00+08:00", "metadata": {"scope": "Donruss brand history, Rated Rookie history and current Panini America programs"}},
+    {"key": "panini-donruss-1011", "title": "Panini Peek: 2010-11 Donruss Basketball", "url": "https://blog.paniniamerica.net/panini-peek-2010-11-donruss-basketball/", "publisher": "Panini America", "source_type": "official_product", "retrieved_at": "2026-07-28T18:10:00+08:00", "metadata": {"scope": "first Donruss-branded basketball product, Rated Rookies and base-card count"}},
+    {"key": "upper-deck-skybox-ex", "title": "NHL Skybox E-X 2000", "url": "https://upperdeck.com/product/nhl-skybox-e-x-2000/", "publisher": "Upper Deck", "source_type": "official_product", "retrieved_at": "2026-07-28T18:10:00+08:00", "metadata": {"scope": "Fleer introduced SkyBox E-X 2000 through 1996-97 basketball release"}}
+  ],
+  "entities": [
+    {"key": "panini", "entity_type": "manufacturer", "canonical_name": "Panini", "source_key": "panini-donruss-then-now", "review_status": "approved", "confidence": 0.99, "attributes": {"industry_roles": ["manufacturer", "brand", "issuer"]}, "aliases": []},
+    {"key": "donruss-brand", "entity_type": "brand", "canonical_name": "Donruss", "source_key": "panini-donruss-then-now", "review_status": "approved", "confidence": 0.99, "attributes": {"operator": "Panini America", "industry_roles": ["brand"], "era_note": "Basketball product applicability must remain season-scoped."}, "aliases": []},
+    {"key": "donruss-1011", "entity_type": "product", "canonical_name": "2010-11 Donruss Basketball", "source_key": "panini-donruss-1011", "review_status": "approved", "confidence": 0.99, "attributes": {"manufacturer": "Panini", "brand": "Donruss", "season_start": 2010, "season_end": 2011, "league": "NBA", "base_card_count": 295, "claim": "first Donruss-branded basketball product"}, "aliases": []},
+    {"key": "donruss-rated-rookies-1011", "entity_type": "insert", "canonical_name": "2010-11 Donruss Rated Rookies", "source_key": "panini-donruss-1011", "review_status": "approved", "confidence": 0.99, "attributes": {"product": "2010-11 Donruss Basketball", "season_start": 2010, "season_end": 2011, "semantic_type": "rookie_checklist_subset", "scope_key": "donruss-2010-11"}, "aliases": []},
+    {"key": "fleer", "entity_type": "manufacturer", "canonical_name": "Fleer", "source_key": "upper-deck-skybox-ex", "review_status": "approved", "confidence": 0.95, "replace_attributes": true, "attributes": {"industry_roles": ["historical_manufacturer", "brand"], "evidence_scope": "Fleer introduced SkyBox E-X 2000 for 1996-97 basketball; broader ownership/lifecycle still needs archival expansion."}, "aliases": []},
+    {"key": "skybox", "entity_type": "brand", "canonical_name": "SkyBox", "source_key": "upper-deck-skybox-ex", "review_status": "approved", "confidence": 0.95, "replace_attributes": true, "attributes": {"industry_roles": ["historical_brand"], "evidence_scope": "SkyBox E-X 2000 basketball introduction in 1996-97."}, "aliases": []},
+    {"key": "skybox-ex-9697", "entity_type": "product", "canonical_name": "1996-97 SkyBox E-X 2000 Basketball", "source_key": "upper-deck-skybox-ex", "review_status": "approved", "confidence": 0.95, "attributes": {"manufacturer": "Fleer", "brand": "SkyBox", "season_start": 1996, "season_end": 1997, "league": "NBA", "historical_product": true}, "aliases": []}
+  ],
+  "relations": [
+    {"subject": "donruss-1011", "relation_type": "manufactured_by", "object": "panini", "reason": "Panini's official 2010-11 preview identifies the Donruss basketball release.", "source_key": "panini-donruss-1011", "review_status": "approved", "confidence": 0.99},
+    {"subject": "donruss-1011", "relation_type": "belongs_to", "object": "donruss-brand", "reason": "Panini identifies this as a Donruss-branded basketball product.", "source_key": "panini-donruss-1011", "review_status": "approved", "confidence": 0.99},
+    {"subject": "donruss-rated-rookies-1011", "relation_type": "available_in", "object": "donruss-1011", "reason": "Panini's official preview identifies basketball's first Rated Rookie cards in this release.", "source_key": "panini-donruss-1011", "review_status": "approved", "confidence": 0.99},
+    {"subject": "skybox-ex-9697", "relation_type": "manufactured_by", "object": "fleer", "reason": "Upper Deck's product history states Fleer introduced SkyBox E-X 2000 through a 1996-97 basketball release.", "source_key": "upper-deck-skybox-ex", "review_status": "approved", "confidence": 0.95},
+    {"subject": "skybox-ex-9697", "relation_type": "belongs_to", "object": "skybox", "reason": "Upper Deck's product history identifies SkyBox E-X 2000 as the historical brand.", "source_key": "upper-deck-skybox-ex", "review_status": "approved", "confidence": 0.95}
+  ],
+  "applicability": [
+    {"entity": "donruss-rated-rookies-1011", "product": "donruss-1011", "season_start": 2010, "season_end": 2011, "status": "verified", "review_status": "approved", "source_key": "panini-donruss-1011", "attributes": {"first_basketball_rated_rookies": true}}
+  ],
+  "coverage": [
+    {"manufacturer": "panini", "product": "donruss-1011", "season_start": 2010, "season_end": 2011, "insert": "donruss-rated-rookies-1011", "status": "covered", "source_key": "panini-donruss-1011", "notes": "First Donruss-branded basketball release, base count and Rated Rookies verified."},
+    {"manufacturer": "fleer", "product": "skybox-ex-9697", "season_start": 1996, "season_end": 1997, "status": "partial", "source_key": "upper-deck-skybox-ex", "notes": "Historical product/manufacturer/brand association verified; full checklist and parallel matrix await archival source."}
+  ]
+}

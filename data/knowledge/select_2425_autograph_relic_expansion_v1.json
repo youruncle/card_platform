@@ -1,0 +1,299 @@
+{
+  "batch_key": "select-2425-autograph-relic-expansion-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2024-25 Select Top Shelf Signatures",
+    "2024-25 Select Visionary",
+    "2024-25 Select Rookie Jersey Autographs",
+    "2024-25 Select Jumbo Rookie Signature Swatches",
+    "2024-25 Select Rookie Jersey Autographs #10 Jaylon Tyson /199"
+  ],
+  "sources": [
+    {
+      "key": "beckett-select-2425-expansion",
+      "title": "2024-25 Panini Select Basketball Checklist, Team Set Lists and Details",
+      "url": "https://www.beckett.com/news/2024-25-panini-select-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-29T00:42:00+08:00",
+      "metadata": {
+        "scope": "Released product configuration, H2/Hobby exclusives, autograph/memorabilia families and Jaylon Tyson card-level entries."
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "panini",
+      "entity_type": "manufacturer",
+      "canonical_name": "Panini",
+      "source_key": "beckett-select-2425-expansion",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "industry_roles": [
+          "manufacturer",
+          "brand",
+          "issuer"
+        ]
+      },
+      "aliases": []
+    },
+    {
+      "key": "select-2425",
+      "entity_type": "product",
+      "canonical_name": "2024-25 Panini Select Basketball",
+      "source_key": "beckett-select-2425-expansion",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Panini",
+        "brand": "Select",
+        "season_start": 2024,
+        "season_end": 2025,
+        "league": "NBA",
+        "configuration_boundary": "Hobby and H2 insert/autograph programs are not interchangeable."
+      },
+      "aliases": []
+    },
+    {
+      "key": "select-top-shelf-sigs-2425",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 Select Top Shelf Signatures",
+      "source_key": "beckett-select-2425-expansion",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Panini Select Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "autograph_set",
+        "distribution": "H2 only",
+        "scope_key": "select-2024-25-top-shelf-signatures",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "select-visionary-2425",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 Select Visionary",
+      "source_key": "beckett-select-2425-expansion",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Panini Select Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "short_print_insert",
+        "distribution": "hobby only",
+        "scope_key": "select-2024-25-visionary",
+        "not_cross_product_equivalent": true,
+        "not_automatically_ssp": true,
+        "not_automatically_case_hit": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "select-rja-2425",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 Select Rookie Jersey Autographs",
+      "source_key": "beckett-select-2425-expansion",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Panini Select Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "rookie_autograph_memorabilia_set",
+        "scope_key": "select-2024-25-rookie-jersey-autographs",
+        "not_rpa_inference": true,
+        "memorabilia_provenance_requires_card_specific_evidence": true,
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "select-jumbo-rookie-sig-swatches-2425",
+      "entity_type": "insert",
+      "canonical_name": "2024-25 Select Jumbo Rookie Signature Swatches",
+      "source_key": "beckett-select-2425-expansion",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Panini Select Basketball",
+        "season_start": 2024,
+        "season_end": 2025,
+        "semantic_type": "rookie_autograph_memorabilia_set",
+        "visual_features": [
+          "jumbo swatch"
+        ],
+        "scope_key": "select-2024-25-jumbo-rookie-signature-swatches",
+        "not_rpa_inference": true,
+        "memorabilia_provenance_requires_card_specific_evidence": true,
+        "not_cross_product_equivalent": true
+      },
+      "aliases": [
+        {
+          "value": "大窗签字球衣",
+          "language": "zh",
+          "alias_type": "seller_term",
+          "confidence": 0.84
+        }
+      ]
+    },
+    {
+      "key": "select-jaylon-rja-10-2425",
+      "entity_type": "card",
+      "canonical_name": "2024-25 Select Rookie Jersey Autographs #10 Jaylon Tyson /199",
+      "source_key": "beckett-select-2425-expansion",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2024-25 Panini Select Basketball",
+        "insert": "2024-25 Select Rookie Jersey Autographs",
+        "season_start": 2024,
+        "season_end": 2025,
+        "player": "Jaylon Tyson",
+        "team": "Cleveland Cavaliers",
+        "card_number": "10",
+        "serial_total": 199,
+        "is_rookie_card": true,
+        "has_autograph": true,
+        "is_memorabilia_card": true,
+        "not_rpa_inference": true,
+        "memorabilia_provenance_requires_card_specific_evidence": true,
+        "identity_status": "verified",
+        "image_reference_status": "pending_front_back_asset"
+      },
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {
+      "subject": "select-top-shelf-sigs-2425",
+      "relation_type": "available_in",
+      "object": "select-2425",
+      "reason": "Beckett identifies Top Shelf Signatures as H2-only.",
+      "source_key": "beckett-select-2425-expansion",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "select-visionary-2425",
+      "relation_type": "available_in",
+      "object": "select-2425",
+      "reason": "Beckett lists Visionary among Hobby-only short-print inserts.",
+      "source_key": "beckett-select-2425-expansion",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "select-rja-2425",
+      "relation_type": "available_in",
+      "object": "select-2425",
+      "reason": "Beckett lists Rookie Jersey Autographs in the product checklist.",
+      "source_key": "beckett-select-2425-expansion",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "select-jumbo-rookie-sig-swatches-2425",
+      "relation_type": "available_in",
+      "object": "select-2425",
+      "reason": "Beckett lists Jumbo Rookie Signature Swatches in the product checklist.",
+      "source_key": "beckett-select-2425-expansion",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "select-jaylon-rja-10-2425",
+      "relation_type": "belongs_to",
+      "object": "select-rja-2425",
+      "reason": "Beckett lists Jaylon Tyson as Rookie Jersey Autographs #10 /199.",
+      "source_key": "beckett-select-2425-expansion",
+      "review_status": "approved",
+      "confidence": 0.99
+    }
+  ],
+  "applicability": [
+    {
+      "entity": "select-top-shelf-sigs-2425",
+      "product": "select-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-select-2425-expansion",
+      "attributes": {
+        "classification": "H2-only autograph set; no Hobby availability inferred."
+      }
+    },
+    {
+      "entity": "select-visionary-2425",
+      "product": "select-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-select-2425-expansion",
+      "attributes": {
+        "classification": "Hobby-only short-print insert, not automatically an SSP or case hit."
+      }
+    },
+    {
+      "entity": "select-jumbo-rookie-sig-swatches-2425",
+      "product": "select-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-select-2425-expansion",
+      "attributes": {
+        "classification": "Rookie autograph/memorabilia set with jumbo visual treatment; not an automatic RPA or provenance assertion."
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "manufacturer": "panini",
+      "product": "select-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "insert": "select-top-shelf-sigs-2425",
+      "status": "covered",
+      "source_key": "beckett-select-2425-expansion",
+      "notes": "Top Shelf Signatures is H2-only."
+    },
+    {
+      "manufacturer": "panini",
+      "product": "select-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "insert": "select-visionary-2425",
+      "status": "covered",
+      "source_key": "beckett-select-2425-expansion",
+      "notes": "Visionary is Hobby-only short print without SSP/case-hit equivalence."
+    },
+    {
+      "manufacturer": "panini",
+      "product": "select-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "insert": "select-rja-2425",
+      "status": "covered",
+      "source_key": "beckett-select-2425-expansion",
+      "notes": "Rookie Jersey Autographs modeled without automatic RPA/provenance inference; Tyson #10 /199 verified."
+    },
+    {
+      "manufacturer": "panini",
+      "product": "select-2425",
+      "season_start": 2024,
+      "season_end": 2025,
+      "insert": "select-jumbo-rookie-sig-swatches-2425",
+      "status": "covered",
+      "source_key": "beckett-select-2425-expansion",
+      "notes": "Jumbo rookie signature swatch family treated as visual/material attribute, not rarity or RPA."
+    }
+  ]
+}

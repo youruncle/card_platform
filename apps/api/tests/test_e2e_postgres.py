@@ -180,6 +180,7 @@ def test_full_investment_workflow(tmp_path) -> None:
 
         second_buy = client.post(
             f"/v1/portfolio/items/{item_id}/transactions",
+            params={"owner_id": owner_id},
             json={
                 "transaction_type": "buy",
                 "transacted_at": "2026-07-10T10:00:00Z",
@@ -193,6 +194,7 @@ def test_full_investment_workflow(tmp_path) -> None:
         assert second_buy.status_code == 201, second_buy.text
         sale = client.post(
             f"/v1/portfolio/items/{item_id}/transactions",
+            params={"owner_id": owner_id},
             json={
                 "transaction_type": "sell",
                 "transacted_at": "2026-07-15T10:00:00Z",
@@ -309,3 +311,113 @@ def test_full_investment_workflow(tmp_path) -> None:
         assert summary.json()["item_count"] == 1
         assert Decimal(summary.json()["total_cost"]) == Decimal("280")
         assert Decimal(summary.json()["total_market_value"]) == Decimal("280")
+
+        shared_item = client.post(
+            "/v1/portfolio/items",
+            json={
+                "owner_id": owner_id,
+                "card": {
+                    "player_name": "Jalen Duren",
+                    "brand_name": "National Treasures",
+                    "brand_tier": 5,
+                    "season_start": 2022,
+                    "season_end": 2023,
+                    "product_name": "National Treasures Basketball",
+                    "insert_name": "Rookie Autographs",
+                    "is_rookie": True,
+                    "is_autograph": True,
+                    "print_run": 99,
+                },
+                "serial_number": 24,
+                "serial_total": 99,
+            },
+        )
+        assert shared_item.status_code == 201, shared_item.text
+        shared_item_id = shared_item.json()["id"]
+
+        unauthorized = client.request(
+            "DELETE",
+            f"/v1/portfolio/items/{item_id}",
+            json={"owner_id": str(uuid4())},
+        )
+        assert unauthorized.status_code == 404
+
+        deleted = client.request(
+            "DELETE",
+            f"/v1/portfolio/items/{item_id}",
+            json={"owner_id": owner_id, "reason": "E2E cleanup"},
+        )
+        assert deleted.status_code == 204, deleted.text
+        active_ids = {
+            row["id"]
+            for row in client.get(
+                "/v1/portfolio/items", params={"owner_id": owner_id}
+            ).json()
+        }
+        assert item_id not in active_ids
+        assert shared_item_id in active_ids
+        assert client.get(
+            f"/v1/portfolio/items/{item_id}/detail", params={"owner_id": owner_id}
+        ).status_code == 404
+        assert client.post(
+            f"/v1/portfolio/items/{item_id}/transactions",
+            params={"owner_id": owner_id},
+            json={
+                "transaction_type": "buy",
+                "transacted_at": "2026-07-20T10:00:00Z",
+                "quantity": 1,
+                "unit_price": 1,
+                "currency": "CNY",
+            },
+        ).status_code == 404
+        trash = client.get("/v1/portfolio/trash", params={"owner_id": owner_id})
+        assert trash.status_code == 200
+        assert trash.json()[0]["id"] == item_id
+        assert client.post(
+            f"/v1/portfolio/items/{item_id}/restore",
+            json={"owner_id": str(uuid4())},
+        ).status_code == 404
+
+        restored = client.post(
+            f"/v1/portfolio/items/{item_id}/restore",
+            json={"owner_id": owner_id},
+        )
+        assert restored.status_code == 204
+        assert item_id in {
+            row["id"]
+            for row in client.get(
+                "/v1/portfolio/items", params={"owner_id": owner_id}
+            ).json()
+        }
+
+        client.request(
+            "DELETE",
+            f"/v1/portfolio/items/{item_id}",
+            json={"owner_id": owner_id},
+        )
+        permanent = client.request(
+            "DELETE",
+            f"/v1/portfolio/items/{item_id}/permanent",
+            json={"owner_id": owner_id},
+        )
+        assert permanent.status_code == 204, permanent.text
+        assert not (tmp_path / "uploads" / image_url.removeprefix("/uploads/")).exists()
+        shared_comps = client.get(
+            f"/v1/portfolio/items/{shared_item_id}/market-comps",
+            params={"owner_id": owner_id},
+        )
+        assert shared_comps.status_code == 200
+        assert len(shared_comps.json()) == 3
+        assert client.get(
+            "/v1/portfolio/trash", params={"owner_id": owner_id}
+        ).json() == []
+        client.request(
+            "DELETE",
+            f"/v1/portfolio/items/{shared_item_id}",
+            json={"owner_id": owner_id},
+        )
+        assert client.request(
+            "DELETE",
+            f"/v1/portfolio/items/{shared_item_id}/permanent",
+            json={"owner_id": owner_id},
+        ).status_code == 204

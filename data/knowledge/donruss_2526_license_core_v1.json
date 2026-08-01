@@ -1,0 +1,107 @@
+{
+  "batch_key": "donruss-2526-license-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2025-26 Donruss Basketball"
+  ],
+  "sources": [
+    {
+      "key": "beckett-donruss-2526",
+      "title": "2025-26 Donruss Basketball Checklist",
+      "url": "https://www.beckett.com/news/2025-26-donruss-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T19:15:00+08:00",
+      "metadata": {
+        "scope": "2025-26 Donruss product and its non-full NBA license boundary."
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "panini",
+      "entity_type": "manufacturer",
+      "canonical_name": "Panini",
+      "source_key": "beckett-donruss-2526",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "industry_roles": [
+          "manufacturer",
+          "brand",
+          "issuer"
+        ]
+      },
+      "aliases": []
+    },
+    {
+      "key": "donruss",
+      "entity_type": "brand",
+      "canonical_name": "Donruss",
+      "source_key": "beckett-donruss-2526",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Panini",
+        "industry_roles": [
+          "brand"
+        ],
+        "era_note": "2025-26 licensing is product-season scoped and not inherited from prior fully licensed Panini Donruss seasons."
+      },
+      "aliases": []
+    },
+    {
+      "key": "donruss-2526",
+      "entity_type": "product",
+      "canonical_name": "2025-26 Donruss Basketball",
+      "source_key": "beckett-donruss-2526",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Panini",
+        "brand": "Donruss",
+        "season_start": 2025,
+        "season_end": 2026,
+        "league_context": "NBA players",
+        "nba_license_status": "not_fully_licensed",
+        "team_logo_usage": "no_full_logos",
+        "team_name_usage": "team_cities_only",
+        "product_distinction": "Post-exclusive-license Panini Donruss continuation; distinct from fully licensed 2023-24 and 2024-25 Donruss."
+      },
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {
+      "subject": "donruss-2526",
+      "relation_type": "manufactured_by",
+      "object": "panini",
+      "reason": "Beckett identifies the 2025-26 Panini Donruss Basketball product.",
+      "source_key": "beckett-donruss-2526",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "donruss-2526",
+      "relation_type": "belongs_to",
+      "object": "donruss",
+      "reason": "Beckett identifies the continuing Donruss flagship brand in the Panini release.",
+      "source_key": "beckett-donruss-2526",
+      "review_status": "approved",
+      "confidence": 0.99
+    }
+  ],
+  "applicability": [],
+  "coverage": [
+    {
+      "manufacturer": "panini",
+      "product": "donruss-2526",
+      "season_start": 2025,
+      "season_end": 2026,
+      "status": "partial",
+      "source_key": "beckett-donruss-2526",
+      "notes": "Only product-season non-full NBA-license boundary and Donruss brand relation are verified in this batch; checklist, inserts and parallels deliberately await direct source evidence."
+    }
+  ]
+}

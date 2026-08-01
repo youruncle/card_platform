@@ -1,0 +1,211 @@
+{
+  "batch_key": "leaf-glory-game-2025-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2025 Leaf Glory of the Game Basketball",
+    "2025 Leaf Glory of the Game Used",
+    "2025 Leaf Glory of the Game Tough As Leather",
+    "2025 Leaf Glory of the Game One On One",
+    "2025 Leaf Glory of the Game The One And Only Autographs"
+  ],
+  "sources": [
+    {
+      "key": "leaf-glory-game-2025-official",
+      "title": "2025 Leaf Glory of the Game Basketball",
+      "url": "https://www.leaftradingcards.com/products/2025-leaf-glory-of-the-game-basketball",
+      "publisher": "Leaf Trading Cards",
+      "source_type": "official_product",
+      "retrieved_at": "2026-07-28T23:55:00+08:00",
+      "metadata": {
+        "scope": "Official product page: first standalone Leaf basketball release in years; four premium hits per box, autograph/memorabilia focus, case-level multi-signature and booklet statements."
+      }
+    },
+    {
+      "key": "beckett-leaf-glory-game-2025",
+      "title": "2025 Leaf Glory of the Game Basketball Checklist and Details",
+      "url": "https://www.beckett.com/news/2025-leaf-glory-of-the-game-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T23:55:00+08:00",
+      "metadata": {
+        "scope": "Checklist evidence for Glory of the Game Used, One On One, Full Court, Tough As Leather, Retro Relic Signatures and The One And Only Autographs."
+      }
+    },
+    {
+      "key": "leaf-glory-game-2025-sell-sheet",
+      "title": "2025 Leaf Glory of the Game Basketball Sell Sheet",
+      "url": "https://www.blowoutcards.net/images/ss/25lfglorygameBK.pdf",
+      "publisher": "Leaf Trading Cards",
+      "source_type": "official_product",
+      "retrieved_at": "2026-07-28T23:55:00+08:00",
+      "metadata": {
+        "scope": "Leaf sell sheet explicitly says depicted-player-only licensing and no licensing-body authorization; wording is product-specific."
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "leaf",
+      "entity_type": "manufacturer",
+      "canonical_name": "Leaf",
+      "source_key": "leaf-glory-game-2025-official",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {"industry_roles": ["manufacturer", "issuer"]},
+      "aliases": []
+    },
+    {
+      "key": "leaf-glory-game-2025",
+      "entity_type": "product",
+      "canonical_name": "2025 Leaf Glory of the Game Basketball",
+      "source_key": "leaf-glory-game-2025-official",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Leaf",
+        "brand": "Leaf Glory of the Game",
+        "year": 2025,
+        "sport": "basketball",
+        "release_status": "released",
+        "product_format": "premium_hits",
+        "hobby_box_configuration": "4 premium collectible hits per box",
+        "license_scope": "solely licensed by depicted player; not authorized, endorsed or approved by a licensing body",
+        "league_license_status": "no_league_license_claimed",
+        "product_distinction": "Leaf standalone basketball product; do not infer NBA/NBPA/team-logo rights, rookie status, or material provenance from product identity."
+      },
+      "aliases": [{"value": "2025 Leaf Glory Basketball", "language": "en", "alias_type": "seller_term", "confidence": 0.96}]
+    },
+    {
+      "key": "leaf-glory-game-used-2025",
+      "entity_type": "insert",
+      "canonical_name": "2025 Leaf Glory of the Game Used",
+      "source_key": "beckett-leaf-glory-game-2025",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2025 Leaf Glory of the Game Basketball",
+        "year": 2025,
+        "semantic_type": "memorabilia_set",
+        "checklist_size": 60,
+        "scope_key": "leaf-glory-game-2025-used",
+        "memorabilia_provenance_requires_card_specific_evidence": true,
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "leaf-glory-one-on-one-2025",
+      "entity_type": "insert",
+      "canonical_name": "2025 Leaf Glory of the Game One On One",
+      "source_key": "beckett-leaf-glory-game-2025",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2025 Leaf Glory of the Game Basketball",
+        "year": 2025,
+        "semantic_type": "multi_player_memorabilia_set",
+        "checklist_size": 25,
+        "scope_key": "leaf-glory-game-2025-one-on-one",
+        "memorabilia_provenance_requires_card_specific_evidence": true,
+        "not_cross_product_equivalent": true
+      },
+      "aliases": [{"value": "一对一", "language": "zh", "alias_type": "translation", "confidence": 0.97}]
+    },
+    {
+      "key": "leaf-glory-full-court-2025",
+      "entity_type": "insert",
+      "canonical_name": "2025 Leaf Glory of the Game Full Court",
+      "source_key": "beckett-leaf-glory-game-2025",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2025 Leaf Glory of the Game Basketball",
+        "year": 2025,
+        "semantic_type": "multi_player_memorabilia_set",
+        "checklist_size": 10,
+        "scope_key": "leaf-glory-game-2025-full-court",
+        "memorabilia_provenance_requires_card_specific_evidence": true,
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "leaf-glory-tough-as-leather-2025",
+      "entity_type": "insert",
+      "canonical_name": "2025 Leaf Glory of the Game Tough As Leather",
+      "source_key": "leaf-glory-game-2025-official",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2025 Leaf Glory of the Game Basketball",
+        "year": 2025,
+        "semantic_type": "autograph_insert",
+        "visual_features": ["leather-style substrate"],
+        "signature_application": "autograph stated by manufacturer; on-card versus sticker not stated",
+        "scope_key": "leaf-glory-game-2025-tough-as-leather",
+        "not_cross_product_equivalent": true
+      },
+      "aliases": [{"value": "皮革", "language": "zh", "alias_type": "seller_term", "confidence": 0.84}]
+    },
+    {
+      "key": "leaf-glory-retro-relic-sigs-2025",
+      "entity_type": "insert",
+      "canonical_name": "2025 Leaf Glory of the Game Retro Relic Signatures",
+      "source_key": "beckett-leaf-glory-game-2025",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2025 Leaf Glory of the Game Basketball",
+        "year": 2025,
+        "semantic_type": "autograph_memorabilia_set",
+        "scope_key": "leaf-glory-game-2025-retro-relic-signatures",
+        "memorabilia_provenance_requires_card_specific_evidence": true,
+        "not_rpa_inference": true,
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    },
+    {
+      "key": "leaf-glory-one-only-autos-2025",
+      "entity_type": "insert",
+      "canonical_name": "2025 Leaf Glory of the Game The One And Only Autographs",
+      "source_key": "beckett-leaf-glory-game-2025",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2025 Leaf Glory of the Game Basketball",
+        "year": 2025,
+        "semantic_type": "autograph_set",
+        "checklist_size": 50,
+        "scope_key": "leaf-glory-game-2025-one-and-only-autographs",
+        "not_ssp_inference": true,
+        "not_case_hit_inference": true,
+        "not_cross_product_equivalent": true
+      },
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {"subject": "leaf-glory-game-2025", "relation_type": "manufactured_by", "object": "leaf", "reason": "Official Leaf page identifies this as a Leaf Trading Cards product.", "source_key": "leaf-glory-game-2025-official", "review_status": "approved", "confidence": 0.99},
+    {"subject": "leaf-glory-game-used-2025", "relation_type": "available_in", "object": "leaf-glory-game-2025", "reason": "Beckett lists the 60-card Glory of the Game Used checklist.", "source_key": "beckett-leaf-glory-game-2025", "review_status": "approved", "confidence": 0.99},
+    {"subject": "leaf-glory-one-on-one-2025", "relation_type": "available_in", "object": "leaf-glory-game-2025", "reason": "Beckett lists the 25-card One On One memorabilia checklist.", "source_key": "beckett-leaf-glory-game-2025", "review_status": "approved", "confidence": 0.99},
+    {"subject": "leaf-glory-full-court-2025", "relation_type": "available_in", "object": "leaf-glory-game-2025", "reason": "Beckett lists the 10-card Full Court checklist.", "source_key": "beckett-leaf-glory-game-2025", "review_status": "approved", "confidence": 0.99},
+    {"subject": "leaf-glory-tough-as-leather-2025", "relation_type": "available_in", "object": "leaf-glory-game-2025", "reason": "Official Leaf product page identifies Tough As Leather as an autograph insert with a leather-style substrate.", "source_key": "leaf-glory-game-2025-official", "review_status": "approved", "confidence": 0.99},
+    {"subject": "leaf-glory-retro-relic-sigs-2025", "relation_type": "available_in", "object": "leaf-glory-game-2025", "reason": "Beckett publishes the Retro Relic Signatures checklist.", "source_key": "beckett-leaf-glory-game-2025", "review_status": "approved", "confidence": 0.99},
+    {"subject": "leaf-glory-one-only-autos-2025", "relation_type": "available_in", "object": "leaf-glory-game-2025", "reason": "Beckett publishes the 50-card The One And Only Autographs checklist.", "source_key": "beckett-leaf-glory-game-2025", "review_status": "approved", "confidence": 0.99}
+  ],
+  "applicability": [
+    {"entity": "leaf-glory-game-used-2025", "product": "leaf-glory-game-2025", "season_start": 2025, "season_end": 2025, "status": "verified", "review_status": "approved", "source_key": "beckett-leaf-glory-game-2025", "attributes": {"classification": "60-card memorabilia set; no blanket game-used, player-worn, event-used or patch-size assertion."}},
+    {"entity": "leaf-glory-tough-as-leather-2025", "product": "leaf-glory-game-2025", "season_start": 2025, "season_end": 2025, "status": "verified", "review_status": "approved", "source_key": "leaf-glory-game-2025-official", "attributes": {"classification": "Autograph insert with a leather-style visual/material treatment; it is neither a parallel nor a relic assertion."}},
+    {"entity": "leaf-glory-retro-relic-sigs-2025", "product": "leaf-glory-game-2025", "season_start": 2025, "season_end": 2025, "status": "verified", "review_status": "approved", "source_key": "beckett-leaf-glory-game-2025", "attributes": {"classification": "Autograph-plus-memorabilia set; title does not establish rookie status or memorabilia provenance."}},
+    {"entity": "leaf-glory-one-only-autos-2025", "product": "leaf-glory-game-2025", "season_start": 2025, "season_end": 2025, "status": "verified", "review_status": "approved", "source_key": "beckett-leaf-glory-game-2025", "attributes": {"classification": "50-card autograph set; no universal SSP, case-hit or 1/1 status inferred."}}
+  ],
+  "coverage": [
+    {"manufacturer": "leaf", "product": "leaf-glory-game-2025", "season_start": 2025, "season_end": 2025, "insert": "leaf-glory-game-used-2025", "status": "covered", "source_key": "beckett-leaf-glory-game-2025", "notes": "60-card memorabilia set verified without blanket provenance."},
+    {"manufacturer": "leaf", "product": "leaf-glory-game-2025", "season_start": 2025, "season_end": 2025, "insert": "leaf-glory-one-on-one-2025", "status": "covered", "source_key": "beckett-leaf-glory-game-2025", "notes": "25-card multi-player memorabilia set verified."},
+    {"manufacturer": "leaf", "product": "leaf-glory-game-2025", "season_start": 2025, "season_end": 2025, "insert": "leaf-glory-tough-as-leather-2025", "status": "covered", "source_key": "leaf-glory-game-2025-official", "notes": "Autograph insert with leather-style substrate verified; on-card/sticker method unconfirmed."},
+    {"manufacturer": "leaf", "product": "leaf-glory-game-2025", "season_start": 2025, "season_end": 2025, "insert": "leaf-glory-retro-relic-sigs-2025", "status": "covered", "source_key": "beckett-leaf-glory-game-2025", "notes": "Autograph/memorabilia set modeled without RPA or material-provenance inference."},
+    {"manufacturer": "leaf", "product": "leaf-glory-game-2025", "season_start": 2025, "season_end": 2025, "status": "partial", "source_key": "beckett-leaf-glory-game-2025", "notes": "Product licensing boundary, hit configuration and selected autograph/memorabilia sets verified; complete parallel and card-identity matrix remains a later batch."}
+  ]
+}

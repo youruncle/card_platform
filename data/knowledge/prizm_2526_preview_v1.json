@@ -1,0 +1,31 @@
+{
+  "batch_key": "prizm-2526-preview-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2025-26 Panini Prizm Basketball",
+    "2025-26 Panini Prizm Color Blast",
+    "2025-26 Panini Prizm Cherry Blossom /20"
+  ],
+  "sources": [
+    {"key":"beckett-prizm-2526-preview","title":"2025-26 Panini Prizm Basketball Details","url":"https://www.beckett.com/news/2025-26-panini-prizm-basketball-cards/","publisher":"Beckett","source_type":"beckett_checklist","retrieved_at":"2026-07-28T21:45:00+08:00","metadata":{"scope":"Pre-release 2025-26 product preview; Beckett states the manufacturer checklist is not yet available and details may change."}}
+  ],
+  "entities": [
+    {"key":"panini","entity_type":"manufacturer","canonical_name":"Panini","source_key":"beckett-prizm-2526-preview","review_status":"approved","confidence":0.99,"attributes":{"industry_roles":["manufacturer","brand","issuer"]},"aliases":[]},
+    {"key":"prizm","entity_type":"brand","canonical_name":"Prizm","source_key":"beckett-prizm-2526-preview","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","semantic_scope":"trading-card product brand"},"aliases":[]},
+    {"key":"prizm-2526","entity_type":"product","canonical_name":"2025-26 Panini Prizm Basketball","source_key":"beckett-prizm-2526-preview","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","brand":"Prizm","season_start":2025,"season_end":2026,"league":"NBA","nba_license_status":"not_fully_licensed","license_presentation":"Player names and team cities only; no full NBA team logos or nicknames.","release_status":"upcoming_preview","base_checklist_status":"not_published_by_manufacturer","product_distinction":"New product-season scope; do not inherit full NBA licensing or checklist details from prior Prizm seasons."},"aliases":[]},
+    {"key":"prizm-color-blast-2526","entity_type":"insert","canonical_name":"2025-26 Panini Prizm Color Blast","source_key":"beckett-prizm-2526-preview","review_status":"approved","confidence":0.95,"attributes":{"product":"2025-26 Panini Prizm Basketball","season_start":2025,"season_end":2026,"semantic_type":"short_print_insert","rarity_description":"short printed","scope_key":"prizm-2025-26-color-blast","not_cross_product_equivalent":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"prizm-cherry-blossom-20-2526","entity_type":"parallel","canonical_name":"2025-26 Panini Prizm Cherry Blossom /20","source_key":"beckett-prizm-2526-preview","review_status":"approved","confidence":0.95,"attributes":{"product":"2025-26 Panini Prizm Basketball","season_start":2025,"season_end":2026,"parallel_scope":"hobby_exclusive","serial_total":20,"scope_key":"prizm-2025-26-cherry-blossom","not_cross_product_equivalent":true},"aliases":[]}
+  ],
+  "relations": [
+    {"subject":"prizm-2526","relation_type":"manufactured_by","object":"panini","reason":"Beckett identifies this as 2025-26 Panini Prizm Basketball.","source_key":"beckett-prizm-2526-preview","review_status":"approved","confidence":0.99},
+    {"subject":"prizm-color-blast-2526","relation_type":"available_in","object":"prizm-2526","reason":"Beckett identifies returning Color Blast cards as short-printed inserts in this preview.","source_key":"beckett-prizm-2526-preview","review_status":"approved","confidence":0.95}
+  ],
+  "applicability": [
+    {"entity":"prizm-color-blast-2526","product":"prizm-2526","season_start":2025,"season_end":2026,"status":"verified","review_status":"approved","source_key":"beckett-prizm-2526-preview","attributes":{"classification":"Preview-confirmed short-print insert; case-hit status is not inferred."}}
+  ],
+  "coverage": [
+    {"manufacturer":"panini","product":"prizm-2526","season_start":2025,"season_end":2026,"insert":"prizm-color-blast-2526","status":"partial","source_key":"beckett-prizm-2526-preview","notes":"Product, license transition and preview-confirmed Color Blast/Cherry Blossom facts verified; full checklist and card identities await manufacturer checklist."},
+    {"manufacturer":"panini","product":"prizm-2526","season_start":2025,"season_end":2026,"status":"pending_source","source_key":"beckett-prizm-2526-preview","notes":"Manufacturer checklist is not yet published; do not infer full base, insert or parallel coverage from earlier Prizm seasons."}
+  ]
+}

@@ -1,0 +1,264 @@
+{
+  "batch_key": "court-kings-2526-expansion-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2025-26 Court Kings Aurora",
+    "2025-26 Court Kings Blank Slate",
+    "2025-26 Court Kings Rookie Jersey Autographs",
+    "2025-26 Court Kings Rookie Jersey Autographs #4 VJ Edgecombe"
+  ],
+  "sources": [
+    {
+      "key": "beckett-court-kings-2526-expansion",
+      "title": "2025-26 Panini Court Kings Basketball Checklist",
+      "url": "https://www.beckett.com/news/2025-26-panini-court-kings-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T20:02:00+08:00",
+      "metadata": {
+        "scope": "Checklist confirms Aurora and Blank Slate as returning short-print/tough-find inserts, plus Rookie Jersey Autographs #4 VJ Edgecombe /99. It also describes product license presentation and box configuration."
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "panini",
+      "entity_type": "manufacturer",
+      "canonical_name": "Panini",
+      "source_key": "beckett-court-kings-2526-expansion",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "industry_roles": [
+          "manufacturer",
+          "brand",
+          "issuer"
+        ]
+      },
+      "aliases": []
+    },
+    {
+      "key": "court-kings-2526",
+      "entity_type": "product",
+      "canonical_name": "2025-26 Panini Court Kings Basketball",
+      "source_key": "beckett-court-kings-2526-expansion",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Panini",
+        "brand": "Court Kings",
+        "season_start": 2025,
+        "season_end": 2026,
+        "league": "NBA",
+        "nba_license_status": "not_fully_licensed"
+      },
+      "aliases": []
+    },
+    {
+      "key": "court-kings-aurora-2526",
+      "entity_type": "insert",
+      "canonical_name": "2025-26 Court Kings Aurora",
+      "source_key": "beckett-court-kings-2526-expansion",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2025-26 Panini Court Kings Basketball",
+        "season_start": 2025,
+        "season_end": 2026,
+        "semantic_type": "short_print_insert",
+        "checklist_size": 25,
+        "not_a_parallel": true,
+        "not_autograph": true,
+        "not_memorabilia": true,
+        "is_ssp": "not_inferred_from_short_print_language",
+        "is_case_hit": "not_inferred_from_short_print_language",
+        "not_cross_product_equivalent": true,
+        "scope_key": "court-kings-2025-26-aurora"
+      },
+      "aliases": []
+    },
+    {
+      "key": "court-kings-blank-slate-2526",
+      "entity_type": "insert",
+      "canonical_name": "2025-26 Court Kings Blank Slate",
+      "source_key": "beckett-court-kings-2526-expansion",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2025-26 Panini Court Kings Basketball",
+        "season_start": 2025,
+        "season_end": 2026,
+        "semantic_type": "tough_find_insert",
+        "visual_design": "minimal player photo and basic information with Court Kings logo",
+        "not_a_parallel": true,
+        "not_autograph": true,
+        "not_memorabilia": true,
+        "is_ssp": "not_inferred_from_tough_find_language",
+        "is_case_hit": "not_inferred_from_tough_find_language",
+        "not_cross_product_equivalent": true,
+        "scope_key": "court-kings-2025-26-blank-slate"
+      },
+      "aliases": []
+    },
+    {
+      "key": "court-kings-rookie-jersey-autographs-2526",
+      "entity_type": "insert",
+      "canonical_name": "2025-26 Court Kings Rookie Jersey Autographs",
+      "source_key": "beckett-court-kings-2526-expansion",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2025-26 Panini Court Kings Basketball",
+        "season_start": 2025,
+        "season_end": 2026,
+        "semantic_type": "rookie_jersey_autograph",
+        "common_abbreviation": "RJA (product-scoped; not a global alias)",
+        "has_autograph": true,
+        "has_memorabilia": true,
+        "memorabilia_term": "jersey",
+        "not_rpa": "Source calls this Rookie Jersey Autographs; it does not establish a patch component, so this family must not be normalized as RPA.",
+        "not_on_card_autograph_inference": true,
+        "not_sticker_autograph_inference": true,
+        "not_cross_product_equivalent": true,
+        "scope_key": "court-kings-2025-26-rookie-jersey-autographs"
+      },
+      "aliases": []
+    },
+    {
+      "key": "court-kings-rookie-jersey-autographs-edgecombe-vj-4-2526",
+      "entity_type": "card",
+      "canonical_name": "2025-26 Court Kings Rookie Jersey Autographs #4 VJ Edgecombe",
+      "source_key": "beckett-court-kings-2526-expansion",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "2025-26 Panini Court Kings Basketball",
+        "insert": "Rookie Jersey Autographs",
+        "season_start": 2025,
+        "season_end": 2026,
+        "player": "VJ Edgecombe",
+        "team": "Philadelphia 76ers",
+        "card_number": "4",
+        "serial_total": 99,
+        "has_autograph": true,
+        "has_memorabilia": true,
+        "memorabilia_term": "jersey",
+        "is_rpa": false,
+        "patch_inference": "not_established",
+        "on_card_autograph_inference": "not_established",
+        "identity_status": "verified",
+        "image_reference_status": "pending_front_back_asset"
+      },
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {
+      "subject": "court-kings-aurora-2526",
+      "relation_type": "available_in",
+      "object": "court-kings-2526",
+      "reason": "Beckett lists Aurora among the returning short-printed inserts in 2025-26 Court Kings.",
+      "source_key": "beckett-court-kings-2526-expansion",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "court-kings-blank-slate-2526",
+      "relation_type": "available_in",
+      "object": "court-kings-2526",
+      "reason": "Beckett lists Blank Slate as a returning tough-find Court Kings insert and describes its stripped-down visual treatment.",
+      "source_key": "beckett-court-kings-2526-expansion",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "court-kings-rookie-jersey-autographs-2526",
+      "relation_type": "available_in",
+      "object": "court-kings-2526",
+      "reason": "Beckett checklist lists Rookie Jersey Autographs in 2025-26 Court Kings.",
+      "source_key": "beckett-court-kings-2526-expansion",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "court-kings-rookie-jersey-autographs-edgecombe-vj-4-2526",
+      "relation_type": "belongs_to",
+      "object": "court-kings-rookie-jersey-autographs-2526",
+      "reason": "Beckett's Philadelphia checklist identifies VJ Edgecombe as Rookie Jersey Autographs #4 /99.",
+      "source_key": "beckett-court-kings-2526-expansion",
+      "review_status": "approved",
+      "confidence": 0.99
+    }
+  ],
+  "applicability": [
+    {
+      "entity": "court-kings-aurora-2526",
+      "product": "court-kings-2526",
+      "season_start": 2025,
+      "season_end": 2026,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-court-kings-2526-expansion",
+      "attributes": {
+        "classification": "Product-specific short-print insert; no automatic SSP/case-hit conversion."
+      }
+    },
+    {
+      "entity": "court-kings-blank-slate-2526",
+      "product": "court-kings-2526",
+      "season_start": 2025,
+      "season_end": 2026,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-court-kings-2526-expansion",
+      "attributes": {
+        "classification": "Product-specific tough-find, minimal-design insert; not a parallel and not automatically SSP/case hit."
+      }
+    },
+    {
+      "entity": "court-kings-rookie-jersey-autographs-2526",
+      "product": "court-kings-2526",
+      "season_start": 2025,
+      "season_end": 2026,
+      "status": "verified",
+      "review_status": "approved",
+      "source_key": "beckett-court-kings-2526-expansion",
+      "attributes": {
+        "classification": "Rookie jersey-autograph set, explicitly kept distinct from an RPA absent a patch assertion."
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "manufacturer": "panini",
+      "product": "court-kings-2526",
+      "season_start": 2025,
+      "season_end": 2026,
+      "insert": "court-kings-aurora-2526",
+      "status": "covered",
+      "source_key": "beckett-court-kings-2526-expansion",
+      "notes": "25-card Aurora short-print insert verified without automatic SSP/case-hit treatment."
+    },
+    {
+      "manufacturer": "panini",
+      "product": "court-kings-2526",
+      "season_start": 2025,
+      "season_end": 2026,
+      "insert": "court-kings-blank-slate-2526",
+      "status": "covered",
+      "source_key": "beckett-court-kings-2526-expansion",
+      "notes": "Blank Slate tough-find, minimal-design insert verified without parallel/SSP/case-hit conflation."
+    },
+    {
+      "manufacturer": "panini",
+      "product": "court-kings-2526",
+      "season_start": 2025,
+      "season_end": 2026,
+      "insert": "court-kings-rookie-jersey-autographs-2526",
+      "status": "covered",
+      "source_key": "beckett-court-kings-2526-expansion",
+      "notes": "Rookie Jersey Autographs and VJ Edgecombe #4 /99 verified; the set is not labeled RPA because patch material is not established."
+    }
+  ]
+}

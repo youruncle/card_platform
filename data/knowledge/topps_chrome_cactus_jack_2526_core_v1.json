@@ -1,0 +1,38 @@
+{
+  "batch_key": "topps-chrome-cactus-jack-2526-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "2025-26 Topps Chrome Cactus Jack Basketball",
+    "2025-26 Topps Chrome Cactus Jack Astrovision",
+    "2025-26 Topps Chrome Cactus Jack Cactus Mode",
+    "2025-26 Topps Chrome Cactus Jack Refractor",
+    "2025-26 Topps Chrome Cactus Jack #87 Danny Wolf RC"
+  ],
+  "sources": [
+    {"key":"topps-chrome-cactus-jack-2526","title":"Topps Chrome Cactus Jack Basketball","url":"https://www.topps.com/pages/topps-chrome-cactus-jack-basketball","publisher":"Topps","source_type":"official_product","retrieved_at":"2026-07-28T21:30:00+08:00","metadata":{"scope":"Official 2025-26 Topps Chrome Cactus Jack product page and product identity."}},
+    {"key":"beckett-topps-chrome-cactus-jack-2526","title":"2025-26 Topps Chrome x Cactus Jack Basketball Checklist","url":"https://www.beckett.com/news/2025-26-topps-chrome-x-cactus-jack-basketball-cards/","publisher":"Beckett","source_type":"beckett_checklist","retrieved_at":"2026-07-28T21:30:00+08:00","metadata":{"scope":"100-card checklist, product-specific parallel odds, insert categories and Danny Wolf identity."}}
+  ],
+  "entities": [
+    {"key":"topps","entity_type":"manufacturer","canonical_name":"Topps","source_key":"topps-chrome-cactus-jack-2526","review_status":"approved","confidence":0.99,"attributes":{"industry_roles":["manufacturer","brand","issuer"]},"aliases":[]},
+    {"key":"topps-chrome-cactus-jack-2526","entity_type":"product","canonical_name":"2025-26 Topps Chrome Cactus Jack Basketball","source_key":"topps-chrome-cactus-jack-2526","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Topps","brand":"Topps Chrome Cactus Jack","season_start":2025,"season_end":2026,"league":"NBA","nba_license_status":"fully_licensed","base_checklist_size":100,"product_distinction":"Cactus Jack collaboration product, separate from 2025-26 Topps Chrome Basketball and any ordinary Chrome Refractor scope."},"aliases":[]},
+    {"key":"topps-chrome-cactus-jack-astrovision-2526","entity_type":"insert","canonical_name":"2025-26 Topps Chrome Cactus Jack Astrovision","source_key":"topps-chrome-cactus-jack-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Topps Chrome Cactus Jack Basketball","season_start":2025,"season_end":2026,"semantic_type":"short_print_insert","rarity_description":"ultra-rare short print","scope_key":"topps-chrome-cactus-jack-2025-26-astrovision","not_cross_product_equivalent":true,"not_automatically_ssp":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"topps-chrome-cactus-jack-cactus-mode-2526","entity_type":"insert","canonical_name":"2025-26 Topps Chrome Cactus Jack Cactus Mode","source_key":"topps-chrome-cactus-jack-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Topps Chrome Cactus Jack Basketball","season_start":2025,"season_end":2026,"semantic_type":"short_print_insert","rarity_description":"ultra-rare short print","scope_key":"topps-chrome-cactus-jack-2025-26-cactus-mode","not_cross_product_equivalent":true,"not_automatically_ssp":true,"not_automatically_case_hit":true},"aliases":[]},
+    {"key":"topps-chrome-cactus-jack-refractor-2526","entity_type":"parallel","canonical_name":"2025-26 Topps Chrome Cactus Jack Refractor","source_key":"beckett-topps-chrome-cactus-jack-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Topps Chrome Cactus Jack Basketball","season_start":2025,"season_end":2026,"parallel_scope":"base","hobby_pack_odds":"1:184","scope_key":"topps-chrome-cactus-jack-2025-26-cactus-jack-refractor","not_cross_product_equivalent":true,"not_serial_number_inference":true},"aliases":[]},
+    {"key":"topps-chrome-cactus-jack-wolf-danny-87-2526","entity_type":"card","canonical_name":"2025-26 Topps Chrome Cactus Jack #87 Danny Wolf RC","source_key":"beckett-topps-chrome-cactus-jack-2526","review_status":"approved","confidence":0.99,"attributes":{"product":"2025-26 Topps Chrome Cactus Jack Basketball","season_start":2025,"season_end":2026,"player":"Danny Wolf","team":"Brooklyn Nets","card_number":"87","is_rookie_card":true,"identity_status":"verified","image_reference_status":"pending_front_back_asset"},"aliases":[]}
+  ],
+  "relations": [
+    {"subject":"topps-chrome-cactus-jack-2526","relation_type":"manufactured_by","object":"topps","reason":"Topps official page identifies the 2025-26 Topps Chrome Cactus Jack Basketball release.","source_key":"topps-chrome-cactus-jack-2526","review_status":"approved","confidence":0.99},
+    {"subject":"topps-chrome-cactus-jack-astrovision-2526","relation_type":"available_in","object":"topps-chrome-cactus-jack-2526","reason":"Topps identifies Astrovision as an ultra-rare short-print insert in this product.","source_key":"topps-chrome-cactus-jack-2526","review_status":"approved","confidence":0.99},
+    {"subject":"topps-chrome-cactus-jack-cactus-mode-2526","relation_type":"available_in","object":"topps-chrome-cactus-jack-2526","reason":"Topps identifies Cactus Mode as an ultra-rare short-print insert in this product.","source_key":"topps-chrome-cactus-jack-2526","review_status":"approved","confidence":0.99}
+  ],
+  "applicability": [
+    {"entity":"topps-chrome-cactus-jack-astrovision-2526","product":"topps-chrome-cactus-jack-2526","season_start":2025,"season_end":2026,"status":"verified","review_status":"approved","source_key":"topps-chrome-cactus-jack-2526","attributes":{"classification":"Officially ultra-rare short print; SSP or case-hit status is not inferred."}},
+    {"entity":"topps-chrome-cactus-jack-cactus-mode-2526","product":"topps-chrome-cactus-jack-2526","season_start":2025,"season_end":2026,"status":"verified","review_status":"approved","source_key":"topps-chrome-cactus-jack-2526","attributes":{"classification":"Officially ultra-rare short print; SSP or case-hit status is not inferred."}}
+  ],
+  "coverage": [
+    {"manufacturer":"topps","product":"topps-chrome-cactus-jack-2526","season_start":2025,"season_end":2026,"insert":"topps-chrome-cactus-jack-astrovision-2526","status":"covered","source_key":"topps-chrome-cactus-jack-2526","notes":"Short-print classification verified without SSP/case-hit inference."},
+    {"manufacturer":"topps","product":"topps-chrome-cactus-jack-2526","season_start":2025,"season_end":2026,"insert":"topps-chrome-cactus-jack-cactus-mode-2526","status":"covered","source_key":"topps-chrome-cactus-jack-2526","notes":"Short-print classification verified without SSP/case-hit inference."},
+    {"manufacturer":"topps","product":"topps-chrome-cactus-jack-2526","season_start":2025,"season_end":2026,"status":"partial","source_key":"beckett-topps-chrome-cactus-jack-2526","notes":"Product, 100-card base, selected SP inserts, scoped Cactus Jack Refractor and Danny Wolf RC verified; remaining inserts, autos and parallel matrix are pending."}
+  ]
+}

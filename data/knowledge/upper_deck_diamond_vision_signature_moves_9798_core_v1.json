@@ -1,0 +1,189 @@
+{
+  "batch_key": "upper-deck-diamond-vision-signature-moves-9798-core-v1",
+  "catalog_enabled": true,
+  "manifest_version": 1,
+  "required_regressions": [
+    "1997-98 Upper Deck Diamond Vision Signature Moves",
+    "1997-98 Upper Deck Diamond Vision Signature Moves #S4 Michael Jordan"
+  ],
+  "sources": [
+    {
+      "key": "beckett-ud-diamond-vision-signature-moves-9798",
+      "title": "1997-98 Upper Deck Diamond Vision Signature Moves Set Information",
+      "url": "https://www.beckett.com/basketball/1997-98/upper-deck-diamond-vision-signature-moves/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-29T03:40:00+08:00",
+      "metadata": {
+        "scope": "29-card Diamond Vision base parallel with facsimile signatures; Beckett reports 1:3 pack rate."
+      }
+    },
+    {
+      "key": "tcdb-ud-diamond-vision-signature-moves-9798",
+      "title": "1997-98 Upper Deck Diamond Vision Signature Moves Checklist",
+      "url": "https://www.tcdb.com/Checklist.cfm/sid/25839/1997-98-Upper-Deck-Diamond-Vision-Signature-Moves",
+      "publisher": "Trading Card Database",
+      "source_type": "other",
+      "retrieved_at": "2026-07-29T03:40:00+08:00",
+      "metadata": {
+        "scope": "Independent 29-card S-prefix checklist; TCDB reports 1:5 pack rate, conflicting with Beckett."
+      }
+    },
+    {
+      "key": "tcdb-ud-diamond-vision-signature-moves-gallery-9798",
+      "title": "1997-98 Upper Deck Diamond Vision Signature Moves Gallery",
+      "url": "https://www.tcdb.com/Gallery.cfm/sid/25839/1997-98-Upper-Deck-Diamond-Vision-Signature-Moves",
+      "publisher": "Trading Card Database",
+      "source_type": "other",
+      "retrieved_at": "2026-07-29T03:40:00+08:00",
+      "metadata": {
+        "scope": "Michael Jordan S4 card identity and Chicago Bulls team."
+      }
+    }
+  ],
+  "entities": [
+    {
+      "key": "upper-deck",
+      "entity_type": "manufacturer",
+      "canonical_name": "Upper Deck",
+      "source_key": "beckett-ud-diamond-vision-signature-moves-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "industry_roles": [
+          "manufacturer",
+          "issuer"
+        ]
+      },
+      "aliases": []
+    },
+    {
+      "key": "upper-deck-diamond-vision-9798",
+      "entity_type": "product",
+      "canonical_name": "1997-98 Upper Deck Diamond Vision Basketball",
+      "source_key": "beckett-ud-diamond-vision-signature-moves-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "manufacturer": "Upper Deck",
+        "brand": "Upper Deck Diamond Vision",
+        "season_start": 1997,
+        "season_end": 1998,
+        "league": "NBA"
+      },
+      "aliases": []
+    },
+    {
+      "key": "upper-deck-diamond-vision-signature-moves-9798",
+      "entity_type": "parallel",
+      "canonical_name": "1997-98 Upper Deck Diamond Vision Signature Moves",
+      "source_key": "beckett-ud-diamond-vision-signature-moves-9798",
+      "review_status": "approved",
+      "confidence": 0.99,
+      "attributes": {
+        "product": "1997-98 Upper Deck Diamond Vision Basketball",
+        "season_start": 1997,
+        "season_end": 1998,
+        "checklist_size": 29,
+        "card_number_prefix": "S",
+        "parallel_scope": "Diamond Vision base set",
+        "parallel_feature": "featured athlete facsimile signature",
+        "is_autograph": false,
+        "autograph_type": "facsimile_printed_signature",
+        "not_on_card_autograph": true,
+        "not_sticker_autograph": true,
+        "not_memorabilia": true,
+        "not_serial_numbered_inference": true,
+        "insertion_rate_conflict": {
+          "beckett": "1:3 packs",
+          "tcdb": "1:5 packs",
+          "resolution": "unresolved_pending_primary_pack_odds_or_sell_sheet"
+        },
+        "not_cross_product_equivalent": true,
+        "scope_key": "upper-deck-diamond-vision-1997-98-signature-moves"
+      },
+      "aliases": []
+    },
+    {
+      "key": "upper-deck-diamond-vision-signature-moves-jordan-s4-9798",
+      "entity_type": "card",
+      "canonical_name": "1997-98 Upper Deck Diamond Vision Signature Moves #S4 Michael Jordan",
+      "source_key": "tcdb-ud-diamond-vision-signature-moves-gallery-9798",
+      "review_status": "approved",
+      "confidence": 0.98,
+      "attributes": {
+        "product": "1997-98 Upper Deck Diamond Vision Basketball",
+        "parallel": "Signature Moves",
+        "season_start": 1997,
+        "season_end": 1998,
+        "player": "Michael Jordan",
+        "team": "Chicago Bulls",
+        "card_number": "S4",
+        "is_rookie_card": false,
+        "is_autograph": false,
+        "autograph_type": "facsimile_printed_signature",
+        "not_on_card_autograph": true,
+        "not_sticker_autograph": true,
+        "has_memorabilia": false,
+        "identity_status": "verified",
+        "image_reference_status": "pending_front_back_asset"
+      },
+      "aliases": []
+    }
+  ],
+  "relations": [
+    {
+      "subject": "upper-deck-diamond-vision-9798",
+      "relation_type": "manufactured_by",
+      "object": "upper-deck",
+      "reason": "Beckett identifies Diamond Vision Signature Moves as an Upper Deck product-season parallel.",
+      "source_key": "beckett-ud-diamond-vision-signature-moves-9798",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "upper-deck-diamond-vision-signature-moves-9798",
+      "relation_type": "available_in",
+      "object": "upper-deck-diamond-vision-9798",
+      "reason": "Beckett identifies Signature Moves as a Diamond Vision base-set parallel.",
+      "source_key": "beckett-ud-diamond-vision-signature-moves-9798",
+      "review_status": "approved",
+      "confidence": 0.99
+    },
+    {
+      "subject": "upper-deck-diamond-vision-signature-moves-jordan-s4-9798",
+      "relation_type": "belongs_to",
+      "object": "upper-deck-diamond-vision-signature-moves-9798",
+      "reason": "TCDB gallery identifies Michael Jordan as S4 in the Signature Moves checklist.",
+      "source_key": "tcdb-ud-diamond-vision-signature-moves-gallery-9798",
+      "review_status": "approved",
+      "confidence": 0.98
+    }
+  ],
+  "applicability": [
+    {
+      "entity": "upper-deck-diamond-vision-signature-moves-9798",
+      "product": "upper-deck-diamond-vision-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "status": "partial",
+      "review_status": "approved",
+      "source_key": "beckett-ud-diamond-vision-signature-moves-9798",
+      "attributes": {
+        "classification": "29-card facsimile-signature base parallel. Core identity is verified; exact pack odds remain source-conflicted (Beckett 1:3 versus TCDB 1:5)."
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "manufacturer": "upper-deck",
+      "product": "upper-deck-diamond-vision-9798",
+      "season_start": 1997,
+      "season_end": 1998,
+      "parallel": "upper-deck-diamond-vision-signature-moves-9798",
+      "status": "partial",
+      "source_key": "beckett-ud-diamond-vision-signature-moves-9798",
+      "notes": "Parallel identity, 29-card scope, facsimile (not real) signature feature and Jordan S4 verified. Pack odds are intentionally unresolved: Beckett 1:3 vs TCDB 1:5; await primary odds/sell sheet."
+    }
+  ]
+}

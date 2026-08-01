@@ -7,12 +7,17 @@ import {
   BarChart3,
   ChevronRight,
   CircleDollarSign,
+  Download,
   LayoutDashboard,
+  Library,
   Menu,
   Plus,
   Search,
+  ScanSearch,
+  ShieldAlert,
   ShieldCheck,
   Sparkles,
+  Trash2,
   X,
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
@@ -26,19 +31,31 @@ import {
   createItem,
   createUser,
   getPortfolio,
+  getTrash,
+  deleteItem,
+  restoreItem,
+  permanentlyDeleteItem,
   generateNarrative,
   syncPlayer,
   assessPotential,
   getPlayerIntelligence,
   getItemDetail,
+  getCardCatalog,
+  applyCatalogImages,
   getMarketComps,
   getAutomatedValuation,
+  getIdentityCorrectionCounts,
+  getIdentityCorrections,
+  applyIdentityCorrections,
   retryAutomatedValuation,
   estimateMarket,
   recognizeCardAuto,
   recognizeCardBatch,
   recognizeCardPair,
   uploadItemImage,
+  launchCardHobbyDesktop,
+  scanCardHobbyDesktop,
+  confirmCardHobbyDesktop,
   assetUrl,
   type AnalysisResult,
   type AINarrativeResult,
@@ -48,9 +65,11 @@ import {
   type ItemDetail,
   type MarketComp,
   type AutomatedValuationDetail,
+  type IdentityCorrection,
   type CardRecognition,
   type BatchCardRecognition,
   type SheetCardRecognitionItem,
+  type CardHobbyImportDraft,
 } from "@/lib/api";
 
 type RecognitionMode = "single" | "pair" | "batch";
@@ -88,6 +107,20 @@ const recognitionFieldLabels: Record<string, string> = {
   is_autograph: "签字",
   is_patch: "Patch",
 };
+const identityCorrectionLabels: Record<string, string> = {
+  card_number: "卡号",
+  insert_name: "Insert / 卡种",
+  parallel_name: "平行版本",
+  serial_total: "限编",
+  is_autograph: "签字属性",
+  is_patch: "物料属性",
+};
+
+function correctionValue(value: string | number | boolean | null) {
+  if (value === null || value === "") return "未填写";
+  if (typeof value === "boolean") return value ? "是" : "否";
+  return String(value);
+}
 
 function isEvidenceUrl(value: string) {
   return /^https?:\/\//i.test(value.trim());
@@ -180,11 +213,14 @@ export default function Dashboard() {
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [summary, setSummary] = useState(emptySummary);
   const [items, setItems] = useState<PortfolioItem[]>([]);
+  const [trashItems, setTrashItems] = useState<PortfolioItem[]>([]);
+  const [showTrash, setShowTrash] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [showSetup, setShowSetup] = useState(false);
   const [showAddCard, setShowAddCard] = useState(false);
+  const [showCardHobbyImport, setShowCardHobbyImport] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [analysisItem, setAnalysisItem] = useState<PortfolioItem | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(
@@ -198,6 +234,18 @@ export default function Dashboard() {
     null,
   );
   const [itemDetail, setItemDetail] = useState<ItemDetail | null>(null);
+  const [identityIssueCounts, setIdentityIssueCounts] = useState<
+    Record<string, number>
+  >({});
+  const [identityCorrections, setIdentityCorrections] = useState<
+    IdentityCorrection[]
+  >([]);
+  const [applyingIdentityCorrections, setApplyingIdentityCorrections] =
+    useState(false);
+  const [itemCatalog, setItemCatalog] = useState<CardRecognition | null>(null);
+  const [itemCatalogLoading, setItemCatalogLoading] = useState(false);
+  const [detailAnalysis, setDetailAnalysis] = useState<AnalysisResult | null>(null);
+  const [detailAnalysisLoading, setDetailAnalysisLoading] = useState(false);
   const [marketComps, setMarketComps] = useState<MarketComp[]>([]);
   const [marketItem, setMarketItem] = useState<PortfolioItem | null>(null);
   const [valuationDetail, setValuationDetail] =
@@ -226,9 +274,13 @@ export default function Dashboard() {
     setLoading(true);
     setError("");
     try {
-      const [nextSummary, nextItems] = await getPortfolio(id);
+      const [[nextSummary, nextItems], nextIssueCounts] = await Promise.all([
+        getPortfolio(id),
+        getIdentityCorrectionCounts(id),
+      ]);
       setSummary(nextSummary);
       setItems(nextItems);
+      setIdentityIssueCounts(nextIssueCounts);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "暂时无法读取卡库");
     } finally {
@@ -256,9 +308,13 @@ export default function Dashboard() {
     );
     if (!active) return;
     const timer = window.setInterval(() => {
-      void getPortfolio(ownerId).then(([nextSummary, nextItems]) => {
+      void Promise.all([
+        getPortfolio(ownerId),
+        getIdentityCorrectionCounts(ownerId),
+      ]).then(([[nextSummary, nextItems], nextIssueCounts]) => {
         setSummary(nextSummary);
         setItems(nextItems);
+        setIdentityIssueCounts(nextIssueCounts);
       });
     }, 3000);
     return () => window.clearInterval(timer);
@@ -300,7 +356,7 @@ export default function Dashboard() {
 
   async function handleAddCard(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!ownerId) return;
+    if (!ownerId) throw new Error("账户信息尚未加载，请刷新页面后重试");
     const form = new FormData(event.currentTarget);
     const seasonStart = Number(form.get("seasonStart"));
     const serialTotal = String(form.get("serialTotal") ?? "");
@@ -365,7 +421,9 @@ export default function Dashboard() {
       }
       await refresh(ownerId);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "录入卡片失败");
+      const message = reason instanceof Error ? reason.message : "录入卡片失败";
+      setError(message);
+      throw new Error(message);
     }
   }
 
@@ -612,15 +670,97 @@ export default function Dashboard() {
   async function openItemDetail(itemId: string) {
     if (!ownerId) return;
     setError("");
+    setItemCatalog(null);
+    setDetailAnalysis(null);
     try {
-      const [detail, comps] = await Promise.all([
+      const [detail, corrections] = await Promise.all([
         getItemDetail(itemId, ownerId),
-        getMarketComps(itemId, ownerId),
+        getIdentityCorrections(itemId, ownerId),
       ]);
       setItemDetail(detail);
-      setMarketComps(comps);
+      setIdentityCorrections(corrections);
+      setItemCatalogLoading(true);
+      void getCardCatalog(itemId, ownerId)
+        .then(setItemCatalog)
+        .catch((reason) =>
+          setError(reason instanceof Error ? reason.message : "图鉴补全失败"),
+        )
+        .finally(() => setItemCatalogLoading(false));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "持仓详情读取失败");
+    }
+  }
+
+  async function repairIdentity() {
+    if (!ownerId || !itemDetail || identityCorrections.length === 0) return;
+    setApplyingIdentityCorrections(true);
+    setError("");
+    try {
+      await applyIdentityCorrections(
+        itemDetail.item.id,
+        ownerId,
+        identityCorrections.map((item) => item.id),
+      );
+      const [detail, corrections] = await Promise.all([
+        getItemDetail(itemDetail.item.id, ownerId),
+        getIdentityCorrections(itemDetail.item.id, ownerId),
+      ]);
+      setItemDetail(detail);
+      setIdentityCorrections(corrections);
+      await refresh(ownerId);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "卡片信息修复失败");
+    } finally {
+      setApplyingIdentityCorrections(false);
+    }
+  }
+
+  async function refreshItemCatalog() {
+    if (!ownerId || !itemDetail) return;
+    setItemCatalogLoading(true);
+    setError("");
+    try {
+      setItemCatalog(await getCardCatalog(itemDetail.item.id, ownerId, true));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "图鉴补全失败");
+    } finally {
+      setItemCatalogLoading(false);
+    }
+  }
+
+  async function replaceWithCatalogImages(side: "front" | "back" | "both") {
+    if (!ownerId || !itemDetail) return;
+    setError("");
+    try {
+      await applyCatalogImages(itemDetail.item.id, ownerId, side);
+      const next = await getItemDetail(itemDetail.item.id, ownerId);
+      setItemDetail(next);
+      await refresh(ownerId);
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "高清图片替换失败";
+      setError(message);
+      throw reason;
+    }
+  }
+
+  async function analyzeItemDetail() {
+    if (!ownerId || !itemDetail) return;
+    setDetailAnalysisLoading(true);
+    setError("");
+    try {
+      setDetailAnalysis(
+        await automaticallyAnalyzeItem(itemDetail.item.id, {
+          owner_id: ownerId,
+          asking_price: Number(
+            itemDetail.item.fair_value ?? itemDetail.item.remaining_cost,
+          ),
+          currency: summary.base_currency,
+        }),
+      );
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "投资建议生成失败");
+    } finally {
+      setDetailAnalysisLoading(false);
     }
   }
 
@@ -638,6 +778,10 @@ export default function Dashboard() {
         fx_rate_to_base: Number(form.get("compFxRate")),
         listing_title: form.get("listingTitle") || null,
         source_url: form.get("sourceUrl") || null,
+        source_code: String(form.get("sourceCode") || "market_import"),
+        external_id: form.get("externalId") || null,
+        origin_source_code: form.get("originSourceCode") || null,
+        source_reliability: Number(form.get("sourceReliability")) / 100,
         match_confidence: Number(form.get("matchConfidence")) / 100,
       });
       setMarketComps(await getMarketComps(marketItem.id, ownerId));
@@ -686,27 +830,21 @@ export default function Dashboard() {
     const itemId = valuationDetailItem.id;
     try {
       setError("");
-      setValuationDetail((current) =>
-        current
-          ? {
-              ...current,
-              status: "queued",
-              error_message: null,
-              result_summary: {},
-              valuation: null,
-            }
-          : current,
+      const job = await retryAutomatedValuation(itemId, ownerId);
+      setItems((current) =>
+        current.map((item) =>
+          item.id === itemId
+            ? {
+                ...item,
+                valuation_status: "queued",
+                valuation_job_id: job.id,
+                valuation_error: null,
+              }
+            : item,
+        ),
       );
-      await retryAutomatedValuation(itemId, ownerId);
-      await refresh(ownerId);
-
-      for (let attempt = 0; attempt < 40; attempt += 1) {
-        const nextDetail = await getAutomatedValuation(itemId, ownerId);
-        setValuationDetail(nextDetail);
-        if (!isValuationRunning(nextDetail.status)) break;
-        await new Promise((resolve) => window.setTimeout(resolve, 750));
-      }
-      await refresh(ownerId);
+      setValuationDetailItem(null);
+      setValuationDetail(null);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "重新估值失败");
       setValuationDetail(await getAutomatedValuation(itemId, ownerId).catch(() => null));
@@ -718,7 +856,7 @@ export default function Dashboard() {
     if (!ownerId || !itemDetail) return;
     const form = new FormData(event.currentTarget);
     try {
-      await addTransaction(itemDetail.item.id, {
+      await addTransaction(itemDetail.item.id, ownerId, {
         transaction_type: form.get("transactionType"),
         transacted_at: new Date().toISOString(),
         quantity: Number(form.get("quantity")),
@@ -742,7 +880,7 @@ export default function Dashboard() {
     if (!ownerId || !itemDetail) return;
     const form = new FormData(event.currentTarget);
     try {
-      await addValuation(itemDetail.item.id, {
+      await addValuation(itemDetail.item.id, ownerId, {
         method: "manual",
         currency: summary.base_currency,
         low_value: Number(form.get("lowValue")),
@@ -756,6 +894,53 @@ export default function Dashboard() {
       event.currentTarget.reset();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "估值记录失败");
+    }
+  }
+
+  async function openTrash() {
+    if (!ownerId) return;
+    try {
+      setTrashItems(await getTrash(ownerId));
+      setShowTrash(true);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "回收站读取失败");
+    }
+  }
+
+  async function handleDeleteItem(item: PortfolioItem) {
+    if (!ownerId) return;
+    if (!window.confirm(`确定删除 ${item.player_name}？卡片将进入回收站，可稍后恢复。`)) {
+      return;
+    }
+    try {
+      await deleteItem(item.id, ownerId);
+      setItemDetail(null);
+      await refresh(ownerId);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "删除卡片失败");
+    }
+  }
+
+  async function handleRestoreItem(item: PortfolioItem) {
+    if (!ownerId) return;
+    try {
+      await restoreItem(item.id, ownerId);
+      setTrashItems(await getTrash(ownerId));
+      await refresh(ownerId);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "恢复卡片失败");
+    }
+  }
+
+  async function handlePermanentDelete(item: PortfolioItem) {
+    if (!ownerId) return;
+    const first = window.confirm(`永久删除 ${item.player_name}？交易、估值和分析数据将一并清除。`);
+    if (!first || !window.confirm("此操作不可恢复。请再次确认永久删除。")) return;
+    try {
+      await permanentlyDeleteItem(item.id, ownerId);
+      setTrashItems(await getTrash(ownerId));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "永久删除失败");
     }
   }
 
@@ -785,6 +970,18 @@ export default function Dashboard() {
           <a className="nav-item" href="#ai">
             <Sparkles size={18} /> AI 估值
           </a>
+          <a className="nav-item" href="/knowledge">
+            <Library size={18} /> 知识库管理
+          </a>
+          <a className="nav-item" href="/benchmarks">
+            <ScanSearch size={18} /> 识别盲测
+          </a>
+          <a className="nav-item" href="/market-data">
+            <ShieldAlert size={18} /> 成交复核
+          </a>
+          <button className="nav-item" type="button" onClick={() => void openTrash()}>
+            <Trash2 size={18} /> 回收站
+          </button>
         </nav>
         <div className="sidebar-insight">
           <div className="eyebrow">
@@ -822,6 +1019,13 @@ export default function Dashboard() {
             <kbd>⌘ K</kbd>
           </div>
           <div className="top-actions">
+            <button
+              className="ghost-button"
+              onClick={() => setShowCardHobbyImport(true)}
+              disabled={!ownerId}
+            >
+              <Download size={15} /> 卡淘导入
+            </button>
             <button
               className="ghost-button"
               onClick={() => {
@@ -919,8 +1123,8 @@ export default function Dashboard() {
                 <p className="eyebrow">COLLECTION</p>
                 <h2>核心持仓</h2>
               </div>
-              <button className="text-button">
-                查看全部 <ChevronRight size={16} />
+              <button className="text-button" onClick={() => void openTrash()}>
+                回收站 <Trash2 size={16} />
               </button>
             </div>
             <div className="table-wrap">
@@ -942,8 +1146,11 @@ export default function Dashboard() {
                       <tr key={item.id}>
                         <td>
                           <div className="card-identity">
-                            <div
+                            <button
+                              type="button"
                               className={`card-thumb ${item.image_front_url ? "has-image" : ""}`}
+                              onClick={() => void openItemDetail(item.id)}
+                              aria-label={`查看 ${item.player_name} 卡片详情`}
                             >
                               {item.image_front_url ? (
                                 <img
@@ -959,13 +1166,11 @@ export default function Dashboard() {
                                   .join("")
                                   .slice(0, 2)
                               )}
-                            </div>
+                            </button>
                             <div>
                               <button
                                 className="player-link"
-                                onClick={() =>
-                                  void openPlayerIntelligence(item.player_id)
-                                }
+                                onClick={() => void openItemDetail(item.id)}
                               >
                                 {item.player_name}
                               </button>
@@ -1005,7 +1210,7 @@ export default function Dashboard() {
                               className="valuation-status running"
                               onClick={() => void openValuationDetail(item)}
                             >
-                              <span className="valuation-spinner" /> 估值中
+                              <span className="valuation-spinner" /> 更新中
                             </button>
                           ) : item.valuation_status === "insufficient_evidence" ? (
                             <button
@@ -1074,10 +1279,22 @@ export default function Dashboard() {
                               图片
                             </button>
                             <button
-                              className="manage-button"
+                              className="manage-button detail-alert-button"
                               onClick={() => void openItemDetail(item.id)}
                             >
-                              管理
+                              详情
+                              {(identityIssueCounts[item.id] ?? 0) > 0 && (
+                                <span
+                                  className="identity-issue-dot"
+                                  aria-label={`${identityIssueCounts[item.id]} 条卡片信息修复建议`}
+                                />
+                              )}
+                            </button>
+                            <button
+                              className="manage-button danger"
+                              onClick={() => void handleDeleteItem(item)}
+                            >
+                              删除
                             </button>
                           </div>
                         </td>
@@ -1177,9 +1394,36 @@ export default function Dashboard() {
         <ItemDetailDialog
           detail={itemDetail}
           currency={summary.base_currency}
-          onClose={() => setItemDetail(null)}
+          catalog={itemCatalog}
+          catalogLoading={itemCatalogLoading}
+          analysis={detailAnalysis}
+          analysisLoading={detailAnalysisLoading}
+          identityCorrections={identityCorrections}
+          applyingIdentityCorrections={applyingIdentityCorrections}
+          onClose={() => {
+            setItemDetail(null);
+            setItemCatalog(null);
+            setDetailAnalysis(null);
+            setIdentityCorrections([]);
+          }}
+          onCatalogRefresh={() => void refreshItemCatalog()}
+          onCatalogImagesApply={replaceWithCatalogImages}
+          onIdentityRepair={() => void repairIdentity()}
+          onAnalyze={() => void analyzeItemDetail()}
+          onPlayer={() => void openPlayerIntelligence(itemDetail.item.player_id)}
+          onValuationDetail={() => void openValuationDetail(itemDetail.item)}
+          onImage={() => setImageItem(itemDetail.item)}
           onTransaction={handleTransaction}
           onValuation={handleValuation}
+          onDelete={() => void handleDeleteItem(itemDetail.item)}
+        />
+      )}
+      {showTrash && (
+        <TrashDialog
+          items={trashItems}
+          onClose={() => setShowTrash(false)}
+          onRestore={(item) => void handleRestoreItem(item)}
+          onPermanentDelete={(item) => void handlePermanentDelete(item)}
         />
       )}
       {marketItem && (
@@ -1241,7 +1485,256 @@ export default function Dashboard() {
           onSelectBatch={selectBatchDraft}
         />
       )}
+      {showCardHobbyImport && ownerId && (
+        <CardHobbyImportDialog
+          ownerId={ownerId}
+          onClose={() => setShowCardHobbyImport(false)}
+          onImported={async () => {
+            await refresh(ownerId);
+          }}
+        />
+      )}
     </main>
+  );
+}
+
+function CardHobbyImportDialog({
+  ownerId,
+  onClose,
+  onImported,
+}: {
+  ownerId: string;
+  onClose: () => void;
+  onImported: () => Promise<void>;
+}) {
+  const [batchId, setBatchId] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<CardHobbyImportDraft[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState(
+    "先打开独立卡淘窗口并完成登录，登录态只保存在本机专用浏览器目录。",
+  );
+  const [dialogError, setDialogError] = useState("");
+
+  async function launch() {
+    setBusy(true);
+    setDialogError("");
+    try {
+      await launchCardHobbyDesktop();
+      setMessage("独立卡淘窗口已打开。登录后进入“我买到的”，再点击扫描。");
+    } catch (reason) {
+      setDialogError(reason instanceof Error ? reason.message : "无法启动卡淘窗口");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function scan() {
+    setBusy(true);
+    setDialogError("");
+    try {
+      const preview = await scanCardHobbyDesktop(ownerId);
+      setBatchId(preview.batch_id);
+      setDrafts(preview.drafts);
+      setMessage(`已生成 ${preview.drafts.length} 条导入预览。`);
+    } catch (reason) {
+      setDialogError(reason instanceof Error ? reason.message : "扫描订单失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirm(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!batchId) return;
+    const form = new FormData(event.currentTarget);
+    const selected = drafts.filter(
+      (draft) => !draft.duplicate && form.get(`selected-${draft.id}`) === "on",
+    );
+    try {
+      const items = selected.map((draft) => {
+        const value = (field: string) =>
+          String(form.get(`${draft.id}-${field}`) ?? "").trim() || null;
+        const seasonStart = Number(value("season_start"));
+        if (
+          !value("player_name") ||
+          !value("brand_name") ||
+          !seasonStart ||
+          !value("product_name")
+        ) {
+          throw new Error(`“${draft.capture.title}”缺少必填身份字段`);
+        }
+        const serialTotal = value("serial_total")
+          ? Number(value("serial_total"))
+          : null;
+        return {
+          draft_id: draft.id,
+          item: {
+            owner_id: ownerId,
+            card: {
+              player_name: value("player_name"),
+              brand_name: value("brand_name"),
+              season_start: seasonStart,
+              season_end: seasonStart + 1,
+              product_name: value("product_name"),
+              card_number: value("card_number"),
+              insert_name: value("insert_name"),
+              parallel_name: value("parallel_name"),
+              print_run: serialTotal,
+            },
+            serial_total: serialTotal,
+            notes: `卡淘商品：${draft.capture.item_url}`,
+            purchase: {
+              transacted_at: draft.capture.purchased_at ?? new Date().toISOString(),
+              price: draft.capture.sale_price ?? "0",
+              fee_amount: draft.capture.shipping_price,
+              currency: draft.capture.currency,
+              venue: "CardHobby",
+              external_order_id: draft.capture.external_order_id,
+              notes: `${draft.capture.title}\n${draft.capture.item_url}`,
+            },
+          },
+        };
+      });
+      if (!items.length) throw new Error("没有选择可导入的卡片");
+      setBusy(true);
+      setDialogError("");
+      const result = await confirmCardHobbyDesktop(batchId, ownerId, items);
+      await onImported();
+      setMessage(`成功导入 ${result.imported_item_ids.length} 张卡片。`);
+      setDrafts([]);
+    } catch (reason) {
+      setDialogError(reason instanceof Error ? reason.message : "确认导入失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop">
+      <div className="modal cardhobby-import-modal">
+        <div className="modal-heading">
+          <div>
+            <p className="eyebrow">CARDHOBBY DESKTOP IMPORT</p>
+            <h2>从卡淘导入已买入卡片</h2>
+            <p className="detail-subtitle">{message}</p>
+          </div>
+          <button className="icon-button" onClick={onClose}>
+            <X size={20} />
+          </button>
+        </div>
+        <div className="cardhobby-import-actions">
+          <button type="button" className="ghost-button" onClick={() => void launch()} disabled={busy}>
+            打开卡淘登录窗口
+          </button>
+          <button type="button" className="primary-button" onClick={() => void scan()} disabled={busy}>
+            {busy ? "处理中…" : "扫描当前订单页"}
+          </button>
+        </div>
+        {dialogError && <div className="error-banner">{dialogError}</div>}
+        <form onSubmit={confirm}>
+          <div className="cardhobby-import-list">
+            {drafts.map((draft) => {
+              const card = draft.proposed_item?.card;
+              return (
+                <article
+                  className={`cardhobby-import-draft ${draft.duplicate ? "duplicate" : ""}`}
+                  key={draft.id}
+                >
+                  <label className="cardhobby-import-title">
+                    <input
+                      type="checkbox"
+                      name={`selected-${draft.id}`}
+                      defaultChecked={Boolean(card) && !draft.duplicate}
+                      disabled={draft.duplicate}
+                    />
+                    <strong>{draft.capture.title}</strong>
+                  </label>
+                  <small>
+                    商品价 ¥{draft.capture.sale_price ?? "待确认"} · 运费 ¥
+                    {draft.capture.shipping_price}
+                  </small>
+                  {draft.warnings.map((warning) => (
+                    <p className="cardhobby-import-warning" key={warning}>
+                      {warning}
+                    </p>
+                  ))}
+                  <div className="cardhobby-import-fields">
+                    <label>
+                      球员
+                      <input
+                        name={`${draft.id}-player_name`}
+                        defaultValue={card?.player_name ?? ""}
+                      />
+                    </label>
+                    <label>
+                      品牌
+                      <input
+                        name={`${draft.id}-brand_name`}
+                        defaultValue={card?.brand_name ?? "Panini"}
+                      />
+                    </label>
+                    <label>
+                      赛季
+                      <input
+                        type="number"
+                        name={`${draft.id}-season_start`}
+                        defaultValue={card?.season_start ?? ""}
+                      />
+                    </label>
+                    <label>
+                      产品
+                      <input
+                        name={`${draft.id}-product_name`}
+                        defaultValue={card?.product_name ?? ""}
+                      />
+                    </label>
+                    <label>
+                      卡号
+                      <input
+                        name={`${draft.id}-card_number`}
+                        defaultValue={card?.card_number ?? ""}
+                      />
+                    </label>
+                    <label>
+                      Insert
+                      <input
+                        name={`${draft.id}-insert_name`}
+                        defaultValue={card?.insert_name ?? ""}
+                      />
+                    </label>
+                    <label>
+                      平行
+                      <input
+                        name={`${draft.id}-parallel_name`}
+                        defaultValue={card?.parallel_name ?? ""}
+                      />
+                    </label>
+                    <label>
+                      限编
+                      <input
+                        type="number"
+                        name={`${draft.id}-serial_total`}
+                        defaultValue={draft.proposed_item?.serial_total ?? ""}
+                      />
+                    </label>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          {drafts.length > 0 && (
+            <div className="form-actions">
+              <button type="button" className="ghost-button" onClick={onClose}>
+                取消
+              </button>
+              <button className="primary-button" disabled={busy}>
+                确认导入已选卡片
+              </button>
+            </div>
+          )}
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -1303,10 +1796,35 @@ function CardDialog({
   initialValues,
 }: {
   onClose: () => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   currency: string;
   initialValues: EditableRecognition | null;
 }) {
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+
+  async function submitCard(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!form.checkValidity()) {
+      setSubmitError("请补全所有必填信息后再保存");
+      const invalidField = form.querySelector<HTMLElement>(":invalid");
+      invalidField?.focus();
+      invalidField?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    setSubmitError("");
+    setSubmitting(true);
+    try {
+      await onSubmit(event);
+    } catch (reason) {
+      setSubmitError(reason instanceof Error ? reason.message : "保存失败，请稍后重试");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <div className="modal-backdrop">
       <div className="modal card-modal">
@@ -1315,11 +1833,16 @@ function CardDialog({
             <p className="eyebrow">NEW POSITION</p>
             <h2>录入一张卡</h2>
           </div>
-          <button className="icon-button" onClick={onClose}>
+          <button
+            type="button"
+            className="icon-button"
+            onClick={onClose}
+            disabled={submitting}
+          >
             <X size={20} />
           </button>
         </div>
-        <form onSubmit={onSubmit}>
+        <form noValidate onSubmit={submitCard}>
           <div className="form-grid">
             <label className="wide">
               球员
@@ -1519,12 +2042,22 @@ function CardDialog({
               </label>
             </fieldset>
           </div>
+          {submitError && (
+            <p className="form-error card-submit-error" role="alert">
+              {submitError}
+            </p>
+          )}
           <div className="modal-actions">
-            <button type="button" className="ghost-button" onClick={onClose}>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={onClose}
+              disabled={submitting}
+            >
               取消
             </button>
-            <button type="submit" className="primary-button">
-              保存到卡库
+            <button type="submit" className="primary-button" disabled={submitting}>
+              {submitting ? "保存中…" : "保存到卡库"}
             </button>
           </div>
         </form>
@@ -1885,187 +2418,499 @@ const transactionLabels: Record<string, string> = {
   adjustment: "调整",
 };
 
-function ItemDetailDialog({
-  detail,
-  currency,
+function TrashDialog({
+  items,
   onClose,
-  onTransaction,
-  onValuation,
+  onRestore,
+  onPermanentDelete,
 }: {
-  detail: ItemDetail;
-  currency: string;
+  items: PortfolioItem[];
   onClose: () => void;
-  onTransaction: (event: FormEvent<HTMLFormElement>) => void;
-  onValuation: (event: FormEvent<HTMLFormElement>) => void;
+  onRestore: (item: PortfolioItem) => void;
+  onPermanentDelete: (item: PortfolioItem) => void;
 }) {
   return (
     <div className="modal-backdrop">
-      <div className="modal detail-modal">
+      <div className="modal trash-modal">
         <div className="modal-heading">
           <div>
-            <p className="eyebrow">POSITION MANAGEMENT</p>
-            <h2>{detail.item.player_name}</h2>
-            <p className="detail-subtitle">
-              {detail.item.product_name} · 剩余成本{" "}
-              {money(detail.item.remaining_cost, currency)}
-            </p>
+            <p className="eyebrow">TRASH / 回收站</p>
+            <h2>已删除卡片</h2>
+            <p className="detail-subtitle">恢复后重新进入持仓；永久删除不可撤销。</p>
           </div>
-          <button className="icon-button" onClick={onClose}>
+          <button type="button" className="icon-button" onClick={onClose}>
             <X size={20} />
           </button>
         </div>
-        <div className="management-grid">
-          <section>
-            <h3>记录交易</h3>
-            <form onSubmit={onTransaction} className="compact-form">
-              <label>
-                类型
-                <select name="transactionType">
-                  <option value="sell">卖出</option>
-                  <option value="buy">追加买入</option>
-                  <option value="fee">费用</option>
-                  <option value="adjustment">成本调整</option>
-                </select>
-              </label>
-              <label>
-                数量
-                <input
-                  name="quantity"
-                  type="number"
-                  min="0.0001"
-                  step="0.0001"
-                  defaultValue="1"
-                  required
-                />
-              </label>
-              <label>
-                单价
-                <input
-                  name="unitPrice"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  defaultValue="0"
-                  required
-                />
-              </label>
-              <label>
-                费用
-                <input
-                  name="feeAmount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  defaultValue="0"
-                  required
-                />
-              </label>
-              <label className="wide">
-                渠道
-                <input name="venue" placeholder="eBay / 卡店 / 卡展" />
-              </label>
-              <button className="secondary-button wide" type="submit">
-                保存交易
+        <div className="trash-list">
+          {items.map((item) => (
+            <article key={item.id}>
+              <div>
+                <strong>{item.player_name}</strong>
+                <span>{season(item)} · {item.product_name}</span>
+                <small>
+                  {item.deleted_at
+                    ? new Date(item.deleted_at).toLocaleString("zh-CN")
+                    : ""}
+                  {item.deleted_reason ? ` · ${item.deleted_reason}` : ""}
+                </small>
+              </div>
+              <div className="action-row">
+                <button className="secondary-button" onClick={() => onRestore(item)}>
+                  恢复
+                </button>
+                <button className="danger-button" onClick={() => onPermanentDelete(item)}>
+                  永久删除
+                </button>
+              </div>
+            </article>
+          ))}
+          {items.length === 0 && <p className="muted-copy">回收站为空。</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ItemDetailDialog({
+  detail,
+  currency,
+  catalog,
+  catalogLoading,
+  analysis,
+  analysisLoading,
+  identityCorrections,
+  applyingIdentityCorrections,
+  onClose,
+  onCatalogRefresh,
+  onCatalogImagesApply,
+  onIdentityRepair,
+  onAnalyze,
+  onPlayer,
+  onValuationDetail,
+  onImage,
+  onTransaction,
+  onValuation,
+  onDelete,
+}: {
+  detail: ItemDetail;
+  currency: string;
+  catalog: CardRecognition | null;
+  catalogLoading: boolean;
+  analysis: AnalysisResult | null;
+  analysisLoading: boolean;
+  identityCorrections: IdentityCorrection[];
+  applyingIdentityCorrections: boolean;
+  onClose: () => void;
+  onCatalogRefresh: () => void;
+  onCatalogImagesApply: (side: "front" | "back" | "both") => Promise<void>;
+  onIdentityRepair: () => void;
+  onAnalyze: () => void;
+  onPlayer: () => void;
+  onValuationDetail: () => void;
+  onImage: () => void;
+  onTransaction: (event: FormEvent<HTMLFormElement>) => void;
+  onValuation: (event: FormEvent<HTMLFormElement>) => void;
+  onDelete: () => void;
+}) {
+  const [applyingCatalogImages, setApplyingCatalogImages] = useState<
+    "front" | "back" | "both" | null
+  >(null);
+  const [catalogImageMessage, setCatalogImageMessage] = useState("");
+  const item = detail.item;
+  const catalogFields = [
+    ["球员", catalog?.player_name ?? item.player_name],
+    ["赛季", catalog?.season_start
+      ? `${catalog.season_start}${catalog.season_end ? `-${String(catalog.season_end).slice(-2)}` : ""}`
+      : season(item)],
+    ["品牌", catalog?.brand_name ?? item.brand_name],
+    ["产品线", catalog?.product_name ?? item.product_name],
+    ["卡种", catalog?.insert_name ?? item.insert_name],
+    ["平行版本", catalog?.parallel_name ?? item.parallel_name],
+    ["卡号", catalog?.card_number ?? item.card_number],
+    ["限编", catalog?.serial_total ? `/${catalog.serial_total}` : item.serial_total ? `/${item.serial_total}` : null],
+  ].filter((entry): entry is [string, string] => Boolean(entry[1]));
+  const imageFront = assetUrl(item.image_front_url);
+  const imageBack = assetUrl(item.image_back_url);
+  const profit = Number(item.unrealized_profit ?? 0);
+  const referenceFront = catalog?.reference_image_front_url ?? null;
+  const referenceBack = catalog?.reference_image_back_url ?? null;
+
+  async function applyReferenceImages(side: "front" | "back" | "both") {
+    setApplyingCatalogImages(side);
+    setCatalogImageMessage("");
+    try {
+      await onCatalogImagesApply(side);
+      setCatalogImageMessage(
+        side === "both" ? "正反面高清图已替换" : `${side === "front" ? "正面" : "背面"}高清图已替换`,
+      );
+    } catch {
+      setCatalogImageMessage("");
+    } finally {
+      setApplyingCatalogImages(null);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop">
+      <div className="modal detail-modal card-dossier-modal">
+        <div className="modal-heading">
+          <div>
+            <p className="eyebrow">CARD DOSSIER / 卡片档案</p>
+            <h2>{item.player_name}</h2>
+            <p className="detail-subtitle">
+              {season(item)} · {item.product_name}
+              {item.insert_name ? ` · ${item.insert_name}` : ""}
+            </p>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="dossier-hero">
+          <section className="dossier-gallery">
+            <div className="dossier-main-image">
+              {imageFront ? (
+                <img src={imageFront} alt={`${item.player_name} 卡片正面`} />
+              ) : (
+                <div>
+                  <strong>暂无卡片图片</strong>
+                  <span>上传正面图后会显示在这里</span>
+                </div>
+              )}
+            </div>
+            <div className="dossier-gallery-foot">
+              {imageBack && <img src={imageBack} alt={`${item.player_name} 卡片背面`} />}
+              <button type="button" className="ghost-button" onClick={onImage}>
+                {imageFront ? "更新图片" : "上传图片"}
               </button>
-            </form>
+            </div>
           </section>
-          <section>
-            <h3>更新估值</h3>
-            <form onSubmit={onValuation} className="compact-form">
-              <label>
-                区间下限
-                <input
-                  name="lowValue"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  required
-                />
-              </label>
-              <label>
-                合理价值
-                <input
-                  name="fairValue"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  required
-                />
-              </label>
-              <label>
-                区间上限
-                <input
-                  name="highValue"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  required
-                />
-              </label>
-              <label>
-                置信度 %
-                <input
-                  name="confidence"
-                  type="number"
-                  min="0"
-                  max="100"
-                  defaultValue="70"
-                  required
-                />
-              </label>
-              <button className="secondary-button wide" type="submit">
-                保存估值快照
+
+          <section className="dossier-overview">
+            <div className="tag-row">
+              {item.is_rookie && <span className="tag lime">RC</span>}
+              {item.is_autograph && <span className="tag">AUTO</span>}
+              {item.is_patch && <span className="tag">PATCH</span>}
+              {item.serial_total && <span className="tag muted">/{item.serial_total}</span>}
+              {item.grade_company && (
+                <span className="tag">{item.grade_company} {item.grade_value}</span>
+              )}
+            </div>
+            <div className="dossier-value-grid">
+              <div>
+                <span>当前估值</span>
+                <strong>{item.fair_value ? money(item.fair_value, item.valuation_currency ?? currency) : "待估值"}</strong>
+              </div>
+              <div>
+                <span>持仓成本</span>
+                <strong>{money(item.remaining_cost, currency)}</strong>
+              </div>
+              <div>
+                <span>未实现盈亏</span>
+                <strong className={profit >= 0 ? "positive-text" : "negative-text"}>
+                  {item.unrealized_profit ? money(item.unrealized_profit, currency) : "—"}
+                </strong>
+              </div>
+            </div>
+            <div className="dossier-actions">
+              <button type="button" className="primary-button" onClick={onAnalyze}>
+                <Sparkles size={14} /> 生成投资建议
               </button>
-            </form>
+              <button type="button" className="secondary-button" onClick={onValuationDetail}>
+                查看估值依据
+              </button>
+              <button type="button" className="ghost-button" onClick={onPlayer}>
+                球员情报
+              </button>
+            </div>
+            <div className="dossier-fields">
+              {catalogFields.map(([label, value]) => (
+                <div key={label}>
+                  <span>{label}</span>
+                  <strong>{value}</strong>
+                </div>
+              ))}
+            </div>
           </section>
         </div>
-        <div className="history-grid">
-          <section>
-            <h3>交易历史</h3>
-            <div className="history-list">
+
+        {identityCorrections.length > 0 && (
+          <section className="dossier-section identity-correction-section">
+            <div className="dossier-section-heading">
+              <div>
+                <p className="eyebrow">IDENTITY CHECK / 技术信息核验</p>
+                <h3>发现 {identityCorrections.length} 项可能的录入错误</h3>
+              </div>
+              <button
+                type="button"
+                className="primary-button identity-repair-button"
+                onClick={onIdentityRepair}
+                disabled={applyingIdentityCorrections}
+              >
+                {applyingIdentityCorrections ? "修复并重新估值中…" : "一键修复卡片信息"}
+              </button>
+            </div>
+            <p className="identity-correction-disclaimer">
+              建议来自估值成交证据的技术字段共识；修复前不会自动改动卡片档案。
+            </p>
+            <div className="identity-correction-list">
+              {identityCorrections.map((correction) => (
+                <article key={correction.id}>
+                  <div className="identity-correction-change">
+                    <strong>
+                      {identityCorrectionLabels[correction.field_name] ??
+                        correction.field_name}
+                    </strong>
+                    <span>{correctionValue(correction.current_value)}</span>
+                    <b>→</b>
+                    <span className="suggested-value">
+                      {correctionValue(correction.suggested_value)}
+                    </span>
+                    <small>
+                      {Math.round(Number(correction.confidence) * 100)}% 置信度
+                    </small>
+                  </div>
+                  <div className="identity-correction-evidence">
+                    {correction.evidence.map((evidence) => (
+                      <a
+                        key={`${correction.id}-${evidence.market_comp_id}`}
+                        href={evidence.source_url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {evidence.title}
+                      </a>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="dossier-section catalog-section">
+          <div className="dossier-section-heading">
+            <div>
+              <p className="eyebrow">CHECKLIST MATCH</p>
+              <h3>图鉴与卡片补全</h3>
+            </div>
+            <button type="button" className="ghost-button" onClick={onCatalogRefresh} disabled={catalogLoading}>
+              {catalogLoading ? "联网核验中…" : "重新核验"}
+            </button>
+          </div>
+          {catalogLoading && !catalog ? (
+            <div className="dossier-loading"><span className="valuation-spinner" /> 正在检索厂商及权威图鉴…</div>
+          ) : (
+            <>
+              {(referenceFront || referenceBack) && (
+                <div className="catalog-reference-gallery">
+                  <div className="catalog-reference-heading">
+                    <div>
+                      <strong>卡淘高清参考图</strong>
+                      <span>
+                        严格匹配度{" "}
+                        {Math.round(Number(catalog?.reference_image_match_confidence ?? 0) * 100)}%
+                      </span>
+                    </div>
+                    {catalog?.reference_image_source_url && (
+                      <a href={catalog.reference_image_source_url} target="_blank" rel="noreferrer">
+                        查看卡淘原页
+                      </a>
+                    )}
+                  </div>
+                  <div className="catalog-reference-pictures">
+                    {referenceFront && (
+                      <article>
+                        <img src={referenceFront} alt={`${item.player_name} 卡淘高清正面`} />
+                        <div>
+                          <span>高清正面</span>
+                          <button
+                            type="button"
+                            className="ghost-button"
+                            disabled={applyingCatalogImages !== null}
+                            onClick={() => void applyReferenceImages("front")}
+                          >
+                            {applyingCatalogImages === "front" ? "替换中…" : "替换正面"}
+                          </button>
+                        </div>
+                      </article>
+                    )}
+                    {referenceBack && (
+                      <article>
+                        <img src={referenceBack} alt={`${item.player_name} 卡淘高清背面`} />
+                        <div>
+                          <span>高清背面</span>
+                          <button
+                            type="button"
+                            className="ghost-button"
+                            disabled={applyingCatalogImages !== null}
+                            onClick={() => void applyReferenceImages("back")}
+                          >
+                            {applyingCatalogImages === "back" ? "替换中…" : "替换背面"}
+                          </button>
+                        </div>
+                      </article>
+                    )}
+                  </div>
+                  {referenceFront && referenceBack && (
+                    <button
+                      type="button"
+                      className="secondary-button catalog-apply-both"
+                      disabled={applyingCatalogImages !== null}
+                      onClick={() => void applyReferenceImages("both")}
+                    >
+                      {applyingCatalogImages === "both" ? "正在替换正反面…" : "一键替换正反面高清图"}
+                    </button>
+                  )}
+                  {catalogImageMessage && <p className="catalog-image-success">{catalogImageMessage}</p>}
+                </div>
+              )}
+              <div className="catalog-evidence-grid">
+                {Object.entries(catalog?.field_evidence ?? {}).map(([field, values]) => (
+                  <article key={field}>
+                    <span>{recognitionFieldLabels[field] ?? field}</span>
+                    <p>{values.join("；")}</p>
+                  </article>
+                ))}
+                {Object.keys(catalog?.field_evidence ?? {}).length === 0 && (
+                  <p className="muted-copy">当前档案已展示入库信息；暂无额外权威图鉴证据。</p>
+                )}
+              </div>
+              {catalog?.web_candidates && catalog.web_candidates.length > 0 && (
+                <div className="catalog-candidates">
+                  {catalog.web_candidates.map((candidate, index) => (
+                    <article key={`${candidate.title}-${index}`}>
+                      {candidate.image_url && (
+                        <a
+                          className="catalog-reference-image"
+                          href={candidate.source_urls[0] ?? candidate.image_url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <img src={candidate.image_url} alt={`${candidate.title} 图鉴参考图`} />
+                        </a>
+                      )}
+                      {!candidate.image_url && (
+                        <div className="catalog-image-unavailable">
+                          <span>暂无公开高清图</span>
+                          <small>来源站点未开放图片读取</small>
+                        </div>
+                      )}
+                      <div>
+                        <strong>{candidate.title}</strong>
+                        <span>匹配度 {Math.round(Number(candidate.match_confidence) * 100)}%</span>
+                      </div>
+                      <small>
+                        {candidate.matching_fields.length
+                          ? `匹配：${candidate.matching_fields.join("、")}`
+                          : "候选图鉴条目"}
+                      </small>
+                      <div>
+                        {candidate.source_urls.map((url) => (
+                          <a key={url} href={url} target="_blank" rel="noreferrer">
+                            {evidenceSourceHost(url)}
+                          </a>
+                        ))}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+              {catalog?.caveats && catalog.caveats.length > 0 && (
+                <p className="catalog-caveat">{catalog.caveats.join("；")}</p>
+              )}
+            </>
+          )}
+        </section>
+
+        <section className="dossier-section advice-section">
+          <div className="dossier-section-heading">
+            <div>
+              <p className="eyebrow">INVESTMENT VIEW</p>
+              <h3>卡片建议</h3>
+            </div>
+            {!analysis && (
+              <button type="button" className="secondary-button" onClick={onAnalyze} disabled={analysisLoading}>
+                {analysisLoading ? "分析中…" : "生成建议"}
+              </button>
+            )}
+          </div>
+          {analysisLoading ? (
+            <div className="dossier-loading"><span className="valuation-spinner" /> 正在综合球员、卡种与市场证据…</div>
+          ) : analysis ? (
+            <div className="detail-advice">
+              <div className="detail-score">
+                <strong>{analysis.total_score}</strong>
+                <span>/ 100 · {ratingLabels[analysis.rating]}</span>
+              </div>
+              <div className="detail-advice-metrics">
+                <div><span>价格判断</span><strong>{analysis.price_assessment}</strong></div>
+                <div><span>合理区间</span><strong>{money(analysis.fair_value_low, currency)} – {money(analysis.fair_value_high, currency)}</strong></div>
+                <div><span>目标卖出</span><strong>{money(analysis.target_sell_low, currency)} – {money(analysis.target_sell_high, currency)}</strong></div>
+                <div><span>建议持有</span><strong>{analysis.holding_period_min_months}–{analysis.holding_period_max_months} 个月</strong></div>
+              </div>
+              <div className="detail-advice-columns">
+                <div><h4>潜在催化剂</h4>{analysis.catalysts.map((value, index) => <p key={`${value}-${index}`}>{value}</p>)}</div>
+                <div><h4>主要风险</h4>{analysis.risks.map((value, index) => <p key={`${value}-${index}`}>{value}</p>)}</div>
+              </div>
+            </div>
+          ) : (
+            <p className="muted-copy">生成建议后，这里会展示价格判断、持有周期、催化剂和风险。</p>
+          )}
+        </section>
+
+        <details className="dossier-management">
+          <summary>交易、手动估值与历史记录</summary>
+          <div className="management-grid">
+            <section>
+              <h3>记录交易</h3>
+              <form onSubmit={onTransaction} className="compact-form">
+                <label>类型<select name="transactionType"><option value="sell">卖出</option><option value="buy">追加买入</option><option value="fee">费用</option><option value="adjustment">成本调整</option></select></label>
+                <label>数量<input name="quantity" type="number" min="0.0001" step="0.0001" defaultValue="1" required /></label>
+                <label>单价<input name="unitPrice" type="number" min="0" step="0.01" defaultValue="0" required /></label>
+                <label>费用<input name="feeAmount" type="number" min="0" step="0.01" defaultValue="0" required /></label>
+                <label className="wide">渠道<input name="venue" placeholder="eBay / 卡店 / 卡展" /></label>
+                <button className="secondary-button wide" type="submit">保存交易</button>
+              </form>
+            </section>
+            <section>
+              <h3>更新估值</h3>
+              <form onSubmit={onValuation} className="compact-form">
+                <label>区间下限<input name="lowValue" type="number" min="0" step="0.01" required /></label>
+                <label>合理价值<input name="fairValue" type="number" min="0" step="0.01" required /></label>
+                <label>区间上限<input name="highValue" type="number" min="0" step="0.01" required /></label>
+                <label>置信度 %<input name="confidence" type="number" min="0" max="100" defaultValue="70" required /></label>
+                <button className="secondary-button wide" type="submit">保存估值快照</button>
+              </form>
+            </section>
+          </div>
+          <div className="history-grid">
+            <section><h3>交易历史</h3><div className="history-list">
               {detail.transactions.map((row) => (
                 <div key={row.id}>
-                  <span className={`history-type ${row.transaction_type}`}>
-                    {transactionLabels[row.transaction_type]}
-                  </span>
-                  <strong>
-                    {money(
-                      Number(row.unit_price) * Number(row.quantity),
-                      row.currency,
-                    )}
-                  </strong>
-                  <small>
-                    {new Date(row.transacted_at).toLocaleDateString("zh-CN")} ·
-                    数量 {row.quantity}
-                    {Number(row.fee_amount) > 0
-                      ? ` · 费用 ${money(row.fee_amount, row.currency)}`
-                      : ""}
-                  </small>
+                  <span className={`history-type ${row.transaction_type}`}>{transactionLabels[row.transaction_type]}</span>
+                  <strong>{money(Number(row.unit_price) * Number(row.quantity), row.currency)}</strong>
+                  <small>{new Date(row.transacted_at).toLocaleDateString("zh-CN")} · 数量 {row.quantity}{Number(row.fee_amount) > 0 ? ` · 费用 ${money(row.fee_amount, row.currency)}` : ""}</small>
                 </div>
               ))}
               {detail.transactions.length === 0 && <p>暂无记录</p>}
-            </div>
-          </section>
-          <section>
-            <h3>估值历史</h3>
-            <div className="history-list">
+            </div></section>
+            <section><h3>估值历史</h3><div className="history-list">
               {detail.valuations.map((row) => (
                 <div key={row.id}>
                   <span className="history-type valuation">估值</span>
                   <strong>{money(row.fair_value, row.currency)}</strong>
-                  <small>
-                    {new Date(row.valued_at).toLocaleDateString("zh-CN")} ·{" "}
-                    {money(row.low_value, row.currency)} –{" "}
-                    {money(row.high_value, row.currency)}
-                  </small>
+                  <small>{new Date(row.valued_at).toLocaleDateString("zh-CN")} · {money(row.low_value, row.currency)} – {money(row.high_value, row.currency)}</small>
                 </div>
               ))}
               {detail.valuations.length === 0 && <p>暂无记录</p>}
-            </div>
-          </section>
-        </div>
-        <button className="primary-button full" onClick={onClose}>
-          完成
+            </div></section>
+          </div>
+        </details>
+        <button type="button" className="danger-button" onClick={onDelete}>
+          <Trash2 size={14} /> 删除卡片（移入回收站）
         </button>
       </div>
     </div>
@@ -2153,6 +2998,14 @@ function AutomatedValuationDialog({
                 模型 {valuation.model_version ?? "—"} ·{" "}
                 {new Date(valuation.valued_at).toLocaleString("zh-CN")}
               </small>
+              {evidence?.landed_price && (
+                <small>
+                  含运到手价（单独展示）：
+                  {money(evidence.landed_price.fair, valuation.currency)}，区间{" "}
+                  {money(evidence.landed_price.low, valuation.currency)} –{" "}
+                  {money(evidence.landed_price.high, valuation.currency)}
+                </small>
+              )}
             </section>
             {evidence?.search_queries && evidence.search_queries.length > 0 && (
               <section className="valuation-queries">
@@ -2203,17 +3056,39 @@ function AutomatedValuationDialog({
                   <article key={comp.id}>
                     <div>
                       <strong>
-                        {money(comp.normalized_price, valuation.currency)}
+                        {money(
+                          comp.normalized_card_price ?? comp.normalized_price ?? 0,
+                          valuation.currency,
+                        )}
                       </strong>
                       <span>
-                        匹配度 {Math.round(Number(comp.match_confidence) * 100)}%
+                        {comp.tier ? `${comp.tier} · ` : ""}
+                        匹配度{" "}
+                        {Math.round(Number(comp.similarity ?? comp.match_confidence ?? 0) * 100)}%
+                        {comp.source_reliability
+                          ? ` · 来源 ${Math.round(Number(comp.source_reliability) * 100)}%`
+                          : ""}
                       </span>
                     </div>
                     <p>{comp.title || "未命名成交"}</p>
                     <small>
                       {new Date(comp.occurred_at).toLocaleDateString("zh-CN")} · 原价{" "}
-                      {money(comp.original_price, comp.currency)} · {comp.age_days} 天前
+                      {money(comp.sale_price ?? comp.original_price ?? 0, comp.currency)}
+                      {comp.shipping_price ? ` + 运费 ${money(comp.shipping_price, comp.currency)}` : ""}
+                      {comp.age_days !== undefined ? ` · ${comp.age_days} 天前` : ""}
                     </small>
+                    {comp.final_weight !== undefined && (
+                      <small>
+                        原始权重 {Number(comp.raw_weight ?? 0).toFixed(4)} · 最终权重{" "}
+                        {(Number(comp.final_weight) * 100).toFixed(1)}%
+                        {comp.used_for_center ? " · 参与中心估值" : " · 仅区间/异常检查"}
+                      </small>
+                    )}
+                    {comp.adjustment_basis && (
+                      <small>
+                        调整：{comp.adjustment_basis}（×{comp.adjustment_factor ?? "1"}）
+                      </small>
+                    )}
                     {comp.source === "cardhobby" && (
                       <small>
                         卡淘 · {comp.evidence_level === "confirmed_transaction"
@@ -2316,6 +3191,25 @@ function MarketDialog({
         </div>
         <form className="comp-form" onSubmit={onComp}>
           <label>
+            数据渠道
+            <select name="sourceCode" defaultValue="market_import">
+              <option value="market_import">其他授权导入</option>
+              <option value="cardhobby">卡淘 / Card Hobby</option>
+              <option value="ebay">eBay</option>
+              <option value="130point">130point</option>
+              <option value="weikajia">微卡家</option>
+            </select>
+          </label>
+          <label>
+            原始成交市场
+            <select name="originSourceCode" defaultValue="">
+              <option value="">与数据渠道相同</option>
+              <option value="cardhobby">卡淘 / Card Hobby</option>
+              <option value="ebay">eBay</option>
+              <option value="weikajia">微卡家</option>
+            </select>
+          </label>
+          <label>
             成交日期
             <input name="occurredAt" type="date" required />
           </label>
@@ -2369,14 +3263,36 @@ function MarketDialog({
               required
             />
           </label>
+          <label>
+            来源可靠度 %
+            <input
+              name="sourceReliability"
+              type="number"
+              min="0"
+              max="100"
+              defaultValue="80"
+              required
+            />
+          </label>
           <label className="wide">
             成交标题
             <input name="listingTitle" placeholder="平台成交标题或卡片描述" />
           </label>
           <label className="wide">
+            底层成交 ID
+            <input
+              name="externalId"
+              placeholder="例如 eBay item ID；130point 聚合记录请填原始 eBay ID"
+            />
+          </label>
+          <label className="wide">
             证据链接
             <input name="sourceUrl" type="url" placeholder="https://..." />
           </label>
+          <p className="muted-copy wide">
+            130point若聚合自eBay，请将“原始成交市场”选为eBay并填写底层成交ID，
+            系统会与eBay直连记录合并，避免同一成交重复计价。
+          </p>
           <button className="secondary-button wide" type="submit">
             添加成交证据
           </button>
@@ -2404,6 +3320,13 @@ function MarketDialog({
                 <small>
                   {new Date(comp.occurred_at).toLocaleDateString("zh-CN")} ·
                   匹配度 {Math.round(Number(comp.match_confidence) * 100)}%
+                  {comp.classification?.source_code
+                    ? ` · ${comp.classification.source_code}`
+                    : ""}
+                  {comp.classification?.origin_source_code &&
+                  comp.classification.origin_source_code !== comp.classification.source_code
+                    ? `（底层 ${comp.classification.origin_source_code}）`
+                    : ""}
                 </small>
               </div>
               <p>{comp.listing_title || "未填写成交标题"}</p>

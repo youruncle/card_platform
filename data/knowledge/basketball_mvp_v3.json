@@ -1,0 +1,115 @@
+{
+  "batch_key": "basketball-modern-mvp-v3",
+  "manifest_version": 1,
+  "sources": [
+    {
+      "key": "beckett-2023-donruss",
+      "title": "2023-24 Donruss Basketball Checklist",
+      "url": "https://www.beckett.com/news/2023-24-donruss-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T14:20:00+08:00"
+    },
+    {
+      "key": "beckett-2023-optic",
+      "title": "2023-24 Donruss Optic Basketball Checklist",
+      "url": "https://www.beckett.com/news/2023-24-donruss-optic-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T14:20:00+08:00"
+    },
+    {
+      "key": "beckett-2023-prizm",
+      "title": "2023-24 Panini Prizm Basketball Checklist",
+      "url": "https://www.beckett.com/news/2023-24-panini-prizm-basketball-cards/",
+      "publisher": "Beckett",
+      "source_type": "beckett_checklist",
+      "retrieved_at": "2026-07-28T14:20:00+08:00"
+    },
+    {
+      "key": "topps-2025-chrome",
+      "title": "Topps Chrome Basketball Official Product and Checklist",
+      "url": "https://www.topps.com/pages/topps-chrome-basketball",
+      "publisher": "Topps",
+      "source_type": "official_product",
+      "retrieved_at": "2026-07-28T14:20:00+08:00"
+    }
+  ],
+  "entities": [
+    {"key":"mfr-panini","entity_type":"manufacturer","canonical_name":"Panini","source_key":"beckett-2023-prizm","review_status":"approved","confidence":0.99,"attributes":{"era_start":2009},"aliases":[{"value":"帕尼尼","language":"zh","alias_type":"translation","confidence":0.98},{"value":"Pannini","language":"en","alias_type":"misspelling","confidence":0.9}]},
+    {"key":"mfr-topps","entity_type":"manufacturer","canonical_name":"Topps / Fanatics","source_key":"topps-2025-chrome","review_status":"approved","confidence":0.99,"attributes":{"owner":"Fanatics Collectibles"},"aliases":[{"value":"Topps","language":"en","alias_type":"synonym"},{"value":"拓普斯","language":"zh","alias_type":"translation","confidence":0.97},{"value":"Tops","language":"en","alias_type":"misspelling","confidence":0.9}]},
+    {"key":"mfr-upper-deck","entity_type":"manufacturer","canonical_name":"Upper Deck","review_status":"draft","confidence":0.7,"attributes":{"coverage_note":"historical batch pending"},"aliases":[]},
+    {"key":"mfr-leaf","entity_type":"manufacturer","canonical_name":"Leaf","review_status":"draft","confidence":0.7,"attributes":{"coverage_note":"historical batch pending"},"aliases":[]},
+    {"key":"mfr-fleer","entity_type":"manufacturer","canonical_name":"Fleer","review_status":"draft","confidence":0.7,"attributes":{"coverage_note":"historical batch pending"},"aliases":[]},
+    {"key":"mfr-skybox","entity_type":"manufacturer","canonical_name":"SkyBox","review_status":"draft","confidence":0.7,"attributes":{"coverage_note":"historical batch pending"},"aliases":[]},
+    {"key":"brand-bowman","entity_type":"brand","canonical_name":"Bowman","source_key":"topps-2025-chrome","review_status":"approved","confidence":0.8,"attributes":{"manufacturer":"Topps / Fanatics","coverage_note":"basketball seasons pending dedicated checklist"},"aliases":[{"value":"鲍曼","language":"zh","alias_type":"translation","confidence":0.85}]},
+
+    {"key":"product-donruss","entity_type":"product","canonical_name":"Donruss","source_key":"beckett-2023-donruss","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","product_family":"Donruss","construction":"paper","not_equivalent_to":["Donruss Optic"]},"aliases":[{"value":"杜蕾斯","language":"zh","alias_type":"seller_term","confidence":0.95}]},
+    {"key":"product-optic","entity_type":"product","canonical_name":"Donruss Optic","source_key":"beckett-2023-optic","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","product_family":"Donruss","construction":"chromium","not_equivalent_to":["Donruss"]},"aliases":[{"value":"Optic","language":"en","alias_type":"seller_term","confidence":0.98},{"value":"光学","language":"zh","alias_type":"seller_term","confidence":0.95},{"value":"小真金","language":"zh","alias_type":"seller_term","confidence":0.9}]},
+    {"key":"product-prizm","entity_type":"product","canonical_name":"Prizm","source_key":"beckett-2023-prizm","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Panini","construction":"chromium"},"aliases":[{"value":"折射","language":"zh","alias_type":"seller_term","confidence":0.9}]},
+    {"key":"product-select","entity_type":"product","canonical_name":"Select","review_status":"draft","confidence":0.7,"attributes":{"manufacturer":"Panini"},"aliases":[]},
+    {"key":"product-mosaic","entity_type":"product","canonical_name":"Mosaic","review_status":"draft","confidence":0.7,"attributes":{"manufacturer":"Panini"},"aliases":[{"value":"马赛克","language":"zh","alias_type":"translation","confidence":0.95}]},
+    {"key":"product-contenders","entity_type":"product","canonical_name":"Contenders","review_status":"draft","confidence":0.7,"attributes":{"manufacturer":"Panini"},"aliases":[{"value":"球票","language":"zh","alias_type":"seller_term","confidence":0.9}]},
+    {"key":"product-nt","entity_type":"product","canonical_name":"National Treasures","source_key":"beckett-2023-prizm","review_status":"approved","confidence":0.8,"attributes":{"manufacturer":"Panini","coverage_note":"identity retained; season checklist pending"},"aliases":[{"value":"国宝","language":"zh","alias_type":"seller_term","confidence":0.99},{"value":"NT","language":"en","alias_type":"seller_term","confidence":0.95},{"value":"National Treasure","language":"en","alias_type":"misspelling","confidence":0.9}]},
+    {"key":"product-immaculate","entity_type":"product","canonical_name":"Immaculate","review_status":"draft","confidence":0.7,"attributes":{"manufacturer":"Panini"},"aliases":[{"value":"小国宝","language":"zh","alias_type":"seller_term","confidence":0.9}]},
+    {"key":"product-flawless","entity_type":"product","canonical_name":"Flawless","review_status":"draft","confidence":0.7,"attributes":{"manufacturer":"Panini"},"aliases":[{"value":"手提","language":"zh","alias_type":"seller_term","confidence":0.85}]},
+    {"key":"product-one-one","entity_type":"product","canonical_name":"One and One","source_key":"beckett-2023-prizm","review_status":"approved","confidence":0.8,"attributes":{"manufacturer":"Panini","coverage_note":"identity retained; season checklist pending"},"aliases":[{"value":"One & One","language":"en","alias_type":"synonym","confidence":0.99},{"value":"一加一","language":"zh","alias_type":"seller_term","confidence":0.95}]},
+    {"key":"product-court-kings","entity_type":"product","canonical_name":"Court Kings","review_status":"draft","confidence":0.7,"attributes":{"manufacturer":"Panini"},"aliases":[{"value":"油画","language":"zh","alias_type":"seller_term","confidence":0.95}]},
+    {"key":"product-revolution","entity_type":"product","canonical_name":"Revolution","review_status":"draft","confidence":0.7,"attributes":{"manufacturer":"Panini"},"aliases":[]},
+    {"key":"product-hoops","entity_type":"product","canonical_name":"Hoops","review_status":"draft","confidence":0.7,"attributes":{"manufacturer":"Panini","era_note":"license/manufacturer changes by season"},"aliases":[]},
+    {"key":"product-chronicles","entity_type":"product","canonical_name":"Chronicles","review_status":"draft","confidence":0.7,"attributes":{"manufacturer":"Panini"},"aliases":[{"value":"编年史","language":"zh","alias_type":"translation","confidence":0.95}]},
+    {"key":"product-origins","entity_type":"product","canonical_name":"Origins","review_status":"draft","confidence":0.7,"attributes":{"manufacturer":"Panini"},"aliases":[{"value":"起源","language":"zh","alias_type":"translation","confidence":0.95}]},
+    {"key":"product-spectra","entity_type":"product","canonical_name":"Spectra","review_status":"draft","confidence":0.7,"attributes":{"manufacturer":"Panini"},"aliases":[{"value":"光谱","language":"zh","alias_type":"translation","confidence":0.95}]},
+    {"key":"product-noir","entity_type":"product","canonical_name":"Noir","review_status":"draft","confidence":0.7,"attributes":{"manufacturer":"Panini"},"aliases":[{"value":"黑金","language":"zh","alias_type":"seller_term","confidence":0.9}]},
+    {"key":"product-topps-chrome","entity_type":"product","canonical_name":"Topps Chrome","source_key":"topps-2025-chrome","review_status":"approved","confidence":0.99,"attributes":{"manufacturer":"Topps / Fanatics","construction":"chromium"},"aliases":[{"value":"Topps Chrome Basketball","language":"en","alias_type":"synonym"}]},
+    {"key":"product-bowman-chrome","entity_type":"product","canonical_name":"Bowman Chrome","source_key":"topps-2025-chrome","review_status":"approved","confidence":0.75,"attributes":{"manufacturer":"Topps / Fanatics","brand":"Bowman","coverage_note":"basketball seasons pending dedicated checklist"},"aliases":[]},
+
+    {"key":"insert-rated-rookie","entity_type":"insert","canonical_name":"Rated Rookie","source_key":"beckett-2023-donruss","review_status":"approved","confidence":0.99,"attributes":{"semantic_type":"checklist_subset","products":["Donruss","Donruss Optic"]},"aliases":[{"value":"RR","language":"en","alias_type":"seller_term","confidence":0.95},{"value":"评级新秀","language":"zh","alias_type":"translation","confidence":0.85}]},
+    {"key":"insert-downtown","entity_type":"insert","canonical_name":"Downtown","source_key":"beckett-2023-donruss","review_status":"approved","confidence":0.9,"attributes":{"semantic_type":"insert","ssp_not_implied_without_season_evidence":true},"aliases":[{"value":"市中心","language":"zh","alias_type":"seller_term","confidence":0.97}]},
+    {"key":"insert-first-steps","entity_type":"insert","canonical_name":"First Steps","source_key":"beckett-2023-prizm","review_status":"approved","confidence":0.8,"attributes":{"semantic_type":"insert","coverage_note":"regression identity; product/season pending"},"aliases":[{"value":"鞋灯","language":"zh","alias_type":"seller_term","confidence":0.99},{"value":"第一步","language":"zh","alias_type":"translation","confidence":0.95}]},
+    {"key":"insert-dreamland","entity_type":"insert","canonical_name":"Dreamland","source_key":"beckett-2023-prizm","review_status":"approved","confidence":0.8,"attributes":{"semantic_type":"insert","coverage_note":"regression identity; product/season pending"},"aliases":[{"value":"梦幻之地","language":"zh","alias_type":"translation","confidence":0.99}]},
+    {"key":"insert-night-owls","entity_type":"insert","canonical_name":"Night Owls","source_key":"beckett-2023-prizm","review_status":"approved","confidence":0.8,"attributes":{"semantic_type":"insert","coverage_note":"regression identity; product/season pending"},"aliases":[{"value":"夜莺","language":"zh","alias_type":"seller_term","confidence":0.97},{"value":"猫头鹰","language":"zh","alias_type":"seller_term","confidence":0.97}]},
+
+    {"key":"attr-rc","entity_type":"attribute","canonical_name":"RC","source_key":"beckett-2023-donruss","review_status":"approved","confidence":0.99,"attributes":{"semantic_type":"career_status","not_parallel":true,"not_insert":true},"aliases":[{"value":"Rookie","language":"en","alias_type":"synonym"},{"value":"新秀","language":"zh","alias_type":"translation"}]},
+    {"key":"attr-rpa","entity_type":"attribute","canonical_name":"RPA","source_key":"beckett-2023-optic","review_status":"approved","confidence":0.95,"attributes":{"semantic_type":"compound_attribute","requires":["RC","AUTO","Patch"],"not_insert":true,"not_parallel":true},"aliases":[{"value":"Rookie Patch Autograph","language":"en","alias_type":"synonym"},{"value":"新秀球衣签","language":"zh","alias_type":"seller_term"}]},
+    {"key":"attr-auto","entity_type":"attribute","canonical_name":"AUTO","source_key":"beckett-2023-optic","review_status":"approved","confidence":0.99,"attributes":{"semantic_type":"autograph"},"aliases":[{"value":"签字","language":"zh","alias_type":"translation"},{"value":"卡签","language":"zh","alias_type":"seller_term"}]},
+    {"key":"attr-patch","entity_type":"attribute","canonical_name":"Patch","source_key":"beckett-2023-optic","review_status":"approved","confidence":0.95,"attributes":{"semantic_type":"material","not_parallel":true},"aliases":[{"value":"物料","language":"zh","alias_type":"seller_term"},{"value":"球衣","language":"zh","alias_type":"seller_term"}]},
+    {"key":"attr-ssp","entity_type":"attribute","canonical_name":"SSP","source_key":"topps-2025-chrome","review_status":"approved","confidence":0.95,"attributes":{"semantic_type":"scarcity_claim","not_equivalent_to":["Case Hit"],"requires_product_season_evidence":true},"aliases":[{"value":"Super Short Print","language":"en","alias_type":"synonym"},{"value":"超短印","language":"zh","alias_type":"translation"}]},
+    {"key":"attr-case-hit","entity_type":"attribute","canonical_name":"Case Hit","source_key":"topps-2025-chrome","review_status":"approved","confidence":0.95,"attributes":{"semantic_type":"pack_odds_claim","not_equivalent_to":["SSP"],"requires_odds_evidence":true},"aliases":[{"value":"箱货","language":"zh","alias_type":"seller_term"}]},
+    {"key":"attr-large-patch","entity_type":"attribute","canonical_name":"Large Material Window","source_key":"beckett-2023-optic","review_status":"approved","confidence":0.9,"attributes":{"semantic_type":"visual_material_attribute","not_ssp":true,"not_parallel":true},"aliases":[{"value":"大比例","language":"zh","alias_type":"seller_term"},{"value":"大窗","language":"zh","alias_type":"seller_term"}]},
+    {"key":"attr-three-window","entity_type":"attribute","canonical_name":"Three Material Windows","source_key":"beckett-2023-optic","review_status":"approved","confidence":0.9,"attributes":{"semantic_type":"visual_material_attribute","window_count":3,"not_parallel":true},"aliases":[{"value":"三窗","language":"zh","alias_type":"seller_term"}]},
+    {"key":"attr-on-card","entity_type":"attribute","canonical_name":"On-card Autograph","source_key":"beckett-2023-optic","review_status":"approved","confidence":0.9,"attributes":{"semantic_type":"autograph_application"},"aliases":[{"value":"on-card 卡签","language":"zh","alias_type":"seller_term","claim":"限定在明确与贴签对比的上下文；单独“卡签”仍只解析为 AUTO，避免误推断签字载体。"}]},
+    {"key":"attr-sticker","entity_type":"attribute","canonical_name":"Sticker Autograph","source_key":"beckett-2023-optic","review_status":"approved","confidence":0.9,"attributes":{"semantic_type":"autograph_application"},"aliases":[{"value":"贴签","language":"zh","alias_type":"seller_term"}]}
+  ],
+  "relations": [
+    {"subject":"product-donruss","relation_type":"conflicts_with","object":"product-optic","reason":"同属 Donruss 家族但纸质 Donruss 与 chromium Donruss Optic 是不同产品，不可合并身份。","source_key":"beckett-2023-donruss","review_status":"approved","confidence":0.99},
+    {"subject":"product-donruss","relation_type":"manufactured_by","object":"mfr-panini","reason":"2023-24 checklist identifies Panini Donruss Basketball.","source_key":"beckett-2023-donruss","review_status":"approved","confidence":0.99},
+    {"subject":"product-optic","relation_type":"manufactured_by","object":"mfr-panini","reason":"2023-24 checklist identifies Panini Donruss Optic Basketball.","source_key":"beckett-2023-optic","review_status":"approved","confidence":0.99},
+    {"subject":"product-prizm","relation_type":"manufactured_by","object":"mfr-panini","reason":"2023-24 checklist identifies Panini Prizm Basketball.","source_key":"beckett-2023-prizm","review_status":"approved","confidence":0.99},
+    {"subject":"product-topps-chrome","relation_type":"manufactured_by","object":"mfr-topps","reason":"Official Topps product page.","source_key":"topps-2025-chrome","review_status":"approved","confidence":0.99},
+    {"subject":"insert-rated-rookie","relation_type":"available_in","object":"product-donruss","reason":"Rated Rookies are cards 201-250 in the 2023-24 Donruss checklist.","source_key":"beckett-2023-donruss","review_status":"approved","confidence":0.99},
+    {"subject":"insert-rated-rookie","relation_type":"available_in","object":"product-optic","reason":"Rated Rookies are cards 201-250 in the 2023-24 Donruss Optic checklist.","source_key":"beckett-2023-optic","review_status":"approved","confidence":0.99},
+    {"subject":"insert-dreamland","relation_type":"conflicts_with","object":"insert-night-owls","reason":"不同规范 insert 身份，不可在同一 identity 字段混合。","source_key":"beckett-2023-prizm","review_status":"approved","confidence":0.8}
+  ],
+  "coverage": [
+    {"manufacturer":"mfr-panini","product":"product-donruss","season_start":2023,"season_end":2024,"status":"covered","source_key":"beckett-2023-donruss","notes":"产品、base、Rated Rookie 和 parallel 清单来源已登记；具体卡片级扩展仍为后续批次。"},
+    {"manufacturer":"mfr-panini","product":"product-optic","season_start":2023,"season_end":2024,"status":"covered","source_key":"beckett-2023-optic","notes":"产品、base、Rated Rookie 和 parallel 清单来源已登记；具体卡片级扩展仍为后续批次。"},
+    {"manufacturer":"mfr-panini","product":"product-prizm","season_start":2023,"season_end":2024,"status":"covered","source_key":"beckett-2023-prizm","notes":"产品与 base parallel 清单来源已登记。"},
+    {"manufacturer":"mfr-topps","product":"product-topps-chrome","season_start":2025,"season_end":2026,"status":"partial","source_key":"topps-2025-chrome","notes":"官方产品页及 checklist 入口已登记；逐 insert/parallel 展开待下一批。"},
+    {"manufacturer":"mfr-panini","product":"product-select","status":"pending_source","notes":"待逐赛季官方/Beckett checklist。"},
+    {"manufacturer":"mfr-panini","product":"product-mosaic","status":"pending_source","notes":"待逐赛季官方/Beckett checklist。"},
+    {"manufacturer":"mfr-panini","product":"product-contenders","status":"pending_source","notes":"待逐赛季官方/Beckett checklist。"},
+    {"manufacturer":"mfr-panini","product":"product-nt","status":"pending_source","notes":"产品身份可用；赛季与 insert/parallel 不宣称覆盖。"},
+    {"manufacturer":"mfr-panini","product":"product-immaculate","status":"pending_source","notes":"待逐赛季 checklist。"},
+    {"manufacturer":"mfr-panini","product":"product-flawless","status":"pending_source","notes":"待逐赛季 checklist。"},
+    {"manufacturer":"mfr-panini","product":"product-one-one","status":"pending_source","notes":"产品身份可用；赛季与 insert/parallel 不宣称覆盖。"},
+    {"manufacturer":"mfr-panini","product":"product-court-kings","status":"pending_source","notes":"待逐赛季 checklist。"},
+    {"manufacturer":"mfr-panini","product":"product-revolution","status":"pending_source","notes":"待逐赛季 checklist。"},
+    {"manufacturer":"mfr-panini","product":"product-hoops","status":"pending_source","notes":"需按年代区分 manufacturer/license。"},
+    {"manufacturer":"mfr-panini","product":"product-chronicles","status":"pending_source","notes":"待逐赛季 checklist。"},
+    {"manufacturer":"mfr-panini","product":"product-origins","status":"pending_source","notes":"待逐赛季 checklist。"},
+    {"manufacturer":"mfr-panini","product":"product-spectra","status":"pending_source","notes":"待逐赛季 checklist。"},
+    {"manufacturer":"mfr-panini","product":"product-noir","status":"pending_source","notes":"待逐赛季 checklist。"},
+    {"manufacturer":"mfr-topps","product":"product-bowman-chrome","status":"pending_source","notes":"待篮球专属 checklist，不从棒球产品推断。"}
+  ]
+}
