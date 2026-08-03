@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   async rewrites() {
     const apiUrl =
       process.env.API_INTERNAL_URL ??
-      (process.env.NODE_ENV === "development" ? "http://127.0.0.1:8010" : undefined);
+      (process.env.NODE_ENV === "development" ? "http://127.0.0.1:8000" : undefined);
     return apiUrl
       ? [
           {

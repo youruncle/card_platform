@@ -787,8 +787,19 @@ class SheetCardRecognitionResult(ApiModel):
     cards: list[SheetCardRecognitionItem] = Field(default_factory=list, max_length=50)
     caveats: list[str] = Field(default_factory=list)
 
-    @model_validator(mode="after")
-    def validate_detected_count(self) -> "SheetCardRecognitionResult":
-        if self.detected_count != len(self.cards):
-            raise ValueError("detected_count must equal the number of cards")
-        return self
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_detected_count(cls, value):
+        if not isinstance(value, dict) or not isinstance(value.get("cards"), list):
+            return value
+        actual_count = len(value["cards"])
+        if value.get("detected_count") == actual_count:
+            return value
+        normalized = dict(value)
+        reported_count = normalized.get("detected_count")
+        normalized["detected_count"] = actual_count
+        normalized["caveats"] = [
+            *(normalized.get("caveats") or []),
+            f"模型报告数量 {reported_count} 与实际返回卡片数量 {actual_count} 不一致，已按实际结果修正。",
+        ]
+        return normalized

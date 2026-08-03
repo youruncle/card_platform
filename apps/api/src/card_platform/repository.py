@@ -519,6 +519,19 @@ class PortfolioRepository:
                 if await exists.fetchone():
                     raise ConflictError("collection item must be in trash before permanent deletion")
                 raise NotFoundError("collection item not found")
+            # Keep the Card Hobby import row as an audit record, but detach it
+            # before removing the collection item it originally created.
+            await connection.execute(
+                """
+                UPDATE cardhobby_import_item
+                SET collection_item_id = NULL,
+                    raw_payload = raw_payload || jsonb_build_object(
+                        'collection_item_permanently_deleted_at', now()
+                    )
+                WHERE collection_item_id = %s AND owner_id = %s
+                """,
+                (item_id, owner_id),
+            )
             await connection.execute(
                 "DELETE FROM collection_item WHERE id = %s AND owner_id = %s",
                 (item_id, owner_id),

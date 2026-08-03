@@ -647,6 +647,9 @@ export type KnowledgeBatchCatalogItem = {
 // to the API, avoiding stale ports, CORS failures, and browser/host loopback
 // differences. Deployments that use a separate API origin can still opt in.
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+const MULTIPART_API_URL =
+  process.env.NEXT_PUBLIC_UPLOAD_API_URL ??
+  (process.env.NODE_ENV === "development" ? "http://127.0.0.1:8000" : API_URL);
 
 export function assetUrl(path: string | null): string | null {
   return path ? (path.startsWith("http") ? path : `${API_URL}${path}`) : null;
@@ -1249,7 +1252,7 @@ export function estimateMarket(
 async function multipartRequest<T>(path: string, file: File): Promise<T> {
   const form = new FormData();
   form.append("image", file);
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(`${MULTIPART_API_URL}${path}`, {
     method: "POST",
     body: form,
   });
@@ -1271,7 +1274,7 @@ export async function recognizeCardPair(
   const form = new FormData();
   form.append("front", front);
   form.append("back", back);
-  const response = await fetch(`${API_URL}/v1/cards/recognize-pair`, {
+  const response = await fetch(`${MULTIPART_API_URL}/v1/cards/recognize-pair`, {
     method: "POST",
     body: form,
   });
@@ -1287,7 +1290,7 @@ export async function recognizeCardBatch(
 ): Promise<BatchCardRecognition[]> {
   const form = new FormData();
   files.forEach((file) => form.append("images", file));
-  const response = await fetch(`${API_URL}/v1/cards/recognize-batch`, {
+  const response = await fetch(`${MULTIPART_API_URL}/v1/cards/recognize-batch`, {
     method: "POST",
     body: form,
   });

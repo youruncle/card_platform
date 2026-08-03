@@ -204,6 +204,27 @@ def test_card_vision_service_discovers_multiple_cards_in_one_image() -> None:
     assert result.cards[0].result.field_evidence["serial_total"] == ["截图文字：75编"]
 
 
+def test_sheet_result_normalizes_provider_card_count_mismatch() -> None:
+    result = SheetCardRecognitionResult.model_validate(
+        {
+            "detected_count": 3,
+            "cards": [
+                {
+                    "result": {
+                        "player_name": "Stephen Curry",
+                        "confidence": "0.80",
+                    }
+                }
+            ],
+            "caveats": [],
+        }
+    )
+
+    assert result.detected_count == 1
+    assert len(result.cards) == 1
+    assert "已按实际结果修正" in result.caveats[0]
+
+
 def test_card_vision_requires_vision_provider() -> None:
     service = CardVisionService(Settings(vision_api_key=None))
     with pytest.raises(RuntimeError, match="VISION_API_KEY"):

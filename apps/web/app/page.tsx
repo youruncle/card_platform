@@ -234,8 +234,11 @@ export default function Dashboard() {
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [summary, setSummary] = useState(emptySummary);
   const [items, setItems] = useState<PortfolioItem[]>([]);
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [trashItems, setTrashItems] = useState<PortfolioItem[]>([]);
   const [showTrash, setShowTrash] = useState(false);
+  const [emptyingTrash, setEmptyingTrash] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
@@ -350,6 +353,20 @@ export default function Dashboard() {
         .some((value) => value?.toLocaleLowerCase().includes(keyword)),
     );
   }, [items, search]);
+
+  useEffect(() => {
+    const activeIds = new Set(items.map((item) => item.id));
+    setSelectedItemIds((current) => {
+      const next = new Set([...current].filter((id) => activeIds.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [items]);
+
+  const selectedVisibleCount = filteredItems.filter((item) =>
+    selectedItemIds.has(item.id),
+  ).length;
+  const allVisibleSelected =
+    filteredItems.length > 0 && selectedVisibleCount === filteredItems.length;
 
   const unrealized = Number(summary.unrealized_profit);
   const returnRate = Number(summary.total_cost)
@@ -942,6 +959,52 @@ export default function Dashboard() {
     }
   }
 
+  function toggleItemSelection(itemId: string) {
+    setSelectedItemIds((current) => {
+      const next = new Set(current);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }
+
+  function toggleVisibleSelection() {
+    setSelectedItemIds((current) => {
+      const next = new Set(current);
+      if (allVisibleSelected) {
+        filteredItems.forEach((item) => next.delete(item.id));
+      } else {
+        filteredItems.forEach((item) => next.add(item.id));
+      }
+      return next;
+    });
+  }
+
+  async function handleBulkDelete() {
+    if (!ownerId || selectedItemIds.size === 0 || bulkDeleting) return;
+    const itemIds = [...selectedItemIds];
+    if (
+      !window.confirm(
+        `确定删除选中的 ${itemIds.length} 张卡片？它们将进入回收站，可稍后恢复。`,
+      )
+    ) {
+      return;
+    }
+    setBulkDeleting(true);
+    setError("");
+    const results = await Promise.allSettled(
+      itemIds.map((itemId) => deleteItem(itemId, ownerId, "批量删除")),
+    );
+    const failedIds = itemIds.filter((_, index) => results[index].status === "rejected");
+    setSelectedItemIds(new Set(failedIds));
+    setItemDetail(null);
+    await refresh(ownerId);
+    if (failedIds.length > 0) {
+      setError(`${itemIds.length - failedIds.length} 张已移入回收站，${failedIds.length} 张删除失败，请重试。`);
+    }
+    setBulkDeleting(false);
+  }
+
   async function handleRestoreItem(item: PortfolioItem) {
     if (!ownerId) return;
     try {
@@ -963,6 +1026,30 @@ export default function Dashboard() {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "永久删除失败");
     }
+  }
+
+  async function handleEmptyTrash() {
+    if (!ownerId || trashItems.length === 0 || emptyingTrash) return;
+    const count = trashItems.length;
+    const first = window.confirm(
+      `确定永久删除回收站中的全部 ${count} 张卡片？相关交易、估值和分析数据将一并清除。`,
+    );
+    if (!first || !window.confirm("此操作不可恢复。请再次确认清空回收站。")) return;
+
+    setEmptyingTrash(true);
+    setError("");
+    const results = await Promise.allSettled(
+      trashItems.map((item) => permanentlyDeleteItem(item.id, ownerId)),
+    );
+    const failedCount = results.filter((result) => result.status === "rejected").length;
+    const remainingItems = await getTrash(ownerId).catch(() =>
+      trashItems.filter((_, index) => results[index].status === "rejected"),
+    );
+    setTrashItems(remainingItems);
+    if (failedCount > 0) {
+      setError(`${count - failedCount} 张已永久删除，${failedCount} 张删除失败，请重试。`);
+    }
+    setEmptyingTrash(false);
   }
 
   return (
@@ -1144,14 +1231,36 @@ export default function Dashboard() {
                 <p className="eyebrow">COLLECTION</p>
                 <h2>核心持仓</h2>
               </div>
-              <button className="text-button" onClick={() => void openTrash()}>
-                回收站 <Trash2 size={16} />
-              </button>
+              <div className="collection-actions">
+                {selectedItemIds.size > 0 && (
+                  <button
+                    className="danger-button bulk-delete-button"
+                    type="button"
+                    disabled={bulkDeleting}
+                    onClick={() => void handleBulkDelete()}
+                  >
+                    <Trash2 size={14} />
+                    {bulkDeleting ? "删除中…" : `删除选中 (${selectedItemIds.size})`}
+                  </button>
+                )}
+                <button className="text-button" onClick={() => void openTrash()}>
+                  回收站 <Trash2 size={16} />
+                </button>
+              </div>
             </div>
             <div className="table-wrap">
               <table>
                 <thead>
                   <tr>
+                    <th className="selection-column">
+                      <input
+                        type="checkbox"
+                        aria-label="全选当前列表"
+                        checked={allVisibleSelected}
+                        disabled={filteredItems.length === 0 || bulkDeleting}
+                        onChange={toggleVisibleSelection}
+                      />
+                    </th>
                     <th>卡片资产</th>
                     <th>属性</th>
                     <th>持仓成本</th>
@@ -1165,6 +1274,15 @@ export default function Dashboard() {
                     const profit = Number(item.unrealized_profit ?? 0);
                     return (
                       <tr key={item.id}>
+                        <td className="selection-column">
+                          <input
+                            type="checkbox"
+                            aria-label={`选择 ${item.player_name}`}
+                            checked={selectedItemIds.has(item.id)}
+                            disabled={bulkDeleting}
+                            onChange={() => toggleItemSelection(item.id)}
+                          />
+                        </td>
                         <td>
                           <div className="card-identity">
                             <button
@@ -1324,7 +1442,7 @@ export default function Dashboard() {
                   })}
                   {!loading && filteredItems.length === 0 && (
                     <tr>
-                      <td colSpan={6}>
+                      <td colSpan={7}>
                         <div className="empty-state">
                           <CircleDollarSign size={28} />
                           <strong>
@@ -1442,9 +1560,11 @@ export default function Dashboard() {
       {showTrash && (
         <TrashDialog
           items={trashItems}
+          emptying={emptyingTrash}
           onClose={() => setShowTrash(false)}
           onRestore={(item) => void handleRestoreItem(item)}
           onPermanentDelete={(item) => void handlePermanentDelete(item)}
+          onEmpty={() => void handleEmptyTrash()}
         />
       )}
       {marketItem && (
@@ -2441,14 +2561,18 @@ const transactionLabels: Record<string, string> = {
 
 function TrashDialog({
   items,
+  emptying,
   onClose,
   onRestore,
   onPermanentDelete,
+  onEmpty,
 }: {
   items: PortfolioItem[];
+  emptying: boolean;
   onClose: () => void;
   onRestore: (item: PortfolioItem) => void;
   onPermanentDelete: (item: PortfolioItem) => void;
+  onEmpty: () => void;
 }) {
   return (
     <div className="modal-backdrop">
@@ -2459,9 +2583,27 @@ function TrashDialog({
             <h2>已删除卡片</h2>
             <p className="detail-subtitle">恢复后重新进入持仓；永久删除不可撤销。</p>
           </div>
-          <button type="button" className="icon-button" onClick={onClose}>
-            <X size={20} />
-          </button>
+          <div className="trash-heading-actions">
+            {items.length > 0 && (
+              <button
+                type="button"
+                className="danger-button"
+                disabled={emptying}
+                onClick={onEmpty}
+              >
+                <Trash2 size={14} />
+                {emptying ? "清空中…" : `清空回收站 (${items.length})`}
+              </button>
+            )}
+            <button
+              type="button"
+              className="icon-button"
+              disabled={emptying}
+              onClick={onClose}
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
         <div className="trash-list">
           {items.map((item) => (
@@ -2477,10 +2619,10 @@ function TrashDialog({
                 </small>
               </div>
               <div className="action-row">
-                <button className="secondary-button" onClick={() => onRestore(item)}>
+                <button className="secondary-button" disabled={emptying} onClick={() => onRestore(item)}>
                   恢复
                 </button>
-                <button className="danger-button" onClick={() => onPermanentDelete(item)}>
+                <button className="danger-button" disabled={emptying} onClick={() => onPermanentDelete(item)}>
                   永久删除
                 </button>
               </div>

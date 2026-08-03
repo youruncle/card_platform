@@ -612,6 +612,19 @@ h1 {
   margin: 0;
   font-size: 22px;
 }
+.collection-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.bulk-delete-button {
+  padding: 7px 10px;
+  font-size: 11px;
+}
+.bulk-delete-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
 .text-button {
   display: flex;
   align-items: center;
@@ -636,6 +649,22 @@ th {
   padding: 11px 24px;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
+}
+.selection-column {
+  width: 42px;
+  padding-left: 18px;
+  padding-right: 4px;
+  text-align: center;
+}
+.selection-column input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--lime);
+  cursor: pointer;
+}
+.selection-column input:disabled {
+  cursor: wait;
 }
 td {
   padding: 16px 24px;
@@ -1409,6 +1438,16 @@ table {
   cursor: pointer;
 }
 .trash-modal { max-width: 680px; }
+.trash-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.trash-heading-actions .danger-button:disabled,
+.trash-list button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
 .trash-list { display: grid; gap: 10px; }
 .trash-list article {
   display: flex;
