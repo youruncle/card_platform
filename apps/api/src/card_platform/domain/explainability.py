@@ -37,7 +37,10 @@ class Explainability:
             )
         return {
             "strategy": "分层可比估值：T0 优先，匹配相似度与来源可靠度分离",
-            "formula": "T0>=2 时仅 T0 决定卡价中心；次级证据仅扩大区间和检查异常",
+            "formula": (
+                "同身份层级存在近60天成交时，以近60天成交算术平均价决定中心，"
+                "更早成交权重为0；近60天无成交时才回退历史合格成交"
+            ),
             "resolved_identity": identity.as_dict(),
             "card_price": {
                 "low": str(estimate.low),

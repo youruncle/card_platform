@@ -177,6 +177,27 @@ async function cropCardImage(
   }
 }
 
+function canUseOriginalAsCardImage(
+  detectedCount: number,
+  card: SheetCardRecognitionItem,
+): boolean {
+  if (detectedCount !== 1 || card.card_image_bbox) return false;
+  // A single result does not mean the upload is a single-card photo. Order
+  // screenshots often contain one recognized listing plus surrounding rows,
+  // prices and seller information; saving the original would attach the full
+  // screenshot to the card. Only preserve an un-cropped original when no
+  // listing/acquisition context indicates that the source is a screenshot.
+  return ![
+    card.listing_title,
+    card.visible_description,
+    card.order_number,
+    card.product_number,
+    card.purchase_price,
+    card.shipping_price,
+    card.seller_name,
+  ].some((value) => value !== null && value !== "");
+}
+
 const OWNER_KEY = "card-alpha-owner-id";
 
 const emptySummary: PortfolioSummary = {
@@ -561,7 +582,7 @@ export default function Dashboard() {
               filename: auto.detected_count === 1 ? file.name : `卡牌 ${index + 1}`,
               result: card.result,
               error: null,
-              file: cropped ?? (auto.detected_count === 1 ? file : null),
+              file: cropped ?? (canUseOriginalAsCardImage(auto.detected_count, card) ? file : null),
               acquisition: card,
             };
           }),

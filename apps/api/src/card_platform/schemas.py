@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
+import re
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -659,6 +660,44 @@ class CardRecognitionResult(ApiModel):
     reference_image_source_url: str | None = None
     reference_image_provider: str | None = None
     reference_image_match_confidence: Decimal | None = Field(default=None, ge=0, le=1)
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_provider_shape(cls, value):
+        """Repair common, unambiguous JSON shape drift from vision providers."""
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+
+        evidence = normalized.get("field_evidence")
+        if isinstance(evidence, dict):
+            normalized["field_evidence"] = {
+                str(field): []
+                if item in (None, "")
+                else [item]
+                if isinstance(item, str)
+                else [str(item)]
+                if not isinstance(item, list)
+                else item
+                for field, item in evidence.items()
+            }
+
+        # Models occasionally OCR an x/y serial fraction as x.y or x:y and
+        # put the whole value into serial_number. Recover only two positive
+        # integer components; leave all other malformed values unknown.
+        serial = normalized.get("serial_number")
+        if isinstance(serial, str):
+            match = re.fullmatch(r"\s*0*(\d+)\s*[/.:]\s*0*(\d+)\s*", serial)
+            if match:
+                number, total = (int(part) for part in match.groups())
+                if number > 0 and total > 0 and number <= total:
+                    normalized["serial_number"] = number
+                    if normalized.get("serial_total") in (None, ""):
+                        normalized["serial_total"] = total
+            elif not re.fullmatch(r"\s*\d+\s*", serial):
+                normalized["serial_number"] = None
+
+        return normalized
 
     @field_validator("rookie_evidence", mode="before")
     @classmethod

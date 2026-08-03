@@ -14,18 +14,21 @@ from card_platform.knowledge import KnowledgeResolver
 
 
 CARDHOBBY_DOMAIN = "cardhobby.com.cn"
-CARDHOBBY_SEARCH_URL = "https://www.cardhobby.com.cn/NewCommodity/SearchCommodity"
+# The apex host and www host resolve to different frontends. The www TLS
+# tunnel is unreliable behind common macOS proxy/VPN clients, while the
+# official apex host serves the same public endpoint with a valid handshake.
+CARDHOBBY_SEARCH_URL = "https://cardhobby.com.cn/NewCommodity/SearchCommodity"
 CARDHOBBY_SINGLE_CARD_CATEGORY_ID = "08d83279-bba1-4ffe-88c6-b13c22576d96"
 CARDHOBBY_ITEM_PATH = re.compile(r"^/market/item/(?P<item_id>\d+)/?$", re.IGNORECASE)
 CARDHOBBY_FEEDBACK_PATH = re.compile(
     r"^/market/feedback(?:/(?P<account_id>\d+))?/?$", re.IGNORECASE
 )
 LOT_PATTERN = re.compile(
-    r"(?:\blot\b|打包|多卡|套卡|整套|未拆|卡盒|盒卡|卡包|箱卡|\bpack\b|\bbox\b)",
+    r"(?:lot|打包|多卡|套卡|整套|未拆|卡盒|盒卡|卡包|箱卡|\bpack\b|\bbox\b)",
     re.IGNORECASE,
 )
 GRADE_PATTERN = re.compile(
-    r"(?:\b(?:PSA|BGS|SGC|CGC|RFE|BEM|CBA|GMA)\s*(?:10|9(?:\.5)?|8(?:\.5)?)\b|评级)",
+    r"(?:\b(?:PSA|BGS|SGC|CGC|RFE|BEM|CBA|GMA|BGN|GBTC)\s*(?:10|9(?:\.5)?|8(?:\.5)?)\b|评级)",
     re.IGNORECASE,
 )
 AUTOGRAPH_PATTERN = re.compile(r"签字|卡签|贴签|签名|\bauto(?:graph)?\b|\brpa\b", re.I)
@@ -44,6 +47,7 @@ PRODUCT_SEARCH_ALIASES = {
     "topps three": ("Topps 3",),
     "topps 3": ("Topps 3",),
     "court kings": ("油画", "Court Kings"),
+    "mosaic": ("Mosaic 马赛克", "Mosaic", "马赛克"),
 }
 PARALLEL_SEARCH_ALIASES = {
     "silver": "银折",
@@ -58,6 +62,35 @@ PARALLEL_SEARCH_ALIASES = {
     "green parallel": "绿折",
     "purple": "紫折",
     "purple parallel": "紫折",
+    "green mosaic": "绿马赛克",
+}
+PARALLEL_MATCH_ALIASES = {
+    "green mosaic": ("green mosaic", "绿马赛克", "绿折"),
+}
+INSERT_MATCH_ALIASES = {
+    "team checklist": ("team checklist", "team checklits"),
+    "award winner holograms": (
+        "award winner holograms",
+        "ward winner holograms",
+        "award winner",
+        "ward winner",
+        "mvp全息",
+        "ud 全息",
+    ),
+    "finals mvps": (
+        "finals mvps",
+        "finals mvp",
+        "fmvp",
+        "总决赛mvp",
+        "总决赛 mvp",
+        "捧杯",
+        "双捧杯",
+        "奖杯",
+    ),
+}
+
+INSERT_SEARCH_ALIASES = {
+    "finals mvps": ("捧杯", "总决赛MVP", "FMVP", "Finals MVPs"),
 }
 
 
@@ -241,6 +274,24 @@ def assess_cardhobby_match(identity: dict, sale: CardHobbySale) -> tuple[Decimal
 
     season_start = identity.get("season_start")
     season_end = identity.get("season_end")
+    explicit_seasons: set[tuple[int, int]] = set()
+    for start_text, end_text in re.findall(
+        r"(?<!\d)((?:19|20)\d{2})\s*[-–/]\s*((?:(?:19|20)\d{2})|\d{2})(?!\d)",
+        title,
+    ):
+        start_value = int(start_text)
+        end_value = int(end_text)
+        if len(end_text) == 2:
+            end_value = (start_value // 100) * 100 + end_value
+        explicit_seasons.add((start_value, end_value))
+    if (
+        explicit_seasons
+        and season_start
+        and season_end
+        and (int(season_start), int(season_end)) not in explicit_seasons
+    ):
+        conflicts.append("产品赛季与目标卡不一致或无法确认")
+        return Decimal("0"), conflicts
     season_tokens = {str(season_start)} if season_start else set()
     if season_start and season_end and season_end != season_start:
         season_tokens.update(
@@ -260,11 +311,47 @@ def assess_cardhobby_match(identity: dict, sale: CardHobbySale) -> tuple[Decimal
         score += Decimal("0.10")
     if _contains_phrase(title, identity.get("product_name")):
         score += Decimal("0.15")
-    if _contains_phrase(title, identity.get("card_number")):
+    card_number_matches = _contains_phrase(title, identity.get("card_number"))
+    target_card_number = str(identity.get("card_number") or "").strip()
+    prefixed_number = re.fullmatch(r"([A-Za-z]+)[#\s-]*(\d+)", target_card_number)
+    if prefixed_number:
+        prefix, target_number = prefixed_number.groups()
+        explicit_same_family = set(
+            re.findall(rf"#?{re.escape(prefix)}[\s-]*(\d+)", title, re.IGNORECASE)
+        )
+        if explicit_same_family and target_number not in explicit_same_family:
+            conflicts.append("标题明确卡号与目标卡号不一致")
+            return Decimal("0"), conflicts
+    target_insert = str(identity.get("insert_name") or "").casefold()
+    insert_aliases = INSERT_MATCH_ALIASES.get(
+        target_insert,
+        (str(identity.get("insert_name") or ""),),
+    )
+    insert_matches = bool(target_insert) and any(
+        _contains_phrase(title, alias) for alias in insert_aliases
+    )
+    if (identity.get("card_number") or identity.get("insert_name")) and not (
+        card_number_matches or insert_matches
+    ):
+        conflicts.append("标题未命中目标卡号或卡种")
+        return Decimal("0"), conflicts
+    if card_number_matches:
         score += Decimal("0.08")
-    if _contains_phrase(title, identity.get("insert_name")):
+    if insert_matches:
         score += Decimal("0.07")
-    if _contains_phrase(title, identity.get("parallel_name")):
+
+    target_parallel = str(identity.get("parallel_name") or "").casefold()
+    strict_parallel_aliases = PARALLEL_MATCH_ALIASES.get(target_parallel)
+    parallel_aliases = strict_parallel_aliases or (
+        str(identity.get("parallel_name") or ""),
+    )
+    parallel_matches = not target_parallel or any(
+        _contains_phrase(title, alias) for alias in parallel_aliases
+    )
+    if strict_parallel_aliases and not parallel_matches:
+        conflicts.append("标题未命中目标平行版本")
+        return Decimal("0"), conflicts
+    if target_parallel and parallel_matches:
         score += Decimal("0.07")
 
     print_run = identity.get("serial_total") or identity.get("print_run")
@@ -396,8 +483,6 @@ class CardHobbyProvider:
                         )
                     if len(rows) < 60:
                         break
-                if len(found) >= 12:
-                    break
         return CardHobbySearchResult(
             search_queries=[f"卡淘已售接口：{query}" for query in queries],
             sales=sorted(found.values(), key=lambda sale: sale.occurred_at, reverse=True)[:20],
@@ -438,17 +523,38 @@ class CardHobbyProvider:
             str(identity.get("parallel_name") or "").casefold(),
             "",
         )
+        insert_search_aliases = INSERT_SEARCH_ALIASES.get(
+            insert.casefold(),
+            (insert,) if insert else (),
+        )
 
         def query(*parts: object) -> str:
             return " ".join(str(part).strip() for part in parts if str(part).strip())
 
         queries: list[str] = []
         for alias in product_aliases:
+            for insert_alias in insert_search_aliases:
+                queries.extend(
+                    [
+                        query(
+                            player,
+                            season,
+                            identity.get("brand_name"),
+                            alias,
+                            insert_alias,
+                            parallel,
+                        ),
+                        query(player, season, alias, insert_alias, parallel),
+                        query(player, alias, insert_alias, parallel),
+                    ]
+                )
             # CardHobby behaves like an AND search. Start with four durable seller
             # tokens, then progressively remove the least reliable constraints.
             if insert:
                 queries.extend(
                     [
+                        query(player, alias, insert, parallel, serial),
+                        query(player, insert, parallel, serial),
                         query(player, alias, insert, serial),
                         query(player, insert, serial),
                         query(player, insert),

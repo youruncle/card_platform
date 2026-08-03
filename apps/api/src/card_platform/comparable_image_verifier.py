@@ -6,6 +6,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
+import cv2
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 
@@ -36,6 +37,7 @@ class ComparableImageVerifier:
     # text matches/conflicts are handled independently by the classifier.
     MAX_CANDIDATES = 3
     MAX_IMAGE_BYTES = 8 * 1024 * 1024
+    MIN_TARGET_EDGE = 300
 
     def __init__(self, settings: Settings) -> None:
         self.upload_dir = Path(settings.upload_dir).resolve()
@@ -76,6 +78,10 @@ class ComparableImageVerifier:
         target = target_path.read_bytes()
         if len(target) > self.MAX_IMAGE_BYTES:
             return {}
+        target_image = cv2.imread(str(target_path))
+        if target_image is None:
+            return {}
+        low_resolution_target = min(target_image.shape[:2]) < self.MIN_TARGET_EDGE
         target_type = "image/png" if target_path.suffix.casefold() == ".png" else "image/jpeg"
         downloaded: list[tuple[VisualCandidate, bytes, str]] = []
         headers = {"User-Agent": "Mozilla/5.0 CardPlatform/1.0"}
@@ -105,10 +111,22 @@ class ComparableImageVerifier:
                 "text": (
                     "第一张图片是目标卡。后续图片按候选编号排列。逐张判断候选是否与目标"
                     "属于同一球员、同一产品、同一正式卡型/insert、同一平行层级和同一"
-                    "限编总数。流水号不同允许；图片裁切、角度、亮度不同允许。重点比较卡面"
-                    "模板、物料窗数量与形状、签字区、Logo、边框和文字位置。明显为大窗与"
+                    "限编总数。先分别找出卡片四角，按卡片自身宽高把关键点坐标归一化，"
+                    "不要用整张照片的坐标。必须逐项比较：球衣号码中心点的横纵坐标、号码"
+                    "整体倾斜角度、号码是否发生透视拉伸、人物头肩和双手姿态、人物在卡面"
+                    "左右位置、Logo、卡名和奖项文字位置。尤其不能把同系列中号码位置或"
+                    "人物姿态不同的两张卡判为同卡。请在 reasons 中明确写出观察到的号码"
+                    "位置（例如中间偏右/左下）、倾斜方向和姿态差异。流水号不同允许；"
+                    "图片裁切、拍摄角度、亮度不同允许。重点比较卡面模板、物料窗数量与"
+                    "形状、签字区、Logo、边框和文字位置。明显为大窗与"
                     "三窗、不同 insert、不同平行或不同限编时 verdict=different。仅因图片"
                     "模糊无法判断时 verdict=uncertain，不能猜 same。"
+                    + (
+                        "目标图分辨率较低：仍需利用可见的号码位置和人物轮廓做软判断，"
+                        "但不得仅凭模糊纹理给出高置信度。"
+                        if low_resolution_target
+                        else ""
+                    )
                 ),
             },
             {
@@ -146,7 +164,11 @@ class ComparableImageVerifier:
         parsed = VisualComparisonResult.model_validate_json(result)
         allowed = {candidate.id for candidate, _, _ in downloaded}
         return {
-            decision.candidate_id: decision
+            decision.candidate_id: decision.model_copy(
+                update={"confidence": min(decision.confidence, Decimal("0.79"))}
+            )
+            if low_resolution_target
+            else decision
             for decision in parsed.decisions
             if decision.candidate_id in allowed
         }

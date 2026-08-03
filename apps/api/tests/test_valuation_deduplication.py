@@ -81,3 +81,19 @@ def test_valuation_requires_exact_card_anchor() -> None:
     assert specific is False
     assert "card_number_is_serial_fraction" in missing
     assert "brand_product_duplicate" in missing
+
+
+def test_valuation_allows_legitimate_self_named_vintage_products() -> None:
+    for product in ("Hoops", "Upper Deck"):
+        specific, missing = valuation_identity_specificity(
+            {
+                "player_name": "Michael Jordan",
+                "season_start": 1991,
+                "brand_name": product,
+                "product_name": product,
+                "card_number": "358",
+            }
+        )
+
+        assert specific is True
+        assert "brand_product_duplicate" not in missing

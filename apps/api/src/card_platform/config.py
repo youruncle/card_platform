@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     recognition_vision_stage_timeout_seconds: float = 240.0
     recognition_enrichment_stage_timeout_seconds: float = 90.0
     recognition_sample_timeout_seconds: float = 650.0
+    recognition_concurrency: int = 4
     valuation_search_model: str = "qwen-plus"
     valuation_search_timeout_seconds: float = 90.0
     valuation_worker_enabled: bool = True

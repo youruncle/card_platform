@@ -145,7 +145,26 @@ class ComparableClassifier:
             if target.season_start
             else set()
         )
-        season = not season_tokens or any(token in text for token in season_tokens)
+        explicit_seasons: set[tuple[int, int]] = set()
+        for start_text, end_text in re.findall(
+            r"(?<!\d)((?:19|20)\d{2})\s*[-–/]\s*((?:(?:19|20)\d{2})|\d{2})(?!\d)",
+            text,
+        ):
+            start_value = int(start_text)
+            end_value = int(end_text)
+            if len(end_text) == 2:
+                end_value = (start_value // 100) * 100 + end_value
+            explicit_seasons.add((start_value, end_value))
+        target_season = (
+            (int(target.season_start), int(target.season_end))
+            if target.season_start and target.season_end
+            else None
+        )
+        season = (
+            target_season in explicit_seasons
+            if explicit_seasons and target_season
+            else not season_tokens or any(token in text for token in season_tokens)
+        )
         card_number_pattern = (
             rf"(?<![0-9a-z])(?:#|no\.?\s*)?"
             rf"{re.escape(str(target.card_number or ''))}(?![0-9a-z])"
@@ -264,4 +283,13 @@ class ComparableClassifier:
             tier, similarity = ComparableTier.T2, Decimal("0.60")
         else:
             tier, similarity = ComparableTier.T3, Decimal("0.42")
+        if (
+            comp.visual_verdict == "different"
+            and visual_confidence >= Decimal("0.55")
+            and tier == ComparableTier.T0
+        ):
+            # A low-resolution reference can still reveal large layout/pose
+            # differences, but it is not strong enough to hard-reject a textually
+            # exact sale. Demote it from exact-card evidence instead.
+            tier, similarity = ComparableTier.T1, Decimal("0.78")
         return Classification(tier, similarity, comp.source_reliability, fields)

@@ -60,29 +60,14 @@ class HierarchicalEstimator:
         # Even a large pile of base cards or other parallels must not pull the
         # center away from a verified T0 sale. A single T0 deliberately keeps
         # lower coverage/confidence and a wider interval below.
-        center_sales = t0 if t0 else accepted
-        if len(t0) > 3:
-            # Exact-card prices can trend quickly; temporal backtesting showed that
-            # the latest three sales generalize better than a long historical median.
-            center_sales = sorted(t0, key=lambda sale: sale.age_days)[:3]
-        if len(t0) >= 3:
-            newest_age = min(sale.age_days for sale in t0)
-            recent_t0 = [sale for sale in t0 if sale.age_days <= newest_age + 30]
-            if len(recent_t0) >= 3:
-                recent_prices = [
-                    sale.sale_price_base * sale.adjustment.factor
-                    for sale in recent_t0
-                ]
-                recent_median = Decimal(str(median(recent_prices)))
-                recent_spread = (
-                    (max(recent_prices) - min(recent_prices)) / recent_median
-                    if recent_median
-                    else Decimal("1")
-                )
-                if recent_spread <= Decimal("0.15"):
-                    center_sales = sorted(
-                        recent_t0, key=lambda sale: sale.age_days
-                    )[:3]
+        identity_pool = t0 if t0 else accepted
+        recent_sales = [sale for sale in identity_pool if sale.age_days <= 60]
+        # A liquid card should be marked to its current market. Older sales are
+        # retained in the explanation but have no influence whenever at least one
+        # qualified sale exists in the latest 60 days. If that window is empty,
+        # the estimator falls back to the older qualified history.
+        center_sales = recent_sales or identity_pool
+        use_recent_average = bool(recent_sales)
         raw = {
             sale.id: Weighting.raw_weight(
                 sale.classification.tier.value,
@@ -101,7 +86,13 @@ class HierarchicalEstimator:
                     sale= sale,
                     adjusted_price=sale.sale_price_base * sale.adjustment.factor,
                     raw_weight=raw[sale.id],
-                    final_weight=(raw[sale.id] / total if used and total else Decimal("0")),
+                    final_weight=(
+                        Decimal("1") / Decimal(len(center_sales))
+                        if used and use_recent_average
+                        else raw[sale.id] / total
+                        if used and total
+                        else Decimal("0")
+                    ),
                     used_for_center=used,
                 )
             )

@@ -1,5 +1,7 @@
 from decimal import Decimal
 
+import pytest
+
 from card_platform.ingestion.cardhobby import (
     CARDHOBBY_SINGLE_CARD_CATEGORY_ID,
     CardHobbyProvider,
@@ -105,6 +107,117 @@ def test_lot_is_rejected_even_when_identity_tokens_match() -> None:
     assert any("多卡" in conflict for conflict in conflicts)
 
 
+def test_exact_card_anchor_is_required_for_specific_identity() -> None:
+    identity = {
+        **_raw_identity(),
+        "card_number": "358",
+        "insert_name": "Team Checklist",
+        "parallel_name": None,
+    }
+    score, conflicts = assess_cardhobby_match(
+        identity,
+        _sale(title="2021-22 Panini Immaculate Tim Duncan /75 球衣物料 base card"),
+    )
+    assert score == 0
+    assert any("卡号或卡种" in conflict for conflict in conflicts)
+
+
+def test_team_checklist_accepts_common_cardhobby_misspelling() -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "Michael Jordan",
+        "season_start": 1990,
+        "season_end": 1991,
+        "product_name": "Hoops",
+        "card_number": "358",
+        "insert_name": "Team Checklist",
+        "parallel_name": None,
+        "serial_total": None,
+        "is_patch": False,
+    }
+    score, conflicts = assess_cardhobby_match(
+        identity,
+        _sale(title="1990-91 Hoops Michael Jordan Team Checklits 艺术家插画"),
+    )
+    assert score >= Decimal("0.5")
+    assert conflicts == []
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "1991-92 Upper Deck Michael Jordan ward Winner Holograms 3D全息",
+        "1991-92 Upper Deck Michael Jordan UD 全息 特卡",
+    ],
+)
+def test_award_winner_hologram_accepts_cardhobby_title_variants(title: str) -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "Michael Jordan",
+        "brand_name": "Upper Deck",
+        "product_name": "Upper Deck",
+        "season_start": 1991,
+        "season_end": 1992,
+        "card_number": "AW4",
+        "insert_name": "Award Winner Holograms",
+        "is_patch": False,
+    }
+    score, conflicts = assess_cardhobby_match(identity, _sale(title=title))
+    assert score >= Decimal("0.5")
+    assert conflicts == []
+
+
+def test_green_mosaic_requires_matching_parallel_or_chinese_alias() -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "LeBron James",
+        "season_start": 2020,
+        "season_end": 2021,
+        "product_name": "Mosaic",
+        "card_number": "297",
+        "insert_name": "Finals MVPs",
+        "parallel_name": "Green Mosaic",
+        "serial_total": None,
+        "is_patch": False,
+    }
+    wrong_score, wrong_conflicts = assess_cardhobby_match(
+        identity,
+        _sale(title="2020-21 Panini Mosaic LeBron James #297 Finals MVPs Red Mosaic"),
+    )
+    assert wrong_score == 0
+    assert any("平行版本" in conflict for conflict in wrong_conflicts)
+
+    exact_score, exact_conflicts = assess_cardhobby_match(
+        identity,
+        _sale(title="2020-21 Panini Mosaic LeBron James #297 Finals MVPs 绿马赛克折"),
+    )
+    assert exact_score >= Decimal("0.5")
+    assert exact_conflicts == []
+
+
+def test_adjacent_season_is_rejected_even_when_year_tokens_overlap() -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "LeBron James",
+        "brand_name": "Panini",
+        "product_name": "Mosaic",
+        "season_start": 2020,
+        "season_end": 2021,
+        "card_number": "297",
+        "insert_name": "Finals MVPs",
+        "parallel_name": "Green Mosaic",
+        "is_patch": False,
+    }
+    score, conflicts = assess_cardhobby_match(
+        identity,
+        _sale(
+            title="2021-22 Panini Mosaic LeBron James FMVP 捧杯 绿马赛克折"
+        ),
+    )
+    assert score == 0
+    assert any("赛季" in conflict for conflict in conflicts)
+
+
 def test_graded_card_is_rejected_for_raw_target() -> None:
     score, conflicts = assess_cardhobby_match(
         _raw_identity(),
@@ -113,6 +226,16 @@ def test_graded_card_is_rejected_for_raw_target() -> None:
             grade_company="PSA",
             grade_value=Decimal("10"),
         ),
+    )
+    assert score == 0
+    assert any("裸卡" in conflict for conflict in conflicts)
+
+
+@pytest.mark.parametrize("grade_label", ["BGN8.5分", "GBTC9.5分"])
+def test_domestic_graded_card_is_rejected_for_raw_target(grade_label: str) -> None:
+    score, conflicts = assess_cardhobby_match(
+        _raw_identity(),
+        _sale(title=f"2021-22 Panini Immaculate Tim Duncan /75 球衣物料 {grade_label}"),
     )
     assert score == 0
     assert any("裸卡" in conflict for conflict in conflicts)

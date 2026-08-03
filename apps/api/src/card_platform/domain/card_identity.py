@@ -17,6 +17,23 @@ INSERT_ALIASES = {
         "猫头鹰",
     ),
     "first steps": ("first steps", "第一步", "鞋灯", "小鞋灯", "球鞋"),
+    "award winner holograms": (
+        "award winner holograms",
+        "ward winner holograms",
+        "award winner hologram",
+        "ward winner hologram",
+        "mvp全息",
+    ),
+    "finals mvps": (
+        "finals mvps",
+        "finals mvp",
+        "fmvp",
+        "总决赛mvp",
+        "总决赛 mvp",
+        "捧杯",
+        "双捧杯",
+        "奖杯",
+    ),
     "sweet stroke": ("sweet stroke", "sweet strokes", "sweet stroke jerseys"),
     "hardcourt heroics": ("hardcourt heroics", "硬地英雄"),
     "timeless talents": (

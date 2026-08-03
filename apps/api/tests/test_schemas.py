@@ -62,3 +62,33 @@ def test_multi_card_crop_bbox_must_be_valid_normalized_coordinates() -> None:
     assert item.card_image_bbox == (10, 20, 300, 500)
     with pytest.raises(ValidationError, match="positive width"):
         SheetCardRecognitionItem(result=result, card_image_bbox=(300, 20, 10, 500))
+
+
+def test_recognition_normalizes_scalar_field_evidence() -> None:
+    result = CardRecognitionResult.model_validate(
+        {
+            "confidence": "0.8",
+            "player_name": "Collin Murray-Boyles",
+            "field_evidence": {
+                "player_name": "Collin Murray-Boyles",
+                "season_start": "2025",
+                "parallel_name": None,
+            },
+        }
+    )
+
+    assert result.field_evidence == {
+        "player_name": ["Collin Murray-Boyles"],
+        "season_start": ["2025"],
+        "parallel_name": [],
+    }
+
+
+def test_recognition_recovers_ocr_serial_fraction_from_decimal_separator() -> None:
+    result = CardRecognitionResult.model_validate(
+        {"confidence": "0.8", "serial_number": "7.23", "serial_total": None}
+    )
+
+    assert result.serial_number == 7
+    assert result.serial_total == 23
+    assert result.is_numbered is True

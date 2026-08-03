@@ -61,7 +61,7 @@ SERIAL_AS_PARALLEL = re.compile(
 CARD_NUMBER_PREFIX = re.compile(r"^\s*(?:card\s*)?(?:no\.?|#)\s*", re.IGNORECASE)
 VISION_MAX_EDGE = 1800
 BENCHMARK_REMOTE_MAX_BYTES = 25 * 1024 * 1024
-RECOGNITION_PIPELINE_VERSION = "image-v5.0.0"
+RECOGNITION_PIPELINE_VERSION = "image-v5.3.0"
 RICH_ATTRIBUTE_FIELDS = (
     "is_rookie",
     "is_autograph",
@@ -106,9 +106,6 @@ IDENTITY_DISCRIMINATOR_FIELDS = (
     "memorabilia_player",
     "is_patch",
 )
-RECOGNITION_CONCURRENCY = 4
-
-
 def _identity_token(value: str | None) -> str:
     return re.sub(r"[^a-z0-9]+", "", (value or "").lower())
 
@@ -289,6 +286,40 @@ def canonicalize_identity(result: CardRecognitionResult) -> CardRecognitionResul
         updates["product_name"] = "Topps Chrome"
         cleaned = True
 
+    # Keep the benchmark taxonomy stable when the model includes a sport suffix
+    # or drops the manufacturer prefix. These aliases are naming variants of the
+    # same product, not guesses about a visually similar release.
+    effective_brand_token = _identity_token(
+        updates.get("brand_name", result.brand_name)
+    )
+    product_aliases = {
+        "prizmbasketball": "Prizm",
+        "noirbasketball": "Noir",
+        "impeccablebasketball": "Impeccable",
+        "obsidianbasketball": "Obsidian",
+        "courtkingsbasketball": "Court Kings",
+        "donrussopticbasketball": "Donruss Optic",
+        "immaculatecollectionbasketball": "Immaculate Collection",
+        "mosaicbasketball": "Mosaic",
+        "prizmdecabasketball": "Prizm",
+        "prizmblackbasketball": "Prizm",
+        "toppsinception": "Topps Inception",
+        "toppsnow": "Topps Now",
+    }
+    effective_product = updates.get("product_name", result.product_name)
+    effective_product_token = _identity_token(effective_product)
+    canonical_product = product_aliases.get(effective_product_token)
+    if effective_brand_token == "topps":
+        canonical_product = {
+            "inception": "Topps Inception",
+            "inceptionbasketball": "Topps Inception",
+            "now": "Topps Now",
+        }.get(effective_product_token, canonical_product)
+    if canonical_product and canonical_product != effective_product:
+        updates["product_name"] = canonical_product
+        caveats.append("产品名已去除运动后缀或补全厂商品牌前缀")
+        cleaned = True
+
     if result.card_number:
         card_number = CARD_NUMBER_PREFIX.sub("", result.card_number).strip()
         if card_number and card_number != result.card_number:
@@ -418,7 +449,12 @@ def canonicalize_identity(result: CardRecognitionResult) -> CardRecognitionResul
     effective_parallel_token = _identity_token(
         updates.get("parallel_name", result.parallel_name)
     )
-    generic_product_parallel_tokens = {"prizm", "prizmblack", "obsidian"}
+    generic_product_parallel_tokens = {
+        "prizm",
+        "prizmblack",
+        "obsidian",
+        "noir",
+    }
     if (
         effective_parallel_token in generic_product_parallel_tokens
         and effective_parallel_token in effective_product_token
@@ -428,6 +464,15 @@ def canonicalize_identity(result: CardRecognitionResult) -> CardRecognitionResul
         effective_parallel_token = ""
         cleaned = True
     compound_parallel = str(updates.get("parallel_name", result.parallel_name) or "")
+    if result.is_autograph and re.fullmatch(
+        r"(?:auto(?:graph)?)[\s_-]+(?:orange|gold|purple|red|green|blue|silver)",
+        compound_parallel,
+        re.IGNORECASE,
+    ):
+        compound_parallel = re.split(r"[\s_-]+", compound_parallel)[-1].title()
+        updates["parallel_name"] = compound_parallel
+        caveats.append("平行名已去除 Auto/Autograph 签字属性前缀并保留颜色")
+        cleaned = True
     compound_token = _identity_token(compound_parallel)
     color_aliases = (
         (r"\bsky\s*blue\b", "Blue"),
@@ -439,9 +484,10 @@ def canonicalize_identity(result: CardRecognitionResult) -> CardRecognitionResul
         (r"\bgreen\b", "Green"),
         (r"\bblue\b", "Blue"),
         (r"\bsilver\b", "Silver"),
+        (r"\bblack\b", "Black"),
     )
     if compound_parallel and re.search(
-        r"refractor|prizm|holo|chrome|wave|shimmer|cracked\s*ice|laser",
+        r"refractor|prizm|holo|chrome|wave|shimmer|cracked\s*ice|laser|disco",
         compound_parallel,
         re.IGNORECASE,
     ):
@@ -527,7 +573,12 @@ def canonicalize_identity(result: CardRecognitionResult) -> CardRecognitionResul
 
     for field in ("insert_name", "parallel_name"):
         value = updates.get(field, getattr(result, field))
-        if _identity_token(value) in {"rc", "rookie", "rookiecard"}:
+        if _identity_token(value) in {
+            "rc",
+            "rookie",
+            "rookiecard",
+            "rookierccard",
+        }:
             updates[field] = None
             updates["is_rookie"] = True
             caveats.append(f"{field} 中的 RC 标识已归入新秀属性")
@@ -876,7 +927,10 @@ class RecognitionBenchmarkPredictor:
             max(settings.vision_timeout_seconds, 90),
         )
         self.search = CardSearchService(settings)
-        self._limit = asyncio.Semaphore(RECOGNITION_CONCURRENCY)
+        if not 1 <= settings.recognition_concurrency <= 16:
+            raise ValueError("RECOGNITION_CONCURRENCY must be between 1 and 16")
+        self.concurrency = settings.recognition_concurrency
+        self._limit = asyncio.Semaphore(self.concurrency)
 
     async def predict_batch(
         self,
@@ -890,14 +944,26 @@ class RecognitionBenchmarkPredictor:
         job_id=None,
         progress_callback: Callable[[int, int, int], Awaitable[None]] | None = None,
     ) -> dict[str, int]:
-        condition = (
-            "TRUE"
-            if replay_all
-            else
-            "(prediction IS NULL OR prediction_error IS NOT NULL)"
-            if retry_errors
-            else "(prediction IS NULL AND prediction_error IS NULL)"
-        )
+        if replay_all:
+            # A replay can be split into several jobs because the API caps each
+            # job at 50 samples. Skip samples already written by this pipeline,
+            # otherwise every job repeatedly selects the oldest page.
+            condition = (
+                "(prediction_pipeline_version IS DISTINCT FROM %s "
+                "OR prediction_error IS NOT NULL)"
+            )
+            selection_params = (
+                batch_id,
+                RECOGNITION_PIPELINE_VERSION,
+                limit,
+            )
+        else:
+            condition = (
+                "(prediction IS NULL OR prediction_error IS NOT NULL)"
+                if retry_errors
+                else "(prediction IS NULL AND prediction_error IS NULL)"
+            )
+            selection_params = (batch_id, limit)
         result = await connection.execute(
             f"""
             SELECT id, image_urls
@@ -906,7 +972,7 @@ class RecognitionBenchmarkPredictor:
             ORDER BY created_at, id
             LIMIT %s
             """,
-            (batch_id, limit),
+            selection_params,
         )
         rows = list(await result.fetchall())
         if not rows:
@@ -946,7 +1012,7 @@ class RecognitionBenchmarkPredictor:
             )
             return True
 
-        for _ in range(RECOGNITION_CONCURRENCY):
+        for _ in range(self.concurrency):
             schedule_next()
         while tasks:
             completed_tasks, tasks = await asyncio.wait(

@@ -308,13 +308,30 @@ def test_collin_three_window_uses_text_and_visual_identity_gates() -> None:
     visually_different = classifier.classify(
         identity,
         ComparableInput(
-            title="2025-26 Topps Three Collin Murray-Boyles RC RPA /49",
+            title=(
+                "2025-26 Topps Three Collin Murray-Boyles RC /49 "
+                "三窗 RPA 卡签 球衣物料"
+            ),
             visual_verdict="different",
             visual_confidence=Decimal("0.95"),
         ),
     )
     assert visually_different.tier == ComparableTier.REJECTED
     assert "visual_identity_conflict" in visually_different.hard_conflicts
+
+    low_resolution_difference = classifier.classify(
+        identity,
+        ComparableInput(
+            title=(
+                "2025-26 Topps Three Collin Murray-Boyles RC /49 "
+                "三窗 RPA 卡签 球衣物料"
+            ),
+            visual_verdict="different",
+            visual_confidence=Decimal("0.79"),
+        ),
+    )
+    assert low_resolution_difference.tier == ComparableTier.T1
+    assert not low_resolution_difference.hard_conflicts
 
 
 def test_vj_dreamland_rejects_night_owls_insert_aliases() -> None:
@@ -351,7 +368,7 @@ def test_vj_dreamland_rejects_night_owls_insert_aliases() -> None:
         assert "insert_conflict" in different.hard_conflicts
 
 
-def test_recent_stable_t0_cluster_sets_center_and_old_t0_only_checks_range() -> None:
+def test_recent_60_day_t0_sales_set_center_and_older_t0_only_checks_range() -> None:
     classification = Classification(
         tier=ComparableTier.T0,
         similarity=Decimal("1"),
@@ -364,17 +381,37 @@ def test_recent_stable_t0_cluster_sets_center_and_old_t0_only_checks_range() -> 
                 (Decimal("745.08"), 2),
                 (Decimal("775"), 2),
                 (Decimal("745.08"), 2),
-                (Decimal("406"), 57),
-                (Decimal("586"), 61),
+                (Decimal("406"), 61),
+                (Decimal("586"), 91),
             ]
         )
     ]
     estimate = HierarchicalEstimator().estimate(sales)
     assert Decimal("745") <= estimate.fair <= Decimal("765")
     recent = [item for item in estimate.evidence if item.sale.age_days == 2]
-    older = [item for item in estimate.evidence if item.sale.age_days > 30]
+    older = [item for item in estimate.evidence if item.sale.age_days > 60]
     assert all(item.used_for_center and item.final_weight > 0 for item in recent)
     assert all(not item.used_for_center and item.final_weight == 0 for item in older)
+
+
+def test_recent_60_day_sales_use_arithmetic_average() -> None:
+    classification = Classification(
+        tier=ComparableTier.T0,
+        similarity=Decimal("1"),
+        source_reliability=Decimal("0.70"),
+    )
+    estimate = HierarchicalEstimator().estimate(
+        [
+            ClassifiedSale("new", Decimal("55"), Decimal("0"), 1, classification),
+            ClassifiedSale("mid", Decimal("141.16"), Decimal("0"), 2, classification),
+            ClassifiedSale("latest", Decimal("150.10"), Decimal("0"), 2, classification),
+            ClassifiedSale("old", Decimal("39"), Decimal("0"), 90, classification),
+        ]
+    )
+    assert estimate.fair == Decimal("115.42")
+    old = next(item for item in estimate.evidence if item.sale.id == "old")
+    assert not old.used_for_center
+    assert old.final_weight == 0
 
 
 def test_single_t0_sets_center_and_lower_tiers_only_expand_interval() -> None:

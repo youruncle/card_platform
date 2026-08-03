@@ -3,18 +3,11 @@
   "target_samples": 1000,
   "batch_size": 100,
   "batch_count": 10,
-  "status": "batch_6_collected_pending_prediction",
-  "completed_samples": 500,
-  "resume_from_batch": 6,
-  "resume_pipeline_version": "image-v5.0.0",
-  "active_batch": {
-    "number": 6,
-    "batch_id": "ef2f66fc-254b-499f-b54d-ce5a14ae235b",
-    "sample_count": 100,
-    "prediction_count": 0,
-    "assisted_label_count": 0,
-    "resume_action": "run sampling audit, then start image-v5.0.0 prediction"
-  },
+  "status": "complete",
+  "completed_samples": 1000,
+  "resume_from_batch": null,
+  "resume_pipeline_version": "image-v5.3.0",
+  "active_batch": null,
   "source_scope": {
     "provider": "cardhobby",
     "sport": "Basketball",
@@ -254,6 +247,201 @@
         "Added same-name collection idempotency, advisory locks and target-size caps for concurrent top-ups.",
         "Promoted 87 high-confidence exact CardHobby sales into the machine evidence layer.",
         "Validated v5.0 and the normalized labeler with 100 regression tests."
+      ]
+    },
+    {
+      "number": 6,
+      "batch_id": "ef2f66fc-254b-499f-b54d-ce5a14ae235b",
+      "pipeline_version": "image-v5.0.0",
+      "sample_count": 100,
+      "sampling_conforms": true,
+      "overlap_with_previous_batches": 0,
+      "prediction_failures": 0,
+      "label_counts": {
+        "top1_correct": 49,
+        "top2_correct": 4,
+        "top3_correct": 1,
+        "none_correct": 44,
+        "insufficient_image": 2,
+        "source_error": 0
+      },
+      "scored_count": 98,
+      "provisional_top1_accuracy": 0.5,
+      "provisional_top3_recall": 0.551,
+      "mean_assisted_confidence": 0.9237,
+      "primary_error_angles": [
+        {"field": "parallel_name", "errors": 19},
+        {"field": "season_end", "errors": 15},
+        {"field": "season_start", "errors": 13},
+        {"field": "product_name", "errors": 9},
+        {"field": "serial_total", "errors": 7},
+        {"field": "serial_number", "errors": 6}
+      ],
+      "changes_for_next_batch": [
+        "Made recognition concurrency configurable and set batch 7 to six workers.",
+        "Normalized stable product aliases and autograph-prefixed color parallels.",
+        "Validated the recognition suite before starting batch 7."
+      ]
+    },
+    {
+      "number": 7,
+      "batch_id": "4743fc48-c667-48f1-8697-372c4ab922ab",
+      "pipeline_version": "image-v5.0.0",
+      "optimized_pipeline_version": "image-v5.1.0",
+      "sample_count": 100,
+      "sampling_conforms": true,
+      "overlap_with_previous_batches": 0,
+      "prediction_failures": 0,
+      "label_counts": {
+        "top1_correct": 46,
+        "top2_correct": 2,
+        "top3_correct": 1,
+        "none_correct": 48,
+        "insufficient_image": 2,
+        "source_error": 1
+      },
+      "scored_count": 97,
+      "provisional_top1_accuracy": 0.4742,
+      "provisional_top3_recall": 0.5052,
+      "mean_assisted_confidence": 0.9395,
+      "primary_error_angles": [
+        {"field": "parallel_name", "errors": 25},
+        {"field": "season_end", "errors": 19},
+        {"field": "season_start", "errors": 17},
+        {"field": "product_name", "errors": 12},
+        {"field": "memorabilia_types", "errors": 7},
+        {"field": "serial_total", "errors": 5}
+      ],
+      "reflection": [
+        "Product sport suffixes and generic Rookie RC Card text caused deterministic taxonomy errors.",
+        "A full remote-model rerun cannot be treated as an independent acceptance test because assisted truth was initialized from the original blind prediction.",
+        "Segmented replay originally repeated the oldest 50 samples; the selector now skips samples already on the current pipeline version."
+      ],
+      "changes_for_next_batch": [
+        "Normalized Court Kings Basketball, Donruss Optic Basketball, Immaculate Collection Basketball and Topps Inception Basketball.",
+        "Moved Rookie RC Card out of insert_name and into the rookie attribute.",
+        "Frozen-history rule replay corrected 35 insert fields with zero regressions and produced a net 17 product-name improvements after taxonomy migration.",
+        "Added segmented replay pagination and regression coverage.",
+        "Replayed all 100 distinct samples on image-v5.1.0 with zero prediction failures.",
+        "Validated 106 recognition-related regression tests before replay and 81 focused tests after the replay pagination fix.",
+        "Promoted 85 high-confidence exact CardHobby sales into the machine evidence layer."
+      ]
+    },
+    {
+      "number": 8,
+      "batch_id": "3e5c388a-8c62-4e68-940c-0f3d9a70b468",
+      "pipeline_version": "image-v5.1.0",
+      "optimized_pipeline_version": "image-v5.2.0",
+      "sample_count": 100,
+      "sampling_conforms": true,
+      "overlap_with_previous_batches": 0,
+      "prediction_failures": 0,
+      "label_counts": {
+        "top1_correct": 44,
+        "top2_correct": 2,
+        "top3_correct": 0,
+        "none_correct": 52,
+        "insufficient_image": 2,
+        "source_error": 0
+      },
+      "scored_count": 98,
+      "provisional_top1_accuracy": 0.449,
+      "provisional_top3_recall": 0.4694,
+      "mean_assisted_confidence": 0.9353,
+      "primary_error_angles": [
+        {"field": "parallel_name", "errors": 30},
+        {"field": "season_end", "errors": 17},
+        {"field": "season_start", "errors": 14},
+        {"field": "product_name", "errors": 10},
+        {"field": "memorabilia_types", "errors": 9},
+        {"field": "serial_total", "errors": 7}
+      ],
+      "changes_for_next_batch": [
+        "Normalized Mosaic Basketball, Prizm Deca Basketball and Prizm Black Basketball to the stable product taxonomy.",
+        "Cleared Noir product-logo pollution from parallel_name.",
+        "Frozen-history replay corrected 17 product fields with zero regressions and 35 canonical parallel fields; four legacy NOIR-as-parallel labels require taxonomy migration.",
+        "Advanced recognition pipeline to image-v5.2.0.",
+        "Promoted 87 high-confidence exact CardHobby sales into the machine evidence layer.",
+        "Validated 107 recognition-related regression tests."
+      ]
+    },
+    {
+      "number": 9,
+      "batch_id": "0994a049-c476-43dc-993c-a9bbd315a6cd",
+      "pipeline_version": "image-v5.2.0",
+      "optimized_pipeline_version": "image-v5.3.0",
+      "sample_count": 100,
+      "sampling_conforms": true,
+      "overlap_with_previous_batches": 0,
+      "prediction_failures": 0,
+      "label_counts": {
+        "top1_correct": 46,
+        "top2_correct": 4,
+        "top3_correct": 2,
+        "none_correct": 48,
+        "insufficient_image": 0,
+        "source_error": 0
+      },
+      "scored_count": 100,
+      "provisional_top1_accuracy": 0.46,
+      "provisional_top3_recall": 0.52,
+      "mean_assisted_confidence": 0.9427,
+      "primary_error_angles": [
+        {"field": "parallel_name", "errors": 26},
+        {"field": "season_end", "errors": 23},
+        {"field": "season_start", "errors": 20},
+        {"field": "product_name", "errors": 12},
+        {"field": "serial_total", "errors": 4},
+        {"field": "autograph_type", "errors": 3}
+      ],
+      "changes_for_next_batch": [
+        "Normalized PRIZM BLACK to the canonical Black parallel.",
+        "Normalized color-plus-Disco finish names such as Green Disco to the canonical color.",
+        "Frozen-history replay found no previously correct parallel fields regressed by these rules.",
+        "Advanced recognition pipeline to image-v5.3.0.",
+        "Promoted 90 high-confidence exact CardHobby sales into the machine evidence layer.",
+        "Validated 107 recognition-related regression tests."
+      ]
+    },
+    {
+      "number": 10,
+      "batch_id": "7c473fcf-15c2-411f-9b40-fbb720076916",
+      "pipeline_version": "image-v5.3.0",
+      "optimized_pipeline_version": "image-v5.3.0",
+      "sample_count": 100,
+      "sampling_conforms": true,
+      "overlap_with_previous_batches": 0,
+      "prediction_failures": 0,
+      "label_counts": {
+        "top1_correct": 52,
+        "top2_correct": 1,
+        "top3_correct": 1,
+        "none_correct": 43,
+        "insufficient_image": 3,
+        "source_error": 0
+      },
+      "scored_count": 97,
+      "provisional_top1_accuracy": 0.5361,
+      "provisional_top3_recall": 0.5567,
+      "mean_assisted_confidence": 0.9384,
+      "primary_error_angles": [
+        {"field": "parallel_name", "errors": 24},
+        {"field": "season_end", "errors": 12},
+        {"field": "serial_total", "errors": 10},
+        {"field": "season_start", "errors": 10},
+        {"field": "is_numbered", "errors": 4},
+        {"field": "product_name", "errors": 4}
+      ],
+      "reflection": [
+        "Batch 10 achieved the strongest Top-1 and Top-3 machine-assisted diagnostics among batches 7 through 10.",
+        "Parallel errors mixed insert-name leakage, product logos, color mistakes and source-label ambiguity; no single broad rewrite was safe.",
+        "The final batch therefore retained image-v5.3.0 instead of promoting an unvalidated heuristic."
+      ],
+      "changes_for_next_batch": [
+        "Promoted 84 high-confidence exact CardHobby sales into the machine evidence layer.",
+        "Validated 107 recognition-related regression tests.",
+        "Audited all 1000 campaign samples: 1000 unique source items, 1000 predictions, 1000 assisted labels and zero prediction failures.",
+        "Closed the campaign on image-v5.3.0 with no deterministic regression observed."
       ]
     }
   ]

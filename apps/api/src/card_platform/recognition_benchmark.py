@@ -17,12 +17,13 @@ from psycopg.types.json import Jsonb
 from card_platform.config import Settings
 
 
-CARDHOBBY_SEARCH_URL = "https://www.cardhobby.com.cn/NewCommodity/SearchCommodity"
-CARDHOBBY_DETAIL_URL = "https://www.cardhobby.com.cn/NewCommodity/GetNewCommodityById"
+CARDHOBBY_ORIGIN = "https://cardhobby.com.cn"
+CARDHOBBY_SEARCH_URL = f"{CARDHOBBY_ORIGIN}/NewCommodity/SearchCommodity"
+CARDHOBBY_DETAIL_URL = f"{CARDHOBBY_ORIGIN}/NewCommodity/GetNewCommodityById"
 CARDHOBBY_SINGLE_CARD_CATEGORY = "10106fda-c5d8-4121-ab21-0428534eaf42"
 CARDHOBBY_HEADERS = {
     "Accept": "application/json",
-    "Referer": "https://www.cardhobby.com.cn/market/search",
+    "Referer": f"{CARDHOBBY_ORIGIN}/market/search",
     "User-Agent": "CardPlatform-Benchmark/1.0",
 }
 EXCLUDED_TITLE = re.compile(
@@ -743,7 +744,7 @@ class CardHobbyBenchmarkCollector:
                         (
                             batch_id,
                             candidate.item_id,
-                            f"https://www.cardhobby.com.cn/market/item/{candidate.item_id}",
+                            f"{CARDHOBBY_ORIGIN}/market/item/{candidate.item_id}",
                             Jsonb(images),
                             candidate.occurred_at,
                             candidate.final_price,
@@ -890,7 +891,7 @@ class CardHobbyBenchmarkCollector:
                     (
                         batch_id,
                         candidate.item_id,
-                        f"https://www.cardhobby.com.cn/market/item/{candidate.item_id}",
+                        f"{CARDHOBBY_ORIGIN}/market/item/{candidate.item_id}",
                         Jsonb(images),
                         candidate.occurred_at,
                         candidate.final_price,
@@ -986,7 +987,7 @@ class CardHobbyBenchmarkCollector:
                     params={"id": item_id, "memberId": ""},
                     headers={
                         **CARDHOBBY_HEADERS,
-                        "Referer": f"https://www.cardhobby.com.cn/market/item/{item_id}",
+                        "Referer": f"{CARDHOBBY_ORIGIN}/market/item/{item_id}",
                     },
                 )
                 response.raise_for_status()

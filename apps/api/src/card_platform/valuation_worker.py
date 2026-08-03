@@ -130,10 +130,13 @@ def valuation_identity_specificity(identity: dict) -> tuple[bool, list[str]]:
     card_number = str(identity.get("card_number") or "").strip()
     if re.fullmatch(r"0*\d+\s*/\s*0*\d+", card_number):
         missing.append("card_number_is_serial_fraction")
+    brand_token = normalize_text(identity.get("brand_name"))
+    product_token = normalize_text(identity.get("product_name"))
+    legitimate_self_named_products = {"hoops", "upper deck"}
     if (
-        normalize_text(identity.get("brand_name"))
-        and normalize_text(identity.get("brand_name"))
-        == normalize_text(identity.get("product_name"))
+        brand_token
+        and brand_token == product_token
+        and brand_token not in legitimate_self_named_products
     ):
         missing.append("brand_product_duplicate")
     return not missing, missing
@@ -448,9 +451,24 @@ class AutomatedValuationWorker:
         if not candidates:
             return search
         try:
-            decisions = await self.image_verifier.verify(
-                identity.get("image_front_url"),
-                candidates,
+            # Image hosts and the vision provider are both remote dependencies.
+            # Do not let an optional visual cross-check hold an otherwise valid
+            # valuation job in `searching` indefinitely.
+            async with asyncio.timeout(
+                min(self.settings.valuation_search_timeout_seconds, 30.0)
+            ):
+                decisions = await self.image_verifier.verify(
+                    identity.get("image_front_url"),
+                    candidates,
+                )
+        except TimeoutError:
+            return search.model_copy(
+                update={
+                    "notes": [
+                        *search.notes,
+                        "图片同卡核验超时，已使用严格文字身份匹配继续估值",
+                    ]
+                }
             )
         except Exception as error:
             return search.model_copy(
@@ -929,7 +947,12 @@ class AutomatedValuationWorker:
                 """,
                 (identity["card_definition_id"],),
             )
-            raw_rows = [dict(row) for row in await result.fetchall()]
+            allowed_source_urls = {comp.source_url for comp in search.comparables}
+            raw_rows = [
+                dict(row)
+                for row in await result.fetchall()
+                if row["source_url"] in allowed_source_urls
+            ]
             rows, duplicate_sales = deduplicate_market_rows(raw_rows)
             audit_current = {
                 **identity,

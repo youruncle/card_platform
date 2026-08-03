@@ -38,6 +38,20 @@ import card_platform.recognition_benchmark_predictor as predictor_module
 from card_platform.schemas import CardRecognitionResult, CardWebCandidate
 
 
+class EmptyAsyncResult:
+    async def fetchall(self) -> list:
+        return []
+
+
+class RecordingAsyncConnection:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, tuple]] = []
+
+    async def execute(self, query: str, params: tuple) -> EmptyAsyncResult:
+        self.calls.append((query, params))
+        return EmptyAsyncResult()
+
+
 def card(item_id: int, *, seller: int = 1, title: str | None = None) -> dict:
     return {
         "ID": item_id,
@@ -56,6 +70,30 @@ def test_search_is_sold_basketball_single_card_above_twenty() -> None:
     assert '"Sports","Value":"Basketball"' in params["searchJson"]
     assert '"MinPrice","Value":"20"' in params["searchJson"]
     assert "10106fda-c5d8-4121-ab21-0428534eaf42" in params["searchJson"]
+
+
+@pytest.mark.asyncio
+async def test_segmented_replay_skips_samples_already_on_current_pipeline() -> None:
+    predictor = object.__new__(RecognitionBenchmarkPredictor)
+    connection = RecordingAsyncConnection()
+
+    result = await predictor.predict_batch(
+        connection,
+        "batch-7",
+        limit=50,
+        retry_errors=False,
+        replay_all=True,
+        knowledge_version=None,
+    )
+
+    query, params = connection.calls[0]
+    assert "prediction_pipeline_version IS DISTINCT FROM %s" in query
+    assert params == (
+        "batch-7",
+        predictor_module.RECOGNITION_PIPELINE_VERSION,
+        50,
+    )
+    assert result == {"requested": 0, "predicted": 0, "failed": 0}
 
 
 def test_candidate_uses_final_price_and_rejects_lots() -> None:
@@ -840,6 +878,76 @@ def test_generic_product_logo_cannot_pollute_parallel_name() -> None:
         )
     )
     assert product_logo.parallel_name is None
+    noir_logo = canonicalize_identity(
+        CardRecognitionResult(
+            product_name="Noir Basketball",
+            parallel_name="NOIR",
+            confidence=Decimal("0.8"),
+        )
+    )
+    assert noir_logo.parallel_name is None
+
+
+def test_product_name_aliases_use_stable_benchmark_taxonomy() -> None:
+    prizm = canonicalize_identity(
+        CardRecognitionResult(
+            product_name="Prizm Basketball",
+            confidence=Decimal("0.8"),
+        )
+    )
+    inception = canonicalize_identity(
+        CardRecognitionResult(
+            brand_name="Topps",
+            product_name="Inception",
+            confidence=Decimal("0.8"),
+        )
+    )
+    court_kings = canonicalize_identity(
+        CardRecognitionResult(
+            brand_name="Panini",
+            product_name="Court Kings Basketball",
+            confidence=Decimal("0.8"),
+        )
+    )
+    mosaic = canonicalize_identity(
+        CardRecognitionResult(
+            brand_name="Panini",
+            product_name="Mosaic Basketball",
+            confidence=Decimal("0.8"),
+        )
+    )
+
+    assert prizm.product_name == "Prizm"
+    assert inception.product_name == "Topps Inception"
+    assert court_kings.product_name == "Court Kings"
+    assert mosaic.product_name == "Mosaic"
+
+
+def test_rookie_rc_card_is_an_attribute_not_an_insert_name() -> None:
+    normalized = canonicalize_identity(
+        CardRecognitionResult(
+            insert_name="Rookie RC Card",
+            is_rookie=True,
+            rookie_evidence=["RC logo on front"],
+            confidence=Decimal("0.8"),
+        )
+    )
+
+    assert normalized.insert_name is None
+    assert normalized.is_rookie is True
+
+
+def test_autograph_prefix_is_not_part_of_color_parallel() -> None:
+    normalized = canonicalize_identity(
+        CardRecognitionResult(
+            product_name="Prizm",
+            parallel_name="Auto-Red",
+            is_autograph=True,
+            confidence=Decimal("0.8"),
+        )
+    )
+
+    assert normalized.parallel_name == "Red"
 
 
 def test_compound_parallel_finish_normalizes_to_color_taxonomy() -> None:
@@ -862,6 +970,23 @@ def test_compound_parallel_finish_normalizes_to_color_taxonomy() -> None:
 
     assert sky_blue.parallel_name == "Blue"
     assert gold.parallel_name == "Gold"
+
+    black = canonicalize_identity(
+        CardRecognitionResult(
+            product_name="Prizm",
+            parallel_name="PRIZM BLACK",
+            confidence=Decimal("0.8"),
+        )
+    )
+    disco = canonicalize_identity(
+        CardRecognitionResult(
+            product_name="Prizm",
+            parallel_name="Green Disco",
+            confidence=Decimal("0.8"),
+        )
+    )
+    assert black.parallel_name == "Black"
+    assert disco.parallel_name == "Green"
 
 
 def test_serial_detail_crop_preserves_upper_right_number() -> None:
