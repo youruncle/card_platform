@@ -488,3 +488,46 @@ def test_kidd_timeless_talents_aliases_accept_same_insert_and_reject_greatest() 
     )
     assert different_insert.tier == ComparableTier.REJECTED
     assert "insert_conflict" in different_insert.hard_conflicts
+
+
+def test_explicit_wrong_card_number_is_a_hard_conflict() -> None:
+    identity = CardIdentityResolver().resolve(
+        {
+            "player_name": "Brandon Miller",
+            "season_start": 2023,
+            "season_end": 2024,
+            "product_name": "Prizm Basketball",
+            "card_number": "152",
+            "parallel_name": "Base",
+        }
+    )
+    result = ComparableClassifier().classify(
+        identity,
+        ComparableInput(title="2023-24 Prizm Brandon Miller RC #153 base"),
+    )
+    assert result.tier == ComparableTier.REJECTED
+    assert "card_number_conflict" in result.hard_conflicts
+
+
+def test_autograph_and_parallel_mismatches_are_hard_conflicts() -> None:
+    identity = CardIdentityResolver().resolve(
+        {
+            "player_name": "Jaren Jackson Jr",
+            "season_start": 2020,
+            "season_end": 2021,
+            "product_name": "Mosaic Basketball",
+            "card_number": "29",
+            "parallel_name": "Blue",
+            "is_autograph": False,
+        }
+    )
+    autograph = ComparableClassifier().classify(
+        identity,
+        ComparableInput(title="2020-21 Mosaic Jaren Jackson Jr #29 Blue auto 签字"),
+    )
+    wrong_parallel = ComparableClassifier().classify(
+        identity,
+        ComparableInput(title="2020-21 Mosaic Jaren Jackson Jr #29 Gold 金折"),
+    )
+    assert "autograph_conflict" in autograph.hard_conflicts
+    assert "parallel_conflict" in wrong_parallel.hard_conflicts

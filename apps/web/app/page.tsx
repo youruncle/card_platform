@@ -5,13 +5,17 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   BarChart3,
+  Camera,
   ChevronRight,
   CircleDollarSign,
   Download,
   LayoutDashboard,
   Library,
+  LogOut,
   Menu,
   Plus,
+  RotateCcw,
+  RotateCw,
   Search,
   ScanSearch,
   ShieldAlert,
@@ -20,7 +24,9 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { GlobalImageViewer, OpenableImage } from "@/components/image-viewer";
 
 import {
   addTransaction,
@@ -28,8 +34,14 @@ import {
   addMarketComp,
   analyzeItem,
   automaticallyAnalyzeItem,
+  changePassword,
   createItem,
-  createUser,
+  getCurrentUser,
+  getAuthSessions,
+  loginUser,
+  logoutUser,
+  registerUser,
+  revokeAuthSession,
   getPortfolio,
   getTrash,
   deleteItem,
@@ -47,16 +59,29 @@ import {
   getIdentityCorrectionCounts,
   getIdentityCorrections,
   applyIdentityCorrections,
+  getIdentityReview,
+  confirmIdentityReview,
+  researchIdentity,
+  publishShadowValuation,
   retryAutomatedValuation,
   estimateMarket,
+  enqueueScannerRecognition,
+  getScannerJobImage,
+  getScannerCameraControls,
+  getScannerRecognitionJobs,
   recognizeCardAuto,
   recognizeCardBatch,
   recognizeCardPair,
+  retryScannerRecognition,
+  updateScannerCameraControls,
+  deleteScannerRecognition,
+  rotateItemImage,
   uploadItemImage,
   launchCardHobbyDesktop,
   scanCardHobbyDesktop,
   confirmCardHobbyDesktop,
   assetUrl,
+  externalSourceUrl,
   type AnalysisResult,
   type AINarrativeResult,
   type PortfolioItem,
@@ -66,13 +91,19 @@ import {
   type MarketComp,
   type AutomatedValuationDetail,
   type IdentityCorrection,
+  type IdentityReviewDetail,
+  type ConfirmedCardIdentity,
   type CardRecognition,
   type BatchCardRecognition,
   type SheetCardRecognitionItem,
   type CardHobbyImportDraft,
+  type AuthUser,
+  type AuthSession,
+  type ScannerRecognitionJob,
+  type ScannerCameraControls,
 } from "@/lib/api";
 
-type RecognitionMode = "single" | "pair" | "batch";
+type RecognitionMode = "single" | "pair" | "scanner" | "batch";
 type AcquisitionDraft = {
   purchased_at?: string | null;
   purchase_price?: string | null;
@@ -198,8 +229,6 @@ function canUseOriginalAsCardImage(
   ].some((value) => value !== null && value !== "");
 }
 
-const OWNER_KEY = "card-alpha-owner-id";
-
 const emptySummary: PortfolioSummary = {
   owner_id: "",
   base_currency: "CNY",
@@ -231,6 +260,7 @@ function isValuationRunning(status: string | null) {
 }
 
 export default function Dashboard() {
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [summary, setSummary] = useState(emptySummary);
   const [items, setItems] = useState<PortfolioItem[]>([]);
@@ -243,6 +273,8 @@ export default function Dashboard() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [showSetup, setShowSetup] = useState(false);
+  const [showAccount, setShowAccount] = useState(false);
+  const [authSessions, setAuthSessions] = useState<AuthSession[]>([]);
   const [showAddCard, setShowAddCard] = useState(false);
   const [showCardHobbyImport, setShowCardHobbyImport] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -264,6 +296,7 @@ export default function Dashboard() {
   const [identityCorrections, setIdentityCorrections] = useState<
     IdentityCorrection[]
   >([]);
+  const [identityReview, setIdentityReview] = useState<IdentityReviewDetail | null>(null);
   const [applyingIdentityCorrections, setApplyingIdentityCorrections] =
     useState(false);
   const [itemCatalog, setItemCatalog] = useState<CardRecognition | null>(null);
@@ -292,6 +325,9 @@ export default function Dashboard() {
   const [recognitionLoading, setRecognitionLoading] = useState(false);
   const [recognitionProgress, setRecognitionProgress] = useState(0);
   const [recognitionPhase, setRecognitionPhase] = useState("");
+  const [scannerJobs, setScannerJobs] = useState<ScannerRecognitionJob[]>([]);
+  const [scannerResetToken, setScannerResetToken] = useState(0);
+  const [selectedScannerJobId, setSelectedScannerJobId] = useState<string | null>(null);
   const [cardDraft, setCardDraft] = useState<EditableRecognition | null>(null);
 
   const refresh = useCallback(async (id: string) => {
@@ -313,15 +349,48 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    const savedOwner = window.localStorage.getItem(OWNER_KEY);
-    if (!savedOwner) {
-      setLoading(false);
-      setShowSetup(true);
-      return;
-    }
-    setOwnerId(savedOwner);
-    void refresh(savedOwner);
+    void getCurrentUser()
+      .then((user) => {
+        setCurrentUser(user);
+        setOwnerId(user.id);
+        setShowSetup(false);
+        return refresh(user.id);
+      })
+      .catch(() => {
+        setCurrentUser(null);
+        setOwnerId(null);
+        setLoading(false);
+        setShowSetup(true);
+      });
   }, [refresh]);
+
+  useEffect(() => {
+    const expireSession = () => {
+      setCurrentUser(null);
+      setOwnerId(null);
+      setShowSetup(true);
+      setError("登录已过期，请重新登录");
+    };
+    window.addEventListener("card-platform:unauthorized", expireSession);
+    return () => window.removeEventListener("card-platform:unauthorized", expireSession);
+  }, []);
+
+  useEffect(() => {
+    if (!showRecognition || !ownerId) return;
+    let active = true;
+    const refreshJobs = () =>
+      getScannerRecognitionJobs()
+        .then((jobs) => {
+          if (active) setScannerJobs(jobs);
+        })
+        .catch(() => undefined);
+    void refreshJobs();
+    const timer = window.setInterval(refreshJobs, 2000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [showRecognition, ownerId]);
 
   useEffect(() => {
     if (!ownerId) return;
@@ -378,18 +447,73 @@ export default function Dashboard() {
     const form = new FormData(event.currentTarget);
     setError("");
     try {
-      const result = await createUser({
-        email: String(form.get("email")),
-        display_name: String(form.get("displayName")),
-        base_currency: String(form.get("currency")),
-      });
-      window.localStorage.setItem(OWNER_KEY, result.id);
+      const mode = String(form.get("authMode"));
+      const result = mode === "register"
+        ? await registerUser({
+            email: String(form.get("email")),
+            password: String(form.get("password")),
+            display_name: String(form.get("displayName")),
+            base_currency: String(form.get("currency")),
+          })
+        : await loginUser({
+            email: String(form.get("email")),
+            password: String(form.get("password")),
+          });
+      window.localStorage.removeItem("card-alpha-owner-id");
+      setCurrentUser(result);
       setOwnerId(result.id);
       setShowSetup(false);
       await refresh(result.id);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "创建账户失败");
     }
+  }
+
+  async function handleLogout() {
+    try {
+      await logoutUser();
+    } finally {
+      setCurrentUser(null);
+      setOwnerId(null);
+      setItems([]);
+      setSummary(emptySummary);
+      setShowSetup(true);
+    }
+  }
+
+  async function openAccount() {
+    try {
+      setAuthSessions(await getAuthSessions());
+      setShowAccount(true);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "账户信息读取失败");
+    }
+  }
+
+  async function handleChangePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const next = String(form.get("newPassword"));
+    if (next !== String(form.get("confirmPassword"))) {
+      setError("两次输入的新密码不一致");
+      return;
+    }
+    try {
+      await changePassword({
+        current_password: String(form.get("currentPassword")),
+        new_password: next,
+      });
+      event.currentTarget.reset();
+      setError("");
+      setAuthSessions(await getAuthSessions());
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "密码修改失败");
+    }
+  }
+
+  async function handleRevokeSession(sessionId: string) {
+    await revokeAuthSession(sessionId);
+    setAuthSessions(await getAuthSessions());
   }
 
   async function handleAddCard(event: FormEvent<HTMLFormElement>) {
@@ -439,9 +563,42 @@ export default function Dashboard() {
       if (cardDraft && recognitionBackFile) {
         await uploadItemImage(created.id, ownerId, "back", recognitionBackFile);
       }
+      const consumedScannerJobId = selectedScannerJobId;
+      let remainingScannerJobs: ScannerRecognitionJob[] | null = null;
+      let scannerCleanupError = "";
+      if (consumedScannerJobId) {
+        try {
+          await deleteScannerRecognition(consumedScannerJobId);
+          remainingScannerJobs = await getScannerRecognitionJobs().catch(() =>
+            scannerJobs.filter((job) => job.id !== consumedScannerJobId),
+          );
+        } catch (cleanupError) {
+          remainingScannerJobs = scannerJobs.filter((job) => job.id !== consumedScannerJobId);
+          scannerCleanupError = cleanupError instanceof Error
+            ? `卡片已录入，但队列清理失败：${cleanupError.message}`
+            : "卡片已录入，但队列清理失败";
+        }
+        setScannerJobs(remainingScannerJobs);
+        setSelectedScannerJobId(null);
+      }
       setShowAddCard(false);
       setCardDraft(null);
-      if (selectedBatchIndex !== null && batchDrafts.length > 1) {
+      if (consumedScannerJobId) {
+        const nextScannerJob = remainingScannerJobs?.find(
+          (job) => job.status === "succeeded" && job.result,
+        );
+        setBatchDrafts([]);
+        setSelectedBatchIndex(null);
+        setRecognitionResult(null);
+        setRecognitionFile(null);
+        setRecognitionBackFile(null);
+        setRecognitionMode("scanner");
+        setShowRecognition((remainingScannerJobs?.length ?? 0) > 0);
+        if (nextScannerJob) {
+          await openScannerJob(nextScannerJob);
+        }
+        if (scannerCleanupError) setError(scannerCleanupError);
+      } else if (selectedBatchIndex !== null && batchDrafts.length > 1) {
         const remaining = batchDrafts.filter((_, index) => index !== selectedBatchIndex);
         const nextIndex = remaining.findIndex((draft) => draft.result !== null);
         setBatchDrafts(remaining);
@@ -577,6 +734,7 @@ export default function Dashboard() {
     setRecognitionLoading(true);
     setRecognitionProgress(8);
     setRecognitionPhase("正在上传并校验图片");
+    if (recognitionMode !== "scanner") setSelectedScannerJobId(null);
     const progressTimer = window.setInterval(() => {
       setRecognitionProgress((current) => {
         const next = Math.min(current + (current < 45 ? 7 : 3), 90);
@@ -625,6 +783,29 @@ export default function Dashboard() {
         setRecognitionFile(front);
         setRecognitionBackFile(back);
         setRecognitionResult(await recognizeCardPair(front, back));
+      } else if (recognitionMode === "scanner") {
+        const front = form.get("frontImage");
+        const back = form.get("backImage");
+        const frontRaw = form.get("frontRawImage");
+        const backRaw = form.get("backRawImage");
+        if (
+          !(front instanceof File) ||
+          !front.size ||
+          !(back instanceof File) ||
+          !back.size
+        )
+          return;
+        setRecognitionPhase("正在自动裁切并加入后台队列");
+        const job = await enqueueScannerRecognition(
+          front,
+          back,
+          frontRaw instanceof File && frontRaw.size ? frontRaw : undefined,
+          backRaw instanceof File && backRaw.size ? backRaw : undefined,
+        );
+        setScannerJobs((current) => [job, ...current.filter((item) => item.id !== job.id)]);
+        setScannerResetToken((current) => current + 1);
+        setRecognitionProgress(100);
+        setRecognitionPhase("已加入后台队列，可以继续拍下一张");
       } else {
         const input = event.currentTarget.elements.namedItem("batchImages");
         if (!(input instanceof HTMLInputElement) || !input.files?.length) return;
@@ -634,8 +815,10 @@ export default function Dashboard() {
         setRecognitionResult(null);
         setSelectedBatchIndex(null);
       }
-      setRecognitionProgress(100);
-      setRecognitionPhase("识别完成，正在整理结果");
+      if (recognitionMode !== "scanner") {
+        setRecognitionProgress(100);
+        setRecognitionPhase("识别完成，正在整理结果");
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "卡片图片识别失败");
       setRecognitionPhase("识别失败");
@@ -645,12 +828,59 @@ export default function Dashboard() {
     }
   }
 
+  async function openScannerJob(job: ScannerRecognitionJob) {
+    if (!job.result) return;
+    try {
+      const [front, back] = await Promise.all([
+        getScannerJobImage(job.front_image_url, "front"),
+        getScannerJobImage(job.back_image_url, "back"),
+      ]);
+      setRecognitionFile(front);
+      setRecognitionBackFile(back);
+      setRecognitionResult(job.result);
+      setSelectedScannerJobId(job.id);
+      setSelectedBatchIndex(null);
+      setError("");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "扫描结果读取失败");
+    }
+  }
+
+  async function retryScannerJob(jobId: string) {
+    try {
+      const job = await retryScannerRecognition(jobId);
+      setScannerJobs((current) => current.map((item) => item.id === job.id ? job : item));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "任务重试失败");
+    }
+  }
+
+  async function deleteScannerJob(jobId: string) {
+    const job = scannerJobs.find((item) => item.id === jobId);
+    const label = job?.result?.player_name || "这条扫描任务";
+    if (!window.confirm(`确定删除 ${label}？相关扫描图片也会一并删除。`)) return;
+    try {
+      await deleteScannerRecognition(jobId);
+      setScannerJobs((current) => current.filter((item) => item.id !== jobId));
+      if (selectedScannerJobId === jobId) {
+        setSelectedScannerJobId(null);
+        setRecognitionResult(null);
+        setRecognitionFile(null);
+        setRecognitionBackFile(null);
+        setCardDraft(null);
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "扫描任务删除失败");
+    }
+  }
+
   function selectBatchDraft(index: number) {
     const draft = batchDrafts[index];
     if (!draft?.result) return;
     setSelectedBatchIndex(index);
     setRecognitionFile(draft.file);
     setRecognitionBackFile(null);
+    setSelectedScannerJobId(null);
     setRecognitionResult(draft.result);
   }
 
@@ -711,12 +941,14 @@ export default function Dashboard() {
     setItemCatalog(null);
     setDetailAnalysis(null);
     try {
-      const [detail, corrections] = await Promise.all([
+      const [detail, corrections, review] = await Promise.all([
         getItemDetail(itemId, ownerId),
         getIdentityCorrections(itemId, ownerId),
+        getIdentityReview(itemId),
       ]);
       setItemDetail(detail);
       setIdentityCorrections(corrections);
+      setIdentityReview(review);
       setItemCatalogLoading(true);
       void getCardCatalog(itemId, ownerId)
         .then(setItemCatalog)
@@ -726,6 +958,54 @@ export default function Dashboard() {
         .finally(() => setItemCatalogLoading(false));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "持仓详情读取失败");
+    }
+  }
+
+  async function confirmReviewedIdentity(identity: ConfirmedCardIdentity, reason: string) {
+    if (!itemDetail) return;
+    setApplyingIdentityCorrections(true);
+    setError("");
+    try {
+      await confirmIdentityReview(itemDetail.item.id, identity, reason);
+      setIdentityReview(await getIdentityReview(itemDetail.item.id));
+      await refresh(ownerId!);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "身份确认失败");
+      throw reason;
+    } finally {
+      setApplyingIdentityCorrections(false);
+    }
+  }
+
+  async function runIdentityResearch() {
+    if (!itemDetail) return;
+    setApplyingIdentityCorrections(true);
+    try {
+      await researchIdentity(itemDetail.item.id);
+      setIdentityReview(await getIdentityReview(itemDetail.item.id));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "身份研究失败");
+    } finally {
+      setApplyingIdentityCorrections(false);
+    }
+  }
+
+  async function publishReviewedValuation() {
+    if (!itemDetail || !ownerId) return;
+    setApplyingIdentityCorrections(true);
+    setError("");
+    try {
+      await publishShadowValuation(itemDetail.item.id);
+      await refresh(ownerId);
+      setItemDetail(null);
+      setItemCatalog(null);
+      setDetailAnalysis(null);
+      setIdentityCorrections([]);
+      setIdentityReview(null);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "更新正式估值失败");
+    } finally {
+      setApplyingIdentityCorrections(false);
     }
   }
 
@@ -777,6 +1057,20 @@ export default function Dashboard() {
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "高清图片替换失败";
       setError(message);
+      throw reason;
+    }
+  }
+
+  async function rotateDetailImage(side: "front" | "back", degrees: 90 | 270) {
+    if (!ownerId || !itemDetail) return;
+    setError("");
+    try {
+      await rotateItemImage(itemDetail.item.id, side, degrees);
+      const next = await getItemDetail(itemDetail.item.id, ownerId);
+      setItemDetail(next);
+      await refresh(ownerId);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "图片旋转失败");
       throw reason;
     }
   }
@@ -1078,15 +1372,19 @@ export default function Dashboard() {
           <a className="nav-item" href="#ai">
             <Sparkles size={18} /> AI 估值
           </a>
-          <a className="nav-item" href="/knowledge">
-            <Library size={18} /> 知识库管理
-          </a>
-          <a className="nav-item" href="/benchmarks">
-            <ScanSearch size={18} /> 识别盲测
-          </a>
-          <a className="nav-item" href="/market-data">
-            <ShieldAlert size={18} /> 成交复核
-          </a>
+          {currentUser?.role === "admin" && (
+            <>
+              <a className="nav-item" href="/knowledge">
+                <Library size={18} /> 知识库管理
+              </a>
+              <a className="nav-item" href="/benchmarks">
+                <ScanSearch size={18} /> 识别盲测
+              </a>
+              <a className="nav-item" href="/market-data">
+                <ShieldAlert size={18} /> 成交复核
+              </a>
+            </>
+          )}
           <button className="nav-item" type="button" onClick={() => void openTrash()}>
             <Trash2 size={18} /> 回收站
           </button>
@@ -1099,12 +1397,21 @@ export default function Dashboard() {
           <p>记录买入逻辑、催化剂与退出条件，持续复盘每一次决策。</p>
         </div>
         <div className="user-chip">
-          <div className="avatar">投</div>
+          <div className="avatar">{currentUser?.display_name.slice(0, 1) || "投"}</div>
           <div>
-            <strong>我的组合</strong>
-            <small>{summary.base_currency} 基准</small>
+            <strong>{currentUser?.display_name || "我的组合"}</strong>
+            <small>{currentUser?.email || `${summary.base_currency} 基准`}</small>
           </div>
-          <ChevronRight size={16} />
+          {currentUser && (
+            <>
+              <button className="icon-button" type="button" aria-label="账户设置" onClick={() => void openAccount()}>
+                <ChevronRight size={16} />
+              </button>
+              <button className="icon-button" type="button" aria-label="退出登录" onClick={() => void handleLogout()}>
+                <LogOut size={16} />
+              </button>
+            </>
+          )}
         </div>
       </aside>
 
@@ -1199,7 +1506,11 @@ export default function Dashboard() {
                   )}
                   {returnRate.toFixed(1)}%
                 </span>
-                <small>相对持仓成本</small>
+                <small>
+                  {summary.unvalued_item_count > 0
+                    ? `${summary.unvalued_item_count} 张按成本暂估`
+                    : "相对持仓成本"}
+                </small>
               </div>
             </article>
             <article className="metric-card">
@@ -1285,27 +1596,29 @@ export default function Dashboard() {
                         </td>
                         <td>
                           <div className="card-identity">
-                            <button
-                              type="button"
-                              className={`card-thumb ${item.image_front_url ? "has-image" : ""}`}
-                              onClick={() => void openItemDetail(item.id)}
-                              aria-label={`查看 ${item.player_name} 卡片详情`}
-                            >
-                              {item.image_front_url ? (
-                                <img
+                            {item.image_front_url ? (
+                              <div className="card-thumb has-image">
+                                <OpenableImage
                                   src={
                                     assetUrl(item.image_front_url) ?? undefined
                                   }
                                   alt={`${item.player_name} 卡片正面`}
                                 />
-                              ) : (
-                                item.player_name
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                className="card-thumb"
+                                onClick={() => void openItemDetail(item.id)}
+                                aria-label={`查看 ${item.player_name} 卡片详情`}
+                              >
+                                {item.player_name
                                   .split(" ")
                                   .map((part) => part[0])
                                   .join("")
-                                  .slice(0, 2)
-                              )}
-                            </button>
+                                  .slice(0, 2)}
+                              </button>
+                            )}
                             <div>
                               <button
                                 className="player-link"
@@ -1344,7 +1657,17 @@ export default function Dashboard() {
                           {money(item.remaining_cost, summary.base_currency)}
                         </td>
                         <td>
-                          {isValuationRunning(item.valuation_status) ? (
+                          {item.fair_value && item.valuation_status === "succeeded" ? (
+                            <button
+                              className="valuation-price"
+                              onClick={() => void openValuationDetail(item)}
+                            >
+                              {money(
+                                item.fair_value,
+                                item.valuation_currency ?? summary.base_currency,
+                              )}
+                            </button>
+                          ) : isValuationRunning(item.valuation_status) ? (
                             <button
                               className="valuation-status running"
                               onClick={() => void openValuationDetail(item)}
@@ -1502,6 +1825,16 @@ export default function Dashboard() {
       </section>
 
       {showSetup && <SetupDialog onSubmit={handleSetup} error={error} />}
+      {showAccount && currentUser && (
+        <AccountDialog
+          user={currentUser}
+          sessions={authSessions}
+          error={error}
+          onClose={() => setShowAccount(false)}
+          onChangePassword={handleChangePassword}
+          onRevokeSession={(id) => void handleRevokeSession(id)}
+        />
+      )}
       {showAddCard && (
         <CardDialog
           onClose={() => setShowAddCard(false)}
@@ -1531,6 +1864,7 @@ export default function Dashboard() {
       )}
       {itemDetail && (
         <ItemDetailDialog
+          key={itemDetail.item.id}
           detail={itemDetail}
           currency={summary.base_currency}
           catalog={itemCatalog}
@@ -1538,16 +1872,22 @@ export default function Dashboard() {
           analysis={detailAnalysis}
           analysisLoading={detailAnalysisLoading}
           identityCorrections={identityCorrections}
+          identityReview={identityReview}
           applyingIdentityCorrections={applyingIdentityCorrections}
           onClose={() => {
             setItemDetail(null);
             setItemCatalog(null);
             setDetailAnalysis(null);
             setIdentityCorrections([]);
+            setIdentityReview(null);
           }}
           onCatalogRefresh={() => void refreshItemCatalog()}
           onCatalogImagesApply={replaceWithCatalogImages}
+          onImageRotate={rotateDetailImage}
           onIdentityRepair={() => void repairIdentity()}
+          onIdentityConfirm={confirmReviewedIdentity}
+          onIdentityResearch={() => void runIdentityResearch()}
+          onPublishValuation={() => void publishReviewedValuation()}
           onAnalyze={() => void analyzeItemDetail()}
           onPlayer={() => void openPlayerIntelligence(itemDetail.item.player_id)}
           onValuationDetail={() => void openValuationDetail(itemDetail.item)}
@@ -1586,6 +1926,12 @@ export default function Dashboard() {
             setValuationDetail(null);
           }}
           onRetry={handleValuationRetry}
+          onIdentityReview={async () => {
+            const itemId = valuationDetailItem.id;
+            setValuationDetailItem(null);
+            setValuationDetail(null);
+            await openItemDetail(itemId);
+          }}
         />
       )}
       {potentialItem && (
@@ -1612,6 +1958,9 @@ export default function Dashboard() {
           progress={recognitionProgress}
           phase={recognitionPhase}
           error={error}
+          scannerJobs={scannerJobs}
+          scannerResetToken={scannerResetToken}
+          selectedScannerJobId={selectedScannerJobId}
           onClose={() => setShowRecognition(false)}
           onSubmit={handleRecognition}
           onUse={handleUseRecognition}
@@ -1622,8 +1971,12 @@ export default function Dashboard() {
             setRecognitionFile(null);
             setRecognitionBackFile(null);
             setSelectedBatchIndex(null);
+            setSelectedScannerJobId(null);
           }}
           onSelectBatch={selectBatchDraft}
+          onOpenScannerJob={(job) => void openScannerJob(job)}
+          onRetryScannerJob={(jobId) => void retryScannerJob(jobId)}
+          onDeleteScannerJob={(jobId) => void deleteScannerJob(jobId)}
         />
       )}
       {showCardHobbyImport && ownerId && (
@@ -1635,6 +1988,7 @@ export default function Dashboard() {
           }}
         />
       )}
+      <GlobalImageViewer />
     </main>
   );
 }
@@ -1886,6 +2240,7 @@ function SetupDialog({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   error: string;
 }) {
+  const [mode, setMode] = useState<"login" | "register">("login");
   return (
     <div className="modal-backdrop">
       <div className="modal setup-modal">
@@ -1893,17 +2248,20 @@ function SetupDialog({
           <Sparkles />
         </div>
         <p className="eyebrow">WELCOME TO CARD ALPHA</p>
-        <h2>建立你的投资档案</h2>
-        <p>只需一个名称和邮箱。卡库数据将保存在你的数据库中。</p>
+        <h2>{mode === "login" ? "登录你的卡片账户" : "建立你的投资档案"}</h2>
+        <p>{mode === "login" ? "登录后继续管理卡库、估值与投资记录。" : "首次注册会建立安全账户；已有旧卡库请使用原邮箱设置密码。"}</p>
+        <div className="auth-mode-switch">
+          <button type="button" className={mode === "login" ? "active" : ""} onClick={() => setMode("login")}>登录</button>
+          <button type="button" className={mode === "register" ? "active" : ""} onClick={() => setMode("register")}>注册 / 认领旧账户</button>
+        </div>
         <form onSubmit={onSubmit}>
-          <label>
-            显示名称
-            <input
-              name="displayName"
-              placeholder="例如：Song 的卡库"
-              required
-            />
-          </label>
+          <input type="hidden" name="authMode" value={mode} />
+          {mode === "register" && (
+            <label>
+              显示名称
+              <input name="displayName" placeholder="例如：Song 的卡库" required />
+            </label>
+          )}
           <label>
             邮箱
             <input
@@ -1914,17 +2272,75 @@ function SetupDialog({
             />
           </label>
           <label>
-            基准币种
-            <select name="currency" defaultValue="CNY">
-              <option value="CNY">CNY · 人民币</option>
-              <option value="USD">USD · 美元</option>
-            </select>
+            密码
+            <input name="password" type="password" minLength={mode === "register" ? 10 : 1} autoComplete={mode === "login" ? "current-password" : "new-password"} required />
           </label>
+          {mode === "register" && (
+            <label>
+              基准币种
+              <select name="currency" defaultValue="CNY">
+                <option value="CNY">CNY · 人民币</option>
+                <option value="USD">USD · 美元</option>
+              </select>
+            </label>
+          )}
           {error && <p className="form-error">{error}</p>}
           <button className="primary-button full" type="submit">
-            进入我的组合 <ChevronRight size={17} />
+            {mode === "login" ? "登录" : "创建账户并进入"} <ChevronRight size={17} />
           </button>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function AccountDialog({
+  user,
+  sessions,
+  error,
+  onClose,
+  onChangePassword,
+  onRevokeSession,
+}: {
+  user: AuthUser;
+  sessions: AuthSession[];
+  error: string;
+  onClose: () => void;
+  onChangePassword: (event: FormEvent<HTMLFormElement>) => void;
+  onRevokeSession: (id: string) => void;
+}) {
+  return (
+    <div className="modal-backdrop">
+      <div className="modal account-modal">
+        <div className="modal-heading">
+          <div>
+            <p className="eyebrow">ACCOUNT SECURITY</p>
+            <h2>{user.display_name}</h2>
+            <p>{user.email} · {user.role === "admin" ? "管理员" : "成员"}</p>
+          </div>
+          <button className="icon-button" onClick={onClose}><X size={20} /></button>
+        </div>
+        <h3>修改密码</h3>
+        <form onSubmit={onChangePassword} className="account-password-form">
+          <input name="currentPassword" type="password" placeholder="当前密码" autoComplete="current-password" required />
+          <input name="newPassword" type="password" placeholder="新密码（至少 10 位）" minLength={10} autoComplete="new-password" required />
+          <input name="confirmPassword" type="password" placeholder="确认新密码" minLength={10} autoComplete="new-password" required />
+          <button className="primary-button" type="submit">更新密码</button>
+        </form>
+        {error && <p className="form-error">{error}</p>}
+        <h3>已登录设备</h3>
+        <div className="account-sessions">
+          {sessions.map((session) => (
+            <article key={session.id}>
+              <div>
+                <strong>{session.current ? "当前设备" : session.ip_address || "未知设备"}</strong>
+                <small>{session.user_agent || "未知浏览器"}</small>
+                <small>最近活动：{new Date(session.last_seen_at).toLocaleString("zh-CN")}</small>
+              </div>
+              {!session.current && <button className="ghost-button" onClick={() => onRevokeSession(session.id)}>退出该设备</button>}
+            </article>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -2643,11 +3059,16 @@ function ItemDetailDialog({
   analysis,
   analysisLoading,
   identityCorrections,
+  identityReview,
   applyingIdentityCorrections,
   onClose,
   onCatalogRefresh,
   onCatalogImagesApply,
+  onImageRotate,
   onIdentityRepair,
+  onIdentityConfirm,
+  onIdentityResearch,
+  onPublishValuation,
   onAnalyze,
   onPlayer,
   onValuationDetail,
@@ -2663,11 +3084,16 @@ function ItemDetailDialog({
   analysis: AnalysisResult | null;
   analysisLoading: boolean;
   identityCorrections: IdentityCorrection[];
+  identityReview: IdentityReviewDetail | null;
   applyingIdentityCorrections: boolean;
   onClose: () => void;
   onCatalogRefresh: () => void;
   onCatalogImagesApply: (side: "front" | "back" | "both") => Promise<void>;
+  onImageRotate: (side: "front" | "back", degrees: 90 | 270) => Promise<void>;
   onIdentityRepair: () => void;
+  onIdentityConfirm: (identity: ConfirmedCardIdentity, reason: string) => Promise<void>;
+  onIdentityResearch: () => void;
+  onPublishValuation: () => void;
   onAnalyze: () => void;
   onPlayer: () => void;
   onValuationDetail: () => void;
@@ -2680,6 +3106,13 @@ function ItemDetailDialog({
     "front" | "back" | "both" | null
   >(null);
   const [catalogImageMessage, setCatalogImageMessage] = useState("");
+  const [rotatingImage, setRotatingImage] = useState<"front" | "back" | null>(null);
+  const [reviewDraft, setReviewDraft] = useState<ConfirmedCardIdentity | null>(
+    identityReview?.suggested_identity ?? null,
+  );
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+  const confirmationFormRef = useRef<HTMLDivElement | null>(null);
+  const [reviewReason, setReviewReason] = useState("人工核对正反面图片及成交证据");
   const item = detail.item;
   const catalogFields = [
     ["球员", catalog?.player_name ?? item.player_name],
@@ -2714,6 +3147,15 @@ function ItemDetailDialog({
     }
   }
 
+  async function rotateImage(side: "front" | "back", degrees: 90 | 270) {
+    setRotatingImage(side);
+    try {
+      await onImageRotate(side, degrees);
+    } finally {
+      setRotatingImage(null);
+    }
+  }
+
   return (
     <div className="modal-backdrop">
       <div className="modal detail-modal card-dossier-modal">
@@ -2733,20 +3175,53 @@ function ItemDetailDialog({
 
         <div className="dossier-hero">
           <section className="dossier-gallery">
-            <div className="dossier-main-image">
-              {imageFront ? (
-                <img src={imageFront} alt={`${item.player_name} 卡片正面`} />
-              ) : (
-                <div>
-                  <strong>暂无卡片图片</strong>
-                  <span>上传正面图后会显示在这里</span>
+            <div className="dossier-card-images">
+              <figure>
+                <div className="dossier-main-image">
+                  {imageFront ? (
+                    <OpenableImage src={imageFront} alt={`${item.player_name} 卡片正面`} />
+                  ) : (
+                    <div>
+                      <strong>暂无正面图片</strong>
+                      <span>上传正面图后会显示在这里</span>
+                    </div>
+                  )}
                 </div>
-              )}
+                <figcaption>
+                  <span>正面</span>
+                  {imageFront && (
+                    <span className="image-rotation-actions">
+                      <button type="button" aria-label="正面向左旋转" disabled={rotatingImage === "front"} onClick={() => void rotateImage("front", 270)}><RotateCcw size={13} /></button>
+                      <button type="button" aria-label="正面向右旋转" disabled={rotatingImage === "front"} onClick={() => void rotateImage("front", 90)}><RotateCw size={13} /></button>
+                    </span>
+                  )}
+                </figcaption>
+              </figure>
+              <figure>
+                <div className="dossier-main-image">
+                  {imageBack ? (
+                    <OpenableImage src={imageBack} alt={`${item.player_name} 卡片背面`} />
+                  ) : (
+                    <div>
+                      <strong>暂无背面图片</strong>
+                      <span>上传背面图后会显示在这里</span>
+                    </div>
+                  )}
+                </div>
+                <figcaption>
+                  <span>背面</span>
+                  {imageBack && (
+                    <span className="image-rotation-actions">
+                      <button type="button" aria-label="背面向左旋转" disabled={rotatingImage === "back"} onClick={() => void rotateImage("back", 270)}><RotateCcw size={13} /></button>
+                      <button type="button" aria-label="背面向右旋转" disabled={rotatingImage === "back"} onClick={() => void rotateImage("back", 90)}><RotateCw size={13} /></button>
+                    </span>
+                  )}
+                </figcaption>
+              </figure>
             </div>
             <div className="dossier-gallery-foot">
-              {imageBack && <img src={imageBack} alt={`${item.player_name} 卡片背面`} />}
               <button type="button" className="ghost-button" onClick={onImage}>
-                {imageFront ? "更新图片" : "上传图片"}
+                {imageFront || imageBack ? "更新正反面图片" : "上传正反面图片"}
               </button>
             </div>
           </section>
@@ -2798,6 +3273,130 @@ function ItemDetailDialog({
             </div>
           </section>
         </div>
+
+        {identityReview && reviewDraft && (
+          <section className="dossier-section identity-review-workbench">
+            <div className="dossier-section-heading">
+              <div>
+                <p className="eyebrow">IDENTITY REVIEW / 身份复核</p>
+                <h3>逐字段确认 · 版本 {identityReview.latest_version?.version ?? 0}</h3>
+              </div>
+              <span className={`tag ${identityReview.latest_version?.review_status === "confirmed" ? "lime" : "muted"}`}>
+                {identityReview.research?.status ?? identityReview.latest_version?.review_status ?? "pending"}
+              </span>
+            </div>
+            {identityReview.review_reasons.length > 0 && (
+              <p className="identity-review-warning">冲突：{identityReview.review_reasons.join("、")}</p>
+            )}
+            <button className="secondary-button" disabled={applyingIdentityCorrections}
+              onClick={onIdentityResearch}>研究冲突并生成候选</button>
+            <div className="identity-candidate-list">
+              {identityReview.candidates.map((candidate) => {
+                const selected = selectedCandidateId === candidate.id;
+                return (
+                  <article className={`identity-candidate${selected ? " selected" : ""}`} key={candidate.id}>
+                    <div className="identity-candidate-heading">
+                      <div>
+                        <span>候选 {candidate.rank}</span>
+                        <strong>{candidate.identity.parallel_name}</strong>
+                      </div>
+                      <b>{Math.round(Number(candidate.confidence) * 100)}%</b>
+                    </div>
+                    <p className="identity-candidate-meta">
+                      {candidate.identity.season_start}-{String(candidate.identity.season_end).slice(-2)} ·
+                      卡号 #{candidate.identity.card_number} · 实编 {candidate.identity.serial_number}/{candidate.identity.serial_total}
+                    </p>
+                    <ul>
+                      {candidate.visual_reasons.map((reason) => (
+                        <li key={reason}>{({
+                          "front has large gold faceted Diamante pattern": "正面为大块金色 Diamante 多面碎冰纹",
+                          "front serial stamp reads 27/50": "正面限编钢印为 27/50",
+                          "back is card 31 and contains completed 2024-25 statistics": "背面卡号 31，包含完整 2024–25 赛季统计",
+                          "back copyright is 2025": "背面版权年份为 2025",
+                        } as Record<string, string>)[reason] ?? reason}</li>
+                      ))}
+                    </ul>
+                    <small>清单 {candidate.checklist_evidence[0]?.source_version ?? "—"} · {candidate.market_evidence.length} 笔精确成交</small>
+                    <button type="button" className={selected ? "primary-button" : "secondary-button"}
+                      disabled={!candidate.is_valid}
+                      onClick={() => {
+                        setReviewDraft(candidate.identity);
+                        setSelectedCandidateId(candidate.id);
+                        window.setTimeout(() => confirmationFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+                      }}>
+                      {selected ? "已选择此候选 ✓" : "选择并填写确认表"}
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+            <div className="identity-confirmation-form" ref={confirmationFormRef}>
+              <h4>{selectedCandidateId ? "请核对并确认所选身份" : "请先选择上方候选"}</h4>
+            <div className="identity-review-grid">
+              {([
+                ["player_name", "球员"], ["season_start", "赛季起"], ["season_end", "赛季止"],
+                ["brand_name", "品牌"], ["product_name", "产品"], ["set_name", "Set"],
+                ["card_number", "卡号"], ["insert_name", "Insert"], ["parallel_name", "平行"],
+                ["serial_number", "限编号"], ["serial_total", "限编总数"],
+                ["grade_company", "评级公司"], ["grade_value", "评级"],
+              ] as Array<[keyof ConfirmedCardIdentity, string]>).map(([field, label]) => (
+                <label key={field}>
+                  <span>{label}</span>
+                  <input
+                    value={reviewDraft[field] == null ? "" : String(reviewDraft[field])}
+                    onChange={(event) => setReviewDraft({
+                      ...reviewDraft,
+                      [field]: ["season_start", "season_end", "serial_number", "serial_total", "grade_value"].includes(field)
+                        ? (event.target.value === "" ? null : Number(event.target.value))
+                        : (event.target.value || null),
+                    })}
+                  />
+                  <small>
+                    当前：{correctionValue(identityReview.current_identity[field] as string | number | boolean | null)}
+                    {identityReview.field_provenance[field] ? " · 有来源记录" : ""}
+                  </small>
+                </label>
+              ))}
+            </div>
+            <div className="identity-review-toggles">
+              {([ ["is_rookie", "RC"], ["is_autograph", "签字"], ["is_memorabilia", "物料"] ] as Array<[keyof ConfirmedCardIdentity, string]>).map(([field, label]) => (
+                <label key={field}><input type="checkbox" checked={Boolean(reviewDraft[field])}
+                  onChange={(event) => setReviewDraft({ ...reviewDraft, [field]: event.target.checked })} /> {label}</label>
+              ))}
+            </div>
+            <label className="identity-review-reason"><span>确认理由</span><input value={reviewReason} onChange={(event) => setReviewReason(event.target.value)} /></label>
+            <div className="identity-review-sales">
+              <strong>关联成交（{identityReview.market_evidence.filter((sale) => sale.decision === "accepted").length} 接受 / {identityReview.market_evidence.filter((sale) => sale.decision === "rejected").length} 拒绝）</strong>
+              {identityReview.market_evidence.map((sale) => (
+                <a key={sale.id} href={sale.source_url} target="_blank" rel="noreferrer">
+                  <span>{sale.decision === "accepted" ? "接受" : "隔离"} · {sale.raw_title}</span>
+                  <small>{sale.reason_codes.join("、")} · {money(sale.sale_price, sale.currency)}</small>
+                </a>
+              ))}
+            </div>
+            <button className="primary-button" disabled={!selectedCandidateId || applyingIdentityCorrections || reviewReason.trim().length < 3}
+              onClick={() => void onIdentityConfirm(reviewDraft, reviewReason)}>
+              {applyingIdentityCorrections ? "确认中…" : "创建不可变确认版本"}
+            </button>
+            {identityReview.latest_version?.review_status === "confirmed" && identityReview.latest_shadow?.fair_value && (
+              <div className="identity-publish-panel">
+                <div>
+                  <span>已确认身份的影子估值</span>
+                  <strong>{money(identityReview.latest_shadow.fair_value, identityReview.latest_shadow.currency)}</strong>
+                  <small>
+                    {money(identityReview.latest_shadow.low_value ?? identityReview.latest_shadow.fair_value, identityReview.latest_shadow.currency)} – {money(identityReview.latest_shadow.high_value ?? identityReview.latest_shadow.fair_value, identityReview.latest_shadow.currency)}
+                    {" · "}{identityReview.latest_shadow.evidence_count} 笔精确成交
+                  </small>
+                </div>
+                <button type="button" className="primary-button" disabled={applyingIdentityCorrections}
+                  onClick={onPublishValuation}>
+                  {applyingIdentityCorrections ? "更新中…" : "采用此价格并更新估值"}
+                </button>
+              </div>
+            )}
+            </div>
+          </section>
+        )}
 
         {identityCorrections.length > 0 && (
           <section className="dossier-section identity-correction-section">
@@ -2886,7 +3485,7 @@ function ItemDetailDialog({
                   <div className="catalog-reference-pictures">
                     {referenceFront && (
                       <article>
-                        <img src={referenceFront} alt={`${item.player_name} 卡淘高清正面`} />
+                        <OpenableImage src={referenceFront} alt={`${item.player_name} 卡淘高清正面`} />
                         <div>
                           <span>高清正面</span>
                           <button
@@ -2902,7 +3501,7 @@ function ItemDetailDialog({
                     )}
                     {referenceBack && (
                       <article>
-                        <img src={referenceBack} alt={`${item.player_name} 卡淘高清背面`} />
+                        <OpenableImage src={referenceBack} alt={`${item.player_name} 卡淘高清背面`} />
                         <div>
                           <span>高清背面</span>
                           <button
@@ -2946,14 +3545,9 @@ function ItemDetailDialog({
                   {catalog.web_candidates.map((candidate, index) => (
                     <article key={`${candidate.title}-${index}`}>
                       {candidate.image_url && (
-                        <a
-                          className="catalog-reference-image"
-                          href={candidate.source_urls[0] ?? candidate.image_url}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          <img src={candidate.image_url} alt={`${candidate.title} 图鉴参考图`} />
-                        </a>
+                        <div className="catalog-reference-image">
+                          <OpenableImage src={candidate.image_url} alt={`${candidate.title} 图鉴参考图`} />
+                        </div>
                       )}
                       {!candidate.image_url && (
                         <div className="catalog-image-unavailable">
@@ -3095,17 +3689,22 @@ function AutomatedValuationDialog({
   detail,
   onClose,
   onRetry,
+  onIdentityReview,
 }: {
   item: PortfolioItem;
   detail: AutomatedValuationDetail;
   onClose: () => void;
   onRetry: () => Promise<void>;
+  onIdentityReview: () => Promise<void>;
 }) {
   const [retrying, setRetrying] = useState(false);
   const valuation = detail.valuation;
+  const shadow = detail.shadow_valuation;
   const evidence = valuation?.evidence;
   const comps = evidence?.comparables ?? [];
   const running = isValuationRunning(detail.status);
+  const researchStatus = String(detail.result_summary.research_status ?? "");
+  const awaitingIdentityConfirmation = researchStatus === "awaiting_confirmation";
   return (
     <div className="modal-backdrop">
       <div className="modal valuation-detail-modal">
@@ -3129,6 +3728,27 @@ function AutomatedValuationDialog({
               <p>系统正在后台处理，完成后列表中的价格会自动更新。</p>
             </div>
           </div>
+        )}
+        {shadow && (
+          <section className="valuation-method">
+            <h3>新算法影子估值</h3>
+            {shadow.fair_value ? (
+              <p>
+                {money(shadow.fair_value, shadow.currency)}（
+                {money(shadow.low_value ?? shadow.fair_value, shadow.currency)} – {" "}
+                {money(shadow.high_value ?? shadow.fair_value, shadow.currency)}）
+              </p>
+            ) : (
+              <p>证据不足，未生成价格。</p>
+            )}
+            <small>
+              {shadow.model_version} · {shadow.evidence_count} 条精确证据 · 置信度 {" "}
+              {Math.round(Number(shadow.confidence) * 100)}% · 不影响当前展示估值
+            </small>
+            {shadow.review_reasons.length > 0 && (
+              <small>需复核：{shadow.review_reasons.join("、")}</small>
+            )}
+          </section>
         )}
         {valuation && (
           <>
@@ -3278,7 +3898,7 @@ function AutomatedValuationDialog({
                         : "裸卡"}
                     </small>
                     {comp.source_url && (
-                      <a href={comp.source_url} target="_blank" rel="noreferrer">
+                      <a href={externalSourceUrl(comp.source_url)} target="_blank" rel="noreferrer">
                         查看原始成交来源
                       </a>
                     )}
@@ -3298,7 +3918,22 @@ function AutomatedValuationDialog({
             </p>
           </div>
         )}
-        {!running && (
+        {awaitingIdentityConfirmation && (
+          <div className="valuation-running-panel">
+            <ShieldAlert size={20} />
+            <div>
+              <strong>已找到候选身份，等待你确认</strong>
+              <p>
+                系统已生成 {String(detail.result_summary.candidate_count ?? 0)} 个候选；
+                确认前不会产生或覆盖价格。
+              </p>
+              <button className="primary-button" onClick={() => void onIdentityReview()}>
+                打开身份复核并确认候选
+              </button>
+            </div>
+          </div>
+        )}
+        {!running && !awaitingIdentityConfirmation && (
           <button
             className="secondary-button full"
             disabled={retrying}
@@ -3494,7 +4129,7 @@ function MarketDialog({
               </div>
               <p>{comp.listing_title || "未填写成交标题"}</p>
               {comp.source_url && (
-                <a href={comp.source_url} target="_blank" rel="noreferrer">
+                <a href={externalSourceUrl(comp.source_url)} target="_blank" rel="noreferrer">
                   查看证据
                 </a>
               )}
@@ -3645,7 +4280,7 @@ function ImagePreview({ label, url }: { label: string; url: string | null }) {
     <figure>
       <div>
         {url ? (
-          <img src={assetUrl(url) ?? undefined} alt={`卡片${label}`} />
+          <OpenableImage src={assetUrl(url) ?? undefined} alt={`卡片${label}`} />
         ) : (
           <span>暂无{label}图片</span>
         )}
@@ -3664,11 +4299,17 @@ function RecognitionDialog({
   progress,
   phase,
   error,
+  scannerJobs,
+  scannerResetToken,
+  selectedScannerJobId,
   onClose,
   onSubmit,
   onUse,
   onModeChange,
   onSelectBatch,
+  onOpenScannerJob,
+  onRetryScannerJob,
+  onDeleteScannerJob,
 }: {
   result: CardRecognition | null;
   mode: RecognitionMode;
@@ -3678,11 +4319,17 @@ function RecognitionDialog({
   progress: number;
   phase: string;
   error: string;
+  scannerJobs: ScannerRecognitionJob[];
+  scannerResetToken: number;
+  selectedScannerJobId: string | null;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onUse: (event: FormEvent<HTMLFormElement>) => void;
   onModeChange: (mode: RecognitionMode) => void;
   onSelectBatch: (index: number) => void;
+  onOpenScannerJob: (job: ScannerRecognitionJob) => void;
+  onRetryScannerJob: (jobId: string) => void;
+  onDeleteScannerJob: (jobId: string) => void;
 }) {
   const [batchFileCount, setBatchFileCount] = useState(0);
 
@@ -3710,6 +4357,18 @@ function RecognitionDialog({
           >
             单卡识别
             <small>自动判断单卡或多卡</small>
+          </button>
+          <button
+            type="button"
+            disabled={loading}
+            className={mode === "scanner" ? "active" : ""}
+            onClick={() => {
+              setBatchFileCount(0);
+              onModeChange("scanner");
+            }}
+          >
+            高拍仪扫描
+            <small>NETUM 正反面采集</small>
           </button>
           <button
             type="button"
@@ -3770,6 +4429,9 @@ function RecognitionDialog({
               </label>
             </div>
           )}
+          {mode === "scanner" && (
+            <ScannerCapture disabled={loading} resetToken={scannerResetToken} />
+          )}
           {mode === "batch" && (
             <label className="batch-file-picker">
               <span>选择多张卡片图片</span>
@@ -3794,10 +4456,12 @@ function RecognitionDialog({
           <button type="submit" className="primary-button" disabled={loading}>
             <Sparkles size={15} />
             {loading
-              ? "识别处理中…"
+              ? mode === "scanner" ? "正在裁切并入队…" : "识别处理中…"
               : mode === "batch"
                 ? "开始批量识别"
-                : "开始识别"}
+                : mode === "scanner"
+                  ? "加入后台识别队列"
+                  : "开始识别"}
           </button>
         </form>
         {loading && (
@@ -3808,11 +4472,79 @@ function RecognitionDialog({
             </div>
             <progress max="100" value={progress} />
             <small>
-              视觉识别和联网核验通常需要 10–40 秒；批量任务会按图片逐张处理。
+              {mode === "scanner"
+                ? "这里只等待本地裁切和入队；AI 识别会在后台继续执行。"
+                : "视觉识别和联网核验通常需要 10–40 秒；批量任务会按图片逐张处理。"}
             </small>
           </div>
         )}
         {error && <p className="recognition-error">{error}</p>}
+        {mode === "scanner" && scannerJobs.length > 0 && (
+          <div className="scanner-job-list">
+            <div className="batch-recognition-heading">
+              <strong>后台识别队列</strong>
+              <span>
+                {scannerJobs.filter((job) => ["queued", "running"].includes(job.status)).length} 个处理中
+              </span>
+            </div>
+            {scannerJobs.map((job) => (
+              <article
+                key={job.id}
+                className={selectedScannerJobId === job.id ? "active" : ""}
+              >
+                <div className="scanner-job-images">
+                  <OpenableImage src={assetUrl(job.front_image_url) ?? undefined} alt="自动裁切后的卡片正面" />
+                  <OpenableImage src={assetUrl(job.back_image_url) ?? undefined} alt="自动裁切后的卡片背面" />
+                </div>
+                <div className="scanner-job-copy">
+                  <strong>
+                    {job.status === "queued" && "等待识别"}
+                    {job.status === "running" && "AI 识别中"}
+                    {job.status === "succeeded" && (job.result?.player_name || "识别完成")}
+                    {job.status === "failed" && "识别失败"}
+                    {job.status === "cancelled" && "已取消"}
+                  </strong>
+                  <small>
+                    正面{job.front_transformed ? "已自动裁切" : "保留原图"} · 背面
+                    {job.back_transformed ? "已自动裁切" : "保留原图"}
+                  </small>
+                  {job.front_orientation_method !== "pending" && (
+                    <small>
+                      方向：正面 {job.front_rotation_degrees}° · 背面 {job.back_rotation_degrees}°
+                      {job.front_orientation_method === "vision_model" || job.back_orientation_method === "vision_model"
+                        ? "（视觉模型复核）"
+                        : job.front_orientation_method === "unresolved" || job.back_orientation_method === "unresolved"
+                          ? "（建议录入后人工检查）"
+                          : "（本地识别）"}
+                    </small>
+                  )}
+                  {job.error_message && <small className="candidate-conflict">{job.error_message}</small>}
+                </div>
+                <div className="scanner-job-actions">
+                  {job.status === "succeeded" && (
+                    <button type="button" className="ghost-button" onClick={() => onOpenScannerJob(job)}>
+                      查看并录入
+                    </button>
+                  )}
+                  {job.status === "failed" && job.attempt_count < 3 && (
+                    <button type="button" className="ghost-button" onClick={() => onRetryScannerJob(job.id)}>
+                      重试
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="icon-button scanner-delete-button"
+                    aria-label={`删除 ${job.result?.player_name || "扫描任务"}`}
+                    title="删除扫描任务"
+                    onClick={() => onDeleteScannerJob(job.id)}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
         {batchDrafts.length > 1 && (
           <div className="batch-recognition-list">
             <div className="batch-recognition-heading">
@@ -3820,30 +4552,33 @@ function RecognitionDialog({
               <span>{batchDrafts.length} 张待处理</span>
             </div>
             {batchDrafts.map((draft, index) => (
-              <button
-                type="button"
+              <article
                 key={`${draft.filename}-${index}`}
                 className={selectedBatchIndex === index ? "active" : ""}
-                disabled={!draft.result}
-                onClick={() => onSelectBatch(index)}
               >
                 <FileThumbnail file={draft.file} alt={`识别卡牌 ${index + 1}`} />
-                <span>{draft.filename}</span>
-                <strong>
-                  {draft.error
-                    ? `失败：${draft.error}`
-                    : draft.result?.player_name || "待人工确认"}
-                </strong>
-                <small>{draft.result ? "校正并录入" : "无法录入"}</small>
-                {draft.acquisition?.purchase_price && (
-                  <small>
-                    {draft.acquisition.currency ?? "CNY"} {draft.acquisition.purchase_price}
-                    {draft.acquisition.order_number
-                      ? ` · 订单 ${draft.acquisition.order_number}`
-                      : ""}
-                  </small>
-                )}
-              </button>
+                <button
+                  type="button"
+                  disabled={!draft.result}
+                  onClick={() => onSelectBatch(index)}
+                >
+                  <span>{draft.filename}</span>
+                  <strong>
+                    {draft.error
+                      ? `失败：${draft.error}`
+                      : draft.result?.player_name || "待人工确认"}
+                  </strong>
+                  <small>{draft.result ? "校正并录入" : "无法录入"}</small>
+                  {draft.acquisition?.purchase_price && (
+                    <small>
+                      {draft.acquisition.currency ?? "CNY"} {draft.acquisition.purchase_price}
+                      {draft.acquisition.order_number
+                        ? ` · 订单 ${draft.acquisition.order_number}`
+                        : ""}
+                    </small>
+                  )}
+                </button>
+              </article>
             ))}
           </div>
         )}
@@ -4047,6 +4782,733 @@ function RecognitionDialog({
   );
 }
 
+type ScannerCapturePreferences = {
+  zoom: number;
+  zoomCenter: { x: number; y: number };
+  brightness: number;
+  exposureMode: "auto" | "manual" | null;
+  exposureTime: number | null;
+};
+
+const SCANNER_PREFERENCES_KEY = "card-platform:scanner-capture-preferences:v1";
+const DEFAULT_SCANNER_PREFERENCES: ScannerCapturePreferences = {
+  zoom: 1,
+  zoomCenter: { x: 0.5, y: 0.5 },
+  brightness: 0.85,
+  exposureMode: null,
+  exposureTime: null,
+};
+
+function readScannerCapturePreferences(): ScannerCapturePreferences {
+  if (typeof window === "undefined") return DEFAULT_SCANNER_PREFERENCES;
+  try {
+    const stored = JSON.parse(localStorage.getItem(SCANNER_PREFERENCES_KEY) || "null") as Partial<ScannerCapturePreferences> | null;
+    const zoom = Math.min(3, Math.max(1, Number(stored?.zoom) || 1));
+    const halfVisible = 1 / (2 * zoom);
+    const centerX = Number(stored?.zoomCenter?.x);
+    const centerY = Number(stored?.zoomCenter?.y);
+    const brightness = Number(stored?.brightness);
+    const exposureTime = Number(stored?.exposureTime);
+    return {
+      zoom,
+      zoomCenter: {
+        x: Math.min(1 - halfVisible, Math.max(halfVisible, Number.isFinite(centerX) ? centerX : 0.5)),
+        y: Math.min(1 - halfVisible, Math.max(halfVisible, Number.isFinite(centerY) ? centerY : 0.5)),
+      },
+      brightness: Math.min(1, Math.max(0.55, Number.isFinite(brightness) ? brightness : 0.85)),
+      exposureMode: stored?.exposureMode === "auto" || stored?.exposureMode === "manual"
+        ? stored.exposureMode
+        : null,
+      exposureTime: Number.isFinite(exposureTime) && exposureTime > 0 ? exposureTime : null,
+    };
+  } catch {
+    return DEFAULT_SCANNER_PREFERENCES;
+  }
+}
+
+function ScannerCapture({
+  disabled,
+  resetToken,
+}: {
+  disabled: boolean;
+  resetToken: number;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const startRequestRef = useRef(0);
+  const panRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const frontInputRef = useRef<HTMLInputElement>(null);
+  const backInputRef = useRef<HTMLInputElement>(null);
+  const frontRawInputRef = useRef<HTMLInputElement>(null);
+  const backRawInputRef = useRef<HTMLInputElement>(null);
+  const initialPreferences = useMemo(readScannerCapturePreferences, []);
+  const preferencesRef = useRef<ScannerCapturePreferences>(initialPreferences);
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [deviceId, setDeviceId] = useState("");
+  const [front, setFront] = useState<File | null>(null);
+  const [back, setBack] = useState<File | null>(null);
+  const [frontResolution, setFrontResolution] = useState("");
+  const [backResolution, setBackResolution] = useState("");
+  const [cameraError, setCameraError] = useState("");
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraStatus, setCameraStatus] = useState("准备自动连接高拍仪…");
+  const [cameraStarting, setCameraStarting] = useState(false);
+  const [zoom, setZoom] = useState(preferencesRef.current.zoom);
+  const [zoomCenter, setZoomCenter] = useState(preferencesRef.current.zoomCenter);
+  const [brightness, setBrightness] = useState(preferencesRef.current.brightness);
+  const [hardwareControls, setHardwareControls] = useState<ScannerCameraControls | null>(null);
+  const [hardwareControlError, setHardwareControlError] = useState("");
+  const [hardwareControlBusy, setHardwareControlBusy] = useState(false);
+  const [exposureDraft, setExposureDraft] = useState(1);
+
+  function rememberPreferences(changes: Partial<ScannerCapturePreferences>) {
+    const next = { ...preferencesRef.current, ...changes };
+    preferencesRef.current = next;
+    try {
+      localStorage.setItem(SCANNER_PREFERENCES_KEY, JSON.stringify(next));
+    } catch {
+      // Camera controls still work when browser storage is unavailable; only
+      // cross-session restoration is skipped.
+    }
+  }
+
+  function constrainZoomCenter(center: { x: number; y: number }, nextZoom = zoom) {
+    const halfVisible = 1 / (2 * nextZoom);
+    return {
+      x: Math.min(1 - halfVisible, Math.max(halfVisible, center.x)),
+      y: Math.min(1 - halfVisible, Math.max(halfVisible, center.y)),
+    };
+  }
+
+  const stopCamera = useCallback(() => {
+    startRequestRef.current += 1;
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+    setCameraActive(false);
+  }, []);
+
+  useEffect(() => stopCamera, [stopCamera]);
+
+  useEffect(() => {
+    void startCamera();
+    // Entering scanner mode mounts this component; connect exactly once for
+    // that scanner session. Device changes explicitly reconnect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    setFront(null);
+    setBack(null);
+    setFrontResolution("");
+    setBackResolution("");
+    const empty = new DataTransfer().files;
+    if (frontInputRef.current) frontInputRef.current.files = empty;
+    if (backInputRef.current) backInputRef.current.files = empty;
+    if (frontRawInputRef.current) frontRawInputRef.current.files = empty;
+    if (backRawInputRef.current) backRawInputRef.current.files = empty;
+  }, [resetToken]);
+
+  async function startCamera(requestedDeviceId = deviceId) {
+    setCameraError("");
+    stopCamera();
+    const requestId = startRequestRef.current;
+    setCameraStarting(true);
+    setCameraStatus("正在连接摄像头…");
+    try {
+      let maximumResolutionRequested = Boolean(requestedDeviceId);
+      let stream = requestedDeviceId
+        ? await getMaximumResolutionCameraStream(requestedDeviceId)
+        : await getCameraStream({
+            audio: false,
+            video: { width: { ideal: 5120 }, height: { ideal: 3840 } },
+          });
+      const available = (await navigator.mediaDevices.enumerateDevices()).filter(
+        (device) => device.kind === "videoinput",
+      );
+      const preferred = requestedDeviceId
+        ? available.find((device) => device.deviceId === requestedDeviceId)
+        : available.find((device) => /NETUM|KornVision/i.test(device.label));
+      const activeId = stream.getVideoTracks()[0]?.getSettings().deviceId ?? "";
+      if (
+        preferred?.deviceId &&
+        (preferred.deviceId !== activeId || !maximumResolutionRequested)
+      ) {
+        stream.getTracks().forEach((track) => track.stop());
+        stream = await getMaximumResolutionCameraStream(preferred.deviceId);
+        maximumResolutionRequested = true;
+      }
+      if (requestId !== startRequestRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      streamRef.current = stream;
+      const track = stream.getVideoTracks()[0];
+      track.addEventListener("ended", () => {
+        if (streamRef.current === stream) {
+          setCameraActive(false);
+          setCameraStatus("高拍仪视频流已停止");
+        }
+      });
+      if (videoRef.current) videoRef.current.srcObject = stream;
+      setDevices(available);
+      const settings = track.getSettings();
+      const finalDeviceId = settings.deviceId ?? preferred?.deviceId ?? "";
+      if (finalDeviceId) setDeviceId(finalDeviceId);
+      const selected = available.find((device) => device.deviceId === finalDeviceId);
+      const atMaximumResolution = settings.width === 5120 && settings.height === 3840;
+      setCameraActive(true);
+      setCameraStatus(
+        `${selected?.label || track.label || "摄像头"} 已连接 · ${settings.width || "?"}×${settings.height || "?"}${atMaximumResolution ? " · 最大分辨率" : maximumResolutionRequested ? " · 已自动降级" : ""}`,
+      );
+      void refreshHardwareControls();
+    } catch (reason) {
+      if (requestId !== startRequestRef.current) return;
+      setCameraActive(false);
+      setCameraStatus("连接失败");
+      setCameraError(
+        reason instanceof DOMException && reason.name === "NotAllowedError"
+          ? "摄像头权限未开启，请在系统设置 → 隐私与安全性 → 摄像头中允许当前浏览器。"
+          : reason instanceof DOMException && reason.name === "NotReadableError"
+            ? "高拍仪正被其他程序占用，请关闭预览软件后重试。"
+          : reason instanceof Error
+            ? reason.message
+            : "无法启动高拍仪",
+      );
+    } finally {
+      if (requestId === startRequestRef.current) setCameraStarting(false);
+    }
+  }
+
+  async function refreshHardwareControls() {
+    setHardwareControlError("");
+    try {
+      let controls = await getScannerCameraControls();
+      const preferences = preferencesRef.current;
+      if (preferences.exposureMode) {
+        const requestedExposure = preferences.exposureTime === null
+          ? controls.exposure_time.current
+          : Math.min(
+              controls.exposure_time.maximum,
+              Math.max(controls.exposure_time.minimum, preferences.exposureTime),
+            );
+        const modeChanged = controls.exposure_mode !== preferences.exposureMode;
+        const exposureChanged =
+          preferences.exposureMode === "manual" &&
+          Math.round(controls.exposure_time.current) !== Math.round(requestedExposure);
+        if (modeChanged || exposureChanged) {
+          controls = await updateScannerCameraControls({
+            exposure_mode: preferences.exposureMode,
+            exposure_time: preferences.exposureMode === "manual" ? requestedExposure : undefined,
+          });
+        }
+      }
+      setHardwareControls(controls);
+      setExposureDraft(controls.exposure_time.current);
+    } catch (reason) {
+      setHardwareControls(null);
+      setHardwareControlError(
+        reason instanceof Error ? reason.message : "无法读取高拍仪硬件曝光设置",
+      );
+    }
+  }
+
+  async function changeExposureMode(mode: "auto" | "manual") {
+    setHardwareControlBusy(true);
+    setHardwareControlError("");
+    try {
+      const controls = await updateScannerCameraControls({ exposure_mode: mode });
+      setHardwareControls(controls);
+      setExposureDraft(controls.exposure_time.current);
+      rememberPreferences({
+        exposureMode: controls.exposure_mode,
+        exposureTime: controls.exposure_time.current,
+      });
+    } catch (reason) {
+      setHardwareControlError(reason instanceof Error ? reason.message : "曝光模式切换失败");
+    } finally {
+      setHardwareControlBusy(false);
+    }
+  }
+
+  async function applyManualExposure() {
+    setHardwareControlBusy(true);
+    setHardwareControlError("");
+    try {
+      const controls = await updateScannerCameraControls({
+        exposure_mode: "manual",
+        exposure_time: exposureDraft,
+      });
+      setHardwareControls(controls);
+      setExposureDraft(controls.exposure_time.current);
+      rememberPreferences({
+        exposureMode: "manual",
+        exposureTime: controls.exposure_time.current,
+      });
+    } catch (reason) {
+      setHardwareControlError(reason instanceof Error ? reason.message : "手动曝光设置失败");
+    } finally {
+      setHardwareControlBusy(false);
+    }
+  }
+
+  async function capture(side: "front" | "back") {
+    const video = videoRef.current;
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!video?.videoWidth || !video.videoHeight || !track) {
+      setCameraError("视频画面尚未就绪，请等待预览出现后再拍摄。");
+      return;
+    }
+    setCameraError("");
+    let captured: Awaited<ReturnType<typeof captureMaximumResolutionFrame>>;
+    try {
+      captured = await captureMaximumResolutionFrame(video, track);
+    } catch (reason) {
+      setCameraError(reason instanceof Error ? reason.message : "最高分辨率拍摄失败，请重试。");
+      return;
+    }
+    const canvas = document.createElement("canvas");
+    const originalWidth = captured.bitmap.width;
+    const originalHeight = captured.bitmap.height;
+    const sourceWidth = captured.bitmap.width / zoom;
+    const sourceHeight = captured.bitmap.height / zoom;
+    const sourceX = Math.min(
+      captured.bitmap.width - sourceWidth,
+      Math.max(0, zoomCenter.x * captured.bitmap.width - sourceWidth / 2),
+    );
+    const sourceY = Math.min(
+      captured.bitmap.height - sourceHeight,
+      Math.max(0, zoomCenter.y * captured.bitmap.height - sourceHeight / 2),
+    );
+    canvas.width = Math.max(1, Math.round(sourceWidth));
+    canvas.height = Math.max(1, Math.round(sourceHeight));
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    context.filter = `brightness(${brightness})`;
+    let rawBlob = captured.sourceBlob;
+    let rawCanvas: HTMLCanvasElement | null = null;
+    try {
+      if (!rawBlob) {
+        rawCanvas = document.createElement("canvas");
+        rawCanvas.width = originalWidth;
+        rawCanvas.height = originalHeight;
+        const rawContext = rawCanvas.getContext("2d");
+        if (!rawContext) return;
+        rawContext.drawImage(captured.bitmap, 0, 0);
+      }
+      context.drawImage(
+        captured.bitmap,
+        sourceX,
+        sourceY,
+        sourceWidth,
+        sourceHeight,
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      );
+    } finally {
+      captured.bitmap.close();
+    }
+    if (!rawBlob && rawCanvas) {
+      rawBlob = await new Promise<Blob | null>((resolve) =>
+        rawCanvas?.toBlob(resolve, "image/jpeg", 0.97),
+      );
+    }
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.95));
+    if (!blob || !rawBlob) return;
+    const file = new File([blob], `netum-${side}-${Date.now()}.jpg`, {
+      type: "image/jpeg",
+    });
+    const rawType = rawBlob.type || "image/jpeg";
+    const rawExtension = rawType === "image/png" ? "png" : rawType === "image/webp" ? "webp" : "jpg";
+    const rawFile = new File([rawBlob], `netum-${side}-raw-${Date.now()}.${rawExtension}`, {
+      type: rawType,
+    });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    const rawTransfer = new DataTransfer();
+    rawTransfer.items.add(rawFile);
+    const resolution = `原片 ${originalWidth}×${originalHeight} · 识别图 ${canvas.width}×${canvas.height}${captured.method === "video-frame" ? "（视频帧）" : ""}`;
+    if (side === "front") {
+      setFront(file);
+      setFrontResolution(resolution);
+      if (frontInputRef.current) frontInputRef.current.files = transfer.files;
+      if (frontRawInputRef.current) frontRawInputRef.current.files = rawTransfer.files;
+    } else {
+      setBack(file);
+      setBackResolution(resolution);
+      if (backInputRef.current) backInputRef.current.files = transfer.files;
+      if (backRawInputRef.current) backRawInputRef.current.files = rawTransfer.files;
+    }
+  }
+
+  function moveZoomViewport(event: React.PointerEvent<HTMLDivElement>) {
+    const previous = panRef.current;
+    if (!previous || previous.pointerId !== event.pointerId || zoom <= 1) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    if (!bounds.width || !bounds.height) return;
+    const deltaX = event.clientX - previous.x;
+    const deltaY = event.clientY - previous.y;
+    panRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+    setZoomCenter((current) => {
+      const nextCenter = constrainZoomCenter({
+        x: current.x - deltaX / (bounds.width * zoom),
+        y: current.y - deltaY / (bounds.height * zoom),
+      });
+      preferencesRef.current = { ...preferencesRef.current, zoomCenter: nextCenter };
+      return nextCenter;
+    });
+  }
+
+  const previewTranslateX = -(zoomCenter.x - 0.5) * zoom * 100;
+  const previewTranslateY = -(zoomCenter.y - 0.5) * zoom * 100;
+
+  return (
+    <div className="scanner-capture">
+      <div className="scanner-toolbar">
+        {devices.length > 0 && (
+          <select
+            aria-label="摄像头设备"
+            value={deviceId}
+            disabled={disabled || cameraStarting}
+            onChange={(event) => {
+              const next = event.currentTarget.value;
+              setDeviceId(next);
+              void startCamera(next);
+            }}
+          >
+            {devices.map((device, index) => (
+              <option key={device.deviceId} value={device.deviceId}>
+                {device.label || `摄像头 ${index + 1}`}
+              </option>
+            ))}
+          </select>
+        )}
+        {!cameraStarting && !cameraActive && cameraError && (
+          <button type="button" className="ghost-button" onClick={() => void startCamera()} disabled={disabled}>
+            <Camera size={15} /> 重新连接
+          </button>
+        )}
+      </div>
+      <div
+        className={zoom > 1 ? "scanner-video-stage zoomed" : "scanner-video-stage"}
+        onPointerDown={(event) => {
+          if (zoom <= 1) return;
+          event.currentTarget.setPointerCapture(event.pointerId);
+          panRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+        }}
+        onPointerMove={moveZoomViewport}
+        onPointerUp={(event) => {
+          if (panRef.current?.pointerId === event.pointerId) {
+            panRef.current = null;
+            rememberPreferences({ zoomCenter: preferencesRef.current.zoomCenter });
+          }
+        }}
+        onPointerCancel={() => {
+          panRef.current = null;
+          rememberPreferences({ zoomCenter: preferencesRef.current.zoomCenter });
+        }}
+      >
+        <video
+          ref={videoRef}
+          className="scanner-video"
+          style={{
+            transform: `translate(${previewTranslateX}%, ${previewTranslateY}%) scale(${zoom})`,
+            filter: `brightness(${brightness})`,
+          }}
+          autoPlay
+          playsInline
+          muted
+        />
+        <span className="scanner-frame-guide" aria-hidden="true" />
+      </div>
+      <div className="scanner-zoom-controls">
+        <label htmlFor="scanner-zoom">数字变焦</label>
+        <input
+          id="scanner-zoom"
+          type="range"
+          min="1"
+          max="3"
+          step="0.1"
+          value={zoom}
+          disabled={disabled || !cameraActive}
+          onChange={(event) => {
+            const nextZoom = Number(event.currentTarget.value);
+            setZoom(nextZoom);
+            setZoomCenter((current) => {
+              const nextCenter = constrainZoomCenter(current, nextZoom);
+              rememberPreferences({ zoom: nextZoom, zoomCenter: nextCenter });
+              return nextCenter;
+            });
+          }}
+        />
+        <strong>{zoom.toFixed(1)}×</strong>
+        <button
+          type="button"
+          className="ghost-button"
+          disabled={disabled || (zoom === 1 && zoomCenter.x === 0.5 && zoomCenter.y === 0.5)}
+          onClick={() => {
+            setZoom(1);
+            setZoomCenter({ x: 0.5, y: 0.5 });
+            rememberPreferences({ zoom: 1, zoomCenter: { x: 0.5, y: 0.5 } });
+          }}
+        >
+          复位取景
+        </button>
+      </div>
+      {hardwareControls && (
+        <div className="scanner-hardware-controls">
+          <div className="scanner-control-heading">
+            <div>
+              <strong>硬件曝光</strong>
+              <small>{hardwareControls.device_name} · 数值越小画面越暗</small>
+            </div>
+            <select
+              aria-label="曝光模式"
+              value={hardwareControls.exposure_mode}
+              disabled={disabled || hardwareControlBusy}
+              onChange={(event) =>
+                void changeExposureMode(event.currentTarget.value as "auto" | "manual")
+              }
+            >
+              <option value="auto">自动曝光</option>
+              <option value="manual">手动曝光</option>
+            </select>
+          </div>
+          <div className="scanner-exposure-slider">
+            <label htmlFor="scanner-exposure">曝光时间</label>
+            <input
+              id="scanner-exposure"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value={exposureToSlider(
+                exposureDraft,
+                hardwareControls.exposure_time.minimum,
+                hardwareControls.exposure_time.maximum,
+              )}
+              disabled={
+                disabled || hardwareControlBusy || hardwareControls.exposure_mode !== "manual"
+              }
+              onChange={(event) =>
+                setExposureDraft(
+                  sliderToExposure(
+                    Number(event.currentTarget.value),
+                    hardwareControls.exposure_time.minimum,
+                    hardwareControls.exposure_time.maximum,
+                    hardwareControls.exposure_time.step,
+                  ),
+                )
+              }
+            />
+            <strong>{Math.round(exposureDraft)}</strong>
+            <button
+              type="button"
+              className="ghost-button"
+              disabled={
+                disabled || hardwareControlBusy || hardwareControls.exposure_mode !== "manual"
+              }
+              onClick={() => void applyManualExposure()}
+            >
+              {hardwareControlBusy ? "设置中…" : "应用曝光"}
+            </button>
+          </div>
+        </div>
+      )}
+      {hardwareControlError && (
+        <small className="scanner-control-error">
+          硬件曝光不可用：{hardwareControlError}。仍可使用下面的软件亮度。
+        </small>
+      )}
+      <div className="scanner-zoom-controls scanner-brightness-controls">
+        <label htmlFor="scanner-brightness">画面亮度</label>
+        <input
+          id="scanner-brightness"
+          type="range"
+          min="0.55"
+          max="1"
+          step="0.05"
+          value={brightness}
+          disabled={disabled || !cameraActive}
+          onChange={(event) => {
+            const nextBrightness = Number(event.currentTarget.value);
+            setBrightness(nextBrightness);
+            rememberPreferences({ brightness: nextBrightness });
+          }}
+        />
+        <strong>{Math.round(brightness * 100)}%</strong>
+        <button
+          type="button"
+          className="ghost-button"
+          disabled={disabled || brightness === 0.85}
+          onClick={() => {
+            setBrightness(0.85);
+            rememberPreferences({ brightness: 0.85 });
+          }}
+        >
+          恢复默认
+        </button>
+      </div>
+      <small className="scanner-placement-hint">
+        放卡方向不限；放大后可按住画面拖动取景，系统会裁切、透视矫正并自动转正。
+      </small>
+      <small className={cameraActive ? "scanner-status active" : "scanner-status"}>
+        {cameraStatus}
+      </small>
+      {cameraError && <p className="recognition-error">{cameraError}</p>}
+      <div className="scanner-shots">
+        <button type="button" className="ghost-button" disabled={disabled || !cameraActive} onClick={() => void capture("front")}>
+          拍摄正面
+        </button>
+        <span>{front ? `正面已拍摄 · ${frontResolution}` : "等待正面"}</span>
+        <button type="button" className="ghost-button" disabled={disabled || !cameraActive} onClick={() => void capture("back")}>
+          拍摄背面
+        </button>
+        <span>{back ? `背面已拍摄 · ${backResolution}` : "等待背面"}</span>
+      </div>
+      <input ref={frontInputRef} name="frontImage" type="file" className="scanner-file-input" required />
+      <input ref={backInputRef} name="backImage" type="file" className="scanner-file-input" required />
+      <input ref={frontRawInputRef} name="frontRawImage" type="file" className="scanner-file-input" />
+      <input ref={backRawInputRef} name="backRawImage" type="file" className="scanner-file-input" />
+    </div>
+  );
+}
+
+const NETUM_CAPTURE_RESOLUTIONS = [
+  [5120, 3840],
+  [4904, 3678],
+  [4624, 3468],
+] as const;
+
+type BrowserImageCapture = {
+  getPhotoCapabilities: () => Promise<{
+    imageWidth?: { max: number };
+    imageHeight?: { max: number };
+  }>;
+  takePhoto: (settings?: { imageWidth?: number; imageHeight?: number }) => Promise<Blob>;
+};
+
+type BrowserImageCaptureConstructor = new (track: MediaStreamTrack) => BrowserImageCapture;
+
+async function captureMaximumResolutionFrame(
+  video: HTMLVideoElement,
+  track: MediaStreamTrack,
+): Promise<{
+  bitmap: ImageBitmap;
+  method: "photo" | "video-frame";
+  sourceBlob: Blob | null;
+}> {
+  const ImageCaptureApi = (
+    window as typeof window & { ImageCapture?: BrowserImageCaptureConstructor }
+  ).ImageCapture;
+  if (ImageCaptureApi) {
+    try {
+      const capture = new ImageCaptureApi(track);
+      const capabilities = await capture.getPhotoCapabilities();
+      const imageWidth = capabilities.imageWidth?.max;
+      const imageHeight = capabilities.imageHeight?.max;
+      const photo = await capture.takePhoto(
+        imageWidth && imageHeight ? { imageWidth, imageHeight } : undefined,
+      );
+      const bitmap = await createImageBitmap(photo);
+      if (bitmap.width >= video.videoWidth && bitmap.height >= video.videoHeight) {
+        return { bitmap, method: "photo", sourceBlob: photo };
+      }
+      bitmap.close();
+    } catch {
+      // Some Chromium/macOS UVC combinations expose ImageCapture but reject
+      // still-photo settings. The negotiated maximum-resolution video frame is
+      // the safe fallback and still preserves the original sensor pixels.
+    }
+  }
+  return { bitmap: await createImageBitmap(video), method: "video-frame", sourceBlob: null };
+}
+
+async function getMaximumResolutionCameraStream(deviceId: string): Promise<MediaStream> {
+  for (const [width, height] of NETUM_CAPTURE_RESOLUTIONS) {
+    try {
+      return await getCameraStream({
+        audio: false,
+        video: {
+          deviceId: { exact: deviceId },
+          width: { exact: width },
+          height: { exact: height },
+        },
+      });
+    } catch (reason) {
+      if (
+        reason instanceof DOMException &&
+        !["OverconstrainedError", "ConstraintNotSatisfiedError"].includes(reason.name)
+      ) {
+        throw reason;
+      }
+    }
+  }
+  return getCameraStream({
+    audio: false,
+    video: {
+      deviceId: { exact: deviceId },
+      width: { ideal: 5120 },
+      height: { ideal: 3840 },
+    },
+  });
+}
+
+function exposureToSlider(value: number, minimum: number, maximum: number) {
+  const safeMinimum = Math.max(0.001, minimum);
+  const safeMaximum = Math.max(safeMinimum, maximum);
+  const safeValue = Math.min(safeMaximum, Math.max(safeMinimum, value));
+  if (safeMaximum === safeMinimum) return 0;
+  return Math.round(
+    ((Math.log(safeValue) - Math.log(safeMinimum)) /
+      (Math.log(safeMaximum) - Math.log(safeMinimum))) *
+      100,
+  );
+}
+
+function sliderToExposure(value: number, minimum: number, maximum: number, step: number) {
+  const safeMinimum = Math.max(0.001, minimum);
+  const safeMaximum = Math.max(safeMinimum, maximum);
+  const raw = Math.exp(
+    Math.log(safeMinimum) + (value / 100) * (Math.log(safeMaximum) - Math.log(safeMinimum)),
+  );
+  const safeStep = Math.max(0.001, step);
+  return Math.min(maximum, Math.max(minimum, Math.round(raw / safeStep) * safeStep));
+}
+
+function getCameraStream(constraints: MediaStreamConstraints): Promise<MediaStream> {
+  return new Promise((resolve, reject) => {
+    let finished = false;
+    const timer = window.setTimeout(() => {
+      finished = true;
+      reject(
+        new Error(
+          "等待摄像头授权超时。请点击浏览器地址栏左侧的摄像头图标，允许访问后重新连接。",
+        ),
+      );
+    }, 15000);
+    navigator.mediaDevices.getUserMedia(constraints).then(
+      (stream) => {
+        if (finished) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        finished = true;
+        window.clearTimeout(timer);
+        resolve(stream);
+      },
+      (reason) => {
+        if (finished) return;
+        finished = true;
+        window.clearTimeout(timer);
+        reject(reason);
+      },
+    );
+  });
+}
+
 function FileThumbnail({ file, alt }: { file: File | null; alt: string }) {
   const [url, setUrl] = useState<string | null>(null);
 
@@ -4060,5 +5522,5 @@ function FileThumbnail({ file, alt }: { file: File | null; alt: string }) {
     return () => URL.revokeObjectURL(nextUrl);
   }, [file]);
 
-  return url ? <img className="recognized-crop" src={url} alt={alt} /> : <span>无裁剪图</span>;
+  return url ? <OpenableImage className="recognized-crop" src={url} alt={alt} /> : <span>无裁剪图</span>;
 }

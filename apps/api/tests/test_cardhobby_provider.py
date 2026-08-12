@@ -346,6 +346,37 @@ def test_one_and_one_queries_keep_short_serial_product_search() -> None:
     assert "Walker Kessler One and One" in queries
 
 
+def test_mosaic_basketball_catalog_name_expands_to_seller_aliases() -> None:
+    identity = {
+        "player_name": "Jaren Jackson Jr.",
+        "season_start": 2020,
+        "season_end": 2021,
+        "brand_name": "Panini",
+        "product_name": "Mosaic Basketball",
+        "card_number": "29",
+        "insert_name": "Prizm",
+        "parallel_name": "Mosaic Prizm",
+        "serial_total": 88,
+        "is_autograph": False,
+        "is_patch": False,
+    }
+    queries = CardHobbyProvider.build_queries(identity)
+    assert any("Mosaic" in query and "88编" in query for query in queries)
+    assert any("马赛克" in query for query in queries)
+
+    score, conflicts = assess_cardhobby_match(
+        identity,
+        _sale(
+            title=(
+                "2020-21 Panini Prizm Jaren Jackson Jr. "
+                "Prizm系列 蓝波纹折"
+            )
+        ),
+    )
+    assert score == 0
+    assert "标题未命中目标产品系列" in conflicts
+
+
 def test_parse_market_item_uses_final_price_and_shipping() -> None:
     sale = CardHobbyProvider.parse_market_item(
         {
@@ -366,7 +397,7 @@ def test_parse_market_item_uses_final_price_and_shipping() -> None:
     assert sale.shipping_price == Decimal("18")
     assert sale.bid_count == 3
     assert sale.evidence_level == "ended_auction"
-    assert sale.source_url.endswith("/market/item/124126863")
+    assert sale.source_url == "https://cardhobby.com.cn/Market/Item/124126863"
 
 
 def test_parse_market_item_rejects_active_or_zero_bid_rows() -> None:

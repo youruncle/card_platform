@@ -121,7 +121,7 @@ class MarketDataRepository:
                 fetched_at, first_seen_at, last_seen_at
             FROM market_evidence
             WHERE identity_fingerprint = 'legacy:' || %s::text
-            ON CONFLICT (identity_fingerprint, provider_code, external_sale_id)
+            ON CONFLICT (provider_code, external_sale_id)
             DO NOTHING
             """,
             (fingerprint, card_definition_id),
@@ -249,7 +249,7 @@ class MarketDataRepository:
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s
                 )
-                ON CONFLICT (identity_fingerprint, provider_code, external_sale_id)
+                ON CONFLICT (provider_code, external_sale_id)
                 DO UPDATE SET
                     raw_title = EXCLUDED.raw_title,
                     sale_price = EXCLUDED.sale_price,
@@ -391,7 +391,9 @@ class MarketDataRepository:
             """,
             (freshness.value, error, ttl_seconds, error, fingerprint),
         )
-        if freshness != Freshness.SOURCE_LIMITED:
+        # Never create a valuation -> refresh -> valuation loop for rare cards.
+        # Automatic recalculation is warranted only once enough evidence exists.
+        if freshness == Freshness.FRESH:
             await connection.execute(
                 """
                 INSERT INTO valuation_job (collection_item_id, status)

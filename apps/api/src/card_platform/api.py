@@ -6,6 +6,7 @@ from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
 from card_platform.analysis_repository import AnalysisRepository
+from card_platform.auth import AuthenticatedUser, current_user, require_admin
 from card_platform.ai_service import AIAdvisoryService
 from card_platform.card_search_service import CardSearchService
 from card_platform.cardhobby_import import CardHobbyImportService
@@ -57,11 +58,10 @@ from card_platform.schemas import (
     ImageUploadResult,
     PotentialInput,
     TransactionCreate,
-    UserCreate,
     ValuationCreate,
 )
 
-router = APIRouter(prefix="/v1")
+router = APIRouter(prefix="/v1", dependencies=[Depends(current_user)])
 repository = PortfolioRepository()
 analysis_repository = AnalysisRepository()
 intelligence_repository = IntelligenceRepository()
@@ -83,23 +83,16 @@ def translate_domain_error(error: Exception) -> HTTPException:
     return HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@router.post("/users", response_model=CreatedResource, status_code=status.HTTP_201_CREATED)
-async def create_user(
-    payload: UserCreate,
-    connection: AsyncConnection = Depends(get_connection),
-) -> CreatedResource:
-    user_id = await repository.create_user(connection, payload)
-    return CreatedResource(id=user_id)
-
-
 @router.post(
     "/portfolio/items", response_model=CreatedResource, status_code=status.HTTP_201_CREATED
 )
 async def create_item(
     payload: CollectionItemCreate,
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> CreatedResource:
     try:
+        payload = payload.model_copy(update={"owner_id": user.id})
         item_id = await repository.create_item(connection, payload)
     except NotFoundError as error:
         raise translate_domain_error(error) from error
@@ -113,11 +106,12 @@ async def create_item(
 )
 async def preview_cardhobby_import(
     payload: CardHobbyImportPreviewRequest,
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> CardHobbyImportPreviewResult:
     try:
         return await CardHobbyImportService(get_settings(), repository).preview(
-            connection, payload
+            connection, payload.model_copy(update={"owner_id": user.id})
         )
     except (NotFoundError, ConflictError) as error:
         raise translate_domain_error(error) from error
@@ -130,12 +124,23 @@ async def preview_cardhobby_import(
 async def confirm_cardhobby_import(
     batch_id: UUID,
     payload: CardHobbyImportConfirmRequest,
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> CardHobbyImportConfirmResult:
     try:
         imported, skipped = await CardHobbyImportService(
             get_settings(), repository
-        ).confirm(connection, batch_id, payload.owner_id, payload.items)
+        ).confirm(
+            connection,
+            batch_id,
+            user.id,
+            [
+                item.model_copy(
+                    update={"item": item.item.model_copy(update={"owner_id": user.id})}
+                )
+                for item in payload.items
+            ],
+        )
     except (NotFoundError, ConflictError) as error:
         raise translate_domain_error(error) from error
     return CardHobbyImportConfirmResult(
@@ -146,28 +151,31 @@ async def confirm_cardhobby_import(
 
 @router.get("/portfolio/items", response_model=list[PortfolioItem])
 async def list_items(
-    owner_id: UUID,
+    owner_id: UUID | None = None,
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> list[PortfolioItem]:
-    return await repository.list_items(connection, owner_id)
+    return await repository.list_items(connection, user.id)
 
 
 @router.get("/portfolio/trash", response_model=list[PortfolioItem])
 async def list_deleted_items(
-    owner_id: UUID,
+    owner_id: UUID | None = None,
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> list[PortfolioItem]:
-    return await repository.list_deleted_items(connection, owner_id)
+    return await repository.list_deleted_items(connection, user.id)
 
 
 @router.delete("/portfolio/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_item(
     item_id: UUID,
     payload: CollectionItemDelete,
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> None:
     try:
-        await repository.soft_delete_item(connection, item_id, payload.owner_id, payload.reason)
+        await repository.soft_delete_item(connection, item_id, user.id, payload.reason)
     except NotFoundError as error:
         raise translate_domain_error(error) from error
 
@@ -179,10 +187,11 @@ async def delete_item(
 async def restore_item(
     item_id: UUID,
     payload: CollectionItemOwnerAction,
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> None:
     try:
-        await repository.restore_item(connection, item_id, payload.owner_id)
+        await repository.restore_item(connection, item_id, user.id)
     except NotFoundError as error:
         raise translate_domain_error(error) from error
 
@@ -194,11 +203,12 @@ async def restore_item(
 async def permanently_delete_item(
     item_id: UUID,
     payload: CollectionItemOwnerAction,
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> None:
     try:
         image_urls = await repository.permanently_delete_item(
-            connection, item_id, payload.owner_id
+            connection, item_id, user.id
         )
     except (NotFoundError, ConflictError) as error:
         raise translate_domain_error(error) from error
@@ -208,11 +218,12 @@ async def permanently_delete_item(
 @router.get("/portfolio/items/{item_id}/detail", response_model=PortfolioItemDetail)
 async def get_item_detail(
     item_id: UUID,
-    owner_id: UUID,
+    owner_id: UUID | None = None,
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> PortfolioItemDetail:
     try:
-        return await repository.item_detail(connection, owner_id, item_id)
+        return await repository.item_detail(connection, user.id, item_id)
     except NotFoundError as error:
         raise translate_domain_error(error) from error
 
@@ -223,12 +234,13 @@ async def get_item_detail(
 )
 async def enrich_item_catalog(
     item_id: UUID,
-    owner_id: UUID,
+    owner_id: UUID | None = None,
     force_refresh: bool = False,
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> CardRecognitionResult:
     try:
-        detail = await repository.item_detail(connection, owner_id, item_id)
+        detail = await repository.item_detail(connection, user.id, item_id)
     except NotFoundError as error:
         raise translate_domain_error(error) from error
     if not force_refresh:
@@ -281,11 +293,12 @@ async def enrich_item_catalog(
 
 @router.get("/portfolio/summary", response_model=PortfolioSummary)
 async def portfolio_summary(
-    owner_id: UUID,
+    owner_id: UUID | None = None,
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> PortfolioSummary:
     try:
-        return await repository.summary(connection, owner_id)
+        return await repository.summary(connection, user.id)
     except NotFoundError as error:
         raise translate_domain_error(error) from error
 
@@ -297,13 +310,14 @@ async def portfolio_summary(
 )
 async def add_transaction(
     item_id: UUID,
-    owner_id: UUID,
     payload: TransactionCreate,
+    owner_id: UUID | None = None,
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> CreatedResource:
     try:
         transaction_id = await repository.add_transaction(
-            connection, item_id, owner_id, payload
+            connection, item_id, user.id, payload
         )
     except (NotFoundError, PositionError) as error:
         raise translate_domain_error(error) from error
@@ -317,12 +331,13 @@ async def add_transaction(
 )
 async def add_valuation(
     item_id: UUID,
-    owner_id: UUID,
     payload: ValuationCreate,
+    owner_id: UUID | None = None,
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> CreatedResource:
     try:
-        valuation_id = await repository.add_valuation(connection, item_id, owner_id, payload)
+        valuation_id = await repository.add_valuation(connection, item_id, user.id, payload)
     except NotFoundError as error:
         raise translate_domain_error(error) from error
     return CreatedResource(id=valuation_id)
@@ -336,10 +351,13 @@ async def add_valuation(
 async def create_market_comp(
     item_id: UUID,
     payload: MarketCompCreate,
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> CreatedResource:
     try:
-        comp_id = await market_repository.create_comp(connection, item_id, payload)
+        comp_id = await market_repository.create_comp(
+            connection, item_id, payload.model_copy(update={"owner_id": user.id})
+        )
     except NotFoundError as error:
         raise translate_domain_error(error) from error
     except ValueError as error:
@@ -353,11 +371,12 @@ async def create_market_comp(
 @router.get("/portfolio/items/{item_id}/market-comps", response_model=list[MarketCompView])
 async def list_market_comps(
     item_id: UUID,
-    owner_id: UUID,
+    owner_id: UUID | None = None,
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> list[MarketCompView]:
     try:
-        return await market_repository.list_comps(connection, item_id, owner_id)
+        return await market_repository.list_comps(connection, item_id, user.id)
     except NotFoundError as error:
         raise translate_domain_error(error) from error
 
@@ -369,10 +388,13 @@ async def list_market_comps(
 async def create_market_estimate(
     item_id: UUID,
     payload: MarketEstimateCreate,
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> MarketEstimateResult:
     try:
-        return await market_repository.estimate(connection, item_id, payload)
+        return await market_repository.estimate(
+            connection, item_id, payload.model_copy(update={"owner_id": user.id})
+        )
     except NotFoundError as error:
         raise translate_domain_error(error) from error
 
@@ -383,11 +405,12 @@ async def create_market_estimate(
 )
 async def get_automated_valuation(
     item_id: UUID,
-    owner_id: UUID,
+    owner_id: UUID | None = None,
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> AutomatedValuationDetail:
     try:
-        return await market_repository.automated_detail(connection, item_id, owner_id)
+        return await market_repository.automated_detail(connection, item_id, user.id)
     except NotFoundError as error:
         raise translate_domain_error(error) from error
 
@@ -399,11 +422,12 @@ async def get_automated_valuation(
 )
 async def retry_automated_valuation(
     item_id: UUID,
-    owner_id: UUID,
+    owner_id: UUID | None = None,
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> CreatedResource:
     try:
-        job_id = await market_repository.enqueue_valuation(connection, item_id, owner_id)
+        job_id = await market_repository.enqueue_valuation(connection, item_id, user.id)
     except NotFoundError as error:
         raise translate_domain_error(error) from error
     return CreatedResource(id=job_id)
@@ -416,14 +440,15 @@ async def retry_automated_valuation(
 )
 async def upload_item_image(
     item_id: UUID,
-    owner_id: UUID,
     side: str,
+    owner_id: UUID | None = None,
     image: UploadFile = File(...),
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> ImageUploadResult:
     try:
         return await ImageStorageService(get_settings()).save_item_image(
-            connection, item_id, owner_id, side, image
+            connection, item_id, user.id, side, image
         )
     except NotFoundError as error:
         raise translate_domain_error(error) from error
@@ -432,13 +457,38 @@ async def upload_item_image(
 
 
 @router.post(
+    "/portfolio/items/{item_id}/images/{side}/rotate",
+    response_model=ImageUploadResult,
+)
+async def rotate_item_image(
+    item_id: UUID,
+    side: str,
+    degrees: int = 90,
+    user: AuthenticatedUser = Depends(current_user),
+    connection: AsyncConnection = Depends(get_connection),
+) -> ImageUploadResult:
+    """Apply an explicit correction and generate a cache-safe image URL."""
+    try:
+        return await ImageStorageService(get_settings()).rotate_item_image(
+            connection, item_id, user.id, side, degrees
+        )
+    except NotFoundError as error:
+        raise translate_domain_error(error) from error
+    except InvalidImageError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)
+        ) from error
+
+
+@router.post(
     "/portfolio/items/{item_id}/catalog-images/apply",
     response_model=list[ImageUploadResult],
 )
 async def apply_catalog_images(
     item_id: UUID,
-    owner_id: UUID,
+    owner_id: UUID | None = None,
     side: str = "both",
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> list[ImageUploadResult]:
     if side not in {"front", "back", "both"}:
@@ -447,7 +497,7 @@ async def apply_catalog_images(
             detail="side must be front, back, or both",
         )
     try:
-        await repository.item_detail(connection, owner_id, item_id)
+        await repository.item_detail(connection, user.id, item_id)
     except NotFoundError as error:
         raise translate_domain_error(error) from error
     snapshot_result = await connection.execute(
@@ -483,7 +533,7 @@ async def apply_catalog_images(
                 await storage.save_remote_item_image(
                     connection,
                     item_id,
-                    owner_id,
+                    user.id,
                     image_side,
                     urls[image_side] or "",
                 )
@@ -576,10 +626,13 @@ async def recognize_card_auto(image: UploadFile = File(...)) -> SheetCardRecogni
 async def analyze_item(
     item_id: UUID,
     payload: CardAnalysisCreate,
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> CardAnalysisResult:
     try:
-        return await analysis_repository.analyze_item(connection, item_id, payload)
+        return await analysis_repository.analyze_item(
+            connection, item_id, payload.model_copy(update={"owner_id": user.id})
+        )
     except NotFoundError as error:
         raise translate_domain_error(error) from error
 
@@ -592,10 +645,13 @@ async def analyze_item(
 async def automatically_analyze_item(
     item_id: UUID,
     payload: AutoCardAnalysisCreate,
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> CardAnalysisResult:
     try:
-        return await analysis_repository.automatically_analyze_item(connection, item_id, payload)
+        return await analysis_repository.automatically_analyze_item(
+            connection, item_id, payload.model_copy(update={"owner_id": user.id})
+        )
     except NotFoundError as error:
         raise translate_domain_error(error) from error
 
@@ -603,9 +659,21 @@ async def automatically_analyze_item(
 @router.post("/analyses/{analysis_id}/narrative", response_model=AINarrativeResult)
 async def generate_ai_narrative(
     analysis_id: UUID,
+    user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
 ) -> AINarrativeResult:
     try:
+        owned = await connection.execute(
+            """
+            SELECT 1
+            FROM analysis_request ar
+            JOIN collection_item ci ON ci.id = ar.collection_item_id
+            WHERE ar.id = %s AND ci.owner_id = %s AND ci.deleted_at IS NULL
+            """,
+            (analysis_id, user.id),
+        )
+        if await owned.fetchone() is None:
+            raise NotFoundError("analysis not found")
         return await AIAdvisoryService(get_settings()).generate_and_save(connection, analysis_id)
     except NotFoundError as error:
         raise translate_domain_error(error) from error
@@ -615,6 +683,7 @@ async def generate_ai_narrative(
 async def upsert_player_metric(
     player_id: UUID,
     payload: PlayerMetricUpsert,
+    user: AuthenticatedUser = Depends(require_admin),
     connection: AsyncConnection = Depends(get_connection),
 ) -> None:
     try:
@@ -631,6 +700,7 @@ async def upsert_player_metric(
 async def create_player_event(
     player_id: UUID,
     payload: PlayerEventCreate,
+    user: AuthenticatedUser = Depends(require_admin),
     connection: AsyncConnection = Depends(get_connection),
 ) -> CreatedResource:
     try:
@@ -644,6 +714,7 @@ async def create_player_event(
 async def assess_player_potential(
     player_id: UUID,
     payload: PotentialInput,
+    user: AuthenticatedUser = Depends(require_admin),
     connection: AsyncConnection = Depends(get_connection),
 ) -> PlayerPotential:
     try:
@@ -668,6 +739,7 @@ async def sync_player_data(
     player_id: UUID,
     payload: PlayerSyncRequest,
     request: Request,
+    user: AuthenticatedUser = Depends(require_admin),
     connection: AsyncConnection = Depends(get_connection),
 ) -> PlayerSyncResult:
     try:

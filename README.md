@@ -70,7 +70,18 @@ python3.12 -m venv .venv
 
 API 文档默认位于 `http://localhost:8000/docs`。主要接口包括：
 
-- `POST /v1/users`：创建或更新收藏者账户
+首次启用登录系统时，在登录页选择“注册 / 认领旧账户”，使用原卡库邮箱设置密码；
+原有卡片会保留并自动归入该账户。首个设置凭证的账户会成为管理员。完成首次设置后，
+生产环境应将 `AUTH_REGISTRATION_ENABLED=false` 并重启 API。登录态使用服务端 Session
+和 HttpOnly Cookie，不再使用浏览器中的 `owner_id` 作为身份凭证。
+
+- `POST /v1/auth/register`：注册或为尚无凭证的旧账户设置密码
+- `POST /v1/auth/login`：登录并建立服务端会话
+- `GET /v1/auth/me`：读取当前登录用户
+- `POST /v1/auth/logout`：退出当前会话
+- `GET /v1/auth/sessions`：查看当前账户的登录设备
+- `POST /v1/auth/change-password`：修改密码并撤销其他设备会话
+
 - `POST /v1/portfolio/items`：录入卡片，可同时写入首笔买入
 - `GET /v1/portfolio/items`：持仓、剩余成本、估值和盈亏
 - `GET /v1/portfolio/items/{id}/detail`：交易与估值完整历史
@@ -88,6 +99,13 @@ API 文档默认位于 `http://localhost:8000/docs`。主要接口包括：
 - `POST /v1/cards/recognize-pair`：联合卡片正反面识别为一条草稿
 - `POST /v1/cards/recognize-batch`：批量识别最多 20 张单卡图片
 - `POST /v1/cards/recognize-auto`：自动判断一张图片包含单卡或多卡，并逐卡提取卡片及采购信息
+- `POST /v1/scanner/jobs`：自动裁切高拍仪正反面图片并加入后台识别队列
+- `GET /v1/scanner/jobs`：读取当前账户的高拍仪识别任务及进度
+- `GET /v1/scanner/camera-controls`：读取 NETUM 的自动/手动曝光和原生曝光范围
+- `PUT /v1/scanner/camera-controls`：切换曝光模式或写入手动曝光时间
+- `POST /v1/scanner/jobs/{id}/retry`：重试失败的高拍仪识别任务
+- `DELETE /v1/scanner/jobs/{id}`：删除当前账户的扫描任务及其私有图片
+- `POST /v1/portfolio/items/{id}/images/{side}/rotate`：人工旋转正面或背面并记录纠错样本
 - `POST /v1/analyses/{id}/narrative`：基于已锁定数值和证据生成 AI 深度解读
 - `GET /v1/portfolio/summary`：组合汇总
 - `PUT /v1/players/{id}/metrics`：录入或更新 NBA 指标快照
@@ -107,6 +125,12 @@ API 文档默认位于 `http://localhost:8000/docs`。主要接口包括：
 设置 `AI_API_KEY` 后，深度解读使用 DeepSeek 的 OpenAI 兼容 Chat Completions API 和 JSON 结构化输出，默认模型为 `deepseek-v4-flash`。未配置密钥时接口返回明确标记为 `rules` 的确定性降级解释，不会冒充 AI 结果。AI 只能解释证据，不能修改规则引擎给出的评级、合理价、目标价或持有期。
 
 卡片图片识别使用独立的 Qwen3-VL-Flash provider，需要设置 `VISION_API_KEY`。图片通过 Base64 Data URL 发送到百炼 OpenAI 兼容接口；未配置密钥时返回 503，不会使用伪识别结果。前端保留单卡、正反面和多文件批量三个入口，其中单卡入口会自动判断上传内容实际包含一张还是多张卡：识别到一张时直接进入校正表单，识别到多张时自动展开逐卡队列，并将商品价、运费、购买日期、卖家、订单号和商品编号绑定到对应草稿。图片仅接受 JPEG、PNG、WebP，默认单张不超过 10 MiB；多文件批量模式每次最多 20 张。生产环境通过 `card_platform_uploads` 卷持久化。
+
+切换到高拍仪扫描模式时会自动请求摄像头权限、优先连接 NETUM/KornVision 设备并启动预览；无需再手动点击启动按钮，只有连接失败时才显示重新连接入口。高拍仪入口会在提交时检测卡片或评级盒四角，执行透视矫正和紧边裁切；检测置信度不足时保留原图，避免误裁。裁切器支持卡片只占约 3.5% 画面的远景，使用更大尺度的前景聚合从暗色扫描垫和反光卡面中恢复卡砖轮廓；正反面位置接近时，一面可靠检测到的归一化四角可以传递给低对比度的另一面。裁切评分仍会排除占据大部分画面或同时贴住多个边缘的扫描垫/相机边框，并继续选择内部卡套候选。裁切完成即返回队列编号并清空正反面拍摄状态，摄像头保持连接，可马上拍摄下一张。后台 Worker 同时保留未经裁切的原始帧和不可变的裁切原图，先用 macOS Apple Vision 的文字基线做 0/90/180/270 四方向判定；本地信号不可用或置信度不足时，将同一原图的四个旋转候选交给 Qwen 选择正立版本，然后再用标准化展示图完成视觉识别和联网核验。界面每 2 秒刷新状态并显示判向角度，成功后可查看、校正并录入；详情页提供正反面独立左右旋转按钮，人工纠错会保存为后续校准样本。失败任务最多可重试 3 次。队列原始帧、裁切原图和展示图均存放在非公开的 `SCANNER_JOB_DIR`，只能由已登录且拥有该任务的账户读取；生产 Compose 使用独立的 `card_platform_scanner_jobs` 持久卷。
+
+macOS 本地开发可运行 `scripts/install_nssdk_macos.sh` 安装 NETUM 官方 NSSDK。默认安装位置为 `~/Library/Application Support/CardPlatform/nssdk.framework`；也可以通过 `SCANNER_NSSDK_LIBRARY_PATH` 指向 framework 可执行文件。安装后扫描界面会显示硬件自动/手动曝光控制，手动曝光使用设备原生范围并采用对数滑块方便压低反光。Linux/Docker 环境不加载 macOS framework，页面会自动退回软件亮度调节。
+
+扫描任务成功录入卡库后会自动从后台队列删除，随后优先打开下一条已识别完成的任务继续确认；如果只剩后台处理中任务，界面会继续停留在队列等待，不会跳回卡片列表。用户也可以随时手动删除等待中、识别完成或失败的任务。卡库列表、扫描队列、批量识别预览、卡片详情、图鉴候选和识别盲测中的缩略图均可点击进入统一高清查看器；查看器支持悬停局部放大、滚轮缩放、拖拽平移、左右旋转、还原和打开原始图片。
 
 设置 `CARD_SEARCH_ENABLED=true` 后，每次视觉提取会额外使用 `CARD_SEARCH_MODEL`（默认 `qwen-plus`）强制联网核验。系统最多构造 3 条身份查询，并将搜索限制在厂商、Checklist、评级与成交类站点；只有带有效来源 URL 且存在字段证据的候选才能修正视觉草稿。查询词、字段证据、候选、冲突和来源链接会展示给用户，最终仍需人工确认。批量模式会对每张卡分别产生一次视觉调用和一次搜索调用，可关闭该开关控制成本。
 

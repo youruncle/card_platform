@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   getMarketIdentityConflicts,
   resolveMarketIdentityConflict,
+  externalSourceUrl,
   type MarketIdentityConflict,
 } from "@/lib/api";
 
@@ -126,7 +127,7 @@ export default function MarketDataConflictsPage() {
                     </span>
                   </div>
                   {conflict.source_url && (
-                    <a href={conflict.source_url} target="_blank" rel="noreferrer">
+                    <a href={externalSourceUrl(conflict.source_url)} target="_blank" rel="noreferrer">
                       查看原始成交 <ExternalLink size={14} />
                     </a>
                   )}

@@ -1,15 +1,20 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi import HTTPException
 from pydantic import BaseModel
 from psycopg.types.json import Jsonb
 
 from card_platform.market_data.repository import MarketDataRepository
+from card_platform.auth import require_admin
 from card_platform.config import get_settings
 from card_platform.valuation_backtest import run_temporal_backtest
 from card_platform.valuation_worker import deduplicate_market_rows
 
 
-router = APIRouter(prefix="/v1/market-data", tags=["market-data"])
+router = APIRouter(
+    prefix="/v1/market-data",
+    tags=["market-data"],
+    dependencies=[Depends(require_admin)],
+)
 
 
 class IdentityConflictResolution(BaseModel):

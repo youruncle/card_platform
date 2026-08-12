@@ -52,6 +52,7 @@ def test_valuation_requires_exact_card_anchor() -> None:
         {
             "player_name": "Cooper Flagg",
             "season_start": 2025,
+            "season_end": 2026,
             "product_name": "Finest",
         }
     )
@@ -62,6 +63,7 @@ def test_valuation_requires_exact_card_anchor() -> None:
         {
             "player_name": "Cooper Flagg",
             "season_start": 2025,
+            "season_end": 2026,
             "product_name": "Finest",
             "insert_name": "Headliners",
         }
@@ -73,6 +75,7 @@ def test_valuation_requires_exact_card_anchor() -> None:
         {
             "player_name": "Jason Kidd",
             "season_start": 2024,
+            "season_end": 2025,
             "brand_name": "Panini Flawless",
             "product_name": "Panini Flawless",
             "card_number": "05/25",
@@ -89,6 +92,7 @@ def test_valuation_allows_legitimate_self_named_vintage_products() -> None:
             {
                 "player_name": "Michael Jordan",
                 "season_start": 1991,
+                "season_end": 1992,
                 "brand_name": product,
                 "product_name": product,
                 "card_number": "358",

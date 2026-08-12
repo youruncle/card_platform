@@ -10,6 +10,7 @@ from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
 from card_platform.config import get_settings
+from card_platform.auth import require_admin
 from card_platform.codex_source_labeler import (
     NON_BASKETBALL_PATTERN,
     build_source_assisted_truth,
@@ -31,7 +32,11 @@ from card_platform.recognition_benchmark import (
     truth_is_scorable,
 )
 from card_platform.recognition_benchmark_predictor import RECOGNITION_PIPELINE_VERSION
-router = APIRouter(prefix="/v1/recognition-benchmarks", tags=["recognition-benchmarks"])
+router = APIRouter(
+    prefix="/v1/recognition-benchmarks",
+    tags=["recognition-benchmarks"],
+    dependencies=[Depends(require_admin)],
+)
 market_data_repository = MarketDataRepository()
 
 

@@ -69,9 +69,15 @@ services:
       NEWS_RSS_URL_TEMPLATE: ${NEWS_RSS_URL_TEMPLATE:?set NEWS_RSS_URL_TEMPLATE}
       INJURY_RSS_URL_TEMPLATE: ${INJURY_RSS_URL_TEMPLATE:?set INJURY_RSS_URL_TEMPLATE}
       UPLOAD_DIR: /app/uploads
+      SCANNER_JOB_DIR: /app/scanner-jobs
+      SCANNER_WORKER_ENABLED: ${SCANNER_WORKER_ENABLED:-true}
+      SCANNER_WORKER_POLL_SECONDS: ${SCANNER_WORKER_POLL_SECONDS:-1}
+      SCANNER_JOB_MAX_ATTEMPTS: ${SCANNER_JOB_MAX_ATTEMPTS:-3}
+      SCANNER_ORIENTATION_LOCAL_THRESHOLD: ${SCANNER_ORIENTATION_LOCAL_THRESHOLD:-0.72}
       MAX_IMAGE_BYTES: ${MAX_IMAGE_BYTES:-10485760}
     volumes:
       - card_platform_uploads:/app/uploads
+      - card_platform_scanner_jobs:/app/scanner-jobs
     ports:
       - "${API_PORT:-8000}:8000"
     healthcheck:
@@ -96,3 +102,4 @@ services:
 volumes:
   card_platform_postgres:
   card_platform_uploads:
+  card_platform_scanner_jobs:

@@ -16,5 +16,6 @@ coverage/
 *.log
 *.tsbuildinfo
 uploads/
+apps/api/data/scanner-jobs/
 data/cardhobby-browser-profile/
 .runtime/

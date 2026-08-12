@@ -215,6 +215,41 @@ class UserCreate(ApiModel):
     base_currency: str = Field(default="CNY", min_length=3, max_length=3)
 
 
+class AuthRegister(ApiModel):
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(min_length=10, max_length=128)
+    display_name: str = Field(min_length=1, max_length=120)
+    base_currency: str = Field(default="CNY", min_length=3, max_length=3)
+
+
+class AuthLogin(ApiModel):
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class AuthPasswordChange(ApiModel):
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=10, max_length=128)
+
+
+class AuthUser(ApiModel):
+    id: UUID
+    email: str
+    display_name: str
+    base_currency: str
+    role: str
+
+
+class AuthSessionView(ApiModel):
+    id: UUID
+    current: bool
+    user_agent: str | None
+    ip_address: str | None
+    last_seen_at: datetime
+    expires_at: datetime
+    created_at: datetime
+
+
 class PortfolioItem(ApiModel):
     id: UUID
     owner_id: UUID
@@ -518,6 +553,21 @@ class AutomatedValuationSnapshot(ApiModel):
     model_version: str | None
 
 
+class ShadowValuationSnapshot(ApiModel):
+    id: UUID
+    created_at: datetime
+    status: str
+    currency: str
+    low_value: Decimal | None
+    fair_value: Decimal | None
+    high_value: Decimal | None
+    confidence: Decimal
+    evidence_count: int
+    review_reasons: list[str] = Field(default_factory=list)
+    evidence: dict = Field(default_factory=dict)
+    model_version: str
+
+
 class AutomatedValuationDetail(ApiModel):
     job_id: UUID | None = None
     status: str | None = None
@@ -527,6 +577,7 @@ class AutomatedValuationDetail(ApiModel):
     started_at: datetime | None = None
     finished_at: datetime | None = None
     valuation: AutomatedValuationSnapshot | None = None
+    shadow_valuation: ShadowValuationSnapshot | None = None
     comparables: list[MarketCompView] = Field(default_factory=list)
 
 
@@ -741,6 +792,55 @@ class CardSearchEnrichment(ApiModel):
     field_evidence: dict[str, list[str]] = Field(default_factory=dict)
     candidates: list[CardWebCandidate] = Field(default_factory=list)
     caveats: list[str] = Field(default_factory=list)
+
+
+class ScannerRecognitionJob(ApiModel):
+    id: UUID
+    status: Literal["queued", "running", "succeeded", "failed", "cancelled"]
+    front_image_url: str
+    back_image_url: str
+    front_crop_confidence: Decimal
+    back_crop_confidence: Decimal
+    front_transformed: bool
+    back_transformed: bool
+    front_rotation_degrees: Literal[0, 90, 180, 270] = 0
+    back_rotation_degrees: Literal[0, 90, 180, 270] = 0
+    front_orientation_confidence: Decimal = Decimal("0")
+    back_orientation_confidence: Decimal = Decimal("0")
+    front_orientation_method: Literal[
+        "pending", "apple_vision", "vision_model", "manual", "unresolved"
+    ] = "pending"
+    back_orientation_method: Literal[
+        "pending", "apple_vision", "vision_model", "manual", "unresolved"
+    ] = "pending"
+    result: CardRecognitionResult | None = None
+    error_message: str | None = None
+    attempt_count: int
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ScannerCameraProperty(ApiModel):
+    minimum: float
+    maximum: float
+    step: float
+    default: float
+    current: float
+    writable: bool
+
+
+class ScannerCameraControls(ApiModel):
+    device_name: str
+    exposure_mode: Literal["auto", "manual"]
+    exposure_time: ScannerCameraProperty
+    gain: ScannerCameraProperty | None = None
+
+
+class ScannerCameraControlUpdate(ApiModel):
+    exposure_mode: Literal["auto", "manual"] | None = None
+    exposure_time: Annotated[float, Field(allow_inf_nan=False)] | None = None
 
 
 class BatchCardRecognitionItem(ApiModel):

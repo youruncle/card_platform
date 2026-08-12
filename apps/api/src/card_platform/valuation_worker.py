@@ -25,6 +25,19 @@ from card_platform.domain.comparables import ComparableClassifier, ComparableInp
 from card_platform.domain.explainability import Explainability
 from card_platform.domain.hierarchical_estimator import ClassifiedSale, HierarchicalEstimator
 from card_platform.domain.valuation import ComparableSale, estimate_from_comps
+from card_platform.domain.valuation_quality import (
+    EvidenceGrade,
+    ShadowSale,
+    ShadowValuationEstimator,
+    evidence_grade,
+    identity_review_reasons,
+)
+from card_platform.domain.identity_research import (
+    CHECKLIST_VERSION,
+    SCOTTIE_BARNES_FIXTURE_VISUAL,
+    ResearchStatus,
+    generate_candidates,
+)
 from card_platform.ingestion.cardhobby import (
     CardHobbyProvider,
     CardHobbySearchResult,
@@ -139,6 +152,8 @@ def valuation_identity_specificity(identity: dict) -> tuple[bool, list[str]]:
         and brand_token not in legitimate_self_named_products
     ):
         missing.append("brand_product_duplicate")
+    missing.extend(identity_review_reasons(identity))
+    missing = list(dict.fromkeys(missing))
     return not missing, missing
 
 
@@ -160,6 +175,7 @@ class DiscoveredComparable(BaseModel):
     visual_reasons: list[str] = Field(default_factory=list)
     matching_fields: list[str] = Field(default_factory=list)
     conflicts: list[str] = Field(default_factory=list)
+    evidence_level: str = "aggregated_sale"
 
 
 class ValuationReference(BaseModel):
@@ -327,12 +343,16 @@ class AutomatedValuationWorker:
             identity = await self._load_identity(job_id)
             specific, missing_fields = valuation_identity_specificity(identity)
             if not specific:
+                research = await self._start_identity_research(identity, missing_fields)
                 await self._finish(
                     job_id,
                     "insufficient_evidence",
                     {
-                        "reason": "卡片身份不够具体，禁止将同球员同产品的不同卡混合估值",
+                        "reason": "身份冲突已转入研究，确认候选身份后再生成影子估值",
                         "missing_identity_fields": missing_fields,
+                        "research_status": research["status"],
+                        "research_case_id": research["case_id"],
+                        "candidate_count": research["candidate_count"],
                     },
                 )
                 return
@@ -357,12 +377,16 @@ class AutomatedValuationWorker:
                        p.full_name AS player_name, b.name AS brand_name,
                        cs.season_start, cs.season_end, cs.product_name, cs.set_name,
                        cd.card_number, cd.insert_name, cd.parallel_name,
-                       cd.is_rookie, cd.is_autograph, cd.is_patch, cd.print_run,
+                       cd.is_rookie, cd.is_autograph, cd.autograph_type,
+                       cd.is_memorabilia, cd.memorabilia_types,
+                       cd.is_patch, cd.print_run,
                        ci.serial_number, ci.serial_total, ci.grade_company, ci.grade_value,
                        ci.image_front_url, ci.image_back_url, ci.notes,
                        purchase.notes AS purchase_context,
                        purchase.venue AS purchase_venue,
-                       purchase.unit_price AS purchase_price
+                       purchase.unit_price AS purchase_price,
+                       confirmed.identity AS confirmed_identity,
+                       confirmed.id AS confirmed_identity_version_id
                 FROM valuation_job vj
                 JOIN collection_item ci ON ci.id = vj.collection_item_id
                 JOIN app_user u ON u.id = ci.owner_id
@@ -376,6 +400,11 @@ class AutomatedValuationWorker:
                     WHERE collection_item_id = ci.id AND transaction_type = 'buy'
                     ORDER BY transacted_at DESC LIMIT 1
                 ) purchase ON true
+                LEFT JOIN LATERAL (
+                    SELECT id, identity FROM card_identity_version
+                    WHERE collection_item_id = ci.id AND review_status = 'confirmed'
+                    ORDER BY version DESC LIMIT 1
+                ) confirmed ON true
                 WHERE vj.id = %s
                 """,
                 (job_id,),
@@ -384,6 +413,13 @@ class AutomatedValuationWorker:
             if row is None:
                 raise RuntimeError("valuation job item not found")
             stored = dict(row)
+            confirmed_identity = stored.pop("confirmed_identity", None)
+            if confirmed_identity:
+                # The immutable confirmed version is the valuation identity source;
+                # collection/card_definition remain compatibility projections only.
+                stored.update(confirmed_identity)
+                stored["print_run"] = confirmed_identity.get("serial_total")
+                stored["is_patch"] = confirmed_identity.get("is_memorabilia", False)
             resolved = CardIdentityResolver().resolve(stored)
             return {
                 **stored,
@@ -391,6 +427,66 @@ class AutomatedValuationWorker:
                 "insert_name": resolved.insert,
                 "parallel_name": resolved.parallel,
             }
+
+    async def _start_identity_research(self, identity: dict, blockers: list[str]) -> dict:
+        current = {
+            key: identity.get(key)
+            for key in (
+                "player_name", "season_start", "season_end", "brand_name",
+                "product_name", "set_name", "card_number", "insert_name",
+                "parallel_name", "serial_number", "serial_total", "is_rookie",
+                "is_autograph", "autograph_type", "is_memorabilia",
+                "memorabilia_types", "grade_company", "grade_value",
+            )
+        }
+        visual = {
+            "serial_number": current.get("serial_number"),
+            "serial_total": current.get("serial_total"),
+            "texture_tokens": [],
+            "reasons": ["automated valuation identity gate requested research"],
+        }
+        if str(identity["collection_item_id"]) == "844be4e2-74db-4985-9279-0f717021b915":
+            visual = SCOTTIE_BARNES_FIXTURE_VISUAL
+        candidates = generate_candidates(current, visual)
+        async with self.database.connection() as connection, connection.transaction():
+            result = await connection.execute(
+                """INSERT INTO identity_research_case
+                   (collection_item_id, status, trigger_reasons, source_version, attempt_count)
+                   VALUES (%s,%s,%s,%s,1)
+                   ON CONFLICT (collection_item_id) WHERE status IN
+                     ('identity_research_required','candidate_identity_ready','awaiting_confirmation')
+                   DO UPDATE SET status=EXCLUDED.status, trigger_reasons=EXCLUDED.trigger_reasons,
+                     source_version=EXCLUDED.source_version,
+                     attempt_count=identity_research_case.attempt_count+1,
+                     last_error=NULL, updated_at=now() RETURNING id""",
+                (identity["collection_item_id"], ResearchStatus.AWAITING_CONFIRMATION if candidates
+                 else ResearchStatus.REQUIRED, Jsonb(blockers), CHECKLIST_VERSION),
+            )
+            case_id = (await result.fetchone())["id"]
+            await connection.execute(
+                "DELETE FROM identity_research_candidate WHERE research_case_id=%s", (case_id,)
+            )
+            for rank, candidate in enumerate(candidates, 1):
+                await connection.execute(
+                    """INSERT INTO identity_research_candidate
+                       (research_case_id,rank,identity,field_provenance,visual_reasons,
+                        checklist_evidence,market_evidence,confidence,validation_reasons,is_valid)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                    (case_id, rank, Jsonb(candidate["identity"]),
+                     Jsonb(candidate["field_provenance"]), Jsonb(candidate["visual_reasons"]),
+                     Jsonb(candidate["checklist_evidence"]), Jsonb(candidate["market_evidence"]),
+                     candidate["confidence"], Jsonb(candidate["validation_reasons"]),
+                     candidate["is_valid"]),
+                )
+            await connection.execute(
+                """UPDATE valuation_snapshot SET identity_compatibility='incompatible',
+                       identity_compatibility_reasons=%s
+                   WHERE collection_item_id=%s AND identity_compatibility='unknown'""",
+                (Jsonb(["superseded_by_identity_research", *blockers]),
+                 identity["collection_item_id"]),
+            )
+        return {"case_id": str(case_id), "status": ResearchStatus.AWAITING_CONFIRMATION
+                if candidates else ResearchStatus.REQUIRED, "candidate_count": len(candidates)}
 
     async def _search(self, identity: dict) -> ComparableSearchResult:
         market_identity = MarketIdentity.model_validate(identity)
@@ -419,9 +515,32 @@ class AutomatedValuationWorker:
                     item.identity_classification.get("matching_fields", [])
                 ),
                 conflicts=list(item.identity_classification.get("conflicts", [])),
+                evidence_level=item.evidence_level,
             )
             for item in cached.evidence
         ]
+        resolved_identity = CardIdentityResolver().resolve(identity)
+        classifier = ComparableClassifier(
+            resolver=self.knowledge_runtime.resolver if self.knowledge_runtime else None
+        )
+        rejected_cached = 0
+        safe_comparables = []
+        for comp in comparables:
+            classification = classifier.classify(
+                resolved_identity,
+                ComparableInput(
+                    title=comp.title,
+                    grade_company=comp.grade_company,
+                    grade_value=comp.grade_value,
+                    source_reliability=comp.source_reliability,
+                    source_code="cardhobby",
+                ),
+            )
+            if classification.hard_conflicts:
+                rejected_cached += 1
+            else:
+                safe_comparables.append(comp)
+        comparables = safe_comparables
         notes = [
             *cached.notes,
             f"市场数据新鲜度：{cached.freshness.value}",
@@ -431,7 +550,22 @@ class AutomatedValuationWorker:
                 else "暂无已缓存成交证据"
             ),
         ]
+        if rejected_cached:
+            notes.append(f"已在估值前剔除 {rejected_cached} 条身份冲突缓存成交")
         result = ComparableSearchResult(comparables=comparables[:12], notes=notes)
+        if len(comparables) < self.market_data.MIN_EVIDENCE and self.client is not None:
+            # The durable provider cache is intentionally strict. Rare cards get
+            # a separately labelled, source-backed fallback instead of becoming
+            # permanently unpriceable when exact sales are sparse.
+            external = await self._search_external_legacy(identity)
+            by_url = {comp.source_url: comp for comp in result.comparables}
+            by_url.update({comp.source_url: comp for comp in external.comparables})
+            result = external.model_copy(
+                update={
+                    "comparables": list(by_url.values())[:12],
+                    "notes": [*notes, *external.notes],
+                }
+            )
         return await self._verify_comparable_images(identity, result)
 
     async def _verify_comparable_images(
@@ -666,6 +800,7 @@ class AutomatedValuationWorker:
                     f"cardhobby:{sale.evidence_level}",
                 ],
                 conflicts=sale.conflicts,
+                evidence_level=sale.evidence_level,
             )
             for sale in result.sales
         ]
@@ -919,6 +1054,7 @@ class AutomatedValuationWorker:
                                     else None
                                 ),
                                 "visual_reasons": comp.visual_reasons,
+                                "evidence_level": comp.evidence_level,
                             }
                         ),
                     ),
@@ -933,7 +1069,12 @@ class AutomatedValuationWorker:
                 SELECT id, occurred_at, sale_price, shipping_price, currency,
                        fx_rate_to_base, listing_title, source_url, match_confidence,
                        grade_company, grade_value, raw_payload, external_id,
-                       classification,
+                       market_comp.classification,
+                       COALESCE(
+                           me.evidence_level,
+                           market_comp.raw_payload->>'evidence_level',
+                           'aggregated_sale'
+                       ) AS evidence_level,
                        (SELECT code FROM data_source WHERE id = market_comp.data_source_id)
                            AS source_code,
                        sale_price * COALESCE(fx_rate_to_base, 1) AS value_base,
@@ -941,6 +1082,7 @@ class AutomatedValuationWorker:
                        source_reliability,
                        GREATEST(0, EXTRACT(day FROM now() - occurred_at))::int AS age_days
                 FROM market_comp
+                LEFT JOIN market_evidence me ON me.id = market_comp.market_evidence_id
                 WHERE card_definition_id = %s
                   AND occurred_at >= now() - interval '730 days'
                 ORDER BY occurred_at DESC
@@ -1128,6 +1270,7 @@ class AutomatedValuationWorker:
             resolver = self.knowledge_runtime.resolver if self.knowledge_runtime else None
             classifier = ComparableClassifier(resolver=resolver)
             classified: list[ClassifiedSale] = []
+            shadow_sales: list[ShadowSale] = []
             rejected: list[dict] = []
             rows_by_id = {str(row["id"]): dict(row) for row in rows}
             for row in rows:
@@ -1186,13 +1329,35 @@ class AutomatedValuationWorker:
                         row["id"],
                     ),
                 )
-                if classification.hard_conflicts:
+                grade = evidence_grade(row["evidence_level"])
+                shadow_sales.append(
+                    ShadowSale(
+                        id=str(row["id"]),
+                        provider_code=row["source_code"],
+                        price=row["value_base"],
+                        shipping=row["shipping_base"],
+                        age_days=row["age_days"],
+                        tier=classification.tier,
+                        similarity=classification.similarity,
+                        source_reliability=classification.source_reliability,
+                        evidence_level=row["evidence_level"],
+                    )
+                )
+                evidence_conflicts = (
+                    []
+                    if grade in {EvidenceGrade.E0, EvidenceGrade.E1, EvidenceGrade.E2}
+                    else [f"evidence_grade_{grade.value}_not_center_eligible"]
+                )
+                if classification.hard_conflicts or evidence_conflicts:
                     rejected.append(
                         {
                             "id": str(row["id"]),
                             "title": row["listing_title"],
                             "tier": classification.tier.value,
-                            "hard_conflicts": classification.hard_conflicts,
+                            "hard_conflicts": [
+                                *classification.hard_conflicts,
+                                *evidence_conflicts,
+                            ],
                             "field_matches": classification.field_matches,
                             "raw_weight": "0",
                             "final_weight": "0",
@@ -1209,6 +1374,16 @@ class AutomatedValuationWorker:
                         adjustment=Adjustment(),
                     )
                 )
+            shadow = ShadowValuationEstimator().estimate(shadow_sales, identity)
+            await self._store_shadow_result(connection, job_id, identity, shadow)
+            if identity.get("confirmed_identity_version_id"):
+                await connection.execute(
+                    """UPDATE valuation_job SET status = 'succeeded', result_summary = %s,
+                           finished_at = now(), updated_at = now() WHERE id = %s""",
+                    (Jsonb({"shadow_only": True, "shadow_status": shadow.status,
+                            "published_value_unchanged": True}), job_id),
+                )
+                return
             if not classified:
                 await connection.execute(
                     """
@@ -1223,6 +1398,29 @@ class AutomatedValuationWorker:
                                 "search_queries": search.search_queries,
                                 "notes": search.notes,
                                 "rejected_comparables": rejected,
+                            }
+                        ),
+                        job_id,
+                    ),
+                )
+                return
+            if not any(
+                sale.classification.tier.value == "T0" for sale in classified
+            ):
+                await connection.execute(
+                    """
+                    UPDATE valuation_job SET status = 'insufficient_evidence',
+                        result_summary = %s, finished_at = now(), updated_at = now()
+                    WHERE id = %s
+                    """,
+                    (
+                        Jsonb(
+                            {
+                                "reason": "没有通过全部身份硬门槛的同卡成交",
+                                "search_queries": search.search_queries,
+                                "notes": search.notes,
+                                "rejected_comparables": rejected,
+                                "shadow_status": shadow.status,
                             }
                         ),
                         job_id,
@@ -1280,6 +1478,87 @@ class AutomatedValuationWorker:
                     job_id,
                 ),
             )
+
+    @staticmethod
+    async def _store_shadow_result(connection, job_id: UUID, identity: dict, shadow) -> None:
+        identity_payload = {
+            key: value
+            for key, value in identity.items()
+            if key
+            in {
+                "player_name", "season_start", "season_end", "brand_name",
+                "product_name", "set_name", "card_number", "insert_name",
+                "parallel_name", "serial_number", "serial_total", "print_run",
+                "is_rookie", "is_autograph", "is_patch", "grade_company", "grade_value",
+            }
+        }
+        confirmed_result = await connection.execute(
+            """SELECT id, identity FROM card_identity_version
+               WHERE collection_item_id = %s AND review_status = 'confirmed'
+               ORDER BY version DESC LIMIT 1""",
+            (identity["collection_item_id"],),
+        )
+        confirmed = await confirmed_result.fetchone()
+        existing = await connection.execute(
+            """
+            SELECT id FROM card_identity_version
+            WHERE collection_item_id = %s AND identity = %s
+            ORDER BY version DESC LIMIT 1
+            """,
+            (identity["collection_item_id"], Jsonb(identity_payload)),
+        )
+        identity_row = await existing.fetchone()
+        if identity_row is None:
+            inserted = await connection.execute(
+                """
+                INSERT INTO card_identity_version (
+                    collection_item_id, version, identity, field_provenance,
+                    conflicts, review_status
+                )
+                SELECT %s, COALESCE(max(version), 0) + 1, %s, %s, %s, 'pending'
+                FROM card_identity_version WHERE collection_item_id = %s
+                RETURNING id
+                """,
+                (
+                    identity["collection_item_id"],
+                    Jsonb(identity_payload),
+                    Jsonb(identity.get("evidence") or {}),
+                    Jsonb(identity_review_reasons(identity)),
+                    identity["collection_item_id"],
+                ),
+            )
+            identity_row = await inserted.fetchone()
+        identity_version_id = confirmed["id"] if confirmed else identity_row["id"]
+        shadow_status = shadow.status if confirmed else "manual_review"
+        shadow_low = shadow.low if confirmed else None
+        shadow_fair = shadow.fair if confirmed else None
+        shadow_high = shadow.high if confirmed else None
+        shadow_confidence = shadow.confidence if confirmed else 0
+        shadow_reasons = list(shadow.review_reasons)
+        if not confirmed:
+            shadow_reasons = list(dict.fromkeys([*shadow_reasons, "identity_not_confirmed"]))
+        await connection.execute(
+            """
+            INSERT INTO valuation_shadow_result (
+                collection_item_id, valuation_job_id, identity_version_id,
+                model_version, status, currency, low_value, fair_value,
+                high_value, confidence, evidence_count, review_reasons, evidence
+            ) VALUES (%s, %s, %s, 'robust-shadow-1.1', %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                identity["collection_item_id"], job_id, identity_version_id,
+                shadow_status, identity["base_currency"], shadow_low, shadow_fair,
+                shadow_high, shadow_confidence, len(shadow.used_ids) if confirmed else 0,
+                Jsonb(shadow_reasons),
+                Jsonb(
+                    {
+                        "used_ids": list(shadow.used_ids),
+                        "rejected": list(shadow.rejected),
+                        "published_value_unchanged": True,
+                    }
+                ),
+            ),
+        )
 
     async def _set_status(self, job_id: UUID, status: str) -> None:
         async with self.database.connection() as connection:

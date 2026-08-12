@@ -25,6 +25,45 @@ def normalize_name(value: str) -> str:
     return " ".join(value.casefold().split())
 
 
+def build_portfolio_summary(
+    items: list[PortfolioItem], owner_id: UUID, base_currency: str
+) -> PortfolioSummary:
+    total_cost = sum((item.remaining_cost for item in items), Decimal("0"))
+    realized = sum((item.realized_profit for item in items), Decimal("0"))
+    valued_items = [
+        item
+        for item in items
+        if item.fair_value is not None and item.valuation_currency == base_currency
+    ]
+    valued_ids = {item.id for item in valued_items}
+    valued_market_value = sum(
+        (item.fair_value * item.quantity_held for item in valued_items),
+        Decimal("0"),
+    )
+    # A portfolio total must cover every open holding. Until a reliable market
+    # valuation exists, use the remaining cost as a neutral provisional value
+    # rather than silently treating the card as worth zero.
+    provisional_market_value = sum(
+        (item.remaining_cost for item in items if item.id not in valued_ids),
+        Decimal("0"),
+    )
+    unrealized = sum(
+        (item.unrealized_profit for item in valued_items if item.unrealized_profit is not None),
+        Decimal("0"),
+    )
+    return PortfolioSummary(
+        owner_id=owner_id,
+        base_currency=base_currency,
+        item_count=len(items),
+        valued_item_count=len(valued_items),
+        unvalued_item_count=len(items) - len(valued_items),
+        total_cost=total_cost,
+        total_market_value=valued_market_value + provisional_market_value,
+        unrealized_profit=unrealized,
+        realized_profit=realized,
+    )
+
+
 class NotFoundError(Exception):
     pass
 
@@ -394,8 +433,11 @@ class PortfolioRepository:
                      THEN NULL ELSE lv.fair_value END AS fair_value,
                 CASE WHEN vj.created_at > lv.valued_at AND vj.status <> 'succeeded'
                      THEN NULL ELSE lv.high_value END AS valuation_high,
-                vj.id AS valuation_job_id, vj.status AS valuation_status,
-                vj.error_message AS valuation_error,
+                vj.id AS valuation_job_id,
+                CASE WHEN lv.valued_at > vj.created_at THEN 'succeeded'
+                     ELSE vj.status END AS valuation_status,
+                CASE WHEN lv.valued_at > vj.created_at THEN NULL
+                     ELSE vj.error_message END AS valuation_error,
                 (SELECT COUNT(*) FROM market_comp mc
                  WHERE mc.card_definition_id = ci.card_definition_id) AS market_comp_count
             FROM collection_item ci
@@ -546,32 +588,7 @@ class PortfolioRepository:
         if user is None:
             raise NotFoundError("owner not found")
         items = await self.list_items(connection, owner_id)
-        total_cost = sum((item.remaining_cost for item in items), Decimal("0"))
-        realized = sum((item.realized_profit for item in items), Decimal("0"))
-        valued_items = [
-            item
-            for item in items
-            if item.fair_value is not None and item.valuation_currency == user["base_currency"]
-        ]
-        market_value = sum(
-            (item.fair_value * item.quantity_held for item in valued_items),
-            Decimal("0"),
-        )
-        unrealized = sum(
-            (item.unrealized_profit for item in valued_items if item.unrealized_profit is not None),
-            Decimal("0"),
-        )
-        return PortfolioSummary(
-            owner_id=owner_id,
-            base_currency=user["base_currency"],
-            item_count=len(items),
-            valued_item_count=len(valued_items),
-            unvalued_item_count=len(items) - len(valued_items),
-            total_cost=total_cost,
-            total_market_value=market_value,
-            unrealized_profit=unrealized,
-            realized_profit=realized,
-        )
+        return build_portfolio_summary(items, owner_id, user["base_currency"])
 
     async def item_detail(
         self, connection: AsyncConnection, owner_id: UUID, item_id: UUID

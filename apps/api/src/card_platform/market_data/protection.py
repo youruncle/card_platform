@@ -78,6 +78,17 @@ class ProtectedProvider:
 
     async def _begin(self) -> float:
         async with self.database.connection() as connection, connection.transaction():
+            # A process can terminate after incrementing the database counter.
+            # Reclaim only clearly stale leases; live calls update this timestamp.
+            await connection.execute(
+                """
+                UPDATE provider_state
+                SET active_requests = 0, updated_at = now()
+                WHERE provider_code = %s AND active_requests > 0
+                  AND last_request_at < now() - interval '5 minutes'
+                """,
+                (self.provider.code,),
+            )
             result = await connection.execute(
                 """
                 SELECT * FROM provider_state WHERE provider_code = %s FOR UPDATE

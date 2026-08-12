@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field
 
@@ -8,8 +8,13 @@ from card_platform.identity_audit import (
     IdentityAuditRepository,
     build_identity_suggestions,
 )
+from card_platform.auth import AuthenticatedUser, current_user
 
-router = APIRouter(prefix="/v1/portfolio", tags=["identity-correction"])
+router = APIRouter(
+    prefix="/v1/portfolio",
+    tags=["identity-correction"],
+    dependencies=[Depends(current_user)],
+)
 
 
 class ApplyCorrections(BaseModel):
@@ -18,7 +23,11 @@ class ApplyCorrections(BaseModel):
 
 
 @router.post("/identity-corrections/scan")
-async def scan_identity_corrections(owner_id: UUID, request: Request) -> dict:
+async def scan_identity_corrections(
+    request: Request,
+    owner_id: UUID | None = None,
+    user: AuthenticatedUser = Depends(current_user),
+) -> dict:
     scanned = 0
     suggestions_created = 0
     async with request.app.state.database.connection() as connection, connection.transaction():
@@ -33,7 +42,7 @@ async def scan_identity_corrections(owner_id: UUID, request: Request) -> dict:
             JOIN card_set cs ON cs.id = cd.card_set_id
             WHERE ci.owner_id = %s AND ci.deleted_at IS NULL
             """,
-            (owner_id,),
+            (user.id,),
         )
         for item in await items_result.fetchall():
             comps_result = await connection.execute(
@@ -76,7 +85,11 @@ async def _owned_item(connection, item_id: UUID, owner_id: UUID, *, lock: bool =
 
 
 @router.get("/identity-corrections")
-async def correction_counts(owner_id: UUID, request: Request) -> dict[str, int]:
+async def correction_counts(
+    request: Request,
+    owner_id: UUID | None = None,
+    user: AuthenticatedUser = Depends(current_user),
+) -> dict[str, int]:
     async with request.app.state.database.connection() as connection:
         result = await connection.execute(
             """
@@ -86,15 +99,20 @@ async def correction_counts(owner_id: UUID, request: Request) -> dict[str, int]:
             WHERE ci.owner_id = %s AND ci.deleted_at IS NULL AND c.status = 'open'
             GROUP BY c.collection_item_id
             """,
-            (owner_id,),
+            (user.id,),
         )
         return {str(row["collection_item_id"]): row["issue_count"] for row in await result.fetchall()}
 
 
 @router.get("/items/{item_id}/identity-corrections")
-async def item_corrections(item_id: UUID, owner_id: UUID, request: Request) -> list[dict]:
+async def item_corrections(
+    item_id: UUID,
+    request: Request,
+    owner_id: UUID | None = None,
+    user: AuthenticatedUser = Depends(current_user),
+) -> list[dict]:
     async with request.app.state.database.connection() as connection:
-        if await _owned_item(connection, item_id, owner_id) is None:
+        if await _owned_item(connection, item_id, user.id) is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="collection item not found")
         result = await connection.execute(
             """
@@ -111,10 +129,13 @@ async def item_corrections(item_id: UUID, owner_id: UUID, request: Request) -> l
 
 @router.post("/items/{item_id}/identity-corrections/apply")
 async def apply_corrections(
-    item_id: UUID, payload: ApplyCorrections, request: Request
+    item_id: UUID,
+    payload: ApplyCorrections,
+    request: Request,
+    user: AuthenticatedUser = Depends(current_user),
 ) -> dict:
     async with request.app.state.database.connection() as connection, connection.transaction():
-        item = await _owned_item(connection, item_id, payload.owner_id, lock=True)
+        item = await _owned_item(connection, item_id, user.id, lock=True)
         if item is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="collection item not found")
         result = await connection.execute(
@@ -208,7 +229,7 @@ async def apply_corrections(
             SET status = 'applied', applied_at = now(), applied_by = %s, updated_at = now()
             WHERE id = ANY(%s)
             """,
-            (payload.owner_id, ids),
+            (user.id, ids),
         )
         await connection.execute(
             """

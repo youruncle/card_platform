@@ -10,6 +10,64 @@ export type PortfolioSummary = {
   realized_profit: string;
 };
 
+export type AuthUser = {
+  id: string;
+  email: string;
+  display_name: string;
+  base_currency: string;
+  role: "admin" | "member";
+};
+
+export type AuthSession = {
+  id: string;
+  current: boolean;
+  user_agent: string | null;
+  ip_address: string | null;
+  last_seen_at: string;
+  expires_at: string;
+  created_at: string;
+};
+
+export type ScannerRecognitionJob = {
+  id: string;
+  status: "queued" | "running" | "succeeded" | "failed" | "cancelled";
+  front_image_url: string;
+  back_image_url: string;
+  front_crop_confidence: string;
+  back_crop_confidence: string;
+  front_transformed: boolean;
+  back_transformed: boolean;
+  front_rotation_degrees: 0 | 90 | 180 | 270;
+  back_rotation_degrees: 0 | 90 | 180 | 270;
+  front_orientation_confidence: string;
+  back_orientation_confidence: string;
+  front_orientation_method: "pending" | "apple_vision" | "vision_model" | "manual" | "unresolved";
+  back_orientation_method: "pending" | "apple_vision" | "vision_model" | "manual" | "unresolved";
+  result: CardRecognition | null;
+  error_message: string | null;
+  attempt_count: number;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ScannerCameraProperty = {
+  minimum: number;
+  maximum: number;
+  step: number;
+  default: number;
+  current: number;
+  writable: boolean;
+};
+
+export type ScannerCameraControls = {
+  device_name: string;
+  exposure_mode: "auto" | "manual";
+  exposure_time: ScannerCameraProperty;
+  gain: ScannerCameraProperty | null;
+};
+
 export type RecognitionBenchmarkMetrics = {
   sample_count: number;
   labeled_count: number;
@@ -371,6 +429,24 @@ export type AutomatedValuationDetail = {
     };
     model_version: string | null;
   };
+  shadow_valuation: null | {
+    id: string;
+    created_at: string;
+    status: "estimated" | "manual_review" | "insufficient";
+    currency: string;
+    low_value: string | null;
+    fair_value: string | null;
+    high_value: string | null;
+    confidence: string;
+    evidence_count: number;
+    review_reasons: string[];
+    evidence: {
+      used_ids?: string[];
+      rejected?: Array<{ id: string; reasons: string[] }>;
+      published_value_unchanged?: boolean;
+    };
+    model_version: string;
+  };
   comparables: MarketComp[];
 };
 
@@ -396,6 +472,46 @@ export type IdentityCorrection = {
   detector_version: string;
   status: string;
   detected_at: string;
+};
+
+export type ConfirmedCardIdentity = {
+  player_name: string; season_start: number; season_end: number | null;
+  brand_name: string; product_name: string; set_name: string | null;
+  card_number: string | null; insert_name: string | null; parallel_name: string | null;
+  serial_number: number | null; serial_total: number | null;
+  is_rookie: boolean; is_autograph: boolean; autograph_type: string;
+  is_memorabilia: boolean; memorabilia_types: string[];
+  grade_company: string | null; grade_value: number | null;
+};
+
+export type IdentityReviewDetail = {
+  item_id: string;
+  images: { front: string | null; back: string | null };
+  current_identity: ConfirmedCardIdentity;
+  suggested_identity: ConfirmedCardIdentity;
+  latest_version: null | { id: string; version: number; review_status: "pending" | "confirmed" | "rejected" };
+  field_provenance: Record<string, unknown>;
+  conflicts: string[];
+  review_reasons: string[];
+  market_evidence: Array<{
+    id: string; provider_code: string; external_sale_id: string; raw_title: string;
+    sale_price: string; shipping_price: string; currency: string; occurred_at: string;
+    source_url: string; evidence_level: string; decision: "accepted" | "rejected";
+    reason_codes: string[];
+  }>;
+  research: null | { id: string; status: string; trigger_reasons: string[]; source_version: string };
+  candidates: Array<{
+    id: string; rank: number; identity: ConfirmedCardIdentity; confidence: string;
+    field_provenance: Record<string, unknown>; visual_reasons: string[];
+    checklist_evidence: Array<{ source_url: string; source_version: string; parallel_name: string }>;
+    market_evidence: Array<{ id: string; sale_price: string; currency: string; price_base: string; occurred_at: string; reason_codes: string[] }>;
+    validation_reasons: string[]; is_valid: boolean;
+  }>;
+  latest_shadow: null | {
+    id: string; identity_version_id: string; status: string; currency: string;
+    low_value: string | null; fair_value: string | null; high_value: string | null;
+    confidence: string; evidence_count: number; review_reasons: string[]; created_at: string;
+  };
 };
 
 export type CardRecognition = {
@@ -647,19 +763,48 @@ export type KnowledgeBatchCatalogItem = {
 // to the API, avoiding stale ports, CORS failures, and browser/host loopback
 // differences. Deployments that use a separate API origin can still opt in.
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
-const MULTIPART_API_URL =
-  process.env.NEXT_PUBLIC_UPLOAD_API_URL ??
-  (process.env.NODE_ENV === "development" ? "http://127.0.0.1:8000" : API_URL);
+
+function multipartApiUrl(): string {
+  if (process.env.NEXT_PUBLIC_UPLOAD_API_URL) {
+    return process.env.NEXT_PUBLIC_UPLOAD_API_URL;
+  }
+  if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
+    // Keep the exact browser hostname so host-scoped Session cookies work for
+    // both localhost and 127.0.0.1, while bypassing Next's large-body proxy.
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+  return API_URL;
+}
 
 export function assetUrl(path: string | null): string | null {
   return path ? (path.startsWith("http") ? path : `${API_URL}${path}`) : null;
 }
 
+export function externalSourceUrl(sourceUrl: string): string {
+  try {
+    const url = new URL(sourceUrl);
+    if (url.hostname.toLowerCase() === "www.cardhobby.com.cn") {
+      url.hostname = "cardhobby.com.cn";
+    }
+    const item = url.pathname.match(/^\/market\/item\/(\d+)\/?$/i);
+    if (url.hostname.toLowerCase() === "cardhobby.com.cn" && item) {
+      url.pathname = `/Market/Item/${item[1]}`;
+    }
+    return url.toString();
+  } catch {
+    return sourceUrl;
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
+    credentials: "include",
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
+  if (response.status === 401 && !path.startsWith("/v1/auth/")) {
+    window.dispatchEvent(new Event("card-platform:unauthorized"));
+  }
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.detail ?? `请求失败 (${response.status})`);
@@ -995,12 +1140,40 @@ export function applyKnowledgeMvpBatch(
   });
 }
 
-export function createUser(payload: {
+export function registerUser(payload: {
   email: string;
+  password: string;
   display_name: string;
   base_currency: string;
-}): Promise<{ id: string }> {
-  return request("/v1/users", {
+}): Promise<AuthUser> {
+  return request("/v1/auth/register", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function loginUser(payload: { email: string; password: string }): Promise<AuthUser> {
+  return request("/v1/auth/login", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function getCurrentUser(): Promise<AuthUser> {
+  return request("/v1/auth/me");
+}
+
+export function logoutUser(): Promise<void> {
+  return request("/v1/auth/logout", { method: "POST" });
+}
+
+export function getAuthSessions(): Promise<AuthSession[]> {
+  return request("/v1/auth/sessions");
+}
+
+export function revokeAuthSession(sessionId: string): Promise<void> {
+  return request(`/v1/auth/sessions/${sessionId}`, { method: "DELETE" });
+}
+
+export function changePassword(payload: {
+  current_password: string;
+  new_password: string;
+}): Promise<void> {
+  return request("/v1/auth/change-password", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -1041,6 +1214,31 @@ export function applyIdentityCorrections(
       owner_id: ownerId,
       suggestion_ids: suggestionIds,
     }),
+  });
+}
+
+export function getIdentityReview(itemId: string): Promise<IdentityReviewDetail> {
+  return request(`/v1/portfolio/identity-review/items/${itemId}`);
+}
+
+export function researchIdentity(itemId: string): Promise<{ status: string; candidate_count: number }> {
+  return request(`/v1/portfolio/identity-review/items/${itemId}/research`, {
+    method: "POST", body: JSON.stringify({ visual_observations: {} }),
+  });
+}
+
+export function publishShadowValuation(itemId: string): Promise<{ valuation_id: string; fair_value: string; currency: string; already_published: boolean }> {
+  return request(`/v1/portfolio/identity-review/items/${itemId}/publish-shadow`, { method: "POST" });
+}
+
+export function confirmIdentityReview(
+  itemId: string,
+  identity: ConfirmedCardIdentity,
+  reason: string,
+): Promise<{ identity_version_id: string; accepted_count: number; rejected_count: number }> {
+  return request(`/v1/portfolio/identity-review/items/${itemId}/confirm`, {
+    method: "POST",
+    body: JSON.stringify({ identity, reason, field_provenance: { reviewer: "portfolio_workbench" } }),
   });
 }
 
@@ -1252,10 +1450,12 @@ export function estimateMarket(
 async function multipartRequest<T>(path: string, file: File): Promise<T> {
   const form = new FormData();
   form.append("image", file);
-  const response = await fetch(`${MULTIPART_API_URL}${path}`, {
+  const response = await fetch(`${multipartApiUrl()}${path}`, {
     method: "POST",
+    credentials: "include",
     body: form,
   });
+  if (response.status === 401) window.dispatchEvent(new Event("card-platform:unauthorized"));
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.detail ?? `请求失败 (${response.status})`);
@@ -1274,10 +1474,12 @@ export async function recognizeCardPair(
   const form = new FormData();
   form.append("front", front);
   form.append("back", back);
-  const response = await fetch(`${MULTIPART_API_URL}/v1/cards/recognize-pair`, {
+  const response = await fetch(`${multipartApiUrl()}/v1/cards/recognize-pair`, {
     method: "POST",
+    credentials: "include",
     body: form,
   });
+  if (response.status === 401) window.dispatchEvent(new Event("card-platform:unauthorized"));
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.detail ?? `请求失败 (${response.status})`);
@@ -1290,15 +1492,74 @@ export async function recognizeCardBatch(
 ): Promise<BatchCardRecognition[]> {
   const form = new FormData();
   files.forEach((file) => form.append("images", file));
-  const response = await fetch(`${MULTIPART_API_URL}/v1/cards/recognize-batch`, {
+  const response = await fetch(`${multipartApiUrl()}/v1/cards/recognize-batch`, {
     method: "POST",
+    credentials: "include",
     body: form,
   });
+  if (response.status === 401) window.dispatchEvent(new Event("card-platform:unauthorized"));
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.detail ?? `请求失败 (${response.status})`);
   }
   return response.json() as Promise<BatchCardRecognition[]>;
+}
+
+export async function enqueueScannerRecognition(
+  front: File,
+  back: File,
+  frontRaw?: File,
+  backRaw?: File,
+): Promise<ScannerRecognitionJob> {
+  const form = new FormData();
+  form.append("front", front);
+  form.append("back", back);
+  if (frontRaw) form.append("front_raw", frontRaw);
+  if (backRaw) form.append("back_raw", backRaw);
+  const response = await fetch(`${multipartApiUrl()}/v1/scanner/jobs`, {
+    method: "POST",
+    credentials: "include",
+    body: form,
+  });
+  if (response.status === 401) window.dispatchEvent(new Event("card-platform:unauthorized"));
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.detail ?? `加入识别队列失败 (${response.status})`);
+  }
+  return response.json() as Promise<ScannerRecognitionJob>;
+}
+
+export function getScannerRecognitionJobs(): Promise<ScannerRecognitionJob[]> {
+  return request("/v1/scanner/jobs");
+}
+
+export function getScannerCameraControls(): Promise<ScannerCameraControls> {
+  return request("/v1/scanner/camera-controls");
+}
+
+export function updateScannerCameraControls(values: {
+  exposure_mode?: "auto" | "manual";
+  exposure_time?: number;
+}): Promise<ScannerCameraControls> {
+  return request("/v1/scanner/camera-controls", {
+    method: "PUT",
+    body: JSON.stringify(values),
+  });
+}
+
+export function retryScannerRecognition(jobId: string): Promise<ScannerRecognitionJob> {
+  return request(`/v1/scanner/jobs/${jobId}/retry`, { method: "POST" });
+}
+
+export function deleteScannerRecognition(jobId: string): Promise<void> {
+  return request(`/v1/scanner/jobs/${jobId}`, { method: "DELETE" });
+}
+
+export async function getScannerJobImage(url: string, side: "front" | "back"): Promise<File> {
+  const response = await fetch(`${API_URL}${url}`, { credentials: "include" });
+  if (!response.ok) throw new Error(`扫描图片读取失败 (${response.status})`);
+  const blob = await response.blob();
+  return new File([blob], `scanner-${side}.jpg`, { type: blob.type || "image/jpeg" });
 }
 
 export function recognizeCardAuto(file: File): Promise<SheetCardRecognition> {
@@ -1314,6 +1575,17 @@ export function uploadItemImage(
   return multipartRequest(
     `/v1/portfolio/items/${itemId}/images?owner_id=${ownerId}&side=${side}`,
     file,
+  );
+}
+
+export function rotateItemImage(
+  itemId: string,
+  side: "front" | "back",
+  degrees: 90 | 180 | 270,
+): Promise<{ image_url: string }> {
+  return request(
+    `/v1/portfolio/items/${itemId}/images/${side}/rotate?degrees=${degrees}`,
+    { method: "POST" },
   );
 }
 

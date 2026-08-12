@@ -47,6 +47,11 @@ def _contains_product(text: str, value: object) -> bool:
     aliases = {
         "topps three": ("topps three", "topps 3"),
         "topps 3": ("topps three", "topps 3"),
+        "mosaic basketball": ("mosaic", "马赛克"),
+        "prizm basketball": ("prizm", "prizm系列"),
+        "optic basketball": ("optic", "杜蕾斯"),
+        "select basketball": ("select", "select系列"),
+        "national treasures basketball": ("national treasures", "国宝"),
     }
     return any(alias in normalized for alias in aliases.get(target, (target,)) if alias)
 
@@ -63,6 +68,13 @@ def _contains_parallel(text: str, value: object) -> bool:
         "blue parallel": ("blue", "blue parallel", "蓝平行", "蓝折"),
         "gold": ("gold", "gold parallel", "金平行", "金折"),
         "gold parallel": ("gold", "gold parallel", "金平行", "金折"),
+        "fusion red and yellow": (
+            "fusion red and yellow",
+            "red yellow mosaic",
+            "红黄马赛克",
+            "红金马赛克",
+            "黄马赛克",
+        ),
     }
     return any(alias in normalized for alias in aliases.get(target, (target,)) if alias)
 
@@ -131,6 +143,12 @@ class ComparableClassifier:
         )
         if target_material != comp_material:
             conflicts.append("material_conflict")
+        target_autograph = target.is_autograph
+        comp_autograph = bool(
+            re.search(r"(?:签字|卡签|贴签|签名|\bauto(?:graph)?\b|\brpa\b)", text, re.I)
+        )
+        if target_autograph != comp_autograph:
+            conflicts.append("autograph_conflict")
 
         player = _contains(text, target.player_name)
         product = _contains_product(text, target.product_name)
@@ -172,6 +190,21 @@ class ComparableClassifier:
         card_number = bool(
             target.card_number and re.search(card_number_pattern, text, re.I)
         )
+        explicit_card_numbers = {
+            normalize_text(value)
+            for value in re.findall(
+                r"(?:#|\bno\.?\s*)([0-9a-z][0-9a-z-]{0,15})",
+                text,
+                re.I,
+            )
+        }
+        target_card_number = normalize_text(target.card_number)
+        if (
+            target_card_number
+            and explicit_card_numbers
+            and target_card_number not in explicit_card_numbers
+        ):
+            conflicts.append("card_number_conflict")
         insert_aliases = (
             self.resolver.aliases_for("insert", target.insert)
             if self.resolver and self.resolver.entities
@@ -205,6 +238,8 @@ class ComparableClassifier:
             parallel = not named_parallel
             if named_parallel:
                 conflicts.append("parallel_conflict")
+        elif target_parallel and not parallel and _contains_other_parallel(text, target.parallel):
+            conflicts.append("parallel_conflict")
         totals = {
             int(number)
             for pair in re.findall(

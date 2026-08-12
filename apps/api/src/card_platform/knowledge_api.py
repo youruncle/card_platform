@@ -10,6 +10,7 @@ from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field
 
 from card_platform.knowledge import ENTITY_TYPES, KnowledgeResolver, normalize_knowledge_text
+from card_platform.auth import require_admin
 from card_platform.knowledge_batch import apply_manifest
 from card_platform.knowledge_batch_catalog import catalog_manifest, catalog_metadata
 from card_platform.knowledge_manifest import load_manifest, validate_manifest
@@ -29,7 +30,7 @@ async def _knowledge_connection(request: Request):
 router = APIRouter(
     prefix="/v1/knowledge",
     tags=["knowledge"],
-    dependencies=[Depends(_knowledge_connection)],
+    dependencies=[Depends(require_admin), Depends(_knowledge_connection)],
 )
 repository = KnowledgeRepository()
 

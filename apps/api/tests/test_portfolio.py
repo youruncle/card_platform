@@ -1,4 +1,6 @@
 from decimal import Decimal
+from types import SimpleNamespace
+from uuid import uuid4
 
 import pytest
 
@@ -7,6 +9,7 @@ from card_platform.domain.portfolio import (
     TransactionKind,
     calculate_position,
 )
+from card_platform.repository import build_portfolio_summary
 
 
 def entry(
@@ -68,3 +71,33 @@ def test_oversell_is_rejected() -> None:
                 entry(TransactionKind.SELL, "2", "100"),
             ]
         )
+
+
+def test_portfolio_summary_uses_cost_as_provisional_value_when_unvalued() -> None:
+    owner_id = uuid4()
+    valued = SimpleNamespace(
+        id=uuid4(),
+        remaining_cost=Decimal("160"),
+        realized_profit=Decimal("20"),
+        fair_value=Decimal("110"),
+        valuation_currency="CNY",
+        quantity_held=Decimal("2"),
+        unrealized_profit=Decimal("60"),
+    )
+    unvalued = SimpleNamespace(
+        id=uuid4(),
+        remaining_cost=Decimal("75"),
+        realized_profit=Decimal("0"),
+        fair_value=None,
+        valuation_currency=None,
+        quantity_held=Decimal("1"),
+        unrealized_profit=None,
+    )
+
+    summary = build_portfolio_summary([valued, unvalued], owner_id, "CNY")
+
+    assert summary.total_cost == Decimal("235")
+    assert summary.total_market_value == Decimal("295")
+    assert summary.unrealized_profit == Decimal("60")
+    assert summary.valued_item_count == 1
+    assert summary.unvalued_item_count == 1

@@ -54,6 +54,19 @@ class Settings(BaseSettings):
     market_cold_ttl_seconds: int = 172800
     upload_dir: str = "uploads"
     max_image_bytes: int = 10 * 1024 * 1024
+    auth_cookie_name: str = "card_platform_session"
+    auth_session_days: int = 30
+    auth_cookie_secure: bool = False
+    auth_registration_enabled: bool = True
+    auth_max_failed_logins: int = 5
+    auth_lock_minutes: int = 15
+    scanner_worker_enabled: bool = True
+    scanner_worker_poll_seconds: float = 1.0
+    scanner_job_max_attempts: int = 3
+    scanner_job_dir: str = "data/scanner-jobs"
+    scanner_orientation_script: str = "scripts/orient_card_images.swift"
+    scanner_orientation_local_threshold: float = 0.72
+    scanner_nssdk_library_path: str | None = None
 
     @property
     def cors_origins(self) -> list[str]:

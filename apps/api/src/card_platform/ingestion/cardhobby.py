@@ -49,6 +49,19 @@ PRODUCT_SEARCH_ALIASES = {
     "court kings": ("油画", "Court Kings"),
     "mosaic": ("Mosaic 马赛克", "Mosaic", "马赛克"),
 }
+
+
+def product_search_aliases(value: object) -> tuple[str, ...]:
+    """Resolve catalog labels such as `Mosaic Basketball` to seller vocabulary."""
+    product = str(value or "").strip()
+    normalized = product.casefold()
+    exact = PRODUCT_SEARCH_ALIASES.get(normalized)
+    if exact:
+        return exact
+    for family, aliases in PRODUCT_SEARCH_ALIASES.items():
+        if family in normalized:
+            return aliases
+    return (product,) if product else ()
 PARALLEL_SEARCH_ALIASES = {
     "silver": "银折",
     "silver parallel": "银折",
@@ -63,6 +76,7 @@ PARALLEL_SEARCH_ALIASES = {
     "purple": "紫折",
     "purple parallel": "紫折",
     "green mosaic": "绿马赛克",
+    "fusion red and yellow": "红黄马赛克",
 }
 PARALLEL_MATCH_ALIASES = {
     "green mosaic": ("green mosaic", "绿马赛克", "绿折"),
@@ -309,7 +323,12 @@ def assess_cardhobby_match(identity: dict, sale: CardHobbySale) -> tuple[Decimal
 
     if _contains_phrase(title, identity.get("brand_name")):
         score += Decimal("0.10")
-    if _contains_phrase(title, identity.get("product_name")):
+    product_aliases = product_search_aliases(identity.get("product_name"))
+    product_matches = any(_contains_phrase(title, alias) for alias in product_aliases)
+    if product_aliases and not product_matches:
+        conflicts.append("标题未命中目标产品系列")
+        return Decimal("0"), conflicts
+    if product_matches:
         score += Decimal("0.15")
     card_number_matches = _contains_phrase(title, identity.get("card_number"))
     target_card_number = str(identity.get("card_number") or "").strip()
@@ -496,10 +515,7 @@ class CardHobbyProvider:
     def build_queries(identity: dict) -> list[str]:
         player = str(identity.get("player_name") or "").strip()
         product = str(identity.get("product_name") or "").strip()
-        product_aliases = PRODUCT_SEARCH_ALIASES.get(
-            product.casefold(),
-            (product,),
-        )
+        product_aliases = product_search_aliases(product)
         print_run = identity.get("serial_total") or identity.get("print_run")
         insert = str(identity.get("insert") or identity.get("insert_name") or "").strip()
         card_type = (
@@ -636,7 +652,7 @@ class CardHobbyProvider:
         return CardHobbySale(
             item_id=item_id,
             title=title,
-            source_url=f"https://www.cardhobby.com.cn/market/item/{item_id}",
+            source_url=f"https://cardhobby.com.cn/Market/Item/{item_id}",
             occurred_at=occurred_at,
             sale_price=sale_price,
             shipping_price=shipping_price,

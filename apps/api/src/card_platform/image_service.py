@@ -13,6 +13,11 @@ from psycopg import AsyncConnection
 
 from card_platform.config import Settings
 from card_platform.card_search_service import CardSearchService
+from card_platform.card_orientation import (
+    OrientationDecision,
+    rotation_from_upright_index,
+    rotate_image_content,
+)
 from card_platform.image_rectification import rectify_card_image
 from card_platform.repository import NotFoundError
 from card_platform.schemas import (
@@ -181,6 +186,75 @@ class ImageStorageService:
             raise NotFoundError("collection item not found")
         return ImageUploadResult(item_id=item_id, side=side, image_url=image_url)
 
+    async def rotate_item_image(
+        self,
+        connection: AsyncConnection,
+        item_id: UUID,
+        owner_id: UUID,
+        side: str,
+        degrees_clockwise: int,
+    ) -> ImageUploadResult:
+        if side not in {"front", "back"}:
+            raise InvalidImageError("side must be front or back")
+        if degrees_clockwise not in {90, 180, 270}:
+            raise InvalidImageError("degrees must be 90, 180, or 270")
+        column = "image_front_url" if side == "front" else "image_back_url"
+        selected = await connection.execute(
+            f"""
+            SELECT {column} AS image_url FROM collection_item
+            WHERE id = %s AND owner_id = %s AND deleted_at IS NULL
+            """,
+            (item_id, owner_id),
+        )
+        row = await selected.fetchone()
+        if row is None:
+            raise NotFoundError("collection item not found")
+        old_url = row.get("image_url")
+        old_path = self._local_item_image_path(item_id, side, old_url)
+        if old_path is None or not old_path.is_file():
+            raise InvalidImageError("card image is not stored locally")
+        content = rotate_image_content(old_path.read_bytes(), degrees_clockwise)
+        filename = f"{item_id}-{side}-{uuid4().hex}.jpg"
+        destination = self.upload_dir / filename
+        async with aiofiles.open(destination, "wb") as handle:
+            await handle.write(content)
+        image_url = f"/uploads/{filename}"
+        updated = await connection.execute(
+            f"""
+            UPDATE collection_item SET {column} = %s, updated_at = now()
+            WHERE id = %s AND owner_id = %s AND deleted_at IS NULL
+            RETURNING id
+            """,
+            (image_url, item_id, owner_id),
+        )
+        if await updated.fetchone() is None:
+            destination.unlink(missing_ok=True)
+            raise NotFoundError("collection item not found")
+        await connection.execute(
+            """
+            INSERT INTO card_image_orientation_correction (
+                collection_item_id, owner_id, side, rotation_degrees
+            ) VALUES (%s, %s, %s, %s)
+            """,
+            (item_id, owner_id, side, degrees_clockwise),
+        )
+        old_path.unlink(missing_ok=True)
+        return ImageUploadResult(item_id=item_id, side=side, image_url=image_url)
+
+    def _local_item_image_path(
+        self, item_id: UUID, side: str, image_url: str | None
+    ) -> Path | None:
+        if not image_url or not image_url.startswith("/uploads/"):
+            return None
+        filename = image_url.removeprefix("/uploads/")
+        pattern = re.compile(
+            rf"^{re.escape(str(item_id))}-{side}-[0-9a-f]{{32}}\.(?:jpg|png|webp)$"
+        )
+        if "/" in filename or not pattern.fullmatch(filename):
+            return None
+        candidate = (self.upload_dir / filename).resolve()
+        return candidate if candidate.parent == self.upload_dir else None
+
     def delete_item_images(self, item_id: UUID, image_urls: tuple[str | None, str | None]) -> None:
         pattern = re.compile(
             rf"^{re.escape(str(item_id))}-(?:front|back)-[0-9a-f]{{32}}"
@@ -217,6 +291,61 @@ class QwenVisionProvider:
             [(content, content_type)],
             "请识别这张篮球球星卡。",
         )
+
+    async def detect_orientation(
+        self, content: bytes, content_type: str
+    ) -> OrientationDecision:
+        rotations = [rotate_image_content(content, angle) for angle in (0, 90, 180, 270)]
+        user_content: list[dict] = [
+            {
+                "type": "text",
+                "text": (
+                    "下面四张依次是同一原图顺时针旋转 0、90、180、270 度的版本。"
+                    "选择真正正立的一张，返回 upright_image_index（1 到 4）和 confidence。"
+                ),
+            }
+        ]
+        for image in rotations:
+            encoded = base64.b64encode(image).decode("ascii")
+            user_content.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{encoded}"},
+                }
+            )
+        response = await self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "比较同一张球星卡的四个像素旋转版本，选择文字、球员和版式真正正立的一张。"
+                        "只输出 JSON：upright_image_index 必须为 1、2、3、4 之一；"
+                        "confidence 为 0 到 1。不要按图片宽高猜测，必须依据文字方向、人物姿态、"
+                        "品牌标志和卡面布局综合判断。"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": user_content,
+                },
+            ],
+            response_format={"type": "json_object"},
+            max_tokens=200,
+        )
+        raw = response.choices[0].message.content
+        if not raw:
+            raise RuntimeError("vision orientation response was empty")
+        try:
+            payload = json.loads(raw)
+        except json.JSONDecodeError:
+            match = re.search(r"\{.*\}", raw, flags=re.DOTALL)
+            if match is None:
+                raise RuntimeError("vision orientation response was not valid JSON")
+            payload = json.loads(match.group(0))
+        rotation = rotation_from_upright_index(payload.get("upright_image_index"))
+        confidence = max(0.0, min(1.0, float(payload.get("confidence", 0))))
+        return OrientationDecision(rotation, confidence, "vision_model")
 
     async def recognize_images(
         self,
@@ -260,6 +389,11 @@ class QwenVisionProvider:
                         "product_name 是产品线（如 Select、Donruss、National Treasures）；"
                         "insert_name 是产品内特卡/子集（如 Lodestar、Night Moves）；"
                         "parallel_name 是颜色或折射版本（如 Red、Gold、X-Fractor）。"
+                        "Mosaic 基础卡背面的 PRIZM 只表示折射版本，不是 insert；除非卡面或"
+                        "卡背另有明确子集名称，否则 insert_name=null。Mosaic 限编卡应结合"
+                        "正面颜色、x/y 限编和 checklist 识别具体 parallel（例如 /88 的"
+                        "Fusion Red and Yellow），不能把 insert_name 和 parallel_name 都写成"
+                        "泛化的 Prizm。"
                         "Prizm、Select、Obsidian、National Treasures、Immaculate、"
                         "Flawless、Donruss、Optic、Mosaic、Noir、Recon、Threads、"
                         "Hoops 均是 Panini"
@@ -390,12 +524,30 @@ class CardVisionService:
             )
         front_content = await read_validated_image(front, self.max_bytes)
         back_content = await read_validated_image(back, self.max_bytes)
+        return await self.recognize_pair_contents(
+            front_content,
+            front.content_type or "image/jpeg",
+            back_content,
+            back.content_type or "image/jpeg",
+        )
+
+    async def recognize_pair_contents(
+        self,
+        front_content: bytes,
+        front_content_type: str,
+        back_content: bytes,
+        back_content_type: str,
+    ) -> CardRecognitionResult:
+        if self.provider is None:
+            raise RuntimeError(
+                "VISION_API_KEY is required for Qwen3-VL-Flash card image recognition"
+            )
         if not hasattr(self.provider, "recognize_images"):
             raise RuntimeError("configured vision provider does not support paired recognition")
         visual = await self.provider.recognize_images(
             [
-                (front_content, front.content_type or "image/jpeg"),
-                (back_content, back.content_type or "image/jpeg"),
+                (front_content, front_content_type),
+                (back_content, back_content_type),
             ],
             (
                 "这两张图片依次是同一张篮球球星卡的正面和背面。联合识别，优先从"

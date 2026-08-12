@@ -11,7 +11,8 @@ COPY src ./src
 RUN pip install --no-cache-dir .
 
 RUN useradd --create-home --uid 10001 cardplatform
-RUN mkdir -p /app/uploads && chown -R cardplatform:cardplatform /app/uploads
+RUN mkdir -p /app/uploads /app/scanner-jobs \
+    && chown -R cardplatform:cardplatform /app/uploads /app/scanner-jobs
 USER cardplatform
 
 EXPOSE 8000

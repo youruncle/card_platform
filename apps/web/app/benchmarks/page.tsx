@@ -3,6 +3,7 @@
 import { ArrowLeft, CheckCircle2, Play, RefreshCw, Target } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
+import { GlobalImageViewer, OpenableImage } from "@/components/image-viewer";
 import {
   createRecognitionBenchmark,
   createRecognitionKnowledgeProposals,
@@ -699,8 +700,7 @@ export default function RecognitionBenchmarksPage() {
             <div>
               {current.image_urls.slice(0, 2).map((url, index) => (
                 <figure key={url}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt={index === 0 ? "卡片正面" : "卡片背面"} />
+                  <OpenableImage src={url} alt={index === 0 ? "卡片正面" : "卡片背面"} />
                   <figcaption>{index === 0 ? "图1" : "图2"}</figcaption>
                 </figure>
               ))}
@@ -948,6 +948,7 @@ export default function RecognitionBenchmarksPage() {
           当前批次确实没有样本，请切换批次或采集首批50张。
         </section>
       )}
+      <GlobalImageViewer />
     </main>
   );
 }

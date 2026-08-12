@@ -15,6 +15,7 @@ from card_platform.schemas import (
     MarketCompView,
     MarketEstimateCreate,
     MarketEstimateResult,
+    ShadowValuationSnapshot,
 )
 
 
@@ -303,10 +304,23 @@ class MarketRepository:
             ),
         )
         valuation = await valuation_result.fetchone()
+        shadow_result = await connection.execute(
+            """
+            SELECT id, created_at, status, currency, low_value, fair_value,
+                   high_value, confidence, evidence_count, review_reasons,
+                   evidence, model_version
+            FROM valuation_shadow_result
+            WHERE collection_item_id = %s
+            ORDER BY created_at DESC LIMIT 1
+            """,
+            (item_id,),
+        )
+        shadow = await shadow_result.fetchone()
         comps = await self.list_comps(connection, item_id, owner_id)
         return AutomatedValuationDetail(
             **(job or {}),
             valuation=AutomatedValuationSnapshot(**valuation) if valuation else None,
+            shadow_valuation=ShadowValuationSnapshot(**shadow) if shadow else None,
             comparables=comps,
         )
 
