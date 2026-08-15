@@ -285,6 +285,7 @@ export type PortfolioItem = {
   market_comp_count: number;
   unrealized_profit: string | null;
   valuation_status: string | null;
+  valuation_result_summary: Record<string, unknown>;
   valuation_job_id: string | null;
   valuation_error: string | null;
   deleted_at: string | null;
@@ -529,6 +530,15 @@ export type CardRecognition = {
   is_autograph: boolean;
   is_patch: boolean;
   confidence: string;
+  recognition_model?: string | null;
+  recognition_status?: "resolved" | "research_required";
+  recognition_quality_issues?: string[];
+  recognition_estimated_cost_cny?: string;
+  recognition_route?: Array<{
+    tier: string; model: string; reason: string; status?: string;
+    latency_ms?: number; prompt_tokens?: number | null; completion_tokens?: number | null;
+    estimated_cost_cny?: string; quality_issues?: string[];
+  }>;
   caveats: string[];
   search_queries: string[];
   field_evidence: Record<string, string[]>;

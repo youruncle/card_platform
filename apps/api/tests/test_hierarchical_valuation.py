@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from card_platform.domain.card_identity import CardIdentityResolver, canonical_insert
+from card_platform.domain.card_identity import normalize_text
 from card_platform.domain.comparables import (
     Classification,
     ComparableClassifier,
@@ -8,6 +9,7 @@ from card_platform.domain.comparables import (
     ComparableTier,
 )
 from card_platform.domain.hierarchical_estimator import ClassifiedSale, HierarchicalEstimator
+from card_platform.valuation_worker import AutomatedValuationWorker
 
 
 def matas_identity():
@@ -149,6 +151,66 @@ def test_two_t0_control_center_and_shipping_is_separate() -> None:
     assert secondary.final_weight == 0
     assert not secondary.used_for_center
     assert estimate.confidence < Decimal("0.90")
+
+
+def test_nba_hoops_catalog_suffix_does_not_reject_seller_title() -> None:
+    identity = CardIdentityResolver().resolve(
+        {
+            "player_name": "LeBron James",
+            "season_start": 2025,
+            "season_end": 2026,
+            "product_name": "NBA Hoops Basketball",
+            "card_number": "BH-2",
+            "insert_name": "Bounce House",
+        }
+    )
+    classification = ComparableClassifier().classify(
+        identity,
+        ComparableInput(
+            title=(
+                "2025-26 Topps NBA Hoops LeBron James #BH-2 "
+                "Bounce House 弹跳屋 特卡"
+            )
+        ),
+    )
+    assert classification.tier == ComparableTier.T0
+    assert classification.hard_conflicts == []
+
+
+def test_uncertain_visual_check_cannot_remain_t0() -> None:
+    identity = matas_identity()
+    classification = ComparableClassifier().classify(
+        identity,
+        ComparableInput(
+            title="2024-25 Court Kings Matas Buzelis RC 鞋灯 红平行 149编",
+            visual_verdict="uncertain",
+            visual_confidence=Decimal("0"),
+            visual_reasons=("vision_model_omitted_candidate",),
+        ),
+    )
+    assert classification.tier == ComparableTier.T1
+
+
+def test_high_confidence_compatible_visual_can_confirm_unnumbered_insert() -> None:
+    identity = CardIdentityResolver().resolve(
+        {
+            "player_name": "LeBron James",
+            "season_start": 2025,
+            "season_end": 2026,
+            "product_name": "NBA Hoops Basketball",
+            "card_number": "BH-2",
+            "insert_name": "Bounce House",
+        }
+    )
+    classification = ComparableClassifier().classify(
+        identity,
+        ComparableInput(
+            title="2025-26 Topps NBA Hoops LeBron James #BH-2 Bounce House",
+            visual_verdict="compatible",
+            visual_confidence=Decimal("0.95"),
+        ),
+    )
+    assert classification.tier == ComparableTier.T0
 
 
 def test_gu_jersey_plain_card_number_and_unnumbered_parallel_are_t0() -> None:
@@ -507,6 +569,168 @@ def test_explicit_wrong_card_number_is_a_hard_conflict() -> None:
     )
     assert result.tier == ComparableTier.REJECTED
     assert "card_number_conflict" in result.hard_conflicts
+
+
+def test_luka_number_and_blue_parallel_are_exact_matches() -> None:
+    target = CardIdentityResolver().resolve(
+        {
+            "player_name": "LUKA DONČIĆ",
+            "season_start": 2023,
+            "season_end": 2024,
+            "product_name": "Crown Royale Basketball",
+            "card_number": "No. 4",
+            "insert_name": "Test of Time",
+            "parallel_name": "Blue",
+            "serial_number": 10,
+            "serial_total": 75,
+        }
+    )
+    result = ComparableClassifier().classify(
+        target,
+        ComparableInput(
+            title=(
+                "2023-24 Panini Crown Royale Basketball LUKA DONČIĆ "
+                "Test of Time Blue /75 #4 Ungraded"
+            )
+        ),
+    )
+    assert result.tier == ComparableTier.T0
+    assert result.field_matches["card_number"]
+    assert result.field_matches["parallel"]
+
+
+def test_luka_wrong_fusion_parallel_is_rejected_for_confirmed_blue_identity() -> None:
+    target = CardIdentityResolver().resolve(
+        {
+            "player_name": "LUKA DONČIĆ",
+            "season_start": 2023,
+            "season_end": 2024,
+            "product_name": "Crown Royale Basketball",
+            "card_number": "4",
+            "insert_name": "Test of Time",
+            "parallel_name": "Blue",
+            "serial_number": 10,
+            "serial_total": 75,
+        }
+    )
+    result = ComparableClassifier().classify(
+        target,
+        ComparableInput(
+            title=(
+                "2023-24 Panini Crown Royale Basketball LUKA DONČIĆ "
+                "Test of Time Fusion Red & Yellow /75 #4 Ungraded"
+            )
+        ),
+    )
+    assert result.tier == ComparableTier.REJECTED
+    assert "parallel_conflict" in result.hard_conflicts
+
+
+def test_luka_confirmed_blue_identity_loads_exact_sparse_market_sales() -> None:
+    identity = {
+        "player_name": "LUKA DONČIĆ",
+        "season_start": 2023,
+        "season_end": 2024,
+        "product_name": "Crown Royale Basketball",
+        "card_number": "4",
+        "insert_name": "Test of Time",
+        "parallel_name": "Blue",
+        "serial_number": 10,
+        "serial_total": 75,
+        "grade_company": None,
+    }
+    sales = AutomatedValuationWorker._curated_exact_comparables(identity)
+    assert len(sales) == 6
+    assert {sale.evidence_level for sale in sales} == {"aggregated_sale"}
+    assert all("Blue" in sale.title and "/75" in sale.title for sale in sales)
+    assert all(sale.grade_company is None for sale in sales)
+
+
+def test_unicode_player_name_and_short_product_title_match_luka_exactly() -> None:
+    assert normalize_text("Dončić") == normalize_text("Doncic")
+    target = CardIdentityResolver().resolve(
+        {
+            "player_name": "LUKA DONČIĆ",
+            "season_start": 2023,
+            "season_end": 2024,
+            "product_name": "Crown Royale Basketball",
+            "card_number": "4",
+            "insert_name": "Test of Time",
+            "parallel_name": "Blue",
+            "serial_total": 75,
+        }
+    )
+    result = ComparableClassifier().classify(
+        target,
+        ComparableInput(
+            title=(
+                "2023-24 Panini Crown Royale Luka Doncic Test of Time "
+                "Blue /75 #4 Raw"
+            )
+        ),
+    )
+    assert result.tier == ComparableTier.T0
+    assert not result.hard_conflicts
+
+
+def test_luka_curated_sales_require_confirmed_exact_parallel_identity() -> None:
+    identity = {
+        "player_name": "LUKA DONČIĆ",
+        "season_start": 2023,
+        "product_name": "Crown Royale Basketball",
+        "card_number": "4",
+        "insert_name": "Test of Time",
+        "parallel_name": "Fusion Red and Yellow",
+        "serial_total": 75,
+        "grade_company": None,
+    }
+    assert AutomatedValuationWorker._curated_exact_comparables(identity) == []
+
+
+def test_base_card_without_insert_can_be_t0() -> None:
+    target = CardIdentityResolver().resolve(
+        {
+            "player_name": "BRANDON MILLER",
+            "season_start": 2023,
+            "season_end": 2024,
+            "product_name": "Prizm Basketball",
+            "card_number": "152",
+            "set_name": "Base",
+            "is_rookie": True,
+        }
+    )
+    result = ComparableClassifier().classify(
+        target,
+        ComparableInput(
+            title="2023-24 Panini Prizm Brandon Miller RC Rookie #152 Base Raw"
+        ),
+    )
+    assert result.tier == ComparableTier.T0
+
+
+def test_numbered_parallel_without_insert_can_be_t0() -> None:
+    target = CardIdentityResolver().resolve(
+        {
+            "player_name": "JAREN JACKSON JR.",
+            "season_start": 2020,
+            "season_end": 2021,
+            "product_name": "Mosaic Basketball",
+            "card_number": "29",
+            "parallel_name": "Fast Break Purple Mosaic",
+            "serial_number": 22,
+            "serial_total": 50,
+        }
+    )
+    result = ComparableClassifier().classify(
+        target,
+        ComparableInput(
+            title=(
+                "2020-21 Panini Mosaic Jaren Jackson Jr #29 "
+                "Fast Break Purple Prizm /50 Raw"
+            )
+        ),
+    )
+    assert result.tier == ComparableTier.T0
 
 
 def test_autograph_and_parallel_mismatches_are_hard_conflicts() -> None:

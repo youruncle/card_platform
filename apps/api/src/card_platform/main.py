@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await knowledge_runtime.refresh()
     app.state.knowledge_runtime = knowledge_runtime
     worker = AutomatedValuationWorker(database, get_settings(), knowledge_runtime)
-    worker_task = None
+    worker_tasks: list[asyncio.Task] = []
     recognition_worker = None
     recognition_worker_task = None
     scanner_worker = None
@@ -44,15 +44,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         recognition_worker = RecognitionBenchmarkWorker(database, get_settings())
         recognition_worker_task = asyncio.create_task(recognition_worker.run())
     if get_settings().valuation_worker_enabled:
-        worker_task = asyncio.create_task(worker.run())
+        concurrency = max(1, get_settings().valuation_worker_concurrency)
+        worker_tasks = [asyncio.create_task(worker.run()) for _ in range(concurrency)]
     if get_settings().scanner_worker_enabled:
         scanner_worker = ScannerRecognitionWorker(database, get_settings())
         scanner_worker_task = asyncio.create_task(scanner_worker.run())
     try:
         yield
     finally:
-        if worker_task is not None:
-            await stop_worker(worker_task, worker)
+        if worker_tasks:
+            await stop_worker(worker_tasks, worker)
         if recognition_worker_task is not None and recognition_worker is not None:
             await stop_recognition_worker(recognition_worker_task, recognition_worker)
         if scanner_worker_task is not None and scanner_worker is not None:

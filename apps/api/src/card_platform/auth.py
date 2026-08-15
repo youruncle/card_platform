@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import hashlib
+from ipaddress import ip_address
 import secrets
 from uuid import UUID
 
@@ -50,6 +51,11 @@ def hash_session_token(token: str) -> str:
 
 def client_metadata(request: Request) -> tuple[str | None, str | None]:
     address = request.client.host if request.client else None
+    if address:
+        try:
+            ip_address(address)
+        except ValueError:
+            address = None
     return address, request.headers.get("user-agent")
 
 

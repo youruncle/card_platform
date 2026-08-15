@@ -13,6 +13,7 @@ from card_platform.image_service import (
     InvalidImageError,
     detect_image_content_type,
     read_validated_image,
+    apply_local_ocr_anchors,
 )
 from card_platform.schemas import (
     CardRecognitionResult,
@@ -229,3 +230,21 @@ def test_card_vision_requires_vision_provider() -> None:
     service = CardVisionService(Settings(vision_api_key=None))
     with pytest.raises(RuntimeError, match="VISION_API_KEY"):
         asyncio.run(service.recognize(upload(b"\xff\xd8\xfffixture")))
+
+
+def test_local_ocr_anchors_override_serial_and_record_provenance() -> None:
+    visual = CardRecognitionResult(
+        player_name="Scottie Barnes", season_start=2025, season_end=2026,
+        product_name="Topps Basketball", card_number="27/50",
+        serial_number=None, serial_total=None, confidence="0.90",
+    )
+    resolved = apply_local_ocr_anchors(visual, {
+        "card_number": "31", "card_number_evidence": "No. 31",
+        "serial_number": 27, "serial_total": 50, "is_numbered": True,
+        "serial_evidence": "27/50",
+    }, 12)
+    assert resolved.card_number == "31"
+    assert resolved.serial_number == 27
+    assert resolved.serial_total == 50
+    assert resolved.field_evidence["card_number"] == ["Apple Vision OCR：No. 31"]
+    assert resolved.recognition_route[0]["model"] == "apple_vision"

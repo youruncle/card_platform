@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from decimal import Decimal
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
@@ -149,6 +150,50 @@ def resolved_update_is_safe(
     return True
 
 
+def candidate_supports_resolved_field(
+    candidate: CardWebCandidate, key: str, value: str | int | bool
+) -> bool:
+    if candidate.match_confidence < Decimal("0.85") or candidate.conflicts:
+        return False
+    if key not in candidate.matching_fields:
+        return False
+    if not any(
+        (urlparse(url).hostname or "").removeprefix("www.") in STRONG_IDENTITY_SITES
+        for url in candidate.source_urls
+    ):
+        return False
+    candidate_value = getattr(candidate.identity, key, None)
+    if candidate_value is None:
+        return False
+    if isinstance(value, str):
+        return str(candidate_value).strip().casefold() == value.strip().casefold()
+    return candidate_value == value
+
+
+def source_page_supports_candidate(page_text: str, candidate: CardWebCandidate) -> bool:
+    text = re.sub(r"[^a-z0-9]+", " ", page_text.casefold())
+    identity = candidate.identity
+    player_tokens = re.findall(r"[a-z0-9]+", str(identity.player_name or "").casefold())
+    if player_tokens and not all(token in text for token in player_tokens[-2:]):
+        return False
+    card_number = str(identity.card_number or "").strip().casefold()
+    if card_number and not re.search(
+        rf"(?:^|[^a-z0-9]){re.escape(card_number)}(?:[^a-z0-9]|$)",
+        page_text.casefold(),
+    ):
+        return False
+    distinctive = [
+        token for token in re.findall(
+            r"[a-z0-9]+", " ".join(
+                str(value or "") for value in (identity.insert_name, identity.parallel_name)
+            ).casefold()
+        )
+        if token not in {"gold", "silver", "red", "blue", "green", "orange",
+                         "purple", "black", "white", "base", "parallel", "prizm"}
+    ]
+    return not distinctive or all(token in text for token in distinctive)
+
+
 def build_card_search_queries(
     result: CardRecognitionResult, context: str | None = None
 ) -> list[str]:
@@ -283,7 +328,7 @@ class CardSearchService:
                 candidate.model_copy(update={"source_urls": valid_urls})
             )
         verified_url_groups = await asyncio.gather(
-            *(self._verified_source_urls(candidate.source_urls) for candidate in candidates)
+            *(self._verified_source_urls(candidate) for candidate in candidates)
         )
         candidates = [
             candidate.model_copy(update={"source_urls": urls})
@@ -303,13 +348,6 @@ class CardSearchService:
             candidate.model_copy(update={"image_url": image_url})
             for candidate, image_url in zip(candidates, image_urls, strict=True)
         ]
-        has_strong_sources = any(
-            any(
-                (urlparse(url).hostname or "").removeprefix("www.") in STRONG_IDENTITY_SITES
-                for url in candidate.source_urls
-            )
-            for candidate in candidates
-        )
         updates = {
             key: normalized
             for key, value in enrichment.resolved_fields.items()
@@ -317,7 +355,10 @@ class CardSearchService:
             if key in SEARCHABLE_FIELDS
             and value is not None
             and enrichment.field_evidence.get(key)
-            and has_strong_sources
+            and any(
+                candidate_supports_resolved_field(candidate, key, normalized)
+                for candidate in candidates
+            )
             and resolved_update_is_safe(visual, key, normalized)
         }
         reference_updates: dict = {}
@@ -355,8 +396,9 @@ class CardSearchService:
             }
         )
 
-    async def _verified_source_urls(self, urls: list[str]) -> list[str]:
-        """Keep only source pages that resolve; model-generated URLs are not evidence."""
+    async def _verified_source_urls(self, candidate: CardWebCandidate) -> list[str]:
+        """Keep only source pages whose response text supports this exact candidate."""
+        urls = candidate.source_urls
         if not urls:
             return []
         headers = {
@@ -374,7 +416,10 @@ class CardSearchService:
             for url in urls[:3]:
                 try:
                     response = await client.get(url)
-                    if response.status_code < 400:
+                    if (
+                        response.status_code < 400
+                        and source_page_supports_candidate(response.text[:2_000_000], candidate)
+                    ):
                         verified.append(str(response.url))
                 except httpx.HTTPError:
                     continue

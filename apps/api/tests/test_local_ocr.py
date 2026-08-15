@@ -44,3 +44,15 @@ def test_extract_anchors_reads_material_usage() -> None:
     )
     assert anchors["is_memorabilia"] is True
     assert anchors["memorabilia_usage"] == "game_used"
+
+
+def test_extract_anchors_does_not_treat_november_or_stats_as_identity() -> None:
+    anchors = extract_anchors([
+        "2024/25. He led Toronto in assists per game.",
+        "On November 29, Barnes had a triple-double.",
+        "31",
+        "FLAGSHIP",
+        "© 2025 THE TOPPS COMPANY",
+    ])
+    assert "season_start" not in anchors
+    assert anchors["card_number"] == "31"

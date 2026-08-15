@@ -1,6 +1,8 @@
 import base64
 import json
 import re
+from decimal import Decimal
+import time
 from pathlib import Path
 from typing import Protocol
 from uuid import UUID, uuid4
@@ -19,18 +21,55 @@ from card_platform.card_orientation import (
     rotate_image_content,
 )
 from card_platform.image_rectification import rectify_card_image
+from card_platform import local_ocr
 from card_platform.repository import NotFoundError
 from card_platform.schemas import (
     CardRecognitionResult,
     ImageUploadResult,
     SheetCardRecognitionResult,
 )
+from card_platform.vision_routing import TieredVisionRouter, finalize_recognition_status
 
 ALLOWED_IMAGE_TYPES = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
     "image/webp": ".webp",
 }
+
+
+def apply_local_ocr_anchors(
+    result: CardRecognitionResult, anchors: dict, latency_ms: int
+) -> CardRecognitionResult:
+    if not anchors:
+        return result
+    updates = {
+        field: anchors[field]
+        for field in (
+            "season_start", "season_end", "card_number", "serial_number",
+            "serial_total", "is_numbered", "is_rookie", "is_autograph",
+            "is_memorabilia", "memorabilia_usage",
+        )
+        if field in anchors
+    }
+    evidence = {**result.field_evidence}
+    evidence_map = {
+        "season_start": "season_evidence", "season_end": "season_evidence",
+        "card_number": "card_number_evidence", "serial_number": "serial_evidence",
+        "serial_total": "serial_evidence", "is_rookie": "rookie_evidence",
+        "is_autograph": "autograph_evidence", "is_memorabilia": "material_evidence",
+        "memorabilia_usage": "material_evidence",
+    }
+    for field in updates:
+        source = anchors.get(evidence_map.get(field, ""))
+        if source:
+            evidence[field] = [*evidence.get(field, []), f"Apple Vision OCR：{source}"]
+    trace = [{
+        "tier": "local_ocr", "model": "apple_vision", "reason": "free_local_anchor_pass",
+        "status": "succeeded", "latency_ms": latency_ms, "estimated_cost_cny": "0",
+        "anchored_fields": sorted(updates),
+    }, *result.recognition_route]
+    return result.model_copy(update={**updates, "field_evidence": evidence,
+                                     "recognition_route": trace})
 
 
 def has_valid_signature(content: bytes, content_type: str) -> bool:
@@ -332,6 +371,7 @@ class QwenVisionProvider:
             ],
             response_format={"type": "json_object"},
             max_tokens=200,
+            extra_body={"enable_thinking": False},
         )
         raw = response.choices[0].message.content
         if not raw:
@@ -352,7 +392,24 @@ class QwenVisionProvider:
         images: list[tuple[bytes, str]],
         prompt: str,
     ) -> CardRecognitionResult:
+        result, _ = await self.recognize_images_with_usage(images, prompt)
+        return result
+
+    async def recognize_images_with_usage(
+        self,
+        images: list[tuple[bytes, str]],
+        prompt: str,
+        prior_result: str | None = None,
+    ) -> tuple[CardRecognitionResult, dict[str, int | None]]:
         user_content: list[dict] = [{"type": "text", "text": prompt}]
+        if prior_result:
+            user_content.append({
+                "type": "text",
+                "text": (
+                    "低成本模型的初步结果如下。请独立复核图片，重点纠正缺失、冲突、"
+                    "卡号与限编混淆及泛化平行名；不要无依据照抄：" + prior_result
+                ),
+            })
         for content, content_type in images:
             encoded = base64.b64encode(content).decode("ascii")
             user_content.append(
@@ -437,11 +494,17 @@ class QwenVisionProvider:
             ],
             response_format={"type": "json_object"},
             max_tokens=1200,
+            extra_body={"enable_thinking": False},
         )
         result = response.choices[0].message.content
         if not result:
             raise RuntimeError("vision response did not contain structured card data")
-        return CardRecognitionResult.model_validate_json(result)
+        parsed = CardRecognitionResult.model_validate_json(result)
+        usage = response.usage
+        return parsed, {
+            "prompt_tokens": getattr(usage, "prompt_tokens", None),
+            "completion_tokens": getattr(usage, "completion_tokens", None),
+        }
 
     async def recognize_sheet(
         self, content: bytes, content_type: str
@@ -484,6 +547,7 @@ class QwenVisionProvider:
                 },
             ],
             response_format={"type": "json_object"},
+            extra_body={"enable_thinking": False},
         )
         result = response.choices[0].message.content
         if not result:
@@ -505,6 +569,21 @@ class CardVisionService:
             if settings.vision_api_key
             else None
         )
+        self.tiered_providers = None
+        if provider is None and settings.vision_api_key:
+            self.tiered_providers = {
+                "flash": self.provider,
+                "plus": QwenVisionProvider(
+                    settings.vision_api_key, settings.vision_base_url,
+                    settings.vision_plus_model, settings.vision_timeout_seconds,
+                ),
+                "max": QwenVisionProvider(
+                    settings.vision_api_key, settings.vision_base_url,
+                    settings.vision_max_model, settings.vision_timeout_seconds,
+                ) if settings.vision_max_enabled else None,
+            }
+        self.plus_threshold = settings.vision_plus_threshold
+        self.max_threshold = settings.vision_max_threshold
 
     async def recognize(self, upload: UploadFile) -> CardRecognitionResult:
         if self.provider is None:
@@ -513,7 +592,7 @@ class CardVisionService:
             )
         content = await read_validated_image(upload, self.max_bytes)
         visual = await self.provider.recognize(content, upload.content_type or "image/jpeg")
-        return await self.search.enrich(visual)
+        return finalize_recognition_status(await self.search.enrich(visual))
 
     async def recognize_pair(
         self, front: UploadFile, back: UploadFile
@@ -544,18 +623,46 @@ class CardVisionService:
             )
         if not hasattr(self.provider, "recognize_images"):
             raise RuntimeError("configured vision provider does not support paired recognition")
-        visual = await self.provider.recognize_images(
-            [
-                (front_content, front_content_type),
-                (back_content, back_content_type),
-            ],
-            (
+        images = [
+            (front_content, front_content_type),
+            (back_content, back_content_type),
+        ]
+        ocr_started = time.monotonic()
+        ocr_lines = await local_ocr.recognize_images(images)
+        ocr_latency_ms = round((time.monotonic() - ocr_started) * 1000)
+        ocr_anchors = local_ocr.extract_anchors(ocr_lines)
+        prompt = (
                 "这两张图片依次是同一张篮球球星卡的正面和背面。联合识别，优先从"
                 "背面读取年份、卡号和版权信息，从正面判断球员、卡种与视觉属性；"
                 "冲突字段写入 caveats，不要把两张图当成两张卡。"
-            ),
         )
-        return await self.search.enrich(visual)
+        if ocr_lines:
+            prompt += (
+                "\n以下是本机 Apple Vision OCR 原文和经过格式校验的锚点。OCR 可能有误，"
+                "但卡号与 x/y 限编不得混淆；如图片明确冲突必须写入 caveats："
+                + json.dumps({"ocr_lines": ocr_lines, "validated_anchors": ocr_anchors},
+                             ensure_ascii=False)
+            )
+        if self.tiered_providers:
+            def routed_call(provider):
+                if provider is None:
+                    return None
+                return lambda prior: provider.recognize_images_with_usage(
+                    images, prompt, prior_result=prior
+                )
+
+            router = TieredVisionRouter(
+                routed_call(self.tiered_providers["flash"]),
+                routed_call(self.tiered_providers["plus"]),
+                routed_call(self.tiered_providers["max"]),
+                plus_threshold=Decimal(str(self.plus_threshold)),
+                max_threshold=Decimal(str(self.max_threshold)),
+            )
+            visual = await router.recognize()
+        else:
+            visual = await self.provider.recognize_images(images, prompt)
+        visual = apply_local_ocr_anchors(visual, ocr_anchors, ocr_latency_ms)
+        return finalize_recognition_status(await self.search.enrich(visual))
 
     async def recognize_sheet(self, upload: UploadFile) -> SheetCardRecognitionResult:
         if self.provider is None:

@@ -41,10 +41,17 @@ def _contains(text: str, value: object) -> bool:
     return bool(value_text and value_text in normalize_text(text))
 
 
+def _normalize_card_number(value: object) -> str:
+    normalized = normalize_text(value)
+    return re.sub(r"^no\s*", "", normalized).strip()
+
+
 def _contains_product(text: str, value: object) -> bool:
     target = normalize_text(value)
     normalized = normalize_text(text)
     aliases = {
+        "nba hoops basketball": ("nba hoops", "hoops"),
+        "nba hoops": ("nba hoops", "hoops"),
         "topps three": ("topps three", "topps 3"),
         "topps 3": ("topps three", "topps 3"),
         "mosaic basketball": ("mosaic", "马赛克"),
@@ -52,6 +59,7 @@ def _contains_product(text: str, value: object) -> bool:
         "optic basketball": ("optic", "杜蕾斯"),
         "select basketball": ("select", "select系列"),
         "national treasures basketball": ("national treasures", "国宝"),
+        "crown royale basketball": ("crown royale basketball", "crown royale", "皇冠"),
     }
     return any(alias in normalized for alias in aliases.get(target, (target,)) if alias)
 
@@ -70,10 +78,20 @@ def _contains_parallel(text: str, value: object) -> bool:
         "gold parallel": ("gold", "gold parallel", "金平行", "金折"),
         "fusion red and yellow": (
             "fusion red and yellow",
+            "fusion red yellow",
             "red yellow mosaic",
             "红黄马赛克",
             "红金马赛克",
             "黄马赛克",
+        ),
+        "fast break purple mosaic": (
+            "fast break purple mosaic",
+            "mosaic fast break purple",
+            "fast break purple prizm",
+            "purple fast break mosaic",
+            "purple disco",
+            "紫 disco",
+            "紫迪斯科",
         ),
     }
     return any(alias in normalized for alias in aliases.get(target, (target,)) if alias)
@@ -183,22 +201,23 @@ class ComparableClassifier:
             if explicit_seasons and target_season
             else not season_tokens or any(token in text for token in season_tokens)
         )
+        normalized_target_number = _normalize_card_number(target.card_number)
         card_number_pattern = (
             rf"(?<![0-9a-z])(?:#|no\.?\s*)?"
-            rf"{re.escape(str(target.card_number or ''))}(?![0-9a-z])"
+            rf"{re.escape(normalized_target_number)}(?![0-9a-z])"
         )
         card_number = bool(
             target.card_number and re.search(card_number_pattern, text, re.I)
         )
         explicit_card_numbers = {
-            normalize_text(value)
+            _normalize_card_number(value)
             for value in re.findall(
                 r"(?:#|\bno\.?\s*)([0-9a-z][0-9a-z-]{0,15})",
                 text,
                 re.I,
             )
         }
-        target_card_number = normalize_text(target.card_number)
+        target_card_number = normalized_target_number
         if (
             target_card_number
             and explicit_card_numbers
@@ -310,7 +329,8 @@ class ComparableClassifier:
         }
         serial_requirement_met = target_total is None or serial_total
         parallel_requirement_met = target_parallel in {"", "base"} or parallel
-        if insert and parallel_requirement_met and serial_requirement_met:
+        identity_anchor = insert if target.insert else card_number
+        if identity_anchor and parallel_requirement_met and serial_requirement_met:
             tier, similarity = ComparableTier.T0, Decimal("1.00")
         elif insert and (card_number or target.card_number is None):
             tier, similarity = ComparableTier.T1, Decimal("0.82")
@@ -326,5 +346,26 @@ class ComparableClassifier:
             # A low-resolution reference can still reveal large layout/pose
             # differences, but it is not strong enough to hard-reject a textually
             # exact sale. Demote it from exact-card evidence instead.
+            tier, similarity = ComparableTier.T1, Decimal("0.78")
+        if (
+            tier == ComparableTier.T0
+            and (
+                comp.visual_verdict == "uncertain"
+                or (
+                    comp.visual_verdict == "compatible"
+                    and (
+                        bool(target_parallel)
+                        or visual_confidence < Decimal("0.90")
+                    )
+                )
+                or (
+                    comp.visual_verdict == "same"
+                    and visual_confidence < Decimal("0.75")
+                )
+            )
+        ):
+            # An attempted image check that cannot establish the exact card must
+            # not silently inherit text-only T0 status. This is essential for
+            # visually dense products such as Mosaic and Prizm.
             tier, similarity = ComparableTier.T1, Decimal("0.78")
         return Classification(tier, similarity, comp.source_reliability, fields)

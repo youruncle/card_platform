@@ -1,9 +1,11 @@
 from card_platform.auth import (
+    client_metadata,
     hash_session_token,
     normalize_email,
     password_hasher,
     password_matches,
 )
+from starlette.requests import Request
 
 
 def test_email_normalization_is_case_insensitive() -> None:
@@ -32,3 +34,9 @@ def test_session_token_hash_is_stable_and_non_plaintext() -> None:
     assert hash_session_token(token) == hash_session_token(token)
     assert hash_session_token(token) != token
     assert len(hash_session_token(token)) == 64
+
+
+def test_non_ip_test_client_address_is_not_written_to_inet_column() -> None:
+    request = Request({"type": "http", "client": ("testclient", 50000), "headers": []})
+    address, _ = client_metadata(request)
+    assert address is None

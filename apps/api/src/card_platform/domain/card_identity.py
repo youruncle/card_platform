@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -90,7 +91,10 @@ _INSERT_RESOLVER = KnowledgeResolver(
 
 
 def normalize_text(value: object) -> str:
-    return re.sub(r"[^0-9a-z\u4e00-\u9fff]+", " ", str(value or "").casefold()).strip()
+    folded = unicodedata.normalize("NFKD", str(value or "").casefold())
+    without_marks = "".join(character for character in folded
+                            if not unicodedata.combining(character))
+    return re.sub(r"[^0-9a-z\u4e00-\u9fff]+", " ", without_marks).strip()
 
 
 def canonical_insert(value: object) -> str | None:

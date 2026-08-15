@@ -377,6 +377,33 @@ def test_mosaic_basketball_catalog_name_expands_to_seller_aliases() -> None:
     assert "标题未命中目标产品系列" in conflicts
 
 
+def test_nba_hoops_basketball_matches_common_cardhobby_seller_title() -> None:
+    identity = {
+        "player_name": "LeBron James",
+        "season_start": 2025,
+        "season_end": 2026,
+        "brand_name": "Topps",
+        "product_name": "NBA Hoops Basketball",
+        "card_number": "BH-2",
+        "insert_name": "Bounce House",
+        "is_autograph": False,
+        "is_patch": False,
+    }
+    queries = CardHobbyProvider.build_queries(identity)
+    assert "LeBron James 2025-26 Topps NBA Hoops Bounce House" in queries
+    score, conflicts = assess_cardhobby_match(
+        identity,
+        _sale(
+            title=(
+                "2025-26 Topps NBA Hoops LeBron James #BH-2 "
+                "Bounce House 弹跳屋 特卡"
+            )
+        ),
+    )
+    assert score >= Decimal("0.5")
+    assert conflicts == []
+
+
 def test_parse_market_item_uses_final_price_and_shipping() -> None:
     sale = CardHobbyProvider.parse_market_item(
         {

@@ -2,7 +2,18 @@ import pytest
 from pydantic import ValidationError
 
 from card_platform.domain.identity_review import ConfirmedIdentity, structured_evidence_decision
-from card_platform.domain.identity_research import SCOTTIE_BARNES_FIXTURE_VISUAL, generate_candidates
+from card_platform.domain.identity_research import (
+    ACE_BAILEY_FIXTURE_VISUAL,
+    ANDREW_NEMBHARD_FIXTURE_VISUAL,
+    BRANDON_MILLER_FIXTURE_VISUAL,
+    JAREN_JACKSON_FIXTURE_VISUAL,
+    JAREN_JACKSON_88_FIXTURE_VISUAL,
+    LEBRON_JAMES_FIXTURE_VISUAL,
+    LUKA_DONCIC_FIXTURE_VISUAL,
+    SCOTTIE_BARNES_FIXTURE_VISUAL,
+    STEPHEN_CURRY_FIXTURE_VISUAL,
+    generate_candidates,
+)
 
 
 def identity(**updates):
@@ -63,8 +74,94 @@ def test_scottie_fixture_research_ranks_gold_diamante_first() -> None:
 
 
 def test_same_serial_total_keeps_distinct_parallel_candidates() -> None:
-    candidates = generate_candidates(identity(serial_total=50), SCOTTIE_BARNES_FIXTURE_VISUAL)
+    candidates = generate_candidates(
+        identity(brand_name="Topps", product_name="Flagship", serial_total=50),
+        SCOTTIE_BARNES_FIXTURE_VISUAL,
+    )
     assert {item["identity"]["parallel_name"] for item in candidates} == {
         "Gold Diamante", "Gold Rainbow", "Gold Holo Foil",
         "Season Tip-Off Gold Foilboard", "Crackleboard Gold",
     }
+
+
+def test_brandon_prizm_base_removes_generic_parallel_fields() -> None:
+    current = identity(
+        player_name="BRANDON MILLER",
+        product_name="Prizm Basketball",
+        card_number="152",
+        insert_name="Prizm",
+        parallel_name="Prizm",
+        serial_number=None,
+        serial_total=None,
+        is_rookie=True,
+    )
+    candidate = generate_candidates(current, BRANDON_MILLER_FIXTURE_VISUAL)[0]
+    assert candidate["identity"]["insert_name"] is None
+    assert candidate["identity"]["parallel_name"] is None
+    assert candidate["identity"]["set_name"] == "Base"
+    assert candidate["is_valid"] is True
+
+
+def test_jaren_image_and_checklist_correct_season_and_parallel() -> None:
+    current = identity(
+        player_name="JAREN JACKSON JR.",
+        season_start=2019,
+        season_end=2020,
+        product_name="Mosaic Basketball",
+        card_number="29",
+        insert_name="Prizm",
+        parallel_name="Prizm",
+        serial_number=22,
+        serial_total=50,
+    )
+    candidate = generate_candidates(current, JAREN_JACKSON_FIXTURE_VISUAL)[0]
+    assert candidate["identity"]["season_start"] == 2020
+    assert candidate["identity"]["season_end"] == 2021
+    assert candidate["identity"]["parallel_name"] == "Fast Break Purple Mosaic"
+    assert candidate["identity"]["serial_number"] == 22
+    assert candidate["identity"]["serial_total"] == 50
+    assert candidate["is_valid"] is True
+    assert float(candidate["confidence"]) >= 0.85
+
+
+def test_luka_image_and_checklist_replace_wrong_parallel_with_blue_candidate() -> None:
+    current = identity(
+        player_name="LUKA DONČIĆ",
+        season_start=2023,
+        season_end=2024,
+        product_name="Crown Royale Basketball",
+        set_name=None,
+        card_number="No. 4",
+        insert_name="Test of Time",
+        parallel_name="Fusion Red and Yellow",
+        serial_number=10,
+        serial_total=75,
+    )
+    candidate = generate_candidates(current, LUKA_DONCIC_FIXTURE_VISUAL)[0]
+    assert candidate["identity"]["card_number"] == "4"
+    assert candidate["identity"]["insert_name"] == "Test of Time"
+    assert candidate["identity"]["parallel_name"] == "Blue"
+    assert candidate["identity"]["serial_number"] == 10
+    assert candidate["identity"]["serial_total"] == 75
+    assert candidate["is_valid"] is True
+    assert float(candidate["confidence"]) >= 0.90
+    assert "Fusion Red and Yellow" not in candidate["search_queries"][0]
+
+
+@pytest.mark.parametrize(
+    ("visual", "expected"),
+    [
+        (JAREN_JACKSON_88_FIXTURE_VISUAL, (2020, "29", "Fusion Red and Yellow Choice Mosaic", 88)),
+        (ANDREW_NEMBHARD_FIXTURE_VISUAL, (2023, "83", "Aspirations", 8)),
+        (STEPHEN_CURRY_FIXTURE_VISUAL, (2025, "SA-5", None, None)),
+        (LEBRON_JAMES_FIXTURE_VISUAL, (2025, "BH-2", None, None)),
+        (ACE_BAILEY_FIXTURE_VISUAL, (2025, "255", "Basketball Refractor", None)),
+    ],
+)
+def test_failed_portfolio_cards_get_valid_image_backed_candidates(visual, expected) -> None:
+    candidate = generate_candidates(identity(), visual)[0]
+    resolved = candidate["identity"]
+    assert (resolved["season_start"], resolved["card_number"],
+            resolved["parallel_name"], resolved["serial_total"]) == expected
+    assert candidate["is_valid"] is True
+    assert candidate["checklist_evidence"]

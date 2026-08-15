@@ -1,4 +1,6 @@
 from decimal import Decimal
+import asyncio
+from uuid import uuid4
 
 from card_platform.valuation_worker import (
     AutomatedValuationWorker,
@@ -88,3 +90,40 @@ def test_cross_player_coefficient_uses_median_of_at_least_three_pairs() -> None:
     result = coefficients["giannis antetokounmpo"]
     assert result["coefficient"] == Decimal("0.84")
     assert result["sample_count"] == 3
+
+
+def test_valuation_process_requires_confirmed_identity_even_when_fields_are_specific() -> None:
+    worker = object.__new__(AutomatedValuationWorker)
+    calls = []
+
+    async def load_identity(_job_id):
+        return {
+            "collection_item_id": uuid4(), "player_name": "Stephen Curry",
+            "season_start": 2025, "season_end": 2026,
+            "product_name": "Topps Basketball", "card_number": "SA-5",
+            "insert_name": "Stars of the NBA", "parallel_name": None,
+            "serial_number": None, "serial_total": None,
+            "latest_identity_review_status": None,
+            "confirmed_identity_version_id": None,
+        }
+
+    async def start_research(_identity, blockers):
+        calls.append(("research", blockers))
+        return {"status": "awaiting_confirmation", "case_id": "case", "candidate_count": 1}
+
+    async def finish(_job_id, status, summary, *_args):
+        calls.append(("finish", status, summary))
+
+    async def forbidden(*_args, **_kwargs):
+        raise AssertionError("unconfirmed identity must not reach market search or pricing")
+
+    worker._load_identity = load_identity
+    worker._start_identity_research = start_research
+    worker._finish = finish
+    worker._search = forbidden
+    worker._calculate = forbidden
+    asyncio.run(worker._process(uuid4()))
+
+    assert calls[0] == ("research", ["identity_confirmation_required"])
+    assert calls[1][1] == "insufficient_evidence"
+    assert calls[1][2]["identity_review_status"] == "not_created"

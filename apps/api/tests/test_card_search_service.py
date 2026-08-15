@@ -5,6 +5,8 @@ from card_platform.card_search_service import (
     is_trusted_catalog_url,
     normalize_resolved_field,
     resolved_update_is_safe,
+    candidate_supports_resolved_field,
+    source_page_supports_candidate,
 )
 from card_platform.schemas import CardRecognitionResult, CardWebCandidate
 
@@ -71,6 +73,39 @@ def test_catalog_fetch_only_accepts_trusted_sources() -> None:
     assert is_trusted_catalog_url("https://www.tcdb.com/ViewCard.cfm?id=123")
     assert is_trusted_catalog_url("https://checklists.paniniamerica.net/card")
     assert not is_trusted_catalog_url("https://example.com/fake-card")
+
+
+def test_resolved_field_requires_same_strong_candidate_to_support_value() -> None:
+    candidate = CardWebCandidate(
+        title="Scottie Barnes checklist candidate",
+        identity={"season_start": 2025, "parallel_name": "Gold Diamante"},
+        source_urls=["https://www.beckett.com/card/123"],
+        matching_fields=["season_start", "parallel_name"],
+        match_confidence="0.92",
+    )
+    assert candidate_supports_resolved_field(candidate, "season_start", 2025)
+    assert not candidate_supports_resolved_field(candidate, "season_start", 2024)
+    assert not candidate_supports_resolved_field(
+        candidate.model_copy(update={"source_urls": ["https://ebay.com/item/1"]}),
+        "parallel_name", "Gold Diamante",
+    )
+
+
+def test_source_page_must_contain_exact_candidate_anchors() -> None:
+    candidate = CardWebCandidate(
+        title="Scottie Barnes Gold Diamante",
+        identity={"player_name": "Scottie Barnes", "card_number": "31",
+                  "parallel_name": "Gold Diamante"},
+        source_urls=["https://www.beckett.com/checklist"],
+        matching_fields=["player_name", "card_number", "parallel_name"],
+        match_confidence="0.95",
+    )
+    assert source_page_supports_candidate(
+        "Checklist: #31 Scottie Barnes — Gold Diamante /50", candidate
+    )
+    assert not source_page_supports_candidate(
+        "Generic Topps Basketball product page with Gold parallels", candidate
+    )
 
 
 def test_catalog_image_requires_exact_identity_and_no_conflicts() -> None:

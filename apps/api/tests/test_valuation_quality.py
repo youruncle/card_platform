@@ -98,7 +98,7 @@ def test_shadow_estimate_rejects_mad_outlier_with_five_sales() -> None:
     assert any(item["reasons"] == ["price_outlier_mad"] for item in estimate.rejected)
 
 
-def test_single_sale_is_capped_and_flags_shipping_dominated_price() -> None:
+def test_single_sale_uses_price_plus_shipping_without_shipping_anomaly() -> None:
     estimate = ShadowValuationEstimator().estimate(
         [_sale("one", "1", shipping="18", provider="cardhobby")],
         _identity(),
@@ -106,7 +106,20 @@ def test_single_sale_is_capped_and_flags_shipping_dominated_price() -> None:
     assert estimate.confidence == Decimal("0.45")
     assert estimate.status == "manual_review"
     assert "fewer_than_two_exact_sales" in estimate.review_reasons
-    assert "hammer_price_below_shipping" in estimate.review_reasons
+    assert "hammer_price_below_shipping" not in estimate.review_reasons
+    assert estimate.fair == Decimal("19.00")
+
+
+def test_shadow_center_uses_buyer_paid_price_but_keeps_shipping_separate() -> None:
+    estimate = ShadowValuationEstimator().estimate(
+        [
+            _sale("one", "22", shipping="18", provider="cardhobby"),
+            _sale("two", "23", shipping="12", provider="cardhobby"),
+        ],
+        _identity(),
+    )
+    assert estimate.fair in {Decimal("35.00"), Decimal("40.00")}
+    assert Decimal("22") not in {estimate.low, estimate.fair, estimate.high}
 
 
 def test_scottie_two_exact_sales_produce_sparse_shadow_range() -> None:

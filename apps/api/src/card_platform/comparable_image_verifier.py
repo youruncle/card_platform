@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import json
 from dataclasses import dataclass
@@ -7,6 +8,7 @@ from urllib.parse import urlparse
 
 import httpx
 import cv2
+import numpy as np
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 
@@ -36,11 +38,18 @@ class ComparableImageVerifier:
     # reference against a large contact sheet. Keep the batch small; explicit
     # text matches/conflicts are handled independently by the classifier.
     MAX_CANDIDATES = 3
+    MAX_TOTAL_CANDIDATES = 12
     MAX_IMAGE_BYTES = 8 * 1024 * 1024
     MIN_TARGET_EDGE = 300
 
     def __init__(self, settings: Settings) -> None:
-        self.upload_dir = Path(settings.upload_dir).resolve()
+        configured = Path(settings.upload_dir)
+        roots = [configured]
+        if not configured.is_absolute():
+            # The API is started both from `apps/api` and from the repository root.
+            # Uploaded image URLs must resolve identically in both cases.
+            roots.append(Path("apps/api") / configured)
+        self.upload_dirs = tuple(dict.fromkeys(root.resolve() for root in roots))
         self.model = settings.vision_model
         self.client = (
             AsyncOpenAI(
@@ -59,18 +68,70 @@ class ComparableImageVerifier:
         filename = image_url.removeprefix("/uploads/")
         if "/" in filename:
             return None
-        path = (self.upload_dir / filename).resolve()
-        return path if path.parent == self.upload_dir and path.is_file() else None
+        for upload_dir in self.upload_dirs:
+            path = (upload_dir / filename).resolve()
+            if path.parent == upload_dir and path.is_file():
+                return path
+        return None
 
     @staticmethod
     def _data_url(content: bytes, content_type: str) -> str:
         encoded = base64.b64encode(content).decode("ascii")
         return f"data:{content_type};base64,{encoded}"
 
+    @staticmethod
+    def _geometric_template_score(
+        target_image: np.ndarray, candidate_content: bytes
+    ) -> tuple[int, int, Decimal]:
+        candidate = cv2.imdecode(
+            np.frombuffer(candidate_content, dtype=np.uint8), cv2.IMREAD_COLOR
+        )
+        if candidate is None:
+            return 0, 0, Decimal("0")
+
+        def scaled_gray(image: np.ndarray) -> np.ndarray:
+            height, width = image.shape[:2]
+            scale = min(1.0, 1600 / max(height, width))
+            if scale < 1:
+                image = cv2.resize(
+                    image, (round(width * scale), round(height * scale)),
+                    interpolation=cv2.INTER_AREA,
+                )
+            return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        detector = cv2.SIFT_create(nfeatures=2500)
+        target_points, target_descriptors = detector.detectAndCompute(
+            scaled_gray(target_image), None
+        )
+        candidate_points, candidate_descriptors = detector.detectAndCompute(
+            scaled_gray(candidate), None
+        )
+        if target_descriptors is None or candidate_descriptors is None:
+            return 0, 0, Decimal("0")
+        pairs = cv2.BFMatcher().knnMatch(
+            target_descriptors, candidate_descriptors, k=2
+        )
+        good = [match for match, other in pairs if match.distance < 0.72 * other.distance]
+        if len(good) < 8:
+            return len(good), 0, Decimal("0")
+        source = np.float32(
+            [target_points[match.queryIdx].pt for match in good]
+        ).reshape(-1, 1, 2)
+        destination = np.float32(
+            [candidate_points[match.trainIdx].pt for match in good]
+        ).reshape(-1, 1, 2)
+        _, mask = cv2.findHomography(source, destination, cv2.RANSAC, 5.0)
+        if mask is None:
+            return len(good), 0, Decimal("0")
+        inliers = int(mask.sum())
+        return len(good), inliers, Decimal(str(inliers / len(good)))
+
     async def verify(
         self,
         target_image_url: str | None,
         candidates: list[VisualCandidate],
+        *,
+        requires_parallel_match: bool = False,
     ) -> dict[str, VisualDecision]:
         target_path = self._target_path(target_image_url)
         if self.client is None or target_path is None or not candidates:
@@ -84,9 +145,11 @@ class ComparableImageVerifier:
         low_resolution_target = min(target_image.shape[:2]) < self.MIN_TARGET_EDGE
         target_type = "image/png" if target_path.suffix.casefold() == ".png" else "image/jpeg"
         downloaded: list[tuple[VisualCandidate, bytes, str]] = []
+        geometry: dict[str, tuple[int, int, Decimal]] = {}
+        requested = candidates[: self.MAX_TOTAL_CANDIDATES]
         headers = {"User-Agent": "Mozilla/5.0 CardPlatform/1.0"}
         async with httpx.AsyncClient(timeout=15, headers=headers, follow_redirects=True) as client:
-            for candidate in candidates[: self.MAX_CANDIDATES]:
+            for candidate in requested:
                 parsed = urlparse(candidate.image_url)
                 if parsed.scheme != "https" or parsed.hostname != "images.cardhobby.com":
                     continue
@@ -102,8 +165,111 @@ class ComparableImageVerifier:
                 ):
                     continue
                 downloaded.append((candidate, response.content, content_type))
+                geometry[candidate.id] = await asyncio.to_thread(
+                    self._geometric_template_score, target_image, response.content
+                )
+        decisions: dict[str, VisualDecision] = {}
+        downloaded_ids = {candidate.id for candidate, _, _ in downloaded}
+        for candidate in requested:
+            if candidate.id not in downloaded_ids:
+                decisions[candidate.id] = VisualDecision(
+                    candidate_id=candidate.id,
+                    verdict="uncertain",
+                    confidence=Decimal("0"),
+                    reasons=["candidate_image_download_failed"],
+                )
         if not downloaded:
-            return {}
+            return decisions
+        model_candidates: list[tuple[VisualCandidate, bytes, str]] = []
+        for candidate, image, content_type in downloaded:
+            good, inliers, ratio = geometry[candidate.id]
+            strong_template = good >= 20 and inliers >= 15 and ratio >= Decimal("0.25")
+            if strong_template and not requires_parallel_match:
+                decisions[candidate.id] = VisualDecision(
+                    candidate_id=candidate.id,
+                    verdict="compatible",
+                    confidence=Decimal("0.95"),
+                    reasons=[
+                        "local_geometry_verified_same_printed_template",
+                        f"geometry_same_template:matches={good},inliers={inliers},ratio={ratio:.3f}",
+                    ],
+                )
+            else:
+                model_candidates.append((candidate, image, content_type))
+        batches = [
+            model_candidates[index : index + self.MAX_CANDIDATES]
+            for index in range(0, len(model_candidates), self.MAX_CANDIDATES)
+        ]
+        if not batches:
+            return decisions
+        results = await asyncio.gather(
+            *(
+                self._compare_batch(
+                    target,
+                    target_type,
+                    batch,
+                    low_resolution_target=low_resolution_target,
+                )
+                for batch in batches
+            ),
+            return_exceptions=True,
+        )
+        for batch, result in zip(batches, results, strict=True):
+            if isinstance(result, Exception):
+                for candidate, _, _ in batch:
+                    decisions[candidate.id] = VisualDecision(
+                        candidate_id=candidate.id,
+                        verdict="uncertain",
+                        confidence=Decimal("0"),
+                        reasons=[f"vision_batch_failed:{type(result).__name__}"],
+                    )
+                continue
+            decisions.update(result)
+            decided = set(result)
+            for candidate, _, _ in batch:
+                if candidate.id not in decided:
+                    decisions[candidate.id] = VisualDecision(
+                        candidate_id=candidate.id,
+                        verdict="uncertain",
+                        confidence=Decimal("0"),
+                        reasons=["vision_model_omitted_candidate"],
+                    )
+        for candidate_id, decision in list(decisions.items()):
+            good, inliers, ratio = geometry.get(
+                candidate_id, (0, 0, Decimal("0"))
+            )
+            strong_template = good >= 20 and inliers >= 15 and ratio >= Decimal("0.25")
+            if not strong_template:
+                continue
+            reasons = [
+                *decision.reasons,
+                f"geometry_same_template:matches={good},inliers={inliers},ratio={ratio:.3f}",
+            ]
+            if decision.verdict in {"different", "uncertain"}:
+                # Geometry can prove the same printed template despite foil glare,
+                # but not the exact parallel coating. The identity classifier keeps
+                # this T0 only when no explicit parallel distinction is required.
+                decisions[candidate_id] = decision.model_copy(
+                    update={
+                        "verdict": "compatible",
+                        "confidence": max(decision.confidence, Decimal("0.90")),
+                        "reasons": reasons,
+                    }
+                )
+            else:
+                decisions[candidate_id] = decision.model_copy(
+                    update={"reasons": reasons}
+                )
+        return decisions
+
+    async def _compare_batch(
+        self,
+        target: bytes,
+        target_type: str,
+        downloaded: list[tuple[VisualCandidate, bytes, str]],
+        *,
+        low_resolution_target: bool,
+    ) -> dict[str, VisualDecision]:
         schema = json.dumps(VisualComparisonResult.model_json_schema(), ensure_ascii=False)
         content: list[dict] = [
             {
@@ -134,12 +300,15 @@ class ComparableImageVerifier:
                 "image_url": {"url": self._data_url(target, target_type)},
             },
         ]
-        for candidate, image, content_type in downloaded:
+        labels: dict[str, VisualCandidate] = {}
+        for index, (candidate, image, content_type) in enumerate(downloaded, start=1):
+            label = f"candidate_{index}"
+            labels[label] = candidate
             content.extend(
                 [
                     {
                         "type": "text",
-                        "text": f"候选 {candidate.id}：{candidate.title}",
+                        "text": f"候选编号 {label}：{candidate.title}",
                     },
                     {
                         "type": "image_url",
@@ -157,18 +326,23 @@ class ComparableImageVerifier:
                 {"role": "user", "content": content},
             ],
             response_format={"type": "json_object"},
+            extra_body={"enable_thinking": False},
         )
         result = response.choices[0].message.content
         if not result:
             return {}
         parsed = VisualComparisonResult.model_validate_json(result)
-        allowed = {candidate.id for candidate, _, _ in downloaded}
         return {
-            decision.candidate_id: decision.model_copy(
-                update={"confidence": min(decision.confidence, Decimal("0.79"))}
+            labels[decision.candidate_id].id: decision.model_copy(
+                update={
+                    "candidate_id": labels[decision.candidate_id].id,
+                    "confidence": min(decision.confidence, Decimal("0.79")),
+                }
             )
             if low_resolution_target
-            else decision
+            else decision.model_copy(
+                update={"candidate_id": labels[decision.candidate_id].id}
+            )
             for decision in parsed.decisions
-            if decision.candidate_id in allowed
+            if decision.candidate_id in labels
         }

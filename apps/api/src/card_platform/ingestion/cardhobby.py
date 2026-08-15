@@ -41,6 +41,11 @@ CARDHOBBY_IMAGE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 PRODUCT_SEARCH_ALIASES = {
+    # Sellers almost universally omit the catalog suffix "Basketball".  CardHobby's
+    # search is token-AND, so keeping it in either discovery or matching silently
+    # hides otherwise exact NBA Hoops sales.
+    "nba hoops basketball": ("NBA Hoops", "Hoops"),
+    "nba hoops": ("NBA Hoops", "Hoops"),
     "national treasures": ("国宝", "National Treasures"),
     "one and one": ("One and One", "One & One", "壹和壹"),
     "one & one": ("One and One", "One & One", "壹和壹"),

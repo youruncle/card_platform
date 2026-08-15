@@ -438,6 +438,9 @@ class PortfolioRepository:
                      ELSE vj.status END AS valuation_status,
                 CASE WHEN lv.valued_at > vj.created_at THEN NULL
                      ELSE vj.error_message END AS valuation_error,
+                CASE WHEN lv.valued_at > vj.created_at THEN '{{}}'::jsonb
+                     ELSE COALESCE(vj.result_summary, '{{}}'::jsonb)
+                END AS valuation_result_summary,
                 (SELECT COUNT(*) FROM market_comp mc
                  WHERE mc.card_definition_id = ci.card_definition_id) AS market_comp_count
             FROM collection_item ci
@@ -448,7 +451,7 @@ class PortfolioRepository:
             JOIN brand b ON b.id = cs.brand_id
             LEFT JOIN latest_item_valuation lv ON lv.collection_item_id = ci.id
             LEFT JOIN LATERAL (
-                SELECT id, status, error_message, created_at
+                SELECT id, status, error_message, result_summary, created_at
                 FROM valuation_job
                 WHERE collection_item_id = ci.id
                 ORDER BY created_at DESC LIMIT 1

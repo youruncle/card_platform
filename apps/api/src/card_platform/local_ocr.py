@@ -49,8 +49,7 @@ def extract_anchors(lines: list[str]) -> dict:
             end = int(raw_end) if len(raw_end) == 4 else (start // 100) * 100 + int(raw_end)
             if end < start:
                 end += 100
-            score = 1
-            if any(
+            product_line = any(
                 marker in normalized
                 for marker in (
                     "panini",
@@ -63,9 +62,12 @@ def extract_anchors(lines: list[str]) -> dict:
                     "treasures",
                     "inception",
                 )
-            ):
-                score += 4
-            season_candidates.append((score, start, end, line))
+            )
+            pure_season_line = bool(
+                re.fullmatch(r"\s*(?:19|20)\d{2}\s*[-/]\s*\d{2,4}\s*", line)
+            )
+            if product_line or pure_season_line:
+                season_candidates.append((5 if product_line else 2, start, end, line))
     if season_candidates:
         _, start, end, evidence = max(season_candidates)
         anchors.update(
@@ -74,9 +76,9 @@ def extract_anchors(lines: list[str]) -> dict:
             season_evidence=evidence,
         )
 
-    for line in lines:
+    for index, line in enumerate(lines):
         match = re.search(
-            r"(?:\bNO\.?|N[º°]|#)\s*([A-Z0-9][A-Z0-9-]{0,24})\b",
+            r"(?:\bNO\.\s*|\bNO\s+|N[º°]\s*|#\s*)([A-Z0-9][A-Z0-9-]{0,24})\b",
             line,
             re.I,
         )
@@ -84,6 +86,15 @@ def extract_anchors(lines: list[str]) -> dict:
             anchors["card_number"] = match.group(1).upper()
             anchors["card_number_evidence"] = line
             break
+        if re.fullmatch(r"\s*[A-Z]{0,4}-?\d{1,4}\s*", line, re.I):
+            nearby = " ".join(lines[max(0, index - 1):index + 3]).casefold()
+            if any(marker in nearby for marker in (
+                "flagship", "prizm", "mosaic", "chrome", "hoops", "donruss",
+                "select", "topps", "panini",
+            )):
+                anchors["card_number"] = line.strip().upper()
+                anchors["card_number_evidence"] = line
+                break
 
     serial_candidates = []
     for line in lines:

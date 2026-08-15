@@ -290,6 +290,7 @@ class PortfolioItem(ApiModel):
     market_comp_count: int
     unrealized_profit: Decimal | None
     valuation_status: str | None = None
+    valuation_result_summary: dict = Field(default_factory=dict)
     valuation_job_id: UUID | None = None
     valuation_error: str | None = None
     deleted_at: datetime | None = None
@@ -711,6 +712,11 @@ class CardRecognitionResult(ApiModel):
     reference_image_source_url: str | None = None
     reference_image_provider: str | None = None
     reference_image_match_confidence: Decimal | None = Field(default=None, ge=0, le=1)
+    recognition_model: str | None = None
+    recognition_route: list[dict[str, object]] = Field(default_factory=list)
+    recognition_estimated_cost_cny: Decimal = Field(default=Decimal("0"), ge=0)
+    recognition_status: Literal["resolved", "research_required"] = "resolved"
+    recognition_quality_issues: list[str] = Field(default_factory=list)
 
     @model_validator(mode="before")
     @classmethod

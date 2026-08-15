@@ -13,9 +13,16 @@ class Settings(BaseSettings):
     ai_api_key: str | None = None
     ai_base_url: str = "https://api.deepseek.com"
     ai_model: str = "deepseek-v4-flash"
+    ai_thinking_enabled: bool = False
     vision_api_key: str | None = None
     vision_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     vision_model: str = "qwen3-vl-flash"
+    vision_plus_model: str = "qwen3-vl-plus"
+    vision_max_model: str = "qwen3.8-max"
+    vision_plus_threshold: float = 0.88
+    vision_max_threshold: float = 0.74
+    vision_max_enabled: bool = True
+    vision_thinking_enabled: bool = False
     vision_timeout_seconds: float = 60.0
     card_search_enabled: bool = True
     card_search_model: str = "qwen-plus"
@@ -27,6 +34,7 @@ class Settings(BaseSettings):
     valuation_search_model: str = "qwen-plus"
     valuation_search_timeout_seconds: float = 90.0
     valuation_worker_enabled: bool = True
+    valuation_worker_concurrency: int = 3
     recognition_worker_enabled: bool = True
     valuation_worker_poll_seconds: float = 2.0
     valuation_verify_sources: bool = True

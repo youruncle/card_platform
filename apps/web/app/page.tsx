@@ -1679,7 +1679,11 @@ export default function Dashboard() {
                               className="valuation-status insufficient"
                               onClick={() => void openValuationDetail(item)}
                             >
-                              证据不足
+                              {item.valuation_result_summary?.research_status ===
+                                "awaiting_confirmation" ||
+                              item.valuation_result_summary?.identity_review_status === "pending"
+                                ? "待确认身份"
+                                : "证据不足"}
                             </button>
                           ) : item.valuation_status === "failed" ? (
                             <button
@@ -4601,6 +4605,25 @@ function RecognitionDialog({
               <span>整体置信度</span>
               <strong>{Math.round(Number(result.confidence) * 100)}%</strong>
             </div>
+            <div className="recognition-confidence">
+              <span>
+                {result.recognition_status === "research_required"
+                  ? "需要清单研究，当前结果不会自动确认"
+                  : "身份质量门禁已通过"}
+              </span>
+              <strong>
+                {result.recognition_model ?? "本地/兼容模型"}
+                {result.recognition_estimated_cost_cny
+                  ? ` · ¥${Number(result.recognition_estimated_cost_cny).toFixed(3)}`
+                  : ""}
+              </strong>
+            </div>
+            {result.recognition_quality_issues && result.recognition_quality_issues.length > 0 && (
+              <div className="recognition-caveats">
+                <strong>身份门禁</strong>
+                <span>{result.recognition_quality_issues.join("；")}</span>
+              </div>
+            )}
             {result.search_queries?.length > 0 && (
               <div className="recognition-search-evidence">
                 <div className="recognition-search-heading">

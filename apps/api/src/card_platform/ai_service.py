@@ -23,9 +23,12 @@ class NarrativeProvider(Protocol):
 class DeepSeekNarrativeProvider:
     name = "deepseek"
 
-    def __init__(self, api_key: str, base_url: str, model: str) -> None:
+    def __init__(
+        self, api_key: str, base_url: str, model: str, thinking_enabled: bool = False
+    ) -> None:
         self.model = model
         self.client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+        self.thinking_enabled = thinking_enabled
 
     async def generate(self, evidence: dict) -> AINarrative:
         schema = json.dumps(AINarrative.model_json_schema(), ensure_ascii=False)
@@ -41,6 +44,9 @@ class DeepSeekNarrativeProvider:
                 {"role": "user", "content": json.dumps(evidence, ensure_ascii=False)},
             ],
             response_format={"type": "json_object"},
+            extra_body={
+                "thinking": {"type": "enabled" if self.thinking_enabled else "disabled"}
+            },
         )
         content = response.choices[0].message.content
         if not content:
@@ -81,7 +87,8 @@ class AIAdvisoryService:
             self.provider = provider
         elif settings.ai_api_key and settings.ai_provider == "deepseek":
             self.provider = DeepSeekNarrativeProvider(
-                settings.ai_api_key, settings.ai_base_url, settings.ai_model
+                settings.ai_api_key, settings.ai_base_url, settings.ai_model,
+                settings.ai_thinking_enabled,
             )
         else:
             self.provider = RuleNarrativeProvider()

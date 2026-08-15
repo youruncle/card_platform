@@ -78,6 +78,11 @@ class ShadowSale:
     source_reliability: Decimal
     evidence_level: str
 
+    @property
+    def landed_price(self) -> Decimal:
+        """Buyer-paid value while retaining hammer and shipping as separate evidence."""
+        return self.price + self.shipping
+
 
 @dataclass(frozen=True, slots=True)
 class ShadowEstimate:
@@ -140,7 +145,7 @@ class ShadowValuationEstimator:
                 tuple(rejected), ("no_exact_center_eligible_sales",),
             )
 
-        prices = [sale.price for sale in eligible]
+        prices = [sale.landed_price for sale in eligible]
         if len(prices) >= 5:
             center = Decimal(str(median(prices)))
             deviations = [abs(price - center) for price in prices]
@@ -148,7 +153,7 @@ class ShadowValuationEstimator:
             if mad > 0:
                 kept = []
                 for sale in eligible:
-                    robust_z = Decimal("0.6745") * abs(sale.price - center) / mad
+                    robust_z = Decimal("0.6745") * abs(sale.landed_price - center) / mad
                     if robust_z > Decimal("3.5"):
                         rejected.append({"id": sale.id, "reasons": ["price_outlier_mad"]})
                     else:
@@ -164,7 +169,7 @@ class ShadowValuationEstimator:
                 EvidenceGrade.E2: Decimal("0.62"),
             }[evidence_grade(sale.evidence_level)]
             weight = recency * grade_weight * sale.similarity * sale.source_reliability
-            weighted.append((sale.price, weight))
+            weighted.append((sale.landed_price, weight))
         fair = _weighted_quantile(weighted, Decimal("0.5"))
         count = len(eligible)
         if count == 1:
@@ -183,8 +188,6 @@ class ShadowValuationEstimator:
             review.append("fewer_than_two_exact_sales")
         if max(sale.age_days for sale in eligible) > 180:
             review.append("stale_exact_evidence")
-        if any(sale.price < sale.shipping for sale in eligible):
-            review.append("hammer_price_below_shipping")
         providers = {sale.provider_code for sale in eligible}
         if len(providers) == 1 and count > 1:
             review.append("single_provider_concentration")
