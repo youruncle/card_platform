@@ -60,6 +60,9 @@ git add .env.age
 for migration in db/migrations/*.sql; do psql "$DATABASE_URL" -f "$migration"; done
 ```
 
+仓库附带的开发数据（卡片、身份版本、市场证据、估值和图片）恢复方式见
+[data/README.md](data/README.md)。
+
 启动 API：
 
 ```bash
