@@ -1101,9 +1101,9 @@ class AutomatedValuationWorker:
                 if urlparse(reference.source_url).scheme in {"http", "https"}
                 and self._grade_matches(identity, reference)
             ]
-            fallback = (
-                fallback.model_copy(update={"references": references}) if references else None
-            )
+            # Keep a source-less model prior as the final, explicitly low-confidence
+            # fallback. It is never allowed to become a formal valuation snapshot.
+            fallback = fallback.model_copy(update={"references": references})
         return parsed.model_copy(
             update={"comparables": valid[:12], "fallback_valuation": fallback}
         )
@@ -1450,13 +1450,20 @@ class AutomatedValuationWorker:
                 fallback = search.fallback_valuation
                 fallback_failure_reason: str | None = None
                 if identity.get("confirmed_identity_version_id") and fallback is not None:
-                    # Confirmed identities may produce only T0/E0-E2 shadow values.
-                    # A model-generated analogy must never become a formal snapshot.
-                    fallback_failure_reason = (
-                        "已确认身份仅允许 T0 且 E0-E2 的成交进入影子估值；"
-                        "类比回退未写入正式估值"
+                    await self._store_model_fallback_shadow(
+                        connection, job_id, identity, fallback, search
                     )
-                    fallback = None
+                    await connection.execute(
+                        """UPDATE valuation_job SET status = 'succeeded', result_summary = %s,
+                               finished_at = now(), updated_at = now() WHERE id = %s""",
+                        (Jsonb({
+                            "shadow_only": True,
+                            "shadow_status": "manual_review",
+                            "valuation_tier": "model_fallback",
+                            "published_value_unchanged": True,
+                        }), job_id),
+                    )
+                    return
                 if fallback is not None:
                     coefficients = self.build_player_coefficients(
                         identity, search.player_adjustments
@@ -1722,10 +1729,24 @@ class AutomatedValuationWorker:
             shadow = ShadowValuationEstimator().estimate(shadow_sales, identity)
             await self._store_shadow_result(connection, job_id, identity, shadow)
             if identity.get("confirmed_identity_version_id"):
+                if shadow.fair is None and search.fallback_valuation is not None:
+                    await self._store_model_fallback_shadow(
+                        connection,
+                        job_id,
+                        identity,
+                        search.fallback_valuation,
+                        search,
+                    )
+                    shadow_status = "manual_review"
+                    valuation_tier = "model_fallback"
+                else:
+                    shadow_status = shadow.status
+                    valuation_tier = "exact_shadow"
                 await connection.execute(
                     """UPDATE valuation_job SET status = 'succeeded', result_summary = %s,
                            finished_at = now(), updated_at = now() WHERE id = %s""",
-                    (Jsonb({"shadow_only": True, "shadow_status": shadow.status,
+                    (Jsonb({"shadow_only": True, "shadow_status": shadow_status,
+                            "valuation_tier": valuation_tier,
                             "published_value_unchanged": True}), job_id),
                 )
                 return
@@ -1823,6 +1844,87 @@ class AutomatedValuationWorker:
                     job_id,
                 ),
             )
+
+    @staticmethod
+    def _model_fallback_confidence(
+        fallback: FallbackValuation,
+    ) -> Decimal:
+        reference_count = len(fallback.references)
+        cap = (
+            Decimal("0.35")
+            if reference_count >= 2
+            else Decimal("0.25")
+            if reference_count == 1
+            else Decimal("0.15")
+        )
+        return min(fallback.confidence, cap)
+
+    async def _store_model_fallback_shadow(
+        self,
+        connection,
+        job_id: UUID,
+        identity: dict,
+        fallback: FallbackValuation,
+        search: ComparableSearchResult,
+    ) -> None:
+        confidence = self._model_fallback_confidence(fallback)
+        reasons = ["model_fallback_only", "no_exact_t0_sales"]
+        if not fallback.references:
+            reasons.append("no_verified_reference_urls")
+        await connection.execute(
+            """
+            INSERT INTO valuation_shadow_result (
+                collection_item_id, valuation_job_id, identity_version_id,
+                model_version, status, currency, low_value, fair_value,
+                high_value, confidence, evidence_count, review_reasons, evidence
+            ) VALUES (%s, %s, %s, %s, 'manual_review', %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                identity["collection_item_id"],
+                job_id,
+                identity["confirmed_identity_version_id"],
+                f"{self.settings.valuation_search_model}-fallback-1.0",
+                identity["base_currency"],
+                fallback.low_value,
+                fallback.fair_value,
+                fallback.high_value,
+                confidence,
+                len(fallback.references),
+                Jsonb(reasons),
+                Jsonb(
+                    {
+                        "pricing_basis": "model_analogy_fallback",
+                        "methodology": fallback.methodology,
+                        "references": [
+                            {
+                                "title": reference.title,
+                                "source_url": reference.source_url,
+                                "observed_price_base": str(
+                                    reference.observed_price_base
+                                ),
+                                "match_confidence": str(reference.match_confidence),
+                                "adjustment": reference.adjustment,
+                                "condition_type": reference.condition_type,
+                                "player_name": reference.player_name,
+                            }
+                            for reference in fallback.references
+                        ],
+                        "search_queries": search.search_queries,
+                        "notes": search.notes,
+                        "published_value_unchanged": True,
+                    }
+                ),
+            ),
+        )
+        await connection.execute(
+            """UPDATE identity_research_case
+               SET status = %s, updated_at = now()
+               WHERE collection_item_id = %s""",
+            (
+                ResearchStatus.CONFIRMED_NO_EXACT_SALES,
+                identity["collection_item_id"],
+            ),
+        )
 
     @staticmethod
     async def _store_shadow_result(connection, job_id: UUID, identity: dict, shadow) -> None:

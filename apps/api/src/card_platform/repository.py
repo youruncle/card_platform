@@ -433,6 +433,13 @@ class PortfolioRepository:
                      THEN NULL ELSE lv.fair_value END AS fair_value,
                 CASE WHEN vj.created_at > lv.valued_at AND vj.status <> 'succeeded'
                      THEN NULL ELSE lv.high_value END AS valuation_high,
+                sv.currency AS shadow_valuation_currency,
+                sv.low_value AS shadow_valuation_low,
+                sv.fair_value AS shadow_fair_value,
+                sv.high_value AS shadow_valuation_high,
+                sv.confidence AS shadow_valuation_confidence,
+                sv.status AS shadow_valuation_status,
+                sv.model_version AS shadow_valuation_model,
                 vj.id AS valuation_job_id,
                 CASE WHEN lv.valued_at > vj.created_at THEN 'succeeded'
                      ELSE vj.status END AS valuation_status,
@@ -450,6 +457,19 @@ class PortfolioRepository:
             JOIN card_set cs ON cs.id = cd.card_set_id
             JOIN brand b ON b.id = cs.brand_id
             LEFT JOIN latest_item_valuation lv ON lv.collection_item_id = ci.id
+            LEFT JOIN LATERAL (
+                SELECT currency, low_value, fair_value, high_value, confidence,
+                       status, model_version
+                FROM valuation_shadow_result
+                WHERE collection_item_id = ci.id
+                  AND fair_value IS NOT NULL
+                  AND identity_version_id = (
+                      SELECT id FROM card_identity_version
+                      WHERE collection_item_id = ci.id AND review_status = 'confirmed'
+                      ORDER BY version DESC LIMIT 1
+                  )
+                ORDER BY created_at DESC LIMIT 1
+            ) sv ON true
             LEFT JOIN LATERAL (
                 SELECT id, status, error_message, result_summary, created_at
                 FROM valuation_job
@@ -469,8 +489,21 @@ class PortfolioRepository:
             valuation_compatible = (
                 row["fair_value"] is not None and row["valuation_currency"] == row["base_currency"]
             )
+            shadow_compatible = (
+                row["shadow_fair_value"] is not None
+                and row["shadow_valuation_currency"] == row["base_currency"]
+            )
+            effective_fair = (
+                row["fair_value"]
+                if valuation_compatible
+                else row["shadow_fair_value"]
+                if shadow_compatible
+                else None
+            )
             market_value = (
-                row["fair_value"] * position.quantity_held if valuation_compatible else None
+                effective_fair * position.quantity_held
+                if effective_fair is not None
+                else None
             )
             items.append(
                 PortfolioItem(

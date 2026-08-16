@@ -287,6 +287,13 @@ class PortfolioItem(ApiModel):
     valuation_low: Decimal | None
     fair_value: Decimal | None
     valuation_high: Decimal | None
+    shadow_valuation_currency: str | None = None
+    shadow_valuation_low: Decimal | None = None
+    shadow_fair_value: Decimal | None = None
+    shadow_valuation_high: Decimal | None = None
+    shadow_valuation_confidence: Decimal | None = None
+    shadow_valuation_status: str | None = None
+    shadow_valuation_model: str | None = None
     market_comp_count: int
     unrealized_profit: Decimal | None
     valuation_status: str | None = None

@@ -5,10 +5,43 @@ from uuid import uuid4
 from card_platform.valuation_worker import (
     AutomatedValuationWorker,
     DiscoveredComparable,
+    FallbackValuation,
     PlayerAdjustment,
     PlayerPricePair,
     ValuationReference,
 )
+
+
+def _fallback(reference_count: int, confidence: str = "0.60") -> FallbackValuation:
+    references = [
+        ValuationReference(
+            title=f"Reference {index}",
+            source_url=f"https://example.com/{index}",
+            evidence_type="analog_sale",
+            observed_price_base=Decimal("100"),
+            match_confidence=Decimal("0.7"),
+            adjustment="model analogy",
+            condition_type="raw",
+            player_name="Example Player",
+        )
+        for index in range(reference_count)
+    ]
+    return FallbackValuation(
+        low_value=Decimal("70"),
+        fair_value=Decimal("100"),
+        high_value=Decimal("140"),
+        confidence=Decimal(confidence),
+        methodology="model prior",
+        references=references,
+    )
+
+
+def test_model_fallback_confidence_is_capped_by_verifiable_references() -> None:
+    confidence = AutomatedValuationWorker._model_fallback_confidence
+    assert confidence(_fallback(0)) == Decimal("0.15")
+    assert confidence(_fallback(1)) == Decimal("0.25")
+    assert confidence(_fallback(2)) == Decimal("0.35")
+    assert confidence(_fallback(2, "0.20")) == Decimal("0.20")
 
 
 def test_raw_card_rejects_all_graded_references() -> None:

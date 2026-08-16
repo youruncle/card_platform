@@ -750,6 +750,17 @@ tbody tr:hover {
 }
 .valuation-status.insufficient { color: var(--orange); }
 .valuation-status.failed { color: #ff7d73; }
+.valuation-price.shadow {
+  display: inline-grid;
+  gap: 2px;
+  color: var(--lime);
+  text-align: left;
+}
+.valuation-price.shadow small {
+  color: var(--muted);
+  font-size: 9px;
+  text-decoration: none;
+}
 .valuation-spinner {
   display: inline-block;
   width: 11px;

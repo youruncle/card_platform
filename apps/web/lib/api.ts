@@ -282,6 +282,13 @@ export type PortfolioItem = {
   valuation_low: string | null;
   fair_value: string | null;
   valuation_high: string | null;
+  shadow_valuation_currency: string | null;
+  shadow_valuation_low: string | null;
+  shadow_fair_value: string | null;
+  shadow_valuation_high: string | null;
+  shadow_valuation_confidence: string | null;
+  shadow_valuation_status: string | null;
+  shadow_valuation_model: string | null;
   market_comp_count: number;
   unrealized_profit: string | null;
   valuation_status: string | null;

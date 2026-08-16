@@ -1583,6 +1583,12 @@ export default function Dashboard() {
                 <tbody>
                   {filteredItems.map((item) => {
                     const profit = Number(item.unrealized_profit ?? 0);
+                    const displayedFairValue = item.fair_value ?? item.shadow_fair_value;
+                    const displayedCurrency =
+                      item.valuation_currency ??
+                      item.shadow_valuation_currency ??
+                      summary.base_currency;
+                    const usesShadowValue = !item.fair_value && Boolean(item.shadow_fair_value);
                     return (
                       <tr key={item.id}>
                         <td className="selection-column">
@@ -1657,14 +1663,24 @@ export default function Dashboard() {
                           {money(item.remaining_cost, summary.base_currency)}
                         </td>
                         <td>
-                          {item.fair_value && item.valuation_status === "succeeded" ? (
+                          {displayedFairValue && item.valuation_status === "succeeded" ? (
                             <button
-                              className="valuation-price"
+                              className={`valuation-price${usesShadowValue ? " shadow" : ""}`}
                               onClick={() => void openValuationDetail(item)}
+                              title={
+                                usesShadowValue
+                                  ? `影子估值 · 置信度 ${Math.round(Number(item.shadow_valuation_confidence ?? 0) * 100)}%`
+                                  : "正式估值"
+                              }
                             >
                               {money(
-                                item.fair_value,
-                                item.valuation_currency ?? summary.base_currency,
+                                displayedFairValue,
+                                displayedCurrency,
+                              )}
+                              {usesShadowValue && (
+                                <small>
+                                  影子 · {Math.round(Number(item.shadow_valuation_confidence ?? 0) * 100)}%
+                                </small>
                               )}
                             </button>
                           ) : isValuationRunning(item.valuation_status) ? (
@@ -1692,18 +1708,28 @@ export default function Dashboard() {
                             >
                               估值失败
                             </button>
-                          ) : item.fair_value ? (
+                          ) : displayedFairValue ? (
                             <button
-                              className="valuation-price"
+                              className={`valuation-price${usesShadowValue ? " shadow" : ""}`}
                               onClick={() => void openValuationDetail(item)}
                             >
                               {money(
-                                item.fair_value,
-                                item.valuation_currency ?? summary.base_currency,
+                                displayedFairValue,
+                                displayedCurrency,
+                              )}
+                              {usesShadowValue && (
+                                <small>
+                                  影子 · {Math.round(Number(item.shadow_valuation_confidence ?? 0) * 100)}%
+                                </small>
                               )}
                             </button>
                           ) : (
-                            <span className="unvalued">待估值</span>
+                            <button
+                              className="valuation-status insufficient"
+                              onClick={() => void openValuationDetail(item)}
+                            >
+                              待估值 · 点击处理
+                            </button>
                           )}
                         </td>
                         <td
