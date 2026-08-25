@@ -64,7 +64,8 @@ class KnowledgeRepository:
                 jsonb_agg(
                     jsonb_build_object(
                         'id', a.id, 'alias', a.alias, 'language', a.language,
-                        'alias_type', a.alias_type, 'review_status', a.review_status
+                        'alias_type', a.alias_type, 'review_status', a.review_status,
+                        'source', a.source, 'confidence', a.confidence
                     ) ORDER BY a.alias
                 ) FILTER (WHERE a.id IS NOT NULL), '[]'::jsonb
             ) AS aliases
@@ -194,6 +195,86 @@ class KnowledgeRepository:
             connection, workspace["id"], actor_id, "create", "alias", alias["id"], None, alias, request_id
         )
         return alias
+
+    async def update_alias(
+        self,
+        connection: AsyncConnection,
+        workspace: dict[str, Any],
+        actor_id: UUID,
+        alias_id: UUID,
+        payload: dict[str, Any],
+        request_id: str | None,
+    ) -> dict[str, Any]:
+        previous_result = await connection.execute(
+            "SELECT * FROM knowledge_alias WHERE id = %s AND workspace_id = %s FOR UPDATE",
+            (alias_id, workspace["id"]),
+        )
+        previous_row = await previous_result.fetchone()
+        if previous_row is None:
+            raise KeyError("alias")
+        previous = dict(previous_row)
+        alias = str(payload.get("alias") or previous["alias"]).strip()
+        normalized = normalize_knowledge_text(alias)
+        conflict = await connection.execute(
+            """
+            SELECT e.canonical_name FROM knowledge_alias a
+            JOIN knowledge_entity e ON e.id = a.entity_id
+            WHERE a.workspace_id = %s AND a.normalized_alias = %s AND a.active
+              AND a.id <> %s
+            """,
+            (workspace["id"], normalized, alias_id),
+        )
+        if row := await conflict.fetchone():
+            raise KnowledgeConflictError(f"该别名已属于实体“{row['canonical_name']}”")
+        result = await connection.execute(
+            """
+            UPDATE knowledge_alias
+            SET alias = %s, normalized_alias = %s, language = %s, alias_type = %s,
+                source = %s, confidence = %s,
+                review_status = CASE WHEN %s THEN 'draft' ELSE review_status END,
+                updated_at = now()
+            WHERE id = %s RETURNING *
+            """,
+            (
+                alias, normalized, payload.get("language", previous["language"]),
+                payload.get("alias_type", previous["alias_type"]),
+                Jsonb(payload.get("source", previous["source"])),
+                payload.get("confidence", previous["confidence"]),
+                alias != previous["alias"] or payload.get("alias_type") != previous["alias_type"],
+                alias_id,
+            ),
+        )
+        updated = dict(await result.fetchone())
+        await connection.execute(
+            "UPDATE knowledge_workspace SET revision = revision + 1, updated_at = now() WHERE id = %s",
+            (workspace["id"],),
+        )
+        await self.audit(connection, workspace["id"], actor_id, "update", "alias", alias_id, previous, updated, request_id)
+        return updated
+
+    async def deactivate_alias(
+        self, connection: AsyncConnection, workspace: dict[str, Any], actor_id: UUID,
+        alias_id: UUID, request_id: str | None,
+    ) -> dict[str, Any]:
+        previous_result = await connection.execute(
+            "SELECT * FROM knowledge_alias WHERE id = %s AND workspace_id = %s FOR UPDATE",
+            (alias_id, workspace["id"]),
+        )
+        previous_row = await previous_result.fetchone()
+        if previous_row is None:
+            raise KeyError("alias")
+        previous = dict(previous_row)
+        result = await connection.execute(
+            "UPDATE knowledge_alias SET active = false, updated_at = now() WHERE id = %s RETURNING *",
+            (alias_id,),
+        )
+        updated = dict(await result.fetchone())
+        await connection.execute(
+            "UPDATE knowledge_workspace SET revision = revision + 1, updated_at = now() WHERE id = %s",
+            (workspace["id"],),
+        )
+        await self.audit(connection, workspace["id"], actor_id, "deactivate", "alias", alias_id, previous, updated, request_id)
+        return updated
 
     async def review(
         self,

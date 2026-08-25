@@ -16,7 +16,7 @@ from card_platform.codex_source_labeler import (
     build_source_assisted_truth,
     label_against_truth,
 )
-from card_platform.ingestion.cardhobby import LOT_PATTERN
+from card_platform.domain.listing_title import is_multi_card_listing
 from card_platform.market_data.models import EvidenceRecord, MarketIdentity
 from card_platform.market_data.repository import MarketDataRepository
 from card_platform.recognition_benchmark import (
@@ -136,7 +136,7 @@ async def codex_auto_label_batch(
     confidence_total = 0.0
     for row in target_rows:
         title = str((row["sealed_reference"] or {}).get("title") or "")
-        if LOT_PATTERN.search(title) or NON_BASKETBALL_PATTERN.search(title):
+        if is_multi_card_listing(title) or NON_BASKETBALL_PATTERN.search(title):
             label = "source_error"
             truth = None
             evidence = [

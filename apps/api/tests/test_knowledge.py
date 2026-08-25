@@ -132,3 +132,23 @@ def test_cardhobby_runtime_query_plan_uses_published_aliases() -> None:
     queries = [stage.query for stage in provider.resolver.build_query_plan(identity)]
     assert queries[0] == "Walker Kessler National Treasures First Steps 49编"
     assert any("国宝" in query for query in queries)
+
+
+def test_query_plan_reserves_stages_for_explicit_player_seller_aliases() -> None:
+    resolver = KnowledgeResolver(SNAPSHOT)
+    queries = [
+        stage.query
+        for stage in resolver.build_query_plan(
+            {
+                "player_name": "John Stockton",
+                "player_name_aliases": ["约翰 斯托克顿", "斯托克顿"],
+                "season_start": 2000,
+                "season_end": 2001,
+                "product_name": "National Treasures",
+                "card_number": "90",
+            }
+        )
+    ]
+    assert any(query.startswith("约翰 斯托克顿 ") for query in queries)
+    assert any(query.startswith("斯托克顿 ") for query in queries)
+    assert len(queries) <= 12

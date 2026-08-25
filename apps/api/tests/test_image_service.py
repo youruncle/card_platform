@@ -22,6 +22,19 @@ from card_platform.schemas import (
 )
 
 
+class _ImageResult:
+    def __init__(self, row: dict | None) -> None:
+        self.row = row
+
+    async def fetchone(self):
+        return self.row
+
+
+class _ImageConnection:
+    async def execute(self, query: str, _params: tuple) -> _ImageResult:
+        return _ImageResult({"id": uuid4()}) if "SELECT id" in query else _ImageResult({"id": uuid4()})
+
+
 def upload(content: bytes, content_type: str = "image/jpeg") -> UploadFile:
     return UploadFile(
         file=BytesIO(content),
@@ -80,6 +93,25 @@ def test_item_image_cleanup_only_removes_owned_filename(tmp_path) -> None:
     assert not owned.exists()
     assert unrelated.exists()
     assert suspicious.exists()
+
+
+@pytest.mark.asyncio
+async def test_preprocessed_scanner_image_is_saved_without_second_rectification(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    content = b"\xff\xd8\xffalready-cropped-scanner-image"
+    service = ImageStorageService(Settings(upload_dir=str(tmp_path), max_image_bytes=100))
+
+    def fail_if_rectified(*_args, **_kwargs):
+        raise AssertionError("preprocessed scanner image must not be rectified again")
+
+    monkeypatch.setattr("card_platform.image_service.rectify_card_image", fail_if_rectified)
+    result = await service.save_preprocessed_item_image_content(
+        _ImageConnection(), uuid4(), uuid4(), "front", content, "image/jpeg"
+    )
+
+    saved = tmp_path / result.image_url.rsplit("/", 1)[-1]
+    assert saved.read_bytes() == content
 
 
 class FakeVisionProvider:

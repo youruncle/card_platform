@@ -10,6 +10,7 @@ from card_platform.domain.portfolio import LedgerEntry, TransactionKind, calcula
 from card_platform.schemas import (
     CollectionItemCreate,
     PortfolioItem,
+    PortfolioItemQuickUpdate,
     PortfolioItemDetail,
     PortfolioSummary,
     TransactionCreate,
@@ -111,9 +112,10 @@ class PortfolioRepository:
                 """
                 INSERT INTO collection_item (
                     owner_id, card_definition_id, serial_number, serial_total,
+                    is_numbered,
                     grade_company, grade_value, grade_cert_number, strategy_tags,
                     acquired_at, notes
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
@@ -121,6 +123,7 @@ class PortfolioRepository:
                     definition_id,
                     payload.serial_number,
                     payload.serial_total,
+                    payload.is_numbered,
                     payload.grade_company,
                     payload.grade_value,
                     payload.grade_cert_number,
@@ -414,7 +417,7 @@ class PortfolioRepository:
         result = await connection.execute(
             f"""
             SELECT
-                ci.id, ci.owner_id, p.id AS player_id, p.full_name AS player_name,
+                ci.id, ci.display_id, ci.owner_id, p.id AS player_id, p.full_name AS player_name,
                 b.name AS brand_name,
                 cs.season_start, cs.season_end, cs.product_name, cs.set_name,
                 cd.card_number, cd.insert_name, cd.parallel_name,
@@ -422,8 +425,11 @@ class PortfolioRepository:
                 cd.has_inscription, cd.inscription_text,
                 cd.is_memorabilia, cd.memorabilia_types,
                 cd.memorabilia_usage, cd.memorabilia_player, cd.is_patch,
+                ci.is_numbered,
                 ci.serial_number, ci.serial_total, ci.grade_company, ci.grade_value,
                 ci.strategy_tags, ci.image_front_url, ci.image_back_url, u.base_currency,
+                purchase.unit_price AS purchase_price,
+                purchase.currency AS purchase_currency,
                 ci.deleted_at, ci.deleted_reason,
                 CASE WHEN vj.created_at > lv.valued_at AND vj.status <> 'succeeded'
                      THEN NULL ELSE lv.currency END AS valuation_currency,
@@ -458,11 +464,22 @@ class PortfolioRepository:
             JOIN brand b ON b.id = cs.brand_id
             LEFT JOIN latest_item_valuation lv ON lv.collection_item_id = ci.id
             LEFT JOIN LATERAL (
+                SELECT unit_price, currency
+                FROM card_transaction
+                WHERE collection_item_id = ci.id AND transaction_type = 'buy'
+                ORDER BY transacted_at, created_at, id
+                LIMIT 1
+            ) purchase ON true
+            LEFT JOIN LATERAL (
                 SELECT currency, low_value, fair_value, high_value, confidence,
                        status, model_version
                 FROM valuation_shadow_result
                 WHERE collection_item_id = ci.id
-                  AND fair_value IS NOT NULL
+                  AND valuation_job_id = (
+                      SELECT id FROM valuation_job
+                      WHERE collection_item_id = ci.id
+                      ORDER BY created_at DESC LIMIT 1
+                  )
                   AND identity_version_id = (
                       SELECT id FROM card_identity_version
                       WHERE collection_item_id = ci.id AND review_status = 'confirmed'
@@ -517,6 +534,137 @@ class PortfolioRepository:
                 )
             )
         return items
+
+    async def quick_update_item(
+        self,
+        connection: AsyncConnection,
+        item_id: UUID,
+        owner_id: UUID,
+        payload: PortfolioItemQuickUpdate,
+    ) -> None:
+        fields = payload.model_fields_set
+        if not fields:
+            return
+        async with connection.transaction():
+            selected = await connection.execute(
+                """
+                SELECT ci.card_definition_id, ci.serial_number, ci.serial_total,
+                       u.base_currency
+                FROM collection_item ci
+                JOIN app_user u ON u.id = ci.owner_id
+                WHERE ci.id = %s AND ci.owner_id = %s AND ci.deleted_at IS NULL
+                FOR UPDATE
+                """,
+                (item_id, owner_id),
+            )
+            item = await selected.fetchone()
+            if item is None:
+                raise NotFoundError("collection item not found")
+
+            if "is_numbered" in fields:
+                await connection.execute(
+                    """
+                    UPDATE collection_item
+                    SET is_numbered = %s, updated_at = now()
+                    WHERE id = %s
+                    """,
+                    (payload.is_numbered, item_id),
+                )
+
+            if fields & {"serial_number", "serial_total"}:
+                serial_number = (
+                    payload.serial_number if "serial_number" in fields else item["serial_number"]
+                )
+                serial_total = (
+                    payload.serial_total if "serial_total" in fields else item["serial_total"]
+                )
+                if serial_number is not None and serial_total is None:
+                    raise ConflictError("serial_total is required when serial_number is present")
+                if (
+                    serial_number is not None
+                    and serial_total is not None
+                    and serial_number > serial_total
+                ):
+                    raise ConflictError("serial_number cannot exceed serial_total")
+                await connection.execute(
+                    """
+                    UPDATE collection_item
+                    SET serial_number = %s, serial_total = %s,
+                        is_numbered = %s, updated_at = now()
+                    WHERE id = %s
+                    """,
+                    (serial_number, serial_total, serial_total is not None, item_id),
+                )
+                await connection.execute(
+                    """
+                    INSERT INTO valuation_job (collection_item_id, status)
+                    VALUES (%s, 'queued')
+                    ON CONFLICT (collection_item_id)
+                        WHERE status IN ('queued', 'identifying', 'searching', 'calculating')
+                    DO NOTHING
+                    """,
+                    (item_id,),
+                )
+
+            definition_updates: list[str] = []
+            definition_values: list[object] = []
+            if "is_rookie" in fields:
+                definition_updates.append("is_rookie = %s")
+                definition_values.append(payload.is_rookie)
+            if "is_autograph" in fields:
+                definition_updates.extend([
+                    "is_autograph = %s",
+                    "autograph_type = CASE WHEN %s THEN CASE WHEN autograph_type = 'none' THEN 'unknown' ELSE autograph_type END ELSE 'none' END",
+                ])
+                definition_values.extend([payload.is_autograph, payload.is_autograph])
+            if "is_memorabilia" in fields:
+                definition_updates.extend([
+                    "is_memorabilia = %s",
+                    "memorabilia_usage = CASE WHEN %s THEN CASE WHEN memorabilia_usage = 'none' THEN 'unknown' ELSE memorabilia_usage END ELSE 'none' END",
+                    "is_patch = CASE WHEN %s THEN is_patch ELSE false END",
+                ])
+                definition_values.extend([
+                    payload.is_memorabilia,
+                    payload.is_memorabilia,
+                    payload.is_memorabilia,
+                ])
+            if definition_updates:
+                await connection.execute(
+                    f"UPDATE card_definition SET {', '.join(definition_updates)}, updated_at = now() WHERE id = %s",
+                    (*definition_values, item["card_definition_id"]),
+                )
+
+            if "purchase_price" in fields:
+                currency = (payload.purchase_currency or item["base_currency"]).upper()
+                existing = await connection.execute(
+                    """
+                    SELECT id FROM card_transaction
+                    WHERE collection_item_id = %s AND transaction_type = 'buy'
+                    ORDER BY transacted_at, created_at, id LIMIT 1
+                    FOR UPDATE
+                    """,
+                    (item_id,),
+                )
+                transaction = await existing.fetchone()
+                if transaction:
+                    await connection.execute(
+                        """
+                        UPDATE card_transaction
+                        SET unit_price = %s, currency = %s
+                        WHERE id = %s
+                        """,
+                        (payload.purchase_price, currency, transaction["id"]),
+                    )
+                else:
+                    await connection.execute(
+                        """
+                        INSERT INTO card_transaction (
+                            collection_item_id, transaction_type, transacted_at,
+                            quantity, unit_price, fee_amount, currency, fx_rate_to_base, notes
+                        ) VALUES (%s, 'buy', now(), 1, %s, 0, %s, 1, %s)
+                        """,
+                        (item_id, payload.purchase_price, currency, "从卡片列表初始化买入价"),
+                    )
 
     async def list_deleted_items(
         self, connection: AsyncConnection, owner_id: UUID

@@ -24,9 +24,10 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { GlobalImageViewer, OpenableImage } from "@/components/image-viewer";
+import { FlatbedBatchPanel } from "@/components/flatbed-batch-panel";
 
 import {
   addTransaction,
@@ -34,8 +35,10 @@ import {
   addMarketComp,
   analyzeItem,
   automaticallyAnalyzeItem,
+  getExpertAnalysis,
   changePassword,
   createItem,
+  quickUpdateItem,
   getCurrentUser,
   getAuthSessions,
   loginUser,
@@ -83,6 +86,7 @@ import {
   assetUrl,
   externalSourceUrl,
   type AnalysisResult,
+  type ExpertAnalysisHistory,
   type AINarrativeResult,
   type PortfolioItem,
   type PortfolioSummary,
@@ -102,6 +106,14 @@ import {
   type ScannerRecognitionJob,
   type ScannerCameraControls,
 } from "@/lib/api";
+
+function closeOnBackdrop(
+  event: ReactMouseEvent<HTMLDivElement>,
+  onClose: () => void,
+  blocked = false,
+) {
+  if (!blocked && event.target === event.currentTarget) onClose();
+}
 
 type RecognitionMode = "single" | "pair" | "scanner" | "batch";
 type AcquisitionDraft = {
@@ -283,6 +295,7 @@ export default function Dashboard() {
     null,
   );
   const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [expertAnalysis, setExpertAnalysis] = useState<ExpertAnalysisHistory | null>(null);
   const [aiNarrative, setAiNarrative] = useState<AINarrativeResult | null>(
     null,
   );
@@ -329,6 +342,12 @@ export default function Dashboard() {
   const [scannerResetToken, setScannerResetToken] = useState(0);
   const [selectedScannerJobId, setSelectedScannerJobId] = useState<string | null>(null);
   const [cardDraft, setCardDraft] = useState<EditableRecognition | null>(null);
+  const [editingPurchase, setEditingPurchase] = useState<{ id: string; value: string } | null>(null);
+  const [editingSerial, setEditingSerial] = useState<{
+    id: string;
+    serialNumber: string;
+    serialTotal: string;
+  } | null>(null);
 
   const refresh = useCallback(async (id: string) => {
     setLoading(true);
@@ -375,13 +394,25 @@ export default function Dashboard() {
     return () => window.removeEventListener("card-platform:unauthorized", expireSession);
   }, []);
 
+  const scannerJobsActive = scannerJobs.some((job) =>
+    ["queued", "running"].includes(job.status),
+  );
+  const pendingScannerJobs = scannerJobs.filter(
+    (job) => ["queued", "running"].includes(job.status) && !job.collection_item_id,
+  );
+
   useEffect(() => {
-    if (!showRecognition || !ownerId) return;
+    if (!ownerId || (!showRecognition && !scannerJobsActive)) return;
     let active = true;
     const refreshJobs = () =>
       getScannerRecognitionJobs()
         .then((jobs) => {
-          if (active) setScannerJobs(jobs);
+          if (active) {
+            setScannerJobs(jobs);
+            if (jobs.some((job) => job.collection_item_id && !items.some((item) => item.id === job.collection_item_id))) {
+              void refresh(ownerId);
+            }
+          }
         })
         .catch(() => undefined);
     void refreshJobs();
@@ -390,7 +421,74 @@ export default function Dashboard() {
       active = false;
       window.clearInterval(timer);
     };
-  }, [showRecognition, ownerId]);
+  }, [showRecognition, ownerId, items, refresh, scannerJobsActive]);
+
+  async function savePurchasePrice(item: PortfolioItem) {
+    if (!editingPurchase || editingPurchase.id !== item.id) return;
+    const value = Number(editingPurchase.value);
+    if (!Number.isFinite(value) || value < 0) {
+      setError("买入价必须是大于或等于 0 的数字");
+      return;
+    }
+    try {
+      await quickUpdateItem(item.id, {
+        purchase_price: value,
+        purchase_currency: item.purchase_currency ?? summary.base_currency,
+      });
+      setEditingPurchase(null);
+      if (ownerId) await refresh(ownerId);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "买入价保存失败");
+    }
+  }
+
+  async function toggleQuickAttribute(
+    item: PortfolioItem,
+    field: "is_rookie" | "is_numbered" | "is_autograph" | "is_memorabilia",
+  ) {
+    try {
+      await quickUpdateItem(item.id, { [field]: !item[field] });
+      setItems((current) => current.map((candidate) =>
+        candidate.id === item.id ? { ...candidate, [field]: !item[field] } : candidate,
+      ));
+      if (ownerId) await refresh(ownerId);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "卡片属性保存失败");
+    }
+  }
+
+  async function saveSerialNumber(item: PortfolioItem) {
+    if (!editingSerial || editingSerial.id !== item.id) return;
+    const numberText = editingSerial.serialNumber.trim();
+    const totalText = editingSerial.serialTotal.trim();
+    const serialNumber = numberText ? Number(numberText) : null;
+    const serialTotal = totalText ? Number(totalText) : null;
+    if (
+      (serialNumber !== null && (!Number.isInteger(serialNumber) || serialNumber <= 0)) ||
+      (serialTotal !== null && (!Number.isInteger(serialTotal) || serialTotal <= 0))
+    ) {
+      setError("实编号码和总限编必须是正整数");
+      return;
+    }
+    if (serialNumber !== null && serialTotal === null) {
+      setError("填写实编号码时必须同时填写总限编");
+      return;
+    }
+    if (serialNumber !== null && serialTotal !== null && serialNumber > serialTotal) {
+      setError("实编号码不能大于总限编");
+      return;
+    }
+    try {
+      await quickUpdateItem(item.id, {
+        serial_number: serialNumber,
+        serial_total: serialTotal,
+      });
+      setEditingSerial(null);
+      if (ownerId) await refresh(ownerId);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "限编号码保存失败");
+    }
+  }
 
   useEffect(() => {
     if (!ownerId) return;
@@ -684,6 +782,20 @@ export default function Dashboard() {
     }
   }
 
+  async function openExpertAnalysis(item: PortfolioItem) {
+    setAnalysisItem(item);
+    setExpertAnalysis(null);
+    setAnalysisLoading(true);
+    setError("");
+    try {
+      setExpertAnalysis(await getExpertAnalysis(item.id));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "读取分析历史失败");
+    } finally {
+      setAnalysisLoading(false);
+    }
+  }
+
   async function openPlayerIntelligence(playerId: string) {
     setError("");
     try {
@@ -829,6 +941,11 @@ export default function Dashboard() {
   }
 
   async function openScannerJob(job: ScannerRecognitionJob) {
+    if (job.collection_item_id) {
+      setShowRecognition(false);
+      await openItemDetail(job.collection_item_id);
+      return;
+    }
     if (!job.result) return;
     try {
       const [front, back] = await Promise.all([
@@ -935,8 +1052,8 @@ export default function Dashboard() {
     }
   }
 
-  async function openItemDetail(itemId: string) {
-    if (!ownerId) return;
+  async function openItemDetail(itemId: string): Promise<boolean> {
+    if (!ownerId) return false;
     setError("");
     setItemCatalog(null);
     setDetailAnalysis(null);
@@ -956,8 +1073,10 @@ export default function Dashboard() {
           setError(reason instanceof Error ? reason.message : "图鉴补全失败"),
         )
         .finally(() => setItemCatalogLoading(false));
+      return true;
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "持仓详情读取失败");
+      return false;
     }
   }
 
@@ -1574,13 +1693,27 @@ export default function Dashboard() {
                     </th>
                     <th>卡片资产</th>
                     <th>属性</th>
-                    <th>持仓成本</th>
+                    <th>买入价 / 持仓成本</th>
                     <th>当前估值</th>
                     <th>未实现盈亏</th>
                     <th>分析</th>
                   </tr>
                 </thead>
                 <tbody>
+                  {!search.trim() && pendingScannerJobs.map((job, index) => (
+                    <tr key={`scanner-pending-${job.id}`} className="scanner-pending-row" aria-busy="true">
+                      <td className="selection-column"><span className="valuation-spinner" /></td>
+                      <td>
+                        <div className="card-identity">
+                          <div className="card-thumb has-image pending"><OpenableImage src={assetUrl(job.front_image_url) ?? undefined} alt={`录入中的扫描卡片 ${index + 1}`} /></div>
+                          <div><div className="player-name-row"><strong>录入中</strong></div><small>正在识别球员、年份与卡片信息</small></div>
+                        </div>
+                      </td>
+                      <td><span className="scanner-ingesting"><span className="valuation-spinner" /> 录入中</span></td>
+                      <td>—</td><td>—</td><td>—</td>
+                      <td><small>{job.status === "queued" ? "等待处理" : "AI 识别中"}</small></td>
+                    </tr>
+                  ))}
                   {filteredItems.map((item) => {
                     const profit = Number(item.unrealized_profit ?? 0);
                     const displayedFairValue = item.fair_value ?? item.shadow_fair_value;
@@ -1609,6 +1742,16 @@ export default function Dashboard() {
                                     assetUrl(item.image_front_url) ?? undefined
                                   }
                                   alt={`${item.player_name} 卡片正面`}
+                                  gallery={[
+                                    {
+                                      src: assetUrl(item.image_front_url),
+                                      alt: `${item.player_name} 卡片正面`,
+                                    },
+                                    {
+                                      src: assetUrl(item.image_back_url),
+                                      alt: `${item.player_name} 卡片背面`,
+                                    },
+                                  ]}
                                 />
                               </div>
                             ) : (
@@ -1626,12 +1769,15 @@ export default function Dashboard() {
                               </button>
                             )}
                             <div>
-                              <button
-                                className="player-link"
-                                onClick={() => void openItemDetail(item.id)}
-                              >
-                                {item.player_name}
-                              </button>
+                              <div className="player-name-row">
+                                <span className="asset-display-id">ID {item.display_id}</span>
+                                <button
+                                  className="player-link"
+                                  onClick={() => void openItemDetail(item.id)}
+                                >
+                                  {item.player_name}
+                                </button>
+                              </div>
                               <small>
                                 {season(item)} · {item.product_name}
                                 {item.insert_name
@@ -1642,25 +1788,94 @@ export default function Dashboard() {
                           </div>
                         </td>
                         <td>
-                          <div className="tag-row">
-                            {item.is_rookie && (
-                              <span className="tag lime">RC</span>
-                            )}
-                            {item.is_autograph && (
-                              <span className="tag">AUTO</span>
-                            )}
-                            {item.is_patch && (
-                              <span className="tag">PATCH</span>
-                            )}
-                            {item.serial_total && (
-                              <span className="tag muted">
-                                /{item.serial_total}
-                              </span>
+                          <div className="tag-row quick-attribute-row">
+                            <button type="button" className={`tag editable${item.is_rookie ? " lime active" : ""}`} onClick={() => void toggleQuickAttribute(item, "is_rookie")}>RC</button>
+                            <button
+                              type="button"
+                              className={`tag editable${item.is_numbered ? " active" : ""}`}
+                              aria-expanded={editingSerial?.id === item.id}
+                              title="点击修改实编号码和总限编"
+                              onClick={() => setEditingSerial((current) => current?.id === item.id ? null : {
+                                id: item.id,
+                                serialNumber: item.serial_number == null ? "" : String(item.serial_number),
+                                serialTotal: item.serial_total == null ? "" : String(item.serial_total),
+                              })}
+                            >
+                              {item.is_numbered && item.serial_total
+                                ? `${item.serial_number ?? "?"}/${item.serial_total}`
+                                : "带编"}
+                            </button>
+                            <button type="button" className={`tag editable${item.is_autograph ? " active" : ""}`} onClick={() => void toggleQuickAttribute(item, "is_autograph")}>签字</button>
+                            <button type="button" className={`tag editable${item.is_memorabilia ? " active" : ""}`} onClick={() => void toggleQuickAttribute(item, "is_memorabilia")}>物料</button>
+                            {editingSerial?.id === item.id && (
+                              <div className="serial-inline-editor">
+                                <label>
+                                  <span>实编号码</span>
+                                  <input
+                                    autoFocus
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    placeholder="如 27"
+                                    value={editingSerial.serialNumber}
+                                    onChange={(event) => setEditingSerial({
+                                      ...editingSerial,
+                                      serialNumber: event.target.value,
+                                    })}
+                                  />
+                                </label>
+                                <span>/</span>
+                                <label>
+                                  <span>总限编</span>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    placeholder="如 50"
+                                    value={editingSerial.serialTotal}
+                                    onChange={(event) => setEditingSerial({
+                                      ...editingSerial,
+                                      serialTotal: event.target.value,
+                                    })}
+                                    onKeyDown={(event) => {
+                                      if (event.key === "Enter") void saveSerialNumber(item);
+                                      if (event.key === "Escape") setEditingSerial(null);
+                                    }}
+                                  />
+                                </label>
+                                <button type="button" className="serial-save-button" onClick={() => void saveSerialNumber(item)}>保存</button>
+                                <button type="button" className="serial-cancel-button" onClick={() => setEditingSerial(null)}>取消</button>
+                                <small>两个值都清空可移除限编信息</small>
+                              </div>
                             )}
                           </div>
                         </td>
-                        <td>
-                          {money(item.remaining_cost, summary.base_currency)}
+                        <td
+                          className="purchase-price-cell"
+                          title="双击修改或初始化买入价"
+                          onDoubleClick={() => setEditingPurchase({ id: item.id, value: item.purchase_price ?? "" })}
+                        >
+                          {editingPurchase?.id === item.id ? (
+                            <input
+                              autoFocus
+                              className="inline-price-input"
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={editingPurchase.value}
+                              onChange={(event) => setEditingPurchase({ id: item.id, value: event.target.value })}
+                              onBlur={() => void savePurchasePrice(item)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") event.currentTarget.blur();
+                                if (event.key === "Escape") setEditingPurchase(null);
+                              }}
+                            />
+                          ) : (
+                            <>
+                              <strong>{item.purchase_price === null ? "双击填写" : money(item.purchase_price, item.purchase_currency ?? summary.base_currency)}</strong>
+                              <small className="cost-secondary">成本 {money(item.remaining_cost, summary.base_currency)}</small>
+                            </>
+                          )}
                         </td>
                         <td>
                           {displayedFairValue && item.valuation_status === "succeeded" ? (
@@ -1748,46 +1963,23 @@ export default function Dashboard() {
                           <div className="action-row">
                             <button
                               className="analysis-button"
-                              onClick={() => void handleAutomaticAnalysis(item)}
+                              onClick={() => void openExpertAnalysis(item)}
                             >
                               <Sparkles size={13} /> 分析
                             </button>
-                            <button
-                              className="manage-button"
-                              onClick={() => setPotentialItem(item)}
-                            >
-                              潜力
-                            </button>
-                            <button
-                              className="manage-button"
-                              onClick={() => void openMarket(item)}
-                            >
-                              市场
-                            </button>
-                            <button
-                              className="manage-button"
-                              onClick={() => setImageItem(item)}
-                            >
-                              图片
-                            </button>
-                            <button
-                              className="manage-button detail-alert-button"
-                              onClick={() => void openItemDetail(item.id)}
-                            >
-                              详情
-                              {(identityIssueCounts[item.id] ?? 0) > 0 && (
-                                <span
-                                  className="identity-issue-dot"
-                                  aria-label={`${identityIssueCounts[item.id]} 条卡片信息修复建议`}
-                                />
-                              )}
-                            </button>
-                            <button
-                              className="manage-button danger"
-                              onClick={() => void handleDeleteItem(item)}
-                            >
-                              删除
-                            </button>
+                            <details className="row-more-menu">
+                              <summary className="manage-button">更多</summary>
+                              <div>
+                                <button type="button" onClick={() => setPotentialItem(item)}>潜力</button>
+                                <button type="button" onClick={() => void openMarket(item)}>市场</button>
+                                <button type="button" onClick={() => setImageItem(item)}>图片</button>
+                                <button type="button" className="detail-alert-button" onClick={() => void openItemDetail(item.id)}>
+                                  详情
+                                  {(identityIssueCounts[item.id] ?? 0) > 0 && <span className="identity-issue-dot" />}
+                                </button>
+                                <button type="button" className="danger" onClick={() => void handleDeleteItem(item)}>删除</button>
+                              </div>
+                            </details>
                           </div>
                         </td>
                       </tr>
@@ -1874,15 +2066,12 @@ export default function Dashboard() {
         />
       )}
       {analysisItem && (
-        <AnalysisDialog
+        <ExpertAnalysisDialog
           item={analysisItem}
           currency={summary.base_currency}
-          result={analysisResult}
+          analysis={expertAnalysis}
           loading={analysisLoading}
-          narrative={aiNarrative}
-          onNarrative={() => void handleNarrative()}
           onClose={() => setAnalysisItem(null)}
-          onSubmit={handleAnalysis}
         />
       )}
       {playerIntel && (
@@ -1958,9 +2147,12 @@ export default function Dashboard() {
           onRetry={handleValuationRetry}
           onIdentityReview={async () => {
             const itemId = valuationDetailItem.id;
-            setValuationDetailItem(null);
-            setValuationDetail(null);
-            await openItemDetail(itemId);
+            const opened = await openItemDetail(itemId);
+            if (opened) {
+              setValuationDetailItem(null);
+              setValuationDetail(null);
+            }
+            return opened;
           }}
         />
       )}
@@ -2007,6 +2199,11 @@ export default function Dashboard() {
           onOpenScannerJob={(job) => void openScannerJob(job)}
           onRetryScannerJob={(jobId) => void retryScannerJob(jobId)}
           onDeleteScannerJob={(jobId) => void deleteScannerJob(jobId)}
+          onFlatbedCompleted={async () => {
+            setShowRecognition(false);
+            setScannerJobs(await getScannerRecognitionJobs().catch(() => scannerJobs));
+            if (ownerId) void refresh(ownerId);
+          }}
         />
       )}
       {showCardHobbyImport && ownerId && (
@@ -2135,7 +2332,7 @@ function CardHobbyImportDialog({
   }
 
   return (
-    <div className="modal-backdrop">
+    <div className="modal-backdrop" onMouseDown={(event) => closeOnBackdrop(event, onClose, busy)}>
       <div className="modal cardhobby-import-modal">
         <div className="modal-heading">
           <div>
@@ -2340,7 +2537,7 @@ function AccountDialog({
   onRevokeSession: (id: string) => void;
 }) {
   return (
-    <div className="modal-backdrop">
+    <div className="modal-backdrop" onMouseDown={(event) => closeOnBackdrop(event, onClose)}>
       <div className="modal account-modal">
         <div className="modal-heading">
           <div>
@@ -2413,7 +2610,7 @@ function CardDialog({
   }
 
   return (
-    <div className="modal-backdrop">
+    <div className="modal-backdrop" onMouseDown={(event) => closeOnBackdrop(event, onClose)}>
       <div className="modal card-modal">
         <div className="modal-heading">
           <div>
@@ -2660,6 +2857,77 @@ const ratingLabels: Record<string, string> = {
   reduce: "减仓",
   avoid: "回避",
 };
+
+function ExpertAnalysisDialog({
+  item, currency, analysis, loading, onClose,
+}: {
+  item: PortfolioItem;
+  currency: string;
+  analysis: ExpertAnalysisHistory | null;
+  loading: boolean;
+  onClose: () => void;
+}) {
+  const latest = analysis?.latest;
+  const prompt = typeof latest?.raw_result.prompt === "string" ? latest.raw_result.prompt : null;
+  const frontHash = typeof latest?.raw_result.front_sha256 === "string" ? latest.raw_result.front_sha256 : null;
+  const backHash = typeof latest?.raw_result.back_sha256 === "string" ? latest.raw_result.back_sha256 : null;
+  const expertMoney = (value: string | null) => value === null
+    ? "证据不足"
+    : money(value, latest?.currency ?? currency);
+  return (
+    <div className="modal-backdrop">
+      <div className="modal analysis-modal expert-analysis-modal">
+        <div className="modal-heading">
+          <div><p className="eyebrow">CODEX MULTIMODAL · #{item.display_id}</p><h2>Codex 看图分析</h2></div>
+          <button className="icon-button" onClick={onClose}><X size={20} /></button>
+        </div>
+        <div className="expert-analysis-card-link">
+          {item.image_front_url && <OpenableImage src={assetUrl(item.image_front_url) ?? ""} alt={`${item.player_name} 正面`} />}
+          {item.image_back_url && <OpenableImage src={assetUrl(item.image_back_url) ?? ""} alt={`${item.player_name} 背面`} />}
+          <p>{item.season_start} {item.brand_name} {item.product_name}<br />
+            <small>本结果只以这两张图片为卡片输入，独立于影子估值与正式估值，不会写入正式估值。</small></p>
+        </div>
+        {loading ? (
+          <div className="dossier-loading"><span className="valuation-spinner" /> 正在读取已保存的 Codex 看图分析…</div>
+        ) : !latest ? (
+          <div className="empty-analysis"><h3>尚未分析</h3><p>这张卡还没有已保存的专家分析记录。</p>
+            {analysis?.history.some((entry) => entry.status === "failed") && <p className="form-error">最近失败：{analysis.history[0].error_message}</p>}
+            <p className="muted-copy">暂无 Codex 分析。请由 Codex 多模态任务读取正反面图片后导入。</p>
+          </div>
+        ) : (
+          <>
+            <p className="confidence">第 {latest.analysis_version} 版 · {new Date(latest.created_at).toLocaleString("zh-CN")} · {latest.source}/{latest.model_name}</p>
+            {prompt && <section><h3>分析 Prompt</h3><p>{prompt}</p></section>}
+            {(frontHash || backHash) && <section><h3>图片校验</h3>
+              {frontHash && <p className="muted-copy">正面 SHA-256：{frontHash}</p>}
+              {backHash && <p className="muted-copy">背面 SHA-256：{backHash}</p>}
+            </section>}
+            <div className="analysis-metrics">
+              <div><span>专家公允价值</span><strong>{expertMoney(latest.fair_value)}</strong></div>
+              <div><span>合理区间</span><strong>{latest.fair_value_low === null ? "证据不足" : `${expertMoney(latest.fair_value_low)} – ${expertMoney(latest.fair_value_high)}`}</strong></div>
+              <div><span>估值置信度</span><strong>{Math.round(Number(latest.valuation_confidence ?? 0) * 100)}%</strong></div>
+              <div><span>身份可信度</span><strong>{Math.round(Number(latest.identity_confidence) * 100)}%</strong></div>
+            </div>
+            <section><h3>身份判断</h3><p>{latest.identity_summary}</p></section>
+            <section><h3>投资结论</h3><p>{latest.investment_conclusion}</p></section>
+            <div className="evidence-columns">
+              <div><h3>价值驱动</h3>{latest.value_drivers.map((value) => <p key={value} className="evidence positive-dot">{value}</p>)}</div>
+              <div><h3>风险与冲突</h3>{latest.risks_and_conflicts.map((value) => <p key={value} className="evidence risk-dot">{value}</p>)}</div>
+            </div>
+            <section><h3>证据与成交摘要</h3>{latest.evidence_summary.length ? latest.evidence_summary.map((entry, index) => (
+              <p className="evidence" key={index}>{String(entry.title ?? entry.type ?? "证据")} {entry.price ? `· ${String(entry.price)} ${String(entry.currency ?? "")}` : ""}</p>
+            )) : <p className="muted-copy">暂无精确成交证据；当前区间已按低证据置信度放宽。</p>}</section>
+            <section><h3>建议动作</h3>{latest.recommended_actions.map((value) => <p key={value}>{value}</p>)}</section>
+            <details><summary>历史版本（{analysis?.history.length ?? 0}）</summary>{analysis?.history.map((entry) => (
+              <p key={entry.id}>v{entry.analysis_version} · {entry.status === "succeeded" ? "成功" : `失败：${entry.error_message ?? "未知错误"}`} · {new Date(entry.created_at).toLocaleString("zh-CN")}</p>
+            ))}</details>
+            <div className="modal-actions"><button className="primary-button" onClick={onClose}>关闭</button></div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function AnalysisDialog({
   item,
@@ -3138,9 +3406,9 @@ function ItemDetailDialog({
   const [catalogImageMessage, setCatalogImageMessage] = useState("");
   const [rotatingImage, setRotatingImage] = useState<"front" | "back" | null>(null);
   const [reviewDraft, setReviewDraft] = useState<ConfirmedCardIdentity | null>(
-    identityReview?.suggested_identity ?? null,
+    identityReview?.suggested_identity ?? identityReview?.current_identity ?? null,
   );
-  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>("manual");
   const confirmationFormRef = useRef<HTMLDivElement | null>(null);
   const [reviewReason, setReviewReason] = useState("人工核对正反面图片及成交证据");
   const item = detail.item;
@@ -3154,7 +3422,9 @@ function ItemDetailDialog({
     ["卡种", catalog?.insert_name ?? item.insert_name],
     ["平行版本", catalog?.parallel_name ?? item.parallel_name],
     ["卡号", catalog?.card_number ?? item.card_number],
-    ["限编", catalog?.serial_total ? `/${catalog.serial_total}` : item.serial_total ? `/${item.serial_total}` : null],
+    ["限编", item.is_numbered
+      ? catalog?.serial_total ? `/${catalog.serial_total}` : item.serial_total ? `/${item.serial_total}` : "带编（编号未知）"
+      : null],
   ].filter((entry): entry is [string, string] => Boolean(entry[1]));
   const imageFront = assetUrl(item.image_front_url);
   const imageBack = assetUrl(item.image_back_url);
@@ -3187,7 +3457,7 @@ function ItemDetailDialog({
   }
 
   return (
-    <div className="modal-backdrop">
+    <div className="modal-backdrop" onMouseDown={(event) => closeOnBackdrop(event, onClose)}>
       <div className="modal detail-modal card-dossier-modal">
         <div className="modal-heading">
           <div>
@@ -3261,7 +3531,7 @@ function ItemDetailDialog({
               {item.is_rookie && <span className="tag lime">RC</span>}
               {item.is_autograph && <span className="tag">AUTO</span>}
               {item.is_patch && <span className="tag">PATCH</span>}
-              {item.serial_total && <span className="tag muted">/{item.serial_total}</span>}
+              {item.is_numbered && item.serial_total && <span className="tag muted">/{item.serial_total}</span>}
               {item.grade_company && (
                 <span className="tag">{item.grade_company} {item.grade_value}</span>
               )}
@@ -3328,7 +3598,7 @@ function ItemDetailDialog({
                     <div className="identity-candidate-heading">
                       <div>
                         <span>候选 {candidate.rank}</span>
-                        <strong>{candidate.identity.parallel_name}</strong>
+                        <strong>{candidate.identity.parallel_name ?? candidate.identity.insert_name ?? candidate.identity.set_name ?? "Base"}</strong>
                       </div>
                       <b>{Math.round(Number(candidate.confidence) * 100)}%</b>
                     </div>
@@ -3346,7 +3616,45 @@ function ItemDetailDialog({
                         } as Record<string, string>)[reason] ?? reason}</li>
                       ))}
                     </ul>
-                    <small>清单 {candidate.checklist_evidence[0]?.source_version ?? "—"} · {candidate.market_evidence.length} 笔精确成交</small>
+                    <div className="identity-candidate-sources">
+                      <strong>身份出处</strong>
+                      {candidate.checklist_evidence.map((source, index) => (
+                        source.source_url ? (
+                          <a key={`${source.source_version}-${index}`} href={externalSourceUrl(source.source_url)} target="_blank" rel="noreferrer">
+                            清单：{source.source_version || source.parallel_name || "查看来源"} ↗
+                          </a>
+                        ) : null
+                      ))}
+                      {candidate.checklist_evidence.every((source) => !source.source_url) && <small>暂无可访问的清单链接</small>}
+                    </div>
+                    <div className="identity-candidate-sales">
+                      <strong>精确成交（{candidate.market_evidence.length}）</strong>
+                      {candidate.market_evidence.map((sale) => {
+                        const content = (
+                          <>
+                            {sale.image_url ? (
+                              <OpenableImage src={sale.image_url} alt={`${sale.raw_title ?? "候选成交"} 缩略图`} />
+                            ) : (
+                              <span className="identity-sale-placeholder">无图</span>
+                            )}
+                            <span>
+                              <b>
+                                {money(sale.sale_price, sale.currency)}
+                                {Number(sale.shipping_price ?? 0) > 0 ? ` + 运费 ${money(sale.shipping_price ?? "0", sale.currency)}` : ""}
+                              </b>
+                              <small>{sale.raw_title ?? `${sale.provider_code} · ${sale.external_sale_id}`}</small>
+                              <small>{new Date(sale.occurred_at).toLocaleDateString("zh-CN")} · {sale.evidence_level}</small>
+                            </span>
+                          </>
+                        );
+                        return sale.source_url ? (
+                          <a key={sale.id} href={externalSourceUrl(sale.source_url)} target="_blank" rel="noreferrer">{content}</a>
+                        ) : (
+                          <div key={sale.id}>{content}</div>
+                        );
+                      })}
+                      {candidate.market_evidence.length === 0 && <small>该候选暂无精确成交证据</small>}
+                    </div>
                     <button type="button" className={selected ? "primary-button" : "secondary-button"}
                       disabled={!candidate.is_valid}
                       onClick={() => {
@@ -3361,7 +3669,7 @@ function ItemDetailDialog({
               })}
             </div>
             <div className="identity-confirmation-form" ref={confirmationFormRef}>
-              <h4>{selectedCandidateId ? "请核对并确认所选身份" : "请先选择上方候选"}</h4>
+              <h4>{selectedCandidateId === "manual" ? "直接编辑当前卡片信息" : "请核对并确认所选身份"}</h4>
             <div className="identity-review-grid">
               {([
                 ["player_name", "球员"], ["season_start", "赛季起"], ["season_end", "赛季止"],
@@ -3398,15 +3706,23 @@ function ItemDetailDialog({
             <div className="identity-review-sales">
               <strong>关联成交（{identityReview.market_evidence.filter((sale) => sale.decision === "accepted").length} 接受 / {identityReview.market_evidence.filter((sale) => sale.decision === "rejected").length} 拒绝）</strong>
               {identityReview.market_evidence.map((sale) => (
-                <a key={sale.id} href={sale.source_url} target="_blank" rel="noreferrer">
+                <a key={sale.id} href={externalSourceUrl(sale.source_url)} target="_blank" rel="noreferrer">
+                  {sale.image_url ? (
+                    <OpenableImage src={sale.image_url} alt={`${sale.raw_title} 成交缩略图`} />
+                  ) : (
+                    <span className="identity-sale-placeholder">无图</span>
+                  )}
                   <span>{sale.decision === "accepted" ? "接受" : "隔离"} · {sale.raw_title}</span>
-                  <small>{sale.reason_codes.join("、")} · {money(sale.sale_price, sale.currency)}</small>
+                  <small>
+                    {sale.reason_codes.join("、")} · {money(sale.sale_price, sale.currency)}
+                    {Number(sale.shipping_price) > 0 ? ` + 运费 ${money(sale.shipping_price, sale.currency)}` : ""}
+                  </small>
                 </a>
               ))}
             </div>
-            <button className="primary-button" disabled={!selectedCandidateId || applyingIdentityCorrections || reviewReason.trim().length < 3}
+            <button className="primary-button" disabled={applyingIdentityCorrections || reviewReason.trim().length < 3}
               onClick={() => void onIdentityConfirm(reviewDraft, reviewReason)}>
-              {applyingIdentityCorrections ? "确认中…" : "创建不可变确认版本"}
+              {applyingIdentityCorrections ? "保存中…" : "保存修改并创建身份版本"}
             </button>
             {identityReview.latest_version?.review_status === "confirmed" && identityReview.latest_shadow?.fair_value && (
               <div className="identity-publish-panel">
@@ -3725,13 +4041,44 @@ function AutomatedValuationDialog({
   detail: AutomatedValuationDetail;
   onClose: () => void;
   onRetry: () => Promise<void>;
-  onIdentityReview: () => Promise<void>;
+  onIdentityReview: () => Promise<boolean>;
 }) {
   const [retrying, setRetrying] = useState(false);
+  const [openingIdentityReview, setOpeningIdentityReview] = useState(false);
+  const [identityReviewError, setIdentityReviewError] = useState("");
   const valuation = detail.valuation;
   const shadow = detail.shadow_valuation;
   const evidence = valuation?.evidence;
   const comps = evidence?.comparables ?? [];
+  const savedAcceptedEvidence = detail.comparables.filter(
+    (comp) => comp.source_url && comp.comparable_tier !== "rejected",
+  );
+  const rejectedEvidence = detail.comparables.filter(
+    (comp) => comp.source_url && comp.comparable_tier === "rejected",
+  );
+  const evidenceSources = [
+    ...comps.map((comp) => ({
+      title: comp.title || "估值采用的可比成交",
+      sourceUrl: comp.source_url,
+      detail: comp.source ?? comp.evidence_level ?? "已采用成交",
+    })),
+    ...(shadow?.evidence.references ?? []).map((reference) => ({
+      title: reference.title || "影子估值参考",
+      sourceUrl: reference.source_url ?? null,
+      detail: reference.evidence_type ?? "仅供人工复核的参考",
+    })),
+    ...savedAcceptedEvidence.map((comp) => ({
+      title: comp.listing_title || "已保存的市场证据",
+      sourceUrl: comp.source_url,
+      detail: comp.comparable_tier
+        ? `${comp.comparable_tier} · 已通过身份门禁`
+        : "已保存市场证据",
+    })),
+  ].filter(
+    (source, index, all) =>
+      source.sourceUrl &&
+      all.findIndex((candidate) => candidate.sourceUrl === source.sourceUrl) === index,
+  );
   const running = isValuationRunning(detail.status);
   const researchStatus = String(detail.result_summary.research_status ?? "");
   const awaitingIdentityConfirmation = researchStatus === "awaiting_confirmation";
@@ -3939,6 +4286,50 @@ function AutomatedValuationDialog({
             </section>
           </>
         )}
+        {evidenceSources.length > 0 && (
+          <section className="valuation-evidence-links">
+            <h3>可查验证据链接 · {evidenceSources.length}</h3>
+            <p>
+              链接保留卡淘单品页、eBay 单品页及第三方来源。来源仅用于核验；页面状态以本系统标注的成交状态和证据等级为准。
+            </p>
+            <div>
+              {evidenceSources.map((source) => (
+                <a
+                  key={source.sourceUrl}
+                  href={externalSourceUrl(source.sourceUrl!)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <strong>{source.title}</strong>
+                  <small>{source.detail}</small>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
+        {rejectedEvidence.length > 0 && (
+          <details className="valuation-rejected-evidence">
+            <summary>已排除的检索候选 · {rejectedEvidence.length}（未参与估值）</summary>
+            <p>
+              这些链接保留用于审计，不是可比成交；请勿把其价格作为当前卡片的估值依据。
+            </p>
+            <div>
+              {rejectedEvidence.map((comp) => (
+                <a
+                  key={comp.id}
+                  href={externalSourceUrl(comp.source_url!)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <strong>{comp.listing_title || "未命名检索候选"}</strong>
+                  <small>
+                    已排除：{(comp.classification?.hard_conflicts as string[] | undefined)?.join("、") || "身份不匹配"}
+                  </small>
+                </a>
+              ))}
+            </div>
+          </details>
+        )}
         {!valuation && !running && (
           <div className="valuation-empty">
             <strong>{valuationStatusLabels[detail.status ?? ""] ?? "暂无估值"}</strong>
@@ -3957,9 +4348,23 @@ function AutomatedValuationDialog({
                 系统已生成 {String(detail.result_summary.candidate_count ?? 0)} 个候选；
                 确认前不会产生或覆盖价格。
               </p>
-              <button className="primary-button" onClick={() => void onIdentityReview()}>
-                打开身份复核并确认候选
+              <button
+                className="primary-button"
+                disabled={openingIdentityReview}
+                onClick={async () => {
+                  setOpeningIdentityReview(true);
+                  setIdentityReviewError("");
+                  try {
+                    const opened = await onIdentityReview();
+                    if (!opened) setIdentityReviewError("身份复核加载失败，请重试");
+                  } finally {
+                    setOpeningIdentityReview(false);
+                  }
+                }}
+              >
+                {openingIdentityReview ? "正在打开身份复核…" : "打开身份复核并确认候选"}
               </button>
+              {identityReviewError && <small className="candidate-conflict">{identityReviewError}</small>}
             </div>
           </div>
         )}
@@ -4003,7 +4408,7 @@ function MarketDialog({
   onEstimate: () => void;
 }) {
   return (
-    <div className="modal-backdrop">
+    <div className="modal-backdrop" onMouseDown={(event) => closeOnBackdrop(event, onClose)}>
       <div className="modal market-modal">
         <div className="modal-heading">
           <div>
@@ -4189,7 +4594,7 @@ function PotentialDialog({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <div className="modal-backdrop">
+    <div className="modal-backdrop" onMouseDown={(event) => closeOnBackdrop(event, onClose)}>
       <div className="modal potential-modal">
         <div className="modal-heading">
           <div>
@@ -4254,7 +4659,7 @@ function ImageDialog({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <div className="modal-backdrop">
+    <div className="modal-backdrop" onMouseDown={(event) => closeOnBackdrop(event, onClose)}>
       <div className="modal image-modal">
         <div className="modal-heading">
           <div>
@@ -4340,6 +4745,7 @@ function RecognitionDialog({
   onOpenScannerJob,
   onRetryScannerJob,
   onDeleteScannerJob,
+  onFlatbedCompleted,
 }: {
   result: CardRecognition | null;
   mode: RecognitionMode;
@@ -4360,11 +4766,13 @@ function RecognitionDialog({
   onOpenScannerJob: (job: ScannerRecognitionJob) => void;
   onRetryScannerJob: (jobId: string) => void;
   onDeleteScannerJob: (jobId: string) => void;
+  onFlatbedCompleted: (jobIds: string[]) => void | Promise<void>;
 }) {
   const [batchFileCount, setBatchFileCount] = useState(0);
+  const [showFlatbed, setShowFlatbed] = useState(false);
 
   return (
-    <div className="modal-backdrop">
+    <div className="modal-backdrop" onMouseDown={(event) => closeOnBackdrop(event, onClose, loading)}>
       <div className="modal recognition-modal">
         <div className="modal-heading">
           <div>
@@ -4381,6 +4789,7 @@ function RecognitionDialog({
             disabled={loading}
             className={mode === "single" ? "active" : ""}
             onClick={() => {
+              setShowFlatbed(false);
               setBatchFileCount(0);
               onModeChange("single");
             }}
@@ -4393,6 +4802,7 @@ function RecognitionDialog({
             disabled={loading}
             className={mode === "scanner" ? "active" : ""}
             onClick={() => {
+              setShowFlatbed(false);
               setBatchFileCount(0);
               onModeChange("scanner");
             }}
@@ -4403,8 +4813,18 @@ function RecognitionDialog({
           <button
             type="button"
             disabled={loading}
+            className={showFlatbed ? "active" : ""}
+            onClick={() => setShowFlatbed((current) => !current)}
+          >
+            Canon 扫描仪
+            <small>LiDE 400 整版批量录入</small>
+          </button>
+          <button
+            type="button"
+            disabled={loading}
             className={mode === "pair" ? "active" : ""}
             onClick={() => {
+              setShowFlatbed(false);
               setBatchFileCount(0);
               onModeChange("pair");
             }}
@@ -4417,6 +4837,7 @@ function RecognitionDialog({
             disabled={loading}
             className={mode === "batch" ? "active" : ""}
             onClick={() => {
+              setShowFlatbed(false);
               setBatchFileCount(0);
               onModeChange("batch");
             }}
@@ -4425,7 +4846,12 @@ function RecognitionDialog({
             <small>最多 20 张单卡图</small>
           </button>
         </div>
-        <form key={mode} className="recognition-form" onSubmit={onSubmit}>
+        {showFlatbed && <FlatbedBatchPanel onCompleted={onFlatbedCompleted} />}
+        {!showFlatbed && <form
+          key={mode}
+          className={mode === "scanner" ? "recognition-form scanner-recognition-form" : "recognition-form"}
+          onSubmit={onSubmit}
+        >
           {mode === "single" && (
             <label>
               选择卡片图片或订单截图
@@ -4483,18 +4909,18 @@ function RecognitionDialog({
               </small>
             </label>
           )}
-          <button type="submit" className="primary-button" disabled={loading}>
-            <Sparkles size={15} />
-            {loading
-              ? mode === "scanner" ? "正在裁切并入队…" : "识别处理中…"
-              : mode === "batch"
-                ? "开始批量识别"
-                : mode === "scanner"
-                  ? "加入后台识别队列"
+          {mode !== "scanner" && (
+            <button type="submit" className="primary-button" disabled={loading}>
+              <Sparkles size={15} />
+              {loading
+                ? "识别处理中…"
+                : mode === "batch"
+                  ? "开始批量识别"
                   : "开始识别"}
-          </button>
-        </form>
-        {loading && (
+            </button>
+          )}
+        </form>}
+        {!showFlatbed && loading && (
           <div className="recognition-progress" role="status" aria-live="polite">
             <div>
               <strong>{phase}</strong>
@@ -4508,8 +4934,8 @@ function RecognitionDialog({
             </small>
           </div>
         )}
-        {error && <p className="recognition-error">{error}</p>}
-        {mode === "scanner" && scannerJobs.length > 0 && (
+        {!showFlatbed && error && <p className="recognition-error">{error}</p>}
+        {!showFlatbed && mode === "scanner" && scannerJobs.length > 0 && (
           <div className="scanner-job-list">
             <div className="batch-recognition-heading">
               <strong>后台识别队列</strong>
@@ -4530,7 +4956,7 @@ function RecognitionDialog({
                   <strong>
                     {job.status === "queued" && "等待识别"}
                     {job.status === "running" && "AI 识别中"}
-                    {job.status === "succeeded" && (job.result?.player_name || "识别完成")}
+                    {job.status === "succeeded" && `${job.result?.player_name || "识别完成"}${job.collection_item_id ? " · 已自动入库" : ""}`}
                     {job.status === "failed" && "识别失败"}
                     {job.status === "cancelled" && "已取消"}
                   </strong>
@@ -4553,7 +4979,7 @@ function RecognitionDialog({
                 <div className="scanner-job-actions">
                   {job.status === "succeeded" && (
                     <button type="button" className="ghost-button" onClick={() => onOpenScannerJob(job)}>
-                      查看并录入
+                      {job.collection_item_id ? "查看卡片" : "查看旧任务"}
                     </button>
                   )}
                   {job.status === "failed" && job.attempt_count < 3 && (
@@ -4840,6 +5266,7 @@ type ScannerCapturePreferences = {
 };
 
 const SCANNER_PREFERENCES_KEY = "card-platform:scanner-capture-preferences:v1";
+const SCANNER_CAPTURE_CONTEXT_RATIO = 1.12;
 const DEFAULT_SCANNER_PREFERENCES: ScannerCapturePreferences = {
   zoom: 1,
   zoomCenter: { x: 0.5, y: 0.5 },
@@ -4885,6 +5312,7 @@ function ScannerCapture({
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const startRequestRef = useRef(0);
+  const captureInFlightRef = useRef(false);
   const panRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
   const frontInputRef = useRef<HTMLInputElement>(null);
   const backInputRef = useRef<HTMLInputElement>(null);
@@ -4902,6 +5330,7 @@ function ScannerCapture({
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraStatus, setCameraStatus] = useState("准备自动连接高拍仪…");
   const [cameraStarting, setCameraStarting] = useState(false);
+  const [capturingSide, setCapturingSide] = useState<"front" | "back" | null>(null);
   const [zoom, setZoom] = useState(preferencesRef.current.zoom);
   const [zoomCenter, setZoomCenter] = useState(preferencesRef.current.zoomCenter);
   const [brightness, setBrightness] = useState(preferencesRef.current.brightness);
@@ -5102,6 +5531,18 @@ function ScannerCapture({
   }
 
   async function capture(side: "front" | "back") {
+    if (captureInFlightRef.current) return;
+    captureInFlightRef.current = true;
+    setCapturingSide(side);
+    try {
+      await performCapture(side);
+    } finally {
+      captureInFlightRef.current = false;
+      setCapturingSide(null);
+    }
+  }
+
+  async function performCapture(side: "front" | "back") {
     const video = videoRef.current;
     const track = streamRef.current?.getVideoTracks()[0];
     if (!video?.videoWidth || !video.videoHeight || !track) {
@@ -5119,8 +5560,16 @@ function ScannerCapture({
     const canvas = document.createElement("canvas");
     const originalWidth = captured.bitmap.width;
     const originalHeight = captured.bitmap.height;
-    const sourceWidth = captured.bitmap.width / zoom;
-    const sourceHeight = captured.bitmap.height / zoom;
+    // Preserve a small ring outside the visible zoom viewport. The server can
+    // then recover a holder/card edge that sits exactly against the guide.
+    const sourceWidth = Math.min(
+      captured.bitmap.width,
+      captured.bitmap.width / zoom * SCANNER_CAPTURE_CONTEXT_RATIO,
+    );
+    const sourceHeight = Math.min(
+      captured.bitmap.height,
+      captured.bitmap.height / zoom * SCANNER_CAPTURE_CONTEXT_RATIO,
+    );
     const sourceX = Math.min(
       captured.bitmap.width - sourceWidth,
       Math.max(0, zoomCenter.x * captured.bitmap.width - sourceWidth / 2),
@@ -5134,10 +5583,9 @@ function ScannerCapture({
     const context = canvas.getContext("2d");
     if (!context) return;
     context.filter = `brightness(${brightness})`;
-    let rawBlob = captured.sourceBlob;
     let rawCanvas: HTMLCanvasElement | null = null;
     try {
-      if (!rawBlob) {
+      if (!captured.sourceBlob) {
         rawCanvas = document.createElement("canvas");
         rawCanvas.width = originalWidth;
         rawCanvas.height = originalHeight;
@@ -5159,12 +5607,14 @@ function ScannerCapture({
     } finally {
       captured.bitmap.close();
     }
-    if (!rawBlob && rawCanvas) {
-      rawBlob = await new Promise<Blob | null>((resolve) =>
-        rawCanvas?.toBlob(resolve, "image/jpeg", 0.97),
-      );
-    }
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.95));
+    const [rawBlob, blob] = await Promise.all([
+      captured.sourceBlob
+        ? Promise.resolve(captured.sourceBlob)
+        : new Promise<Blob | null>((resolve) =>
+            rawCanvas?.toBlob(resolve, "image/jpeg", 0.97),
+          ),
+      new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.95)),
+    ]);
     if (!blob || !rawBlob) return;
     const file = new File([blob], `netum-${side}-${Date.now()}.jpg`, {
       type: "image/jpeg",
@@ -5240,183 +5690,205 @@ function ScannerCapture({
           </button>
         )}
       </div>
-      <div
-        className={zoom > 1 ? "scanner-video-stage zoomed" : "scanner-video-stage"}
-        onPointerDown={(event) => {
-          if (zoom <= 1) return;
-          event.currentTarget.setPointerCapture(event.pointerId);
-          panRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
-        }}
-        onPointerMove={moveZoomViewport}
-        onPointerUp={(event) => {
-          if (panRef.current?.pointerId === event.pointerId) {
+      <div className="scanner-frame-and-actions">
+        <div
+          className={zoom > 1 ? "scanner-video-stage zoomed" : "scanner-video-stage"}
+          onPointerDown={(event) => {
+            if (zoom <= 1) return;
+            event.currentTarget.setPointerCapture(event.pointerId);
+            panRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+          }}
+          onPointerMove={moveZoomViewport}
+          onPointerUp={(event) => {
+            if (panRef.current?.pointerId === event.pointerId) {
+              panRef.current = null;
+              rememberPreferences({ zoomCenter: preferencesRef.current.zoomCenter });
+            }
+          }}
+          onPointerCancel={() => {
             panRef.current = null;
             rememberPreferences({ zoomCenter: preferencesRef.current.zoomCenter });
-          }
-        }}
-        onPointerCancel={() => {
-          panRef.current = null;
-          rememberPreferences({ zoomCenter: preferencesRef.current.zoomCenter });
-        }}
-      >
-        <video
-          ref={videoRef}
-          className="scanner-video"
-          style={{
-            transform: `translate(${previewTranslateX}%, ${previewTranslateY}%) scale(${zoom})`,
-            filter: `brightness(${brightness})`,
-          }}
-          autoPlay
-          playsInline
-          muted
-        />
-        <span className="scanner-frame-guide" aria-hidden="true" />
-      </div>
-      <div className="scanner-zoom-controls">
-        <label htmlFor="scanner-zoom">数字变焦</label>
-        <input
-          id="scanner-zoom"
-          type="range"
-          min="1"
-          max="3"
-          step="0.1"
-          value={zoom}
-          disabled={disabled || !cameraActive}
-          onChange={(event) => {
-            const nextZoom = Number(event.currentTarget.value);
-            setZoom(nextZoom);
-            setZoomCenter((current) => {
-              const nextCenter = constrainZoomCenter(current, nextZoom);
-              rememberPreferences({ zoom: nextZoom, zoomCenter: nextCenter });
-              return nextCenter;
-            });
-          }}
-        />
-        <strong>{zoom.toFixed(1)}×</strong>
-        <button
-          type="button"
-          className="ghost-button"
-          disabled={disabled || (zoom === 1 && zoomCenter.x === 0.5 && zoomCenter.y === 0.5)}
-          onClick={() => {
-            setZoom(1);
-            setZoomCenter({ x: 0.5, y: 0.5 });
-            rememberPreferences({ zoom: 1, zoomCenter: { x: 0.5, y: 0.5 } });
           }}
         >
-          复位取景
-        </button>
-      </div>
-      {hardwareControls && (
-        <div className="scanner-hardware-controls">
-          <div className="scanner-control-heading">
-            <div>
-              <strong>硬件曝光</strong>
-              <small>{hardwareControls.device_name} · 数值越小画面越暗</small>
-            </div>
-            <select
-              aria-label="曝光模式"
-              value={hardwareControls.exposure_mode}
-              disabled={disabled || hardwareControlBusy}
-              onChange={(event) =>
-                void changeExposureMode(event.currentTarget.value as "auto" | "manual")
-              }
-            >
-              <option value="auto">自动曝光</option>
-              <option value="manual">手动曝光</option>
-            </select>
+          <video
+            ref={videoRef}
+            className="scanner-video"
+            style={{
+              transform: `translate(${previewTranslateX}%, ${previewTranslateY}%) scale(${zoom})`,
+              filter: `brightness(${brightness})`,
+            }}
+            autoPlay
+            playsInline
+            muted
+          />
+          <span className="scanner-frame-guide" aria-hidden="true" />
+        </div>
+        <aside className="scanner-side-actions" aria-label="高拍仪拍摄操作">
+          <div className="scanner-shot-control">
+            <button type="button" className="ghost-button" disabled={disabled || capturingSide !== null || !cameraActive} onClick={() => void capture("front")}>
+              <Camera size={16} /> {capturingSide === "front" ? "正在拍摄…" : "拍摄正面"}
+            </button>
+            <span>{front ? `正面已拍摄 · ${frontResolution}` : "等待正面"}</span>
           </div>
-          <div className="scanner-exposure-slider">
-            <label htmlFor="scanner-exposure">曝光时间</label>
+          <div className="scanner-shot-control">
+            <button type="button" className="ghost-button" disabled={disabled || capturingSide !== null || !cameraActive} onClick={() => void capture("back")}>
+              <Camera size={16} /> {capturingSide === "back" ? "正在拍摄…" : "拍摄背面"}
+            </button>
+            <span>{back ? `背面已拍摄 · ${backResolution}` : "等待背面"}</span>
+          </div>
+          <button
+            type="submit"
+            className="primary-button scanner-queue-button"
+            disabled={disabled || !front || !back}
+          >
+            <Sparkles size={16} />
+            {disabled ? "正在裁切并入队…" : "加入后台识别队列"}
+          </button>
+        </aside>
+      </div>
+      <details className="scanner-advanced-options">
+        <summary>
+          <span>高级拍摄选项</span>
+          <small>变焦 {zoom.toFixed(1)}× · 亮度 {Math.round(brightness * 100)}%</small>
+        </summary>
+        <div className="scanner-advanced-content">
+          <div className="scanner-zoom-controls">
+            <label htmlFor="scanner-zoom">数字变焦</label>
             <input
-              id="scanner-exposure"
+              id="scanner-zoom"
               type="range"
-              min="0"
-              max="100"
-              step="1"
-              value={exposureToSlider(
-                exposureDraft,
-                hardwareControls.exposure_time.minimum,
-                hardwareControls.exposure_time.maximum,
-              )}
-              disabled={
-                disabled || hardwareControlBusy || hardwareControls.exposure_mode !== "manual"
-              }
-              onChange={(event) =>
-                setExposureDraft(
-                  sliderToExposure(
-                    Number(event.currentTarget.value),
-                    hardwareControls.exposure_time.minimum,
-                    hardwareControls.exposure_time.maximum,
-                    hardwareControls.exposure_time.step,
-                  ),
-                )
-              }
+              min="1"
+              max="3"
+              step="0.1"
+              value={zoom}
+              disabled={disabled || !cameraActive}
+              onChange={(event) => {
+                const nextZoom = Number(event.currentTarget.value);
+                setZoom(nextZoom);
+                setZoomCenter((current) => {
+                  const nextCenter = constrainZoomCenter(current, nextZoom);
+                  rememberPreferences({ zoom: nextZoom, zoomCenter: nextCenter });
+                  return nextCenter;
+                });
+              }}
             />
-            <strong>{Math.round(exposureDraft)}</strong>
+            <strong>{zoom.toFixed(1)}×</strong>
             <button
               type="button"
               className="ghost-button"
-              disabled={
-                disabled || hardwareControlBusy || hardwareControls.exposure_mode !== "manual"
-              }
-              onClick={() => void applyManualExposure()}
+              disabled={disabled || (zoom === 1 && zoomCenter.x === 0.5 && zoomCenter.y === 0.5)}
+              onClick={() => {
+                setZoom(1);
+                setZoomCenter({ x: 0.5, y: 0.5 });
+                rememberPreferences({ zoom: 1, zoomCenter: { x: 0.5, y: 0.5 } });
+              }}
             >
-              {hardwareControlBusy ? "设置中…" : "应用曝光"}
+              复位取景
             </button>
           </div>
+          {hardwareControls && (
+            <div className="scanner-hardware-controls">
+              <div className="scanner-control-heading">
+                <div>
+                  <strong>硬件曝光</strong>
+                  <small>{hardwareControls.device_name} · 数值越小画面越暗</small>
+                </div>
+                <select
+                  aria-label="曝光模式"
+                  value={hardwareControls.exposure_mode}
+                  disabled={disabled || hardwareControlBusy}
+                  onChange={(event) =>
+                    void changeExposureMode(event.currentTarget.value as "auto" | "manual")
+                  }
+                >
+                  <option value="auto">自动曝光</option>
+                  <option value="manual">手动曝光</option>
+                </select>
+              </div>
+              <div className="scanner-exposure-slider">
+                <label htmlFor="scanner-exposure">曝光时间</label>
+                <input
+                  id="scanner-exposure"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={exposureToSlider(
+                    exposureDraft,
+                    hardwareControls.exposure_time.minimum,
+                    hardwareControls.exposure_time.maximum,
+                  )}
+                  disabled={
+                    disabled || hardwareControlBusy || hardwareControls.exposure_mode !== "manual"
+                  }
+                  onChange={(event) =>
+                    setExposureDraft(
+                      sliderToExposure(
+                        Number(event.currentTarget.value),
+                        hardwareControls.exposure_time.minimum,
+                        hardwareControls.exposure_time.maximum,
+                        hardwareControls.exposure_time.step,
+                      ),
+                    )
+                  }
+                />
+                <strong>{Math.round(exposureDraft)}</strong>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  disabled={
+                    disabled || hardwareControlBusy || hardwareControls.exposure_mode !== "manual"
+                  }
+                  onClick={() => void applyManualExposure()}
+                >
+                  {hardwareControlBusy ? "设置中…" : "应用曝光"}
+                </button>
+              </div>
+            </div>
+          )}
+          {hardwareControlError && (
+            <small className="scanner-control-error">
+              硬件曝光不可用：{hardwareControlError}。仍可使用下面的软件亮度。
+            </small>
+          )}
+          <div className="scanner-zoom-controls scanner-brightness-controls">
+            <label htmlFor="scanner-brightness">画面亮度</label>
+            <input
+              id="scanner-brightness"
+              type="range"
+              min="0.55"
+              max="1"
+              step="0.05"
+              value={brightness}
+              disabled={disabled || !cameraActive}
+              onChange={(event) => {
+                const nextBrightness = Number(event.currentTarget.value);
+                setBrightness(nextBrightness);
+                rememberPreferences({ brightness: nextBrightness });
+              }}
+            />
+            <strong>{Math.round(brightness * 100)}%</strong>
+            <button
+              type="button"
+              className="ghost-button"
+              disabled={disabled || brightness === 0.85}
+              onClick={() => {
+                setBrightness(0.85);
+                rememberPreferences({ brightness: 0.85 });
+              }}
+            >
+              恢复默认
+            </button>
+          </div>
+          <small className="scanner-placement-hint">
+            放卡方向不限；放大后可按住画面拖动取景，系统会裁切、透视矫正并自动转正。
+          </small>
         </div>
-      )}
-      {hardwareControlError && (
-        <small className="scanner-control-error">
-          硬件曝光不可用：{hardwareControlError}。仍可使用下面的软件亮度。
-        </small>
-      )}
-      <div className="scanner-zoom-controls scanner-brightness-controls">
-        <label htmlFor="scanner-brightness">画面亮度</label>
-        <input
-          id="scanner-brightness"
-          type="range"
-          min="0.55"
-          max="1"
-          step="0.05"
-          value={brightness}
-          disabled={disabled || !cameraActive}
-          onChange={(event) => {
-            const nextBrightness = Number(event.currentTarget.value);
-            setBrightness(nextBrightness);
-            rememberPreferences({ brightness: nextBrightness });
-          }}
-        />
-        <strong>{Math.round(brightness * 100)}%</strong>
-        <button
-          type="button"
-          className="ghost-button"
-          disabled={disabled || brightness === 0.85}
-          onClick={() => {
-            setBrightness(0.85);
-            rememberPreferences({ brightness: 0.85 });
-          }}
-        >
-          恢复默认
-        </button>
-      </div>
-      <small className="scanner-placement-hint">
-        放卡方向不限；放大后可按住画面拖动取景，系统会裁切、透视矫正并自动转正。
-      </small>
+      </details>
       <small className={cameraActive ? "scanner-status active" : "scanner-status"}>
         {cameraStatus}
       </small>
       {cameraError && <p className="recognition-error">{cameraError}</p>}
-      <div className="scanner-shots">
-        <button type="button" className="ghost-button" disabled={disabled || !cameraActive} onClick={() => void capture("front")}>
-          拍摄正面
-        </button>
-        <span>{front ? `正面已拍摄 · ${frontResolution}` : "等待正面"}</span>
-        <button type="button" className="ghost-button" disabled={disabled || !cameraActive} onClick={() => void capture("back")}>
-          拍摄背面
-        </button>
-        <span>{back ? `背面已拍摄 · ${backResolution}` : "等待背面"}</span>
-      </div>
       <input ref={frontInputRef} name="frontImage" type="file" className="scanner-file-input" required />
       <input ref={backInputRef} name="backImage" type="file" className="scanner-file-input" required />
       <input ref={frontRawInputRef} name="frontRawImage" type="file" className="scanner-file-input" />
@@ -5449,6 +5921,14 @@ async function captureMaximumResolutionFrame(
   method: "photo" | "video-frame";
   sourceBlob: Blob | null;
 }> {
+  const streamWidth = track.getSettings().width ?? video.videoWidth;
+  const streamHeight = track.getSettings().height ?? video.videoHeight;
+  const [minimumFastWidth, minimumFastHeight] = NETUM_CAPTURE_RESOLUTIONS.at(-1) ?? [4624, 3468];
+  if (streamWidth >= minimumFastWidth && streamHeight >= minimumFastHeight) {
+    // The negotiated stream already exposes the full document-camera frame.
+    // Snapshot it immediately instead of triggering the slower UVC still-photo pipeline.
+    return { bitmap: await createImageBitmap(video), method: "video-frame", sourceBlob: null };
+  }
   const ImageCaptureApi = (
     window as typeof window & { ImageCapture?: BrowserImageCaptureConstructor }
   ).ImageCapture;

@@ -1487,6 +1487,31 @@ def test_stats_year_cannot_override_copyright_release_year() -> None:
     assert normalized.season_end is None
 
 
+def test_finest_protective_coating_is_not_an_insert_name() -> None:
+    normalized = canonicalize_identity(
+        CardRecognitionResult(
+            player_name="Tracy McGrady",
+            season_start=1997,
+            season_end=1998,
+            copyright_year=1998,
+            brand_name="Topps",
+            product_name="Finest",
+            insert_name="Protector",
+            card_number="28",
+            confidence=Decimal("0.95"),
+            field_evidence={
+                "season_start": ["NBA HIGHS / Career 1997-98 stats"],
+                "season_end": ["1997-98 season statistics"],
+                "insert_name": ["TOPPS FINEST PROTECTOR - PEEL AND REMOVE COATING"],
+            },
+        )
+    )
+
+    assert normalized.season_start == 1998
+    assert normalized.season_end is None
+    assert normalized.insert_name is None
+
+
 def test_web_candidates_expose_structured_identity() -> None:
     result = CardRecognitionResult(
         player_name="Nikola Jokic",

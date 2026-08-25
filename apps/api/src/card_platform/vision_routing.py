@@ -8,6 +8,7 @@ from card_platform.schemas import CardRecognitionResult
 
 
 GENERIC_PARALLELS = {"prizm", "refractor", "parallel", "折射", "折射版"}
+BIRTHDATE_SERIAL_CAVEAT = "birthday_serial_fraction_removed"
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,9 +47,57 @@ def recognition_quality_issues(result: CardRecognitionResult) -> list[str]:
     }:
         issues.append("numbered_parallel_name_underspecified")
     caveats = " ".join(result.caveats).casefold()
+    if BIRTHDATE_SERIAL_CAVEAT in caveats:
+        issues.append("birthdate_serial_false_positive")
     if any(token in caveats for token in ("冲突", "conflict", "无法确认", "不确定")):
         issues.append("model_reported_conflict")
     return issues
+
+
+def sanitize_birthdate_serial_false_positive(
+    result: CardRecognitionResult,
+) -> CardRecognitionResult:
+    """Discard a serial fraction copied from a printed player birth date.
+
+    A model can split ``BORN: 3/6/73`` into the otherwise plausible serial
+    fraction ``3/6``.  Treat the fraction as unknown whenever the same values
+    occur as the month/day prefix of an explicitly labelled birth date.  The
+    marker deliberately keeps the recognition in research_required state so a
+    real, independently visible serial stamp can still be restored by review.
+    """
+    if result.serial_number is None or result.serial_total is None:
+        return result
+
+    evidence = [*result.caveats]
+    evidence.extend(
+        item
+        for values in result.field_evidence.values()
+        for item in values
+    )
+    evidence_text = " ".join(evidence).casefold()
+    number = str(result.serial_number)
+    total = str(result.serial_total)
+    birth_label = r"(?:born|birth(?:day|\s*date)?|d\.?o\.?b\.?|出生(?:日期)?|生日)"
+    birthday_fraction = re.compile(
+        rf"{birth_label}[^\d]{{0,32}}0*{re.escape(number)}\s*[/.-]\s*"
+        rf"0*{re.escape(total)}\s*[/.-]\s*\d{{2,4}}\b",
+        re.IGNORECASE,
+    )
+    if not birthday_fraction.search(evidence_text):
+        return result
+
+    caveats = list(result.caveats)
+    if not any(BIRTHDATE_SERIAL_CAVEAT in item for item in caveats):
+        caveats.append(
+            f"{BIRTHDATE_SERIAL_CAVEAT}: ignored {number}/{total} because it is the "
+            "month/day prefix of a printed player birth date; verify any serial stamp separately"
+        )
+    return result.model_copy(update={
+        "serial_number": None,
+        "serial_total": None,
+        "is_numbered": None,
+        "caveats": caveats,
+    })
 
 
 def recognition_quality_score(result: CardRecognitionResult) -> Decimal:
@@ -67,6 +116,7 @@ def estimate_call_cost_cny(
 
 
 def finalize_recognition_status(result: CardRecognitionResult) -> CardRecognitionResult:
+    result = sanitize_birthdate_serial_false_positive(result)
     issues = recognition_quality_issues(result)
     return result.model_copy(update={
         "recognition_status": "research_required" if issues else "resolved",
@@ -110,6 +160,7 @@ class TieredVisionRouter:
                     "estimated_cost_cny": "0",
                 })
                 return None
+            result = sanitize_birthdate_serial_false_positive(result)
             issues = recognition_quality_issues(result)
             cost = estimate_call_cost_cny(
                 tier, usage.get("prompt_tokens"), usage.get("completion_tokens")

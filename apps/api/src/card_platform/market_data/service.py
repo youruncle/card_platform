@@ -80,15 +80,46 @@ class MarketDataService:
             all_evidence = []
             source_limited = False
             errors = []
+            diagnostics = []
             for provider in self.providers:
+                provider_code = provider.provider.code
                 try:
                     fetched = await provider.fetch_sales(identity, since=job["data_as_of"])
                     all_evidence.extend(fetched.evidence)
+                    diagnostics.append(
+                        {
+                            "provider": provider_code,
+                            "status": "succeeded",
+                            "evidence_count": len(fetched.evidence),
+                            "notes": fetched.notes,
+                        }
+                    )
                 except SourceLimitedError as error:
                     source_limited = True
-                    errors.append(str(error))
+                    message = f"{provider_code}: {str(error)}"
+                    errors.append(message)
+                    diagnostics.append(
+                        {
+                            "provider": provider_code,
+                            "status": "source_limited",
+                            "evidence_count": 0,
+                            "error": str(error)[:300],
+                        }
+                    )
                 except Exception as error:
-                    errors.append(str(error)[:300])
+                    # A provider failure is not a zero-result response. Preserve
+                    # that distinction and avoid declaring the market empty.
+                    source_limited = True
+                    message = f"{provider_code}: {type(error).__name__}: {str(error)[:240]}"
+                    errors.append(message)
+                    diagnostics.append(
+                        {
+                            "provider": provider_code,
+                            "status": "failed",
+                            "evidence_count": 0,
+                            "error": f"{type(error).__name__}: {str(error)[:240]}",
+                        }
+                    )
             async with self.database.connection() as connection, connection.transaction():
                 await self.repository.store_evidence(
                     connection, job["identity_fingerprint"], all_evidence
@@ -110,6 +141,11 @@ class MarketDataService:
                     freshness,
                     ttl_seconds=self.ttl_seconds(0),
                     error="; ".join(errors) or None,
+                    result_summary={
+                        "providers": diagnostics,
+                        "fetched_candidate_count": len(all_evidence),
+                        "retained_evidence_count": count,
+                    },
                 )
         except Exception as error:
             message = f"{type(error).__name__}: {str(error)}"[:500]

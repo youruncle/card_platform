@@ -3,9 +3,41 @@ import numpy as np
 import pytest
 
 from card_platform.card_orientation import (
+    fuse_apple_vision_orientation,
     rotation_from_upright_index,
     rotate_image_content,
 )
+
+
+def test_two_consistent_faces_override_decorative_vertical_text() -> None:
+    decision = fuse_apple_vision_orientation(
+        text_rotation=180,
+        text_confidence=0.97,
+        text_count=4,
+        face_rotation=90,
+        face_confidence=0.76,
+        face_count=2,
+    )
+
+    assert decision is not None
+    assert decision.rotation_degrees == 90
+    assert decision.method == "apple_vision_face_override"
+    assert decision.confidence > 0.8
+
+
+def test_single_weak_face_does_not_override_strong_text() -> None:
+    decision = fuse_apple_vision_orientation(
+        text_rotation=0,
+        text_confidence=0.97,
+        text_count=5,
+        face_rotation=270,
+        face_confidence=0.7,
+        face_count=1,
+    )
+
+    assert decision is not None
+    assert decision.rotation_degrees == 0
+    assert decision.method == "apple_vision_text"
 
 
 def _asymmetric_image() -> bytes:

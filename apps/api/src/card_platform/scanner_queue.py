@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import datetime
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -14,8 +15,14 @@ from card_platform.card_orientation import (
 )
 from card_platform.db import Database
 from card_platform.image_rectification import RectifiedImage, rectify_card_image
-from card_platform.image_service import ALLOWED_IMAGE_TYPES, CardVisionService
-from card_platform.schemas import CardRecognitionResult, ScannerRecognitionJob
+from card_platform.image_service import ALLOWED_IMAGE_TYPES, CardVisionService, ImageStorageService
+from card_platform.repository import PortfolioRepository
+from card_platform.schemas import (
+    CardIdentityInput,
+    CardRecognitionResult,
+    CollectionItemCreate,
+    ScannerRecognitionJob,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -23,6 +30,7 @@ logger = logging.getLogger(__name__)
 PAIR_QUAD_MEAN_DISTANCE = 0.07
 PAIR_QUAD_MAX_DISTANCE = 0.12
 PAIR_QUALITY_ADVANTAGE = 0.10
+MIN_PROCESSED_QUAD_AREA = 0.13
 
 
 def _quad_quality(quad: tuple[tuple[float, float], ...] | None) -> float:
@@ -46,6 +54,107 @@ def _preserved_image(content: bytes, content_type: str, confidence: float) -> Re
     return RectifiedImage(content, content_type, False, confidence)
 
 
+def _quad_area(quad: tuple[tuple[float, float], ...] | None) -> float:
+    if quad is None:
+        return 0
+    return abs(
+        sum(
+            quad[index][0] * quad[(index + 1) % 4][1]
+            - quad[(index + 1) % 4][0] * quad[index][1]
+            for index in range(4)
+        )
+        / 2
+    )
+
+
+def _rectify_pair(
+    front_content: bytes,
+    front_content_type: str,
+    back_content: bytes,
+    back_content_type: str,
+) -> tuple[RectifiedImage, RectifiedImage]:
+    front = rectify_card_image(
+        front_content,
+        front_content_type,
+        standardize_ratio=None,
+        orient_portrait=False,
+    )
+    back = rectify_card_image(
+        back_content,
+        back_content_type,
+        standardize_ratio=None,
+        orient_portrait=False,
+    )
+    if front.transformed and back.transformed and front.normalized_quad and back.normalized_quad:
+        mean_distance, max_distance = _quad_distance(front.normalized_quad, back.normalized_quad)
+        if mean_distance > PAIR_QUAD_MEAN_DISTANCE or max_distance > PAIR_QUAD_MAX_DISTANCE:
+            front_quality = _quad_quality(front.normalized_quad)
+            back_quality = _quad_quality(back.normalized_quad)
+            if back_quality - front_quality >= PAIR_QUALITY_ADVANTAGE:
+                front = rectify_card_image(
+                    front_content,
+                    front_content_type,
+                    standardize_ratio=None,
+                    orient_portrait=False,
+                    fallback_normalized_quad=back.normalized_quad,
+                    fallback_confidence=back.confidence,
+                    prefer_fallback_quad=True,
+                )
+            elif front_quality - back_quality >= PAIR_QUALITY_ADVANTAGE:
+                back = rectify_card_image(
+                    back_content,
+                    back_content_type,
+                    standardize_ratio=None,
+                    orient_portrait=False,
+                    fallback_normalized_quad=front.normalized_quad,
+                    fallback_confidence=front.confidence,
+                    prefer_fallback_quad=True,
+                )
+            else:
+                # Conflicting but similarly plausible outlines cannot safely
+                # identify which face is right. Preserve both source images.
+                front = _preserved_image(front_content, front_content_type, front.confidence)
+                back = _preserved_image(back_content, back_content_type, back.confidence)
+    if not front.transformed and back.transformed and back.normalized_quad:
+        front = rectify_card_image(
+            front_content,
+            front_content_type,
+            standardize_ratio=None,
+            orient_portrait=False,
+            fallback_normalized_quad=back.normalized_quad,
+            fallback_confidence=back.confidence,
+        )
+    if not back.transformed and front.transformed and front.normalized_quad:
+        back = rectify_card_image(
+            back_content,
+            back_content_type,
+            standardize_ratio=None,
+            orient_portrait=False,
+            fallback_normalized_quad=front.normalized_quad,
+            fallback_confidence=front.confidence,
+        )
+    return front, back
+
+
+def _needs_raw_recovery(front: RectifiedImage, back: RectifiedImage) -> bool:
+    """Detect a zoom crop that found an inner patch or could not agree on an outline."""
+    return (
+        not front.transformed
+        or not back.transformed
+        or _quad_area(front.normalized_quad) < MIN_PROCESSED_QUAD_AREA
+        or _quad_area(back.normalized_quad) < MIN_PROCESSED_QUAD_AREA
+    )
+
+
+def _safe_raw_recovery(front: RectifiedImage, back: RectifiedImage) -> bool:
+    return bool(
+        front.transformed
+        and back.transformed
+        and front.normalized_quad
+        and back.normalized_quad
+    )
+
+
 def scanner_job_view(row: dict) -> ScannerRecognitionJob:
     values = dict(row)
     job_id = row["id"]
@@ -60,6 +169,40 @@ def scanner_job_view(row: dict) -> ScannerRecognitionJob:
         **values,
         front_image_url=f"/v1/scanner/jobs/{job_id}/images/front?v={version}",
         back_image_url=f"/v1/scanner/jobs/{job_id}/images/back?v={version}",
+    )
+
+
+def _auto_import_payload(owner_id: UUID, result: CardRecognitionResult) -> CollectionItemCreate:
+    season_start = result.season_start or result.copyright_year or datetime.now().year
+    return CollectionItemCreate(
+        owner_id=owner_id,
+        card=CardIdentityInput(
+            player_name=result.player_name or "待确认球员",
+            brand_name=result.brand_name or "待确认品牌",
+            season_start=season_start,
+            season_end=result.season_end,
+            product_name=result.product_name or "待确认产品",
+            card_number=result.card_number,
+            insert_name=result.insert_name,
+            parallel_name=result.parallel_name,
+            is_rookie=bool(result.is_rookie),
+            is_autograph=bool(result.is_autograph),
+            autograph_type=result.autograph_type or "none",
+            has_inscription=bool(result.has_inscription),
+            inscription_text=result.inscription_text,
+            is_memorabilia=bool(result.is_memorabilia),
+            memorabilia_types=result.memorabilia_types,
+            memorabilia_usage=result.memorabilia_usage or "none",
+            memorabilia_player=result.memorabilia_player,
+            is_patch=bool(result.is_patch),
+            print_run=result.serial_total,
+        ),
+        serial_number=result.serial_number,
+        serial_total=result.serial_total,
+        is_numbered=bool(result.is_numbered),
+        grade_company=result.grade_company,
+        grade_value=result.grade_value,
+        notes="后台高拍仪 AI 识别后自动录入；可在详情页继续修正身份。",
     )
 
 
@@ -83,88 +226,49 @@ class ScannerQueueService:
         front_raw_content_type: str | None = None,
         back_raw_content: bytes | None = None,
         back_raw_content_type: str | None = None,
+        preprocessed: bool = False,
     ) -> ScannerRecognitionJob:
         job_id = uuid4()
         job_dir = self.root / str(owner_id) / str(job_id)
         job_dir.mkdir(parents=True, exist_ok=False)
-        effective_front_raw = front_raw_content or front_content
-        effective_back_raw = back_raw_content or back_content
-        effective_front_raw_type = front_raw_content_type or front_content_type
-        effective_back_raw_type = back_raw_content_type or back_content_type
+        effective_front_raw = (
+            front_raw_content if front_raw_content is not None else front_content
+        )
+        effective_back_raw = (
+            back_raw_content if back_raw_content is not None else back_content
+        )
+        effective_front_raw_type = (
+            front_raw_content_type if front_raw_content is not None else front_content_type
+        )
+        effective_back_raw_type = (
+            back_raw_content_type if back_raw_content is not None else back_content_type
+        )
         front_raw_path = job_dir / f"front-raw{ALLOWED_IMAGE_TYPES[effective_front_raw_type]}"
         back_raw_path = job_dir / f"back-raw{ALLOWED_IMAGE_TYPES[effective_back_raw_type]}"
-        front = rectify_card_image(
-            front_content,
-            front_content_type,
-            standardize_ratio=None,
-            orient_portrait=False,
-        )
-        back = rectify_card_image(
-            back_content,
-            back_content_type,
-            standardize_ratio=None,
-            orient_portrait=False,
-        )
-        if (
-            front.transformed
-            and back.transformed
-            and front.normalized_quad
-            and back.normalized_quad
-        ):
-            mean_distance, max_distance = _quad_distance(
-                front.normalized_quad, back.normalized_quad
-            )
-            if (
-                mean_distance > PAIR_QUAD_MEAN_DISTANCE
-                or max_distance > PAIR_QUAD_MAX_DISTANCE
-            ):
-                front_quality = _quad_quality(front.normalized_quad)
-                back_quality = _quad_quality(back.normalized_quad)
-                if back_quality - front_quality >= PAIR_QUALITY_ADVANTAGE:
-                    front = rectify_card_image(
-                        front_content,
-                        front_content_type,
-                        standardize_ratio=None,
-                        orient_portrait=False,
-                        fallback_normalized_quad=back.normalized_quad,
-                        fallback_confidence=back.confidence,
-                        prefer_fallback_quad=True,
-                    )
-                elif front_quality - back_quality >= PAIR_QUALITY_ADVANTAGE:
-                    back = rectify_card_image(
-                        back_content,
-                        back_content_type,
-                        standardize_ratio=None,
-                        orient_portrait=False,
-                        fallback_normalized_quad=front.normalized_quad,
-                        fallback_confidence=front.confidence,
-                        prefer_fallback_quad=True,
-                    )
-                else:
-                    # Conflicting but similarly plausible outlines cannot safely
-                    # identify which face is right. Preserve both source images.
-                    front = _preserved_image(
-                        front_content, front_content_type, front.confidence
-                    )
-                    back = _preserved_image(back_content, back_content_type, back.confidence)
-        if not front.transformed and back.transformed and back.normalized_quad:
-            front = rectify_card_image(
+        if preprocessed:
+            front = _preserved_image(front_content, front_content_type, 1.0)
+            back = _preserved_image(back_content, back_content_type, 1.0)
+        else:
+            front, back = _rectify_pair(
                 front_content,
                 front_content_type,
-                standardize_ratio=None,
-                orient_portrait=False,
-                fallback_normalized_quad=back.normalized_quad,
-                fallback_confidence=back.confidence,
-            )
-        if not back.transformed and front.transformed and front.normalized_quad:
-            back = rectify_card_image(
                 back_content,
                 back_content_type,
-                standardize_ratio=None,
-                orient_portrait=False,
-                fallback_normalized_quad=front.normalized_quad,
-                fallback_confidence=front.confidence,
             )
+        if (
+            not preprocessed
+            and front_raw_content is not None
+            and back_raw_content is not None
+            and _needs_raw_recovery(front, back)
+        ):
+            raw_front, raw_back = _rectify_pair(
+                effective_front_raw,
+                effective_front_raw_type,
+                effective_back_raw,
+                effective_back_raw_type,
+            )
+            if _safe_raw_recovery(raw_front, raw_back):
+                front, back = raw_front, raw_back
         front_path = job_dir / "front.jpg"
         back_path = job_dir / "back.jpg"
         front_original_path = job_dir / "front-original.jpg"
@@ -396,15 +500,27 @@ class ScannerRecognitionWorker:
                     back_content,
                     "image/jpeg",
                 )
-                await connection.execute(
-                    """
-                    UPDATE scanner_recognition_job
-                    SET status = 'succeeded', result = %s, finished_at = now(),
-                        updated_at = now(), error_message = NULL
-                    WHERE id = %s
-                    """,
-                    (Jsonb(result.model_dump(mode="json")), job_id),
-                )
+                async with connection.transaction():
+                    item_id = await PortfolioRepository().create_item(
+                        connection, _auto_import_payload(job["owner_id"], result)
+                    )
+                    storage = ImageStorageService(self.settings)
+                    await storage.save_preprocessed_item_image_content(
+                        connection, item_id, job["owner_id"], "front", front_content, "image/jpeg"
+                    )
+                    await storage.save_preprocessed_item_image_content(
+                        connection, item_id, job["owner_id"], "back", back_content, "image/jpeg"
+                    )
+                    await connection.execute(
+                        """
+                        UPDATE scanner_recognition_job
+                        SET status = 'succeeded', result = %s, collection_item_id = %s,
+                            imported_at = now(), finished_at = now(), updated_at = now(),
+                            error_message = NULL
+                        WHERE id = %s
+                        """,
+                        (Jsonb(result.model_dump(mode="json")), item_id, job_id),
+                    )
         except Exception as error:
             async with self.database.connection() as connection:
                 await connection.execute(

@@ -1,0 +1,119 @@
+{
+  "benchmark_version": 1,
+  "reviewed_at": "2026-08-21T06:05:00+08:00",
+  "currency": "CNY",
+  "valuation_basis": "raw_card_landed_market_cost_including_typical_domestic_shipping",
+  "method": "front_back_visual_review_checklist_verification_and_multi_query_cardhobby_sold_search",
+  "cases": [
+    {
+      "display_id": 15,
+      "identity": {
+        "player_name": "Luka Doncic",
+        "season_start": 2025,
+        "season_end": 2026,
+        "product_name": "Topps Chrome Basketball",
+        "card_number": "2",
+        "parallel_name": "Red, White, and Blue Refractor",
+        "serial_total": null
+      },
+      "ground_truth": {"low": 22, "fair": 30, "high": 45, "confidence": 0.68},
+      "evidence": [
+        {
+          "tier": "exact",
+          "cardhobby_item_id": "129452575",
+          "hammer_price": 12,
+          "shipping": "collect_on_delivery",
+          "title": "2026 Topps Chrome Luka Doncic #2 红白蓝三色平行折射卡"
+        }
+      ],
+      "checklist_source": "https://www.beckett.com/news/2025-26-topps-chrome-basketball-cards/",
+      "previous_failure": "wrong_2024_25_season_generic_parallel_and_false_serial_total_21"
+    },
+    {
+      "display_id": 16,
+      "identity": {
+        "player_name": "VJ Edgecombe",
+        "season_start": 2025,
+        "season_end": 2026,
+        "product_name": "Topps Chrome Basketball",
+        "card_number": "153",
+        "parallel_name": "X-Fractor",
+        "serial_total": null,
+        "is_rookie": true
+      },
+      "ground_truth": {"low": 80, "fair": 110, "high": 145, "confidence": 0.48},
+      "evidence": [
+        {
+          "tier": "same_player_parallel_update_product_analog",
+          "cardhobby_item_ids": ["128947270", "128760166", "128967928", "128799055", "128799109", "128799210", "128834140"],
+          "hammer_price_range": [82, 130.58],
+          "shipping_range": [16, 18],
+          "exclusion_note": "Update/TCU is not treated as the exact regular Chrome card"
+        }
+      ],
+      "checklist_source": "https://www.beckett.com/news/2025-26-topps-chrome-basketball-cards/",
+      "previous_failure": "wrong_2024_25_season_and_generic_parallel_x"
+    },
+    {
+      "display_id": 17,
+      "identity": {
+        "player_name": "Kevin Garnett",
+        "season_start": 2025,
+        "season_end": 2026,
+        "product_name": "Panini Signature Series Basketball",
+        "card_number": "94",
+        "parallel_name": "Plaid",
+        "serial_number": 7,
+        "serial_total": 15
+      },
+      "ground_truth": {"low": 85, "fair": 95, "high": 120, "confidence": 0.82},
+      "evidence": [
+        {
+          "tier": "exact",
+          "cardhobby_item_id": "127684164",
+          "hammer_price": 76,
+          "shipping": 18,
+          "title": "2025-26 Panini Signature Series Kevin Garnett Base 07/15编"
+        }
+      ],
+      "checklist_source": "https://www.beckett.com/news/2025-26-panini-signature-series-basketball-cards/",
+      "previous_failure": "numbered_parallel_unknown_even_though_plaid_15_is_checklist_deterministic"
+    },
+    {
+      "display_id": 18,
+      "identity": {
+        "player_name": "Matas Buzelis, Tristan da Silva",
+        "season_start": 2024,
+        "season_end": 2025,
+        "product_name": "Panini Immaculate Collection Basketball",
+        "card_number": "12",
+        "insert_name": "Remarkable Rookie Jerseys Dual",
+        "parallel_name": "Blue",
+        "serial_number": 24,
+        "serial_total": 25,
+        "is_rookie": true,
+        "is_memorabilia": true,
+        "is_patch": false
+      },
+      "ground_truth": {"low": 75, "fair": 100, "high": 135, "confidence": 0.84},
+      "evidence": [
+        {
+          "tier": "exact",
+          "cardhobby_item_id": "108874827",
+          "hammer_price": 63.08,
+          "shipping": "collect_on_delivery",
+          "title": "2024-25 Panini Immaculate Matas Buzelis Tristan da Silva 11/25 Blue Dual Jersey"
+        },
+        {
+          "tier": "exact",
+          "cardhobby_item_id": "86330756",
+          "hammer_price": 114.82,
+          "shipping": 18,
+          "title": "2024-25 Panini Immaculate Matas Buzelis Tristan da Silva 25编双窗球衣"
+        }
+      ],
+      "checklist_source": "https://www.beckett.com/news/2024-25-panini-immaculate-basketball-cards/",
+      "previous_failure": "serial_24_25_was_stored_as_card_number_and_parallel_was_unknown"
+    }
+  ]
+}

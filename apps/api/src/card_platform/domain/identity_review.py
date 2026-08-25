@@ -45,7 +45,8 @@ class ConfirmedIdentity(BaseModel):
             raise ValueError("card_number must not contain a serial fraction")
         if normalize_text(self.parallel_name) in GENERIC_PARALLELS:
             raise ValueError("generic Prizm/Refractor cannot be confirmed as a parallel")
-        if self.serial_total and not self.parallel_name:
+        has_numbered_anchor = bool(self.card_number or self.insert_name or self.set_name)
+        if self.serial_total and not self.parallel_name and not has_numbered_anchor:
             raise ValueError("a numbered card requires a specific parallel_name")
         if self.autograph_type not in {"on_card", "sticker", "cut", "unknown", "none"}:
             raise ValueError("invalid autograph_type")

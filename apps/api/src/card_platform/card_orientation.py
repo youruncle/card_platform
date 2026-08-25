@@ -19,6 +19,49 @@ class OrientationDecision:
     confidence: float
     method: str
     text_count: int = 0
+    face_count: int = 0
+
+
+def fuse_apple_vision_orientation(
+    *,
+    text_rotation: int | None,
+    text_confidence: float,
+    text_count: int,
+    face_rotation: int | None,
+    face_confidence: float,
+    face_count: int,
+) -> OrientationDecision | None:
+    """Prefer strong semantic face orientation over decorative text baselines."""
+    text_valid = text_rotation in VALID_ROTATIONS and text_confidence > 0
+    face_valid = face_rotation in VALID_ROTATIONS and face_confidence >= 0.62
+    if face_valid and (
+        not text_valid
+        or face_rotation == text_rotation
+        or face_count >= 2
+        or face_confidence >= 0.82
+    ):
+        conflict = text_valid and face_rotation != text_rotation
+        confidence = (
+            min(0.97, 0.55 + face_confidence * 0.4)
+            if conflict
+            else min(0.97, max(face_confidence, text_confidence))
+        )
+        return OrientationDecision(
+            int(face_rotation),
+            confidence,
+            "apple_vision_face_override" if conflict else "apple_vision_face_text",
+            text_count,
+            face_count,
+        )
+    if text_valid:
+        return OrientationDecision(
+            int(text_rotation),
+            min(0.97, text_confidence),
+            "apple_vision_text",
+            text_count,
+            face_count,
+        )
+    return None
 
 
 def rotate_image_content(content: bytes, degrees_clockwise: int) -> bytes:
@@ -81,13 +124,18 @@ class AppleVisionOrientationClassifier:
             rotation = payload.get("rotationDegrees")
             text_count = int(payload.get("textCount") or 0)
             raw_confidence = float(payload.get("confidence") or 0)
-            if rotation not in VALID_ROTATIONS:
-                return None
             # Two or more independently recognized strings with the same
             # semantic baseline are a strong signal; a lone logo is not.
             evidence_factor = min(1.0, text_count / 2)
-            confidence = min(0.97, raw_confidence * evidence_factor)
-            return OrientationDecision(rotation, confidence, "apple_vision", text_count)
+            text_confidence = min(0.97, raw_confidence * evidence_factor)
+            return fuse_apple_vision_orientation(
+                text_rotation=rotation,
+                text_confidence=text_confidence,
+                text_count=text_count,
+                face_rotation=payload.get("faceRotationDegrees"),
+                face_confidence=float(payload.get("faceConfidence") or 0),
+                face_count=int(payload.get("faceCount") or 0),
+            )
         except (OSError, TimeoutError, ValueError, KeyError, json.JSONDecodeError) as error:
             logger.warning("Apple Vision orientation unavailable: %s", error)
             return None

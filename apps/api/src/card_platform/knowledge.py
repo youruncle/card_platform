@@ -224,9 +224,24 @@ class KnowledgeResolver:
     def build_query_plan(self, identity: dict[str, Any], *, max_stages: int = 12) -> list[QueryStage]:
         normalized, _ = self.normalize_identity(identity)
         player = str(normalized.get("player_name") or "").strip()
+        player_aliases = self.aliases_for("player", player) or (player,)
+        explicit_player_aliases = identity.get("player_name_aliases") or []
+        if isinstance(explicit_player_aliases, str):
+            explicit_player_aliases = [explicit_player_aliases]
+        player_aliases = tuple(
+            dict.fromkeys(
+                value
+                for value in (
+                    *player_aliases,
+                    *(str(value).strip() for value in explicit_player_aliases),
+                )
+                if value
+            )
+        )
         product = str(normalized.get("product_name") or "").strip()
         insert = str(normalized.get("insert_name") or normalized.get("insert") or "").strip()
         parallel = str(normalized.get("parallel_name") or normalized.get("parallel") or "").strip()
+        card_number = str(normalized.get("card_number") or "").strip().lstrip("#")
         season_start = normalized.get("season_start")
         season_end = normalized.get("season_end")
         season = (
@@ -271,8 +286,8 @@ class KnowledgeResolver:
                 [
                     (
                         "exact_product",
-                        (player, season, product_alias, serial),
-                        "球员、赛季、产品与限编",
+                        (player, season, product_alias, card_number, serial),
+                        "球员、赛季、产品、卡号与限编",
                     ),
                     (
                         "attribute_product",
@@ -291,6 +306,15 @@ class KnowledgeResolver:
                     ),
                 ]
             )
+        for player_alias in player_aliases[1:]:
+            for product_alias in product_aliases[:2]:
+                candidates.append(
+                    (
+                        "player_product_alias",
+                        (player_alias, product_alias),
+                        "球员卖家别名与产品宽搜，避免译名或标题省略字段导致漏召回",
+                    )
+                )
         candidates.append(
             ("serial_fallback", (player, season, serial), "产品别名未命中时保留赛季与限编")
         )
@@ -298,6 +322,24 @@ class KnowledgeResolver:
             candidates.append(
                 ("bounded_fallback", (player, attribute, serial), "最后的有界属性回退")
             )
+        if len(player_aliases) > 1:
+            alias_candidates = [row for row in candidates if row[0] == "player_product_alias"]
+            reserved_alias_candidates: list[tuple[str, tuple[str, ...], str]] = []
+            reserved_players: set[str] = set()
+            for row in alias_candidates:
+                alias_player = row[1][0]
+                if alias_player in reserved_players:
+                    continue
+                reserved_players.add(alias_player)
+                reserved_alias_candidates.append(row)
+                if len(reserved_alias_candidates) >= 2:
+                    break
+            regular_candidates = [row for row in candidates if row[0] != "player_product_alias"]
+            candidates = [
+                *regular_candidates[: max(0, max_stages - len(reserved_alias_candidates))],
+                *reserved_alias_candidates,
+                *regular_candidates[max(0, max_stages - len(reserved_alias_candidates)) :],
+            ]
         stages: list[QueryStage] = []
         seen: set[str] = set()
         for name, parts, explanation in candidates:
@@ -315,6 +357,7 @@ class KnowledgeResolver:
                             ("player", player),
                             ("season", season),
                             ("product", product),
+                            ("card_number", card_number),
                             ("insert", insert),
                             ("parallel", parallel),
                             ("serial_total", serial),

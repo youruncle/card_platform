@@ -9,6 +9,7 @@ from card_platform.schemas import (
     CardIdentityInput,
     CardRecognitionResult,
     CollectionItemCreate,
+    PortfolioItemQuickUpdate,
     SheetCardRecognitionItem,
     ValuationCreate,
 )
@@ -43,6 +44,11 @@ def test_invalid_serial_is_rejected() -> None:
             serial_number=100,
             serial_total=99,
         )
+
+
+def test_quick_edit_rejects_serial_number_above_total() -> None:
+    with pytest.raises(ValidationError, match="serial_number cannot exceed"):
+        PortfolioItemQuickUpdate(serial_number=100, serial_total=99)
 
 
 def test_invalid_valuation_range_is_rejected() -> None:

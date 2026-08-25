@@ -88,23 +88,61 @@ class EbayMarketplaceInsightsProvider(MarketDataProvider):
 
     @staticmethod
     def build_query(identity: MarketIdentity) -> str:
+        return EbayMarketplaceInsightsProvider.build_queries(identity)[0]
+
+    @staticmethod
+    def build_queries(identity: MarketIdentity) -> list[str]:
+        season = (
+            f"{identity.season_start}-{str(identity.season_end)[-2:]}"
+            if identity.season_start and identity.season_end
+            else str(identity.season_start or "")
+        )
+        descriptor = identity.insert_name or identity.set_name
+        grade = " ".join(
+            value
+            for value in (
+                identity.grade_company or "",
+                str(identity.grade_value) if identity.grade_value is not None else "",
+            )
+            if value
+        )
+
+        def query(*parts: object) -> str:
+            return " ".join(
+                str(value).strip() for value in parts if str(value or "").strip()
+            )
+
         values = [
-            identity.player_name,
-            (
-                f"{identity.season_start}-{str(identity.season_end)[-2:]}"
-                if identity.season_start and identity.season_end
-                else str(identity.season_start or "")
+            query(
+                identity.player_name,
+                season,
+                identity.brand_name,
+                identity.product_name,
+                descriptor,
+                identity.parallel_name,
+                identity.card_number,
+                f"/{identity.serial_total}" if identity.serial_total else None,
+                grade,
             ),
-            identity.brand_name,
-            identity.product_name,
-            identity.insert_name,
-            identity.parallel_name,
-            f"#{identity.card_number}" if identity.card_number else None,
-            f"/{identity.serial_total}" if identity.serial_total else None,
-            identity.grade_company,
-            str(identity.grade_value) if identity.grade_value is not None else None,
+            query(
+                identity.player_name,
+                season,
+                identity.product_name,
+                descriptor,
+                identity.card_number,
+                grade,
+            ),
+            query(
+                identity.player_name,
+                identity.product_name,
+                identity.card_number,
+                grade,
+            ),
+            query(identity.player_name, descriptor, identity.card_number, grade),
+            query(identity.player_name, identity.card_number, grade),
+            query(identity.player_name, identity.product_name, grade),
         ]
-        return " ".join(str(value).strip() for value in values if value)
+        return list(dict.fromkeys(value for value in values if value))
 
     async def _token(self, client: httpx.AsyncClient) -> str:
         credentials = base64.b64encode(
@@ -118,7 +156,25 @@ class EbayMarketplaceInsightsProvider(MarketDataProvider):
             },
             data={"grant_type": "client_credentials", "scope": EBAY_SCOPE},
         )
-        response.raise_for_status()
+        if response.is_error:
+            try:
+                error_payload = response.json()
+            except ValueError:
+                detail = response.text[:300]
+            else:
+                detail = ": ".join(
+                    str(value)
+                    for value in (
+                        error_payload.get("error"),
+                        error_payload.get("error_description"),
+                    )
+                    if value
+                )[:300]
+            raise httpx.HTTPStatusError(
+                f"eBay OAuth {response.status_code}: {detail or 'unknown error'}",
+                request=response.request,
+                response=response,
+            )
         token = response.json().get("access_token")
         if not token:
             raise RuntimeError("eBay OAuth response did not contain access_token")
@@ -131,23 +187,34 @@ class EbayMarketplaceInsightsProvider(MarketDataProvider):
         client = self.client or httpx.AsyncClient(timeout=self.timeout)
         try:
             token = await self._token(client)
-            params: dict[str, object] = {
-                "q": self.build_query(identity),
-                "limit": 200,
-            }
+            common_params: dict[str, object] = {"limit": 200}
             if since:
                 start = since.astimezone(timezone.utc).isoformat(timespec="milliseconds")
-                params["filter"] = f"lastSoldDate:[{start.replace('+00:00', 'Z')}..]"
-            response = await client.get(
-                self.insights_url,
-                params=params,
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "X-EBAY-C-MARKETPLACE-ID": self.marketplace_id,
-                },
-            )
-            response.raise_for_status()
-            payload = response.json()
+                common_params["filter"] = (
+                    f"lastSoldDate:[{start.replace('+00:00', 'Z')}..]"
+                )
+            rows_by_id: dict[str, dict] = {}
+            queries = self.build_queries(identity)
+            for query_text in queries:
+                response = await client.get(
+                    self.insights_url,
+                    params={**common_params, "q": query_text},
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "X-EBAY-C-MARKETPLACE-ID": self.marketplace_id,
+                    },
+                )
+                response.raise_for_status()
+                payload = response.json()
+                for row in payload.get("itemSales") or payload.get("itemSummaries") or []:
+                    external_id = str(
+                        row.get("itemId") or row.get("legacyItemId") or ""
+                    ).strip()
+                    if external_id:
+                        rows_by_id.setdefault(
+                            external_id,
+                            {**row, "matched_query": query_text},
+                        )
         finally:
             if owned_client:
                 await client.aclose()
@@ -156,7 +223,7 @@ class EbayMarketplaceInsightsProvider(MarketDataProvider):
         classifier = ComparableClassifier()
         fetched_at = datetime.now(timezone.utc)
         evidence: list[EvidenceRecord] = []
-        for row in payload.get("itemSales") or payload.get("itemSummaries") or []:
+        for row in rows_by_id.values():
             title = str(row.get("title") or "").strip()
             occurred_at = _parse_datetime(
                 row.get("lastSoldDate") or row.get("itemEndDate") or row.get("soldDate")
@@ -210,5 +277,8 @@ class EbayMarketplaceInsightsProvider(MarketDataProvider):
         return ProviderFetchResult(
             provider_code=self.code,
             evidence=evidence,
-            notes=[f"eBay official Marketplace Insights returned {len(evidence)} usable sales"],
+            notes=[
+                "eBay official Marketplace Insights returned "
+                f"{len(evidence)} usable sales across {len(queries)} query levels"
+            ],
         )

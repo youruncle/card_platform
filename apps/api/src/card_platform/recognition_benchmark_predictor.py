@@ -163,7 +163,7 @@ def canonicalize_identity(result: CardRecognitionResult) -> CardRecognitionResul
     ]
     inferred_release_evidence = re.compile(
         r"(?:结合|对应|推断|惯例|同上|tcdb|beckett|checklist|"
-        r"\bstats?\b|\bcareer\b|draft(?:ed)?|统计|履历|生涯|战绩|选秀)",
+        r"\bstat(?:s|istics)?\b|\bcareer\b|draft(?:ed)?|统计|履历|生涯|战绩|选秀)",
         re.IGNORECASE,
     )
     release_evidence = " ".join(
@@ -240,7 +240,7 @@ def canonicalize_identity(result: CardRecognitionResult) -> CardRecognitionResul
         cleaned = True
     if not product_seasons and re.search(
         r"(?:season\s+record|international\s+record|\bstats?\b|\bcareer\b|"
-        r"draft(?:ed)?|统计|履历|生涯|战绩|选秀)",
+        r"draft(?:ed)?|statistics?|统计|履历|生涯|战绩|选秀)",
         season_evidence,
     ):
         updates["season_start"] = result.copyright_year
@@ -586,6 +586,16 @@ def canonicalize_identity(result: CardRecognitionResult) -> CardRecognitionResul
 
     insert_token = _identity_token(result.insert_name)
     product_token = _identity_token(result.product_name)
+    if product_token in {"finest", "toppsfinest"} and insert_token in {
+        "protector",
+        "finestprotector",
+        "toppsfinestprotector",
+        "peelandremovecoating",
+    }:
+        updates["insert_name"] = None
+        caveats.append("Finest 保护膜/撕膜文字不是插入卡名称，已从 insert_name 清除")
+        insert_token = ""
+        cleaned = True
     if insert_token and product_token and (
         insert_token == product_token
         or insert_token in {"basketball", "nba"}

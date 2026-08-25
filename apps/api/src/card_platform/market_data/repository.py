@@ -53,8 +53,18 @@ class MarketDataRepository:
     ) -> MarketDataResult:
         cache_result = await connection.execute(
             """
-            SELECT freshness, data_as_of, next_refresh_at, evidence_count
-            FROM market_identity_cache WHERE identity_fingerprint = %s
+            SELECT c.freshness, c.data_as_of, c.next_refresh_at, c.evidence_count,
+                   c.last_error, latest.status AS refresh_status,
+                   latest.error_message AS refresh_error,
+                   latest.result_summary AS refresh_summary
+            FROM market_identity_cache c
+            LEFT JOIN LATERAL (
+                SELECT status, error_message, result_summary
+                FROM market_refresh_job
+                WHERE identity_fingerprint = c.identity_fingerprint
+                ORDER BY created_at DESC LIMIT 1
+            ) latest ON true
+            WHERE c.identity_fingerprint = %s
             """,
             (fingerprint,),
         )
@@ -91,11 +101,25 @@ class MarketDataRepository:
             freshness = Freshness.CACHED
         else:
             freshness = stored
+        diagnostics = list((cache["refresh_summary"] or {}).get("providers") or [])
+        notes = []
+        if cache["refresh_error"] or cache["last_error"]:
+            notes.append(
+                "市场来源刷新异常："
+                + str(cache["refresh_error"] or cache["last_error"])[:300]
+            )
+        for diagnostic in diagnostics:
+            provider = diagnostic.get("provider") or "unknown"
+            status = diagnostic.get("status") or "unknown"
+            count = diagnostic.get("evidence_count", 0)
+            notes.append(f"来源诊断 {provider}: {status}, 抓取候选 {count}")
         return MarketDataResult(
             identity_fingerprint=fingerprint,
             freshness=freshness,
             evidence=evidence,
             data_as_of=cache["data_as_of"],
+            notes=notes,
+            provider_diagnostics=diagnostics,
         )
 
     async def adopt_legacy_evidence(
@@ -355,6 +379,7 @@ class MarketDataRepository:
         *,
         ttl_seconds: int,
         error: str | None = None,
+        result_summary: dict[str, Any] | None = None,
     ) -> None:
         status = {
             Freshness.SOURCE_LIMITED: "source_limited",
@@ -363,10 +388,11 @@ class MarketDataRepository:
         await connection.execute(
             """
             UPDATE market_refresh_job
-            SET status = %s, error_message = %s, finished_at = now(), updated_at = now()
+            SET status = %s, error_message = %s, result_summary = %s,
+                finished_at = now(), updated_at = now()
             WHERE id = %s
             """,
-            (status, error, job_id),
+            (status, error, Jsonb(result_summary or {}), job_id),
         )
         await connection.execute(
             """
@@ -392,8 +418,10 @@ class MarketDataRepository:
             (freshness.value, error, ttl_seconds, error, fingerprint),
         )
         # Never create a valuation -> refresh -> valuation loop for rare cards.
-        # Automatic recalculation is warranted only once enough evidence exists.
-        if freshness == Freshness.FRESH:
+        # A healthy provider can still return verified evidence while another
+        # provider is rate-limited, so SOURCE_LIMITED is also eligible. The
+        # evidence EXISTS guard below prevents empty refreshes from looping.
+        if freshness in {Freshness.FRESH, Freshness.SOURCE_LIMITED}:
             await connection.execute(
                 """
                 INSERT INTO valuation_job (collection_item_id, status)
@@ -412,10 +440,18 @@ class MarketDataRepository:
                         )
                   )
                   AND COALESCE((
-                      SELECT latest.status FROM valuation_job latest
+                      SELECT (
+                          latest.status = 'insufficient_evidence'
+                          OR (
+                              latest.status = 'succeeded'
+                              AND latest.result_summary->>'shadow_only' = 'true'
+                              AND latest.result_summary->>'shadow_status' = 'insufficient'
+                          )
+                      )
+                      FROM valuation_job latest
                       WHERE latest.collection_item_id = b.collection_item_id
                       ORDER BY latest.created_at DESC LIMIT 1
-                  ), 'insufficient_evidence') = 'insufficient_evidence'
+                  ), true)
                 ON CONFLICT DO NOTHING
                 """,
                 (fingerprint,),

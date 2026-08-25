@@ -20,6 +20,7 @@ MIN_CORNER_ANGLE = 28
 MAX_CORNER_ANGLE = 152
 MIN_OPPOSITE_EDGE_RATIO = 0.50
 STANDARD_HOLDER_LONG_TO_SHORT = 1.65
+CROP_SAFETY_PADDING_RATIO = 0.045
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,18 @@ def _order_points(points: NDArray[np.float32]) -> NDArray[np.float32]:
 
 def _distance(first: NDArray[np.float32], second: NDArray[np.float32]) -> float:
     return float(np.linalg.norm(first - second))
+
+
+def _expand_quad(
+    points: NDArray[np.float32], image_shape: tuple[int, int]
+) -> NDArray[np.float32]:
+    """Add a small safe border so holder/card edges are never shaved off."""
+    image_height, image_width = image_shape
+    center = points.mean(axis=0)
+    expanded = center + (points - center) * (1 + CROP_SAFETY_PADDING_RATIO * 2)
+    expanded[:, 0] = np.clip(expanded[:, 0], 0, image_width - 1)
+    expanded[:, 1] = np.clip(expanded[:, 1], 0, image_height - 1)
+    return expanded.astype(np.float32)
 
 
 def _corner_angle(
@@ -316,7 +329,7 @@ def rectify_card_image(
     if points is None or confidence < MIN_CONFIDENCE:
         return RectifiedImage(content, content_type, False, confidence)
 
-    ordered = _order_points(points)
+    ordered = _order_points(_expand_quad(points, image.shape[:2]))
     horizontal_edges = (
         _distance(ordered[0], ordered[1]),
         _distance(ordered[3], ordered[2]),

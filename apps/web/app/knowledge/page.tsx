@@ -1,10 +1,11 @@
 "use client";
 
-import { ArrowLeft, Check, Database, GitBranch, Plus, RefreshCw, RotateCcw, Search } from "lucide-react";
+import { ArrowLeft, Check, Database, GitBranch, Pencil, Plus, RefreshCw, RotateCcw, Search, Trash2 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import {
   addKnowledgeAlias,
+  deleteKnowledgeAlias,
   bootstrapKnowledge,
   createKnowledgeEntity,
   createKnowledgeRelation,
@@ -17,10 +18,12 @@ import {
   getKnowledgeRelations,
   getKnowledgeVersions,
   getKnowledgeWorkspace,
+  initializeMarketplaceAliases,
   publishKnowledge,
   promoteKnowledgeObservation,
   revalueKnowledgeImpact,
   reviewKnowledge,
+  updateKnowledgeAlias,
   reviewKnowledgeObservation,
   rollbackKnowledge,
   applyKnowledgeCatalogBatch,
@@ -185,6 +188,13 @@ export default function KnowledgePage() {
         <button disabled title="v2 模型词表已在 v5 证据审计中停用">
           旧词表已停用
         </button>
+        <button
+          disabled={busy || !actorId}
+          onClick={() => void run(
+            () => initializeMarketplaceAliases(actorId),
+            "已初始化卡淘卖家词候选：均为待审核草稿，未进入线上检索。",
+          )}
+        >初始化卖家同义词候选</button>
         {workspace?.member_count === 0 && (
           <button disabled={busy || !actorId} onClick={() => void run(
             () => bootstrapKnowledge(actorId),
@@ -246,12 +256,35 @@ export default function KnowledgePage() {
                     {entity.aliases.map((alias) => (
                       <span key={alias.id}>
                         {alias.alias}
+                        {typeof alias.source?.source_url === "string" && (
+                          <a
+                            href={alias.source.source_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="查看该别名的公开检索来源"
+                          >来源</a>
+                        )}
                         {alias.review_status !== "approved" && (
                           <button title="审核通过" onClick={() => void run(
                             () => reviewKnowledge(actorId, "alias", alias.id, "approved"),
                             "别名已审核。",
                           )}><Check size={12} /></button>
                         )}
+                        <button title="编辑别名" onClick={() => {
+                          const value = window.prompt("编辑别名", alias.alias);
+                          if (value && value.trim() !== alias.alias) void run(
+                            () => updateKnowledgeAlias(actorId, alias.id, {
+                              alias: value.trim(), language: /[\u4e00-\u9fff]/.test(value) ? "zh" : "en",
+                              alias_type: alias.alias_type,
+                            }),
+                            "别名已更新；内容变更后需重新审核。",
+                          );
+                        }}><Pencil size={12} /></button>
+                        <button title="删除别名" onClick={() => {
+                          if (window.confirm(`删除别名“${alias.alias}”？会保留审计记录和已发布版本。`)) void run(
+                            () => deleteKnowledgeAlias(actorId, alias.id), "别名已删除（软删除）。",
+                          );
+                        }}><Trash2 size={12} /></button>
                       </span>
                     ))}
                   </div>
@@ -431,7 +464,18 @@ export default function KnowledgePage() {
                 <strong>{observation.occurrence_count} 次</strong>
                 <span>{observation.status}</span>
                 <small>{observation.confidence ? `置信度 ${observation.confidence}` : "尚未回放验证"}</small>
-                {observation.status === "observed" && (
+                {observation.context?.applicability && (
+                  <small>
+                    适用范围：{Object.entries(observation.context.applicability)
+                      .map(([key, value]) => `${key}=${String(value)}`).join(" · ")}
+                  </small>
+                )}
+                {observation.context?.source_samples?.map((sample) => (
+                  <a key={sample.url} href={sample.url} target="_blank" rel="noreferrer">
+                    来源样本：{sample.title}
+                  </a>
+                ))}
+                {["observed", "proposed"].includes(observation.status) && (
                   <button onClick={() => {
                     const entityId = window.prompt("关联的实体 UUID");
                     if (!entityId) return;

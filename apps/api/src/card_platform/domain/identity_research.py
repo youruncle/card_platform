@@ -51,8 +51,9 @@ def candidate_search_queries(identity: dict[str, Any]) -> list[str]:
         ) if value
     ) or "Base"
     serial = f"/{identity['serial_total']}" if identity.get("serial_total") else ""
+    card_number = identity.get("card_number") or ""
     return [
-        f'"{identity["player_name"]}" "{identity["card_number"]}" "{descriptors}" {serial} {season} sold'.strip(),
+        f'"{identity["player_name"]}" "{card_number}" "{descriptors}" {serial} {season} sold'.strip(),
         f'"{identity["player_name"]}" "{descriptors}" completed sale',
     ]
 

@@ -73,6 +73,25 @@ INSERT_ALIASES = {
         "球衣物料",
         "球衣切割",
     ),
+    "bounce house": ("bounce house", "跳跳屋", "弹跳屋", "扣篮板报"),
+    "jam masters": ("jam masters", "扣篮大师", "大头特卡", "大头"),
+    "bomb squad": ("bomb squad", "爆炸小队"),
+    "magicians": ("magicians", "魔术师"),
+    "penmanship": ("penmanship", "书法签"),
+    "jumbo jersey autographs": (
+        "jumbo jersey autographs",
+        "jumbo jersey auto",
+        "大窗球衣签字",
+        "大窗 签字 球衣",
+        "ja 签字 卡签 球衣",
+    ),
+    "remarkable rookie jerseys dual": (
+        "remarkable rookie jerseys dual",
+        "dual jersey",
+        "dual jerseys",
+        "双窗球衣",
+        "双人物料",
+    ),
 }
 
 _INSERT_RESOLVER = KnowledgeResolver(
@@ -130,6 +149,7 @@ class CardIdentity:
     grade_value: str | None = None
     is_rookie: bool = False
     is_autograph: bool = False
+    is_memorabilia: bool = False
     is_patch: bool = False
     evidence: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     conflicts: list[str] = field(default_factory=list)
@@ -194,6 +214,13 @@ class CardIdentityResolver:
         }
         if stored_parallel_text in {"rc", "rookie", "新秀", "正新秀"}:
             stored_parallel = None
+        # OCR frequently copies a product technology/logo (for example
+        # "Chrome") into the parallel field. An exact duplicate of the product
+        # is not a named parallel and should be researched as the base finish.
+        if stored_parallel_text and stored_parallel_text == normalize_text(
+            stored.get("product_name")
+        ):
+            stored_parallel = None
         context_is_patch = bool(
             re.search(
                 r"(?:物料|切割|球衣|patch|\bjersey\b|\bmem(?:orabilia)?\b|\bgu\b)",
@@ -228,6 +255,11 @@ class CardIdentityResolver:
             ),
             "is_rookie": stored_is_rookie,
             "is_autograph": bool(stored.get("is_autograph")) or context_is_autograph,
+            "is_memorabilia": (
+                bool(stored.get("is_memorabilia"))
+                or bool(stored.get("is_patch"))
+                or context_is_patch
+            ),
             "is_patch": bool(stored.get("is_patch")) or context_is_patch,
         }
         provenance: dict[str, list[dict[str, Any]]] = {

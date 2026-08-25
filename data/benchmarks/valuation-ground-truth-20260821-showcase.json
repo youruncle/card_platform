@@ -1,0 +1,81 @@
+{
+  "benchmark_version": 1,
+  "reviewed_at": "2026-08-21T05:10:00+08:00",
+  "currency": "CNY",
+  "valuation_basis": "raw_card_landed_market_cost_including_typical_domestic_shipping",
+  "method": "manual_front_back_identity_review_plus_multi_query_cardhobby_sold_search",
+  "notes": [
+    "All eight targets are 2000-01 Fleer Showcase base cards; they are not serial-numbered.",
+    "Ranges are deliberately wider when CardHobby has only adjacent-player or adjacent-year analogs.",
+    "Multi-card lots, graded cards and cross-sell mentions are excluded from ground truth evidence."
+  ],
+  "cases": [
+    {
+      "display_id": 42,
+      "identity": {"player_name": "Shareef Abdur-Rahim", "season_start": 2000, "season_end": 2001, "product_name": "Fleer Showcase", "card_number": "74"},
+      "player_name_aliases": ["拉希姆"],
+      "ground_truth": {"low": 16, "fair": 19, "high": 26, "confidence": 0.72},
+      "evidence": [{"tier": "exact", "cardhobby_item_id": "105080690", "hammer_price": 1, "title": "2000-01 Fleer Showcase Shareef Abdur-Rahim 灰熊队 拉希姆 折射卡"}],
+      "previous_failure": "identity_wrong_or_unconfirmed"
+    },
+    {
+      "display_id": 43,
+      "identity": {"player_name": "Grant Hill", "season_start": 2000, "season_end": 2001, "product_name": "Fleer Showcase", "card_number": "86"},
+      "player_name_aliases": ["格兰特 希尔", "希尔"],
+      "ground_truth": {"low": 18, "fair": 25, "high": 36, "confidence": 0.58},
+      "evidence": [{"tier": "same_player_product_insert", "cardhobby_item_id": "124973448", "hammer_price": 22, "shipping": 12, "title": "2000-01 Fleer Showcase 希尔 To Air is Human 特卡"}, {"tier": "same_player_product_insert", "cardhobby_item_id": "119587980", "hammer_price": 28, "shipping": 12, "title": "2000-01 Fleer Showcase 希尔 To Air is Human 特卡"}],
+      "previous_failure": "wrong_player_and_unconfirmed_identity"
+    },
+    {
+      "display_id": 44,
+      "identity": {"player_name": "Toni Kukoc", "season_start": 2000, "season_end": 2001, "product_name": "Fleer Showcase", "card_number": "63"},
+      "player_name_aliases": ["托尼 库科奇", "库科奇", "库克奇"],
+      "ground_truth": {"low": 28, "fair": 35, "high": 43, "confidence": 0.78},
+      "evidence": [{"tier": "exact", "cardhobby_item_id": "84472662", "hammer_price": 19, "shipping": 16, "title": "2000-01 Fleer Showcase Toni Kukoc 托尼 库克奇 金版SP Holofoil折射"}],
+      "previous_failure": "wrong_product_and_missing_card_number"
+    },
+    {
+      "display_id": 45,
+      "identity": {"player_name": "Jerome Williams", "season_start": 2000, "season_end": 2001, "product_name": "Fleer Showcase", "card_number": "11"},
+      "player_name_aliases": ["杰罗姆 威廉姆斯"],
+      "ground_truth": {"low": 14, "fair": 19, "high": 28, "confidence": 0.42},
+      "evidence": [],
+      "previous_failure": "false_card_number_and_false_serial_total",
+      "evidence_gap": "no exact CardHobby single-card sale; estimate uses same-product common-player analogs"
+    },
+    {
+      "display_id": 48,
+      "identity": {"player_name": "Tim Thomas", "season_start": 2000, "season_end": 2001, "product_name": "Fleer Showcase", "card_number": "18"},
+      "player_name_aliases": ["蒂姆 托马斯"],
+      "ground_truth": {"low": 15, "fair": 20, "high": 29, "confidence": 0.46},
+      "evidence": [{"tier": "same_player_adjacent_year", "cardhobby_item_id": "127254874", "hammer_price": 4, "shipping": 18, "title": "1997-98 Fleer Flair Showcase Tim Thomas"}],
+      "previous_failure": "false_parallel_and_false_serial_total"
+    },
+    {
+      "display_id": 49,
+      "identity": {"player_name": "Tony Delk", "season_start": 2000, "season_end": 2001, "product_name": "Fleer Showcase", "card_number": "82"},
+      "player_name_aliases": ["托尼 德尔克"],
+      "ground_truth": {"low": 14, "fair": 19, "high": 28, "confidence": 0.40},
+      "evidence": [],
+      "previous_failure": "not_ingested_when_benchmark_started",
+      "evidence_gap": "no exact CardHobby single-card sale; estimate uses same-product common-player analogs"
+    },
+    {
+      "display_id": 47,
+      "identity": {"player_name": "John Stockton", "season_start": 2000, "season_end": 2001, "product_name": "Fleer Showcase", "card_number": "90"},
+      "player_name_aliases": ["约翰 斯托克顿", "斯托克顿"],
+      "ground_truth": {"low": 20, "fair": 24, "high": 30, "confidence": 0.86},
+      "evidence": [{"tier": "exact", "cardhobby_item_id": "84472820", "hammer_price": 6, "shipping": 16, "title": "2000-01 Fleer Showcase John Stockton 金版SP Holofoil折射"}, {"tier": "exact", "cardhobby_item_id": "77582851", "hammer_price": 11, "shipping": 15, "title": "2000 Fleer Showcase John Stockton 银折"}],
+      "previous_failure": "wrong_season_product_and_card_number"
+    },
+    {
+      "display_id": 46,
+      "identity": {"player_name": "Glenn Robinson", "season_start": 2000, "season_end": 2001, "product_name": "Fleer Showcase", "card_number": "22"},
+      "player_name_aliases": ["格伦 罗宾逊", "大狗"],
+      "ground_truth": {"low": 14, "fair": 19, "high": 27, "confidence": 0.45},
+      "evidence": [],
+      "previous_failure": "false_insert_and_false_serial_total",
+      "evidence_gap": "available 2000-01 result is a multi-card lot and is intentionally excluded"
+    }
+  ]
+}

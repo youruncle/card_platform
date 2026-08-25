@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -39,6 +40,11 @@ class Settings(BaseSettings):
     valuation_worker_poll_seconds: float = 2.0
     valuation_verify_sources: bool = True
     valuation_source_verify_timeout_seconds: float = 8.0
+    search_index_brave_api_key: str | None = None
+    search_index_serpapi_key: str | None = None
+    search_index_timeout_seconds: float = 12.0
+    search_index_max_queries: int = 7
+    search_index_concurrency: int = 2
     nba_stats_base_url: str = "https://stats.nba.com/stats"
     news_rss_url_template: str | None = (
         "https://news.google.com/rss/search?q={player}+NBA&hl=en-US&gl=US&ceid=US:en"
@@ -57,6 +63,12 @@ class Settings(BaseSettings):
     ebay_insights_url: str = (
         "https://api.ebay.com/buy/marketplace_insights/v1_beta/item_sales/search"
     )
+    ebay_marketplace_deletion_endpoint: str | None = None
+    ebay_marketplace_deletion_verification_token: str | None = None
+    ebay_notification_public_key_url: str = (
+        "https://api.ebay.com/commerce/notification/v1/public_key"
+    )
+    ebay_notification_signature_required: bool = True
     market_hot_ttl_seconds: int = 7200
     market_warm_ttl_seconds: int = 28800
     market_cold_ttl_seconds: int = 172800
@@ -75,10 +87,26 @@ class Settings(BaseSettings):
     scanner_orientation_script: str = "scripts/orient_card_images.swift"
     scanner_orientation_local_threshold: float = 0.72
     scanner_nssdk_library_path: str | None = None
+    flatbed_scan_dir: str = "data/flatbed-scans"
+    flatbed_bridge_script: str = "scripts/canon_lide400_bridge.swift"
+    flatbed_ocr_script: str = "scripts/ocr_card_region.swift"
 
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
+
+    @property
+    def resolved_upload_dir(self) -> Path:
+        configured = Path(self.upload_dir).expanduser()
+        if configured.is_absolute():
+            return configured.resolve()
+        repository_relative = Path.cwd() / "apps" / "api" / configured
+        if repository_relative.is_dir():
+            return repository_relative.resolve()
+        api_relative = Path(__file__).resolve().parents[2] / configured
+        if api_relative.is_dir():
+            return api_relative.resolve()
+        return configured.resolve()
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

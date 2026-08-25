@@ -82,9 +82,10 @@ async def test_official_ebay_sales_are_filtered_and_normalized() -> None:
             since=datetime(2026, 7, 1, tzinfo=timezone.utc),
         )
 
-    assert len(requests) == 2
-    assert "Victor+Wembanyama" in str(requests[1].url)
-    assert "lastSoldDate" in str(requests[1].url)
+    query_count = len(EbayMarketplaceInsightsProvider.build_queries(_identity()))
+    assert len(requests) == 1 + query_count
+    assert all("Victor+Wembanyama" in str(request.url) for request in requests[1:])
+    assert all("lastSoldDate" in str(request.url) for request in requests[1:])
     assert len(result.evidence) == 1
     evidence = result.evidence[0]
     assert evidence.provider_code == "ebay"
@@ -104,6 +105,9 @@ def test_ebay_provider_requires_credentials_and_builds_specific_query() -> None:
     assert "Victor Wembanyama" in query
     assert "2023-24" in query
     assert "Prizm" in query
-    assert "#136" in query
+    assert "136" in query
     assert "Silver" in query
     assert "PSA 10" in query
+    queries = EbayMarketplaceInsightsProvider.build_queries(_identity())
+    assert any("/" not in candidate for candidate in queries[1:])
+    assert "Victor Wembanyama 136 PSA 10" in queries

@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  ChevronLeft,
+  ChevronRight,
   Download,
   Maximize2,
   RotateCcw,
@@ -11,13 +13,22 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-type ImageViewerDetail = { url: string; alt: string };
+type ViewerImage = { url: string; alt: string };
+type ImageViewerDetail = { images: ViewerImage[]; index: number };
 
-function openImageViewer(url: string | null | undefined, alt: string) {
+function openImageViewer(
+  url: string | null | undefined,
+  alt: string,
+  gallery?: Array<{ src: string | null | undefined; alt: string }>,
+) {
   if (!url) return;
+  const images = (gallery ?? [{ src: url, alt }])
+    .filter((item): item is { src: string; alt: string } => Boolean(item.src))
+    .map((item) => ({ url: item.src, alt: item.alt }));
+  const index = Math.max(0, images.findIndex((item) => item.url === url && item.alt === alt));
   window.dispatchEvent(
     new CustomEvent<ImageViewerDetail>("card-platform:open-image", {
-      detail: { url, alt },
+      detail: { images, index },
     }),
   );
 }
@@ -26,10 +37,12 @@ export function OpenableImage({
   src,
   alt,
   className,
+  gallery,
 }: {
   src: string | undefined;
   alt: string;
   className?: string;
+  gallery?: Array<{ src: string | null | undefined; alt: string }>;
 }) {
   return (
     <img
@@ -42,12 +55,12 @@ export function OpenableImage({
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
-        openImageViewer(src, alt);
+        openImageViewer(src, alt, gallery);
       }}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          openImageViewer(src, alt);
+          openImageViewer(src, alt, gallery);
         }
       }}
     />
@@ -55,7 +68,7 @@ export function OpenableImage({
 }
 
 export function GlobalImageViewer() {
-  const [image, setImage] = useState<ImageViewerDetail | null>(null);
+  const [viewer, setViewer] = useState<ImageViewerDetail | null>(null);
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -83,8 +96,8 @@ export function GlobalImageViewer() {
   useEffect(() => {
     const open = (event: Event) => {
       const detail = (event as CustomEvent<ImageViewerDetail>).detail;
-      if (!detail?.url) return;
-      setImage(detail);
+      if (!detail?.images?.length) return;
+      setViewer(detail);
       resetView();
     };
     window.addEventListener("card-platform:open-image", open);
@@ -92,9 +105,23 @@ export function GlobalImageViewer() {
   }, [resetView]);
 
   useEffect(() => {
-    if (!image) return;
+    if (!viewer) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setImage(null);
+      if (event.key === "Escape") setViewer(null);
+      if (event.key === "ArrowLeft" && viewer.images.length > 1) {
+        setViewer((current) => current && ({
+          ...current,
+          index: (current.index - 1 + current.images.length) % current.images.length,
+        }));
+        resetView();
+      }
+      if (event.key === "ArrowRight" && viewer.images.length > 1) {
+        setViewer((current) => current && ({
+          ...current,
+          index: (current.index + 1) % current.images.length,
+        }));
+        resetView();
+      }
       if (event.key === "+" || event.key === "=") {
         setZoom((value) => Math.min(6, value + 0.25));
       }
@@ -103,9 +130,18 @@ export function GlobalImageViewer() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [image, resetView]);
+  }, [viewer, resetView]);
 
-  if (!image) return null;
+  if (!viewer) return null;
+  const image = viewer.images[viewer.index];
+  const hasGallery = viewer.images.length > 1;
+  const changeImage = (direction: -1 | 1) => {
+    setViewer((current) => current && ({
+      ...current,
+      index: (current.index + direction + current.images.length) % current.images.length,
+    }));
+    resetView();
+  };
   const magnifierScale = 2.2;
   const imageTransform = `translate(${pan.x}px, ${pan.y}px) rotate(${rotation}deg) scale(${zoom})`;
 
@@ -116,7 +152,7 @@ export function GlobalImageViewer() {
       aria-modal="true"
       aria-label={image.alt}
       onClick={(event) => {
-        if (event.target === event.currentTarget) setImage(null);
+        if (event.target === event.currentTarget) setViewer(null);
       }}
     >
       <div className="image-viewer-toolbar">
@@ -142,7 +178,7 @@ export function GlobalImageViewer() {
           <a href={image.url} target="_blank" rel="noreferrer" title="在新窗口打开原图">
             <Download size={17} />
           </a>
-          <button type="button" title="关闭（Esc）" onClick={() => setImage(null)}>
+          <button type="button" title="关闭（Esc）" onClick={() => setViewer(null)}>
             <X size={18} />
           </button>
         </div>
@@ -199,6 +235,21 @@ export function GlobalImageViewer() {
           setDragging(false);
         }}
       >
+        {hasGallery && (
+          <button
+            type="button"
+            className="image-viewer-nav previous"
+            aria-label="查看上一张图片"
+            title="上一张（方向键 ←）"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              changeImage(-1);
+            }}
+          >
+            <ChevronLeft size={34} />
+          </button>
+        )}
         <img
           src={image.url}
           alt={image.alt}
@@ -233,8 +284,24 @@ export function GlobalImageViewer() {
             </div>
           </div>
         )}
+        {hasGallery && (
+          <button
+            type="button"
+            className="image-viewer-nav next"
+            aria-label="查看下一张图片"
+            title="下一张（方向键 →）"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              changeImage(1);
+            }}
+          >
+            <ChevronRight size={34} />
+          </button>
+        )}
       </div>
       <small className="image-viewer-help">
+        {hasGallery ? `${viewer.index + 1} / ${viewer.images.length} · 左右方向键切换 · ` : ""}
         悬停放大镜不会移动原图 · 按住鼠标左键拖拽平移 · 滚轮缩放 · Esc 关闭
       </small>
     </div>

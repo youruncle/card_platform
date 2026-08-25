@@ -1,7 +1,11 @@
 import cv2
 import numpy as np
 
-from card_platform.image_rectification import _candidate_score, rectify_card_image
+from card_platform.image_rectification import (
+    _candidate_score,
+    _expand_quad,
+    rectify_card_image,
+)
 
 
 def _perspective_card() -> bytes:
@@ -43,6 +47,21 @@ def test_perspective_card_is_cropped_and_restored_to_standard_ratio() -> None:
     assert abs(width / height - 5 / 7) < 0.005
     assert height < 900
     assert width < 700
+
+
+def test_crop_quad_adds_bounded_safety_padding() -> None:
+    points = np.array(
+        [[100, 100], [300, 100], [300, 400], [100, 400]], dtype=np.float32
+    )
+
+    expanded = _expand_quad(points, (500, 400))
+
+    assert expanded[:, 0].min() < points[:, 0].min()
+    assert expanded[:, 0].max() > points[:, 0].max()
+    assert expanded[:, 1].min() < points[:, 1].min()
+    assert expanded[:, 1].max() > points[:, 1].max()
+    assert expanded[:, 0].min() >= 0
+    assert expanded[:, 0].max() <= 399
 
 
 def test_severe_perspective_uses_real_corners_instead_of_rotated_box() -> None:

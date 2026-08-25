@@ -14,6 +14,10 @@ from card_platform.domain.identity_research import (
     STEPHEN_CURRY_FIXTURE_VISUAL,
     generate_candidates,
 )
+from card_platform.identity_review_api import (
+    _enrich_candidate_evidence,
+    _market_comp_uuid_ids,
+)
 
 
 def identity(**updates):
@@ -29,6 +33,83 @@ def identity(**updates):
     return payload
 
 
+def test_candidate_evidence_is_enriched_with_canonical_source_and_image() -> None:
+    candidates = [{
+        "id": "candidate-1",
+        "market_evidence": [{
+            "id": "cardhobby:sale-1",
+            "provider_code": "cardhobby",
+            "external_sale_id": "sale-1",
+            "sale_price": "4.00",
+        }],
+    }]
+    evidence = [{
+        "id": "evidence-1",
+        "provider_code": "cardhobby",
+        "external_sale_id": "sale-1",
+        "raw_title": "Exact card sale",
+        "source_url": "https://example.com/sale-1",
+        "image_url": "https://example.com/sale-1.jpg",
+        "sale_price": "4.00",
+        "shipping_price": "18.00",
+        "currency": "CNY",
+        "occurred_at": "2026-08-15T12:00:00Z",
+        "evidence_level": "ended_auction",
+    }]
+
+    enriched = _enrich_candidate_evidence(candidates, evidence)
+
+    sale = enriched[0]["market_evidence"][0]
+    assert sale["source_url"] == "https://example.com/sale-1"
+    assert sale["image_url"] == "https://example.com/sale-1.jpg"
+    assert sale["raw_title"] == "Exact card sale"
+    assert sale["shipping_price"] == "18.00"
+    assert "source_url" not in candidates[0]["market_evidence"][0]
+
+
+def test_shadow_source_lookup_ignores_provider_native_evidence_ids() -> None:
+    valid_id = "a928d653-5b9e-4688-a6bd-8b7f17404ae7"
+
+    assert _market_comp_uuid_ids([
+        "ebay:scottie-gold-diamante-2025-11-28",
+        valid_id,
+        "",
+    ]) == [valid_id]
+
+
+def test_confirmed_candidate_gets_only_sources_used_by_latest_shadow() -> None:
+    confirmed = {"player_name": "LeBron James", "card_number": "BH-2"}
+    candidates = [{"id": "candidate-1", "identity": confirmed, "market_evidence": []}]
+    evidence = [
+        {
+            "id": "used-id",
+            "market_comp_id": "used-comp-id",
+            "provider_code": "cardhobby",
+            "external_sale_id": "used-sale",
+            "source_url": "https://example.com/used",
+            "image_url": "https://example.com/used.jpg",
+        },
+        {
+            "id": "rejected-id",
+            "provider_code": "cardhobby",
+            "external_sale_id": "rejected-sale",
+            "source_url": "https://example.com/rejected",
+            "image_url": "https://example.com/rejected.jpg",
+        },
+    ]
+
+    enriched = _enrich_candidate_evidence(
+        candidates,
+        evidence,
+        confirmed_identity=confirmed,
+        shadow_used_ids=["used-comp-id"],
+    )
+
+    assert [sale["external_sale_id"] for sale in enriched[0]["market_evidence"]] == [
+        "used-sale"
+    ]
+
+
 @pytest.mark.parametrize("card_number", ["1/250", "001 / 250"])
 def test_card_number_cannot_be_serial_fraction(card_number: str) -> None:
     with pytest.raises(ValidationError, match="serial fraction"):
@@ -38,6 +119,37 @@ def test_card_number_cannot_be_serial_fraction(card_number: str) -> None:
 def test_serial_number_cannot_be_misread_as_one_of_one() -> None:
     with pytest.raises(ValidationError, match="cannot exceed"):
         ConfirmedIdentity.model_validate(identity(serial_number=250, serial_total=1))
+
+
+def test_numbered_autograph_insert_can_be_confirmed_without_invented_parallel() -> None:
+    confirmed = ConfirmedIdentity.model_validate(
+        identity(
+            insert_name="Hoops Retro Autographs",
+            parallel_name=None,
+            serial_number=24,
+            serial_total=199,
+            is_autograph=True,
+            autograph_type="sticker",
+        )
+    )
+
+    assert confirmed.parallel_name is None
+    assert confirmed.serial_total == 199
+
+
+def test_numbered_base_with_card_number_can_be_confirmed_without_parallel() -> None:
+    confirmed = ConfirmedIdentity.model_validate(
+        identity(
+            card_number="97",
+            insert_name=None,
+            parallel_name=None,
+            serial_number=1,
+            serial_total=99,
+        )
+    )
+
+    assert confirmed.card_number == "97"
+    assert confirmed.parallel_name is None
 
 
 @pytest.mark.parametrize("parallel", ["Prizm", "Refractor", "parallel", "折射版"])

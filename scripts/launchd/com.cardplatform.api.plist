@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.cardplatform.api</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>cd '/Users/song/Documents/Codex/2026-07-19/w/card_platform' &amp;&amp; exec .venv/bin/uvicorn card_platform.main:app --app-dir apps/api --host 0.0.0.0 --port 8000</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PYTHONUNBUFFERED</key>
+    <string>1</string>
+    <!-- launchd does not inherit the interactive shell proxy environment.
+         Without these values api.ebay.com resolves through the unusable direct
+         route and fails TLS hostname verification. -->
+    <key>HTTP_PROXY</key>
+    <string>http://127.0.0.1:7897</string>
+    <key>HTTPS_PROXY</key>
+    <string>http://127.0.0.1:7897</string>
+    <key>ALL_PROXY</key>
+    <string>socks5h://127.0.0.1:7897</string>
+    <key>NO_PROXY</key>
+    <string>localhost,127.0.0.1,::1</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>5</integer>
+  <key>StandardOutPath</key>
+  <string>/Users/song/Library/Logs/CardPlatform/api.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/song/Library/Logs/CardPlatform/api.log</string>
+</dict>
+</plist>

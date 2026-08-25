@@ -19,3 +19,9 @@ uploads/
 apps/api/data/scanner-jobs/
 data/cardhobby-browser-profile/
 .runtime/
+work/runtime/
+work/
+data/benchmarks/*.dump
+data/flatbed-scans/
+data/flatbed-smoke/
+data/scanner-jobs/

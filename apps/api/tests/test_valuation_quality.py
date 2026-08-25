@@ -51,6 +51,7 @@ def test_evidence_levels_separate_paid_ended_listing_and_proxy() -> None:
     assert evidence_grade("confirmed_transaction") == EvidenceGrade.E0
     assert evidence_grade("ended_auction") == EvidenceGrade.E1
     assert evidence_grade("aggregated_sale") == EvidenceGrade.E2
+    assert evidence_grade("public_completed_sale") == EvidenceGrade.E2
     assert evidence_grade("active_listing") == EvidenceGrade.E3
     assert evidence_grade("proxy") == EvidenceGrade.E4
     assert evidence_grade("unknown") == EvidenceGrade.E3
@@ -60,6 +61,33 @@ def test_numbered_card_with_generic_parallel_requires_review() -> None:
     reasons = identity_review_reasons(_identity(parallel_name="Prizm"))
     assert "generic_parallel_name" in reasons
     reasons = identity_review_reasons(_identity(parallel_name=None))
+    assert "numbered_parallel_unknown" not in reasons
+
+
+def test_numbered_autograph_insert_does_not_require_separate_parallel() -> None:
+    reasons = identity_review_reasons(
+        _identity(
+            parallel_name=None,
+            insert_name="Penmanship",
+            is_autograph=True,
+            serial_number=9,
+            serial_total=25,
+        )
+    )
+    assert "numbered_parallel_unknown" not in reasons
+
+
+def test_numbered_non_auto_insert_does_not_invent_parallel() -> None:
+    reasons = identity_review_reasons(
+        _identity(parallel_name=None, insert_name="Example Insert")
+    )
+    assert "numbered_parallel_unknown" not in reasons
+
+
+def test_numbered_card_without_card_insert_or_parallel_requires_review() -> None:
+    reasons = identity_review_reasons(
+        _identity(parallel_name=None, card_number=None, insert_name=None)
+    )
     assert "numbered_parallel_unknown" in reasons
 
 
@@ -68,12 +96,12 @@ def test_identity_blockers_prevent_even_shadow_price_output() -> None:
         [_sale("wrong-identity", "100")],
         _identity(parallel_name="Prizm"),
     )
-    assert estimate.status == "manual_review"
+    assert estimate.status == "insufficient"
     assert estimate.fair is None
     assert "generic_parallel_name" in estimate.review_reasons
 
 
-def test_shadow_estimate_uses_only_exact_center_eligible_sales() -> None:
+def test_shadow_estimate_prefers_exact_over_weaker_relative_candidates() -> None:
     estimate = ShadowValuationEstimator().estimate(
         [
             _sale("paid", "100"),
@@ -88,6 +116,36 @@ def test_shadow_estimate_uses_only_exact_center_eligible_sales() -> None:
     assert {item["id"] for item in estimate.rejected} == {"wrong-card", "listing"}
 
 
+def test_shadow_estimate_uses_best_relative_tier_when_exact_sale_is_absent() -> None:
+    estimate = ShadowValuationEstimator().estimate(
+        [
+            _sale("near-one", "80", tier=ComparableTier.T1),
+            _sale("near-two", "100", tier=ComparableTier.T1),
+            _sale("weak", "20", tier=ComparableTier.T2),
+        ],
+        _identity(),
+    )
+
+    assert estimate.status == "estimated"
+    assert estimate.fair in {Decimal("80.00"), Decimal("100.00")}
+    assert set(estimate.used_ids) == {"near-one", "near-two"}
+    assert "relative_candidate_tier_T1" in estimate.review_reasons
+
+
+def test_shadow_estimate_does_not_publish_unadjusted_t2_card_price() -> None:
+    estimate = ShadowValuationEstimator().estimate(
+        [_sale("same-player-product-only", "500", tier=ComparableTier.T2)],
+        _identity(),
+    )
+
+    assert estimate.status == "insufficient"
+    assert estimate.fair is None
+    assert estimate.rejected == ({
+        "id": "same-player-product-only",
+        "reasons": ["relative_card_requires_reproducible_price_adjustment"],
+    },)
+
+
 def test_shadow_estimate_rejects_mad_outlier_with_five_sales() -> None:
     estimate = ShadowValuationEstimator().estimate(
         [_sale(str(index), price) for index, price in enumerate(("95", "98", "100", "102", "900"))],
@@ -98,19 +156,19 @@ def test_shadow_estimate_rejects_mad_outlier_with_five_sales() -> None:
     assert any(item["reasons"] == ["price_outlier_mad"] for item in estimate.rejected)
 
 
-def test_single_sale_uses_price_plus_shipping_without_shipping_anomaly() -> None:
+def test_single_low_value_sale_excludes_shipping_from_card_value() -> None:
     estimate = ShadowValuationEstimator().estimate(
         [_sale("one", "1", shipping="18", provider="cardhobby")],
         _identity(),
     )
     assert estimate.confidence == Decimal("0.45")
-    assert estimate.status == "manual_review"
+    assert estimate.status == "estimated"
     assert "fewer_than_two_exact_sales" in estimate.review_reasons
     assert "hammer_price_below_shipping" not in estimate.review_reasons
-    assert estimate.fair == Decimal("19.00")
+    assert estimate.fair == Decimal("1.00")
 
 
-def test_shadow_center_uses_buyer_paid_price_but_keeps_shipping_separate() -> None:
+def test_shadow_center_excludes_shipping_from_seller_card_proceeds() -> None:
     estimate = ShadowValuationEstimator().estimate(
         [
             _sale("one", "22", shipping="18", provider="cardhobby"),
@@ -118,8 +176,7 @@ def test_shadow_center_uses_buyer_paid_price_but_keeps_shipping_separate() -> No
         ],
         _identity(),
     )
-    assert estimate.fair in {Decimal("35.00"), Decimal("40.00")}
-    assert Decimal("22") not in {estimate.low, estimate.fair, estimate.high}
+    assert estimate.fair in {Decimal("22.00"), Decimal("23.00")}
 
 
 def test_scottie_two_exact_sales_produce_sparse_shadow_range() -> None:

@@ -1,11 +1,13 @@
 from decimal import Decimal
 
+import httpx
 import pytest
 
 from card_platform.ingestion.cardhobby import (
     CARDHOBBY_SINGLE_CARD_CATEGORY_ID,
     CardHobbyProvider,
     CardHobbySale,
+    assess_cardhobby_candidate,
     assess_cardhobby_match,
     cardhobby_item_id,
     extract_cardhobby_images,
@@ -50,6 +52,29 @@ def _raw_identity() -> dict:
     }
 
 
+@pytest.mark.asyncio
+async def test_model_fallback_is_discovery_only(monkeypatch) -> None:
+    provider = CardHobbyProvider(None, "unused")
+
+    async def no_direct_sales(_identity):
+        from card_platform.ingestion.cardhobby import CardHobbySearchResult
+
+        return CardHobbySearchResult(notes=["direct empty"])
+
+    async def model_candidates(_identity):
+        from card_platform.ingestion.cardhobby import CardHobbySearchResult
+
+        return CardHobbySearchResult(sales=[_sale()], notes=["model discovery"])
+
+    monkeypatch.setattr(provider, "_search_direct", no_direct_sales)
+    monkeypatch.setattr(provider, "_search_model", model_candidates)
+
+    result = await provider.search(_raw_identity())
+
+    assert result.sales == []
+    assert any("仅作发现线索" in note for note in result.notes)
+
+
 def test_cardhobby_item_url_requires_official_item_path() -> None:
     assert (
         cardhobby_item_id("https://www.cardhobby.com.cn/market/item/123456789")
@@ -69,6 +94,33 @@ def test_feedback_url_requires_numeric_account_id() -> None:
 def test_exact_raw_cardhobby_sale_gets_high_match_score() -> None:
     score, conflicts = assess_cardhobby_match(_raw_identity(), _sale())
     assert score >= Decimal("0.8")
+    assert conflicts == []
+
+
+def test_mcdonalds_product_matches_split_chinese_seller_vocabulary() -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "AJ Dybantsa",
+        "brand_name": "Topps",
+        "season_start": 2025,
+        "season_end": 2025,
+        "product_name": "Topps Chrome McDonald's All American",
+        "card_number": "45",
+        "parallel_name": "Red Lava Refractor",
+        "serial_total": 125,
+        "is_patch": False,
+    }
+    score, conflicts = assess_cardhobby_match(
+        identity,
+        _sale(
+            title=(
+                "2025 Topps Chrome AJ Dybantsa 麦当劳全美 #45 "
+                "红熔岩折 47/125编"
+            )
+        ),
+    )
+
+    assert score >= Decimal("0.5")
     assert conflicts == []
 
 
@@ -107,7 +159,400 @@ def test_lot_is_rejected_even_when_identity_tokens_match() -> None:
     assert any("多卡" in conflict for conflict in conflicts)
 
 
-def test_exact_card_anchor_is_required_for_specific_identity() -> None:
+def test_mjs_back_silver_set_card_phrase_is_not_misclassified_as_a_lot() -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "Michael Jordan",
+        "brand_name": "Upper Deck",
+        "season_start": 2001,
+        "season_end": 2002,
+        "product_name": "MJ's Back",
+        "card_number": "MJ-90",
+        "parallel_name": None,
+        "serial_total": None,
+        "is_patch": False,
+    }
+    score, conflicts, tier = assess_cardhobby_candidate(
+        identity,
+        _sale(
+            item_id="102913627",
+            source_url="https://cardhobby.com.cn/Market/Item/102913627",
+            evidence_level="ended_auction",
+            title=(
+                "2001 Upper Deck MJ'S Back Michael Jordan 乔丹 "
+                "经典系列银标套卡 专收凑套收藏必备"
+            ),
+        ),
+    )
+
+    assert score == Decimal("0.40")
+    assert tier == "same_player_product_analog"
+    assert not any("多卡" in conflict for conflict in conflicts)
+    assert any("卡号" in conflict for conflict in conflicts)
+
+
+def test_mjs_back_search_queries_include_cardhobby_silver_nickname() -> None:
+    queries = CardHobbyProvider.build_queries(
+        {
+            "player_name": "Michael Jordan",
+            "season_start": 2001,
+            "season_end": 2002,
+            "product_name": "MJ's Back",
+            "card_number": "MJ-90",
+        }
+    )
+
+    assert queries[0] == "Michael Jordan 2001 银标"
+
+
+def test_stained_glass_queries_include_chinese_church_seller_alias() -> None:
+    queries = CardHobbyProvider.build_queries(
+        {
+            "player_name": "LeBron James",
+            "season_start": 2020,
+            "season_end": 2021,
+            "brand_name": "Panini",
+            "product_name": "Mosaic Basketball",
+            "insert_name": "Stained Glass",
+            "card_number": "1",
+        }
+    )
+
+    assert any("教堂" in query for query in queries)
+
+
+def test_bowman_rookies_and_stars_queries_use_seller_short_name_and_release_year() -> None:
+    queries = CardHobbyProvider.build_queries(
+        {
+            "player_name": "Allen Iverson",
+            "brand_name": "Topps",
+            "season_start": 2003,
+            "season_end": 2004,
+            "product_name": "Bowman Rookies and Stars",
+            "card_number": "10",
+        }
+    )
+
+    assert queries[0] == "Allen Iverson 2003 Bowman"
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "2003 Topps Bowman's Best Allen Iverson 特卡",
+        "2003-04 Bowman Chrome Allen Iverson #10",
+        "2003 Bowman Draft Allen Iverson",
+    ],
+)
+def test_bowman_short_alias_does_not_cross_into_other_product_families(
+    title: str,
+) -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "Allen Iverson",
+        "brand_name": "Topps",
+        "season_start": 2003,
+        "season_end": 2004,
+        "product_name": "Bowman Rookies and Stars",
+        "card_number": "10",
+        "parallel_name": None,
+        "serial_total": None,
+        "is_patch": False,
+    }
+
+    score, conflicts = assess_cardhobby_match(identity, _sale(title=title))
+
+    assert score == 0
+    assert any("产品" in conflict for conflict in conflicts)
+
+
+def test_plain_bowman_seller_title_is_discoverable_as_same_product_analog() -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "Allen Iverson",
+        "brand_name": "Topps",
+        "season_start": 2003,
+        "season_end": 2004,
+        "product_name": "Bowman Rookies and Stars",
+        "card_number": "10",
+        "parallel_name": None,
+        "serial_total": None,
+        "is_patch": False,
+    }
+    score, conflicts, tier = assess_cardhobby_candidate(
+        identity,
+        _sale(
+            item_id="107549728",
+            source_url="https://www.cardhobby.com.cn/market/item/107549728",
+            evidence_level="ended_auction",
+            title="2003-04 Topps Bowman Allen Iverson 艾弗森 银版SP 特卡",
+        ),
+    )
+
+    assert score > 0
+    assert tier == "same_player_product_analog"
+    assert not any("产品系列" in conflict for conflict in conflicts)
+
+
+def test_uniform_description_is_not_misclassified_as_jersey_material() -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "Michael Jordan",
+        "brand_name": "Upper Deck",
+        "season_start": 2001,
+        "season_end": 2002,
+        "product_name": "MJ's Back",
+        "card_number": "MJ-90",
+        "parallel_name": None,
+        "serial_total": None,
+        "is_patch": False,
+    }
+    score, conflicts, tier = assess_cardhobby_candidate(
+        identity,
+        _sale(
+            item_id="102913627",
+            source_url="https://cardhobby.com.cn/Market/Item/102913627",
+            evidence_level="ended_auction",
+            title=(
+                "2001 Upper Deck MJ'S Back Michael Jordan 乔丹 经典系列银标套卡 "
+                "公牛客场23号球衣"
+            ),
+        ),
+    )
+
+    assert score == Decimal("0.40")
+    assert tier == "same_player_product_analog"
+    assert not any("物料" in conflict for conflict in conflicts)
+
+
+def test_actual_jersey_material_still_conflicts_with_raw_base_target() -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "Michael Jordan",
+        "product_name": "MJ's Back",
+        "is_patch": False,
+    }
+    score, conflicts = assess_cardhobby_match(
+        identity,
+        _sale(title="2001 Upper Deck MJ'S Back Michael Jordan 球衣物料切割卡"),
+    )
+
+    assert score == 0
+    assert any("物料" in conflict for conflict in conflicts)
+
+
+def test_explicit_full_mjs_back_set_remains_rejected() -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "Michael Jordan",
+        "product_name": "MJ's Back",
+        "is_patch": False,
+    }
+    score, conflicts = assess_cardhobby_match(
+        identity,
+        _sale(title="2001 Upper Deck MJ'S Back Michael Jordan 银标套卡 90张整套"),
+    )
+
+    assert score == 0
+    assert any("多卡" in conflict for conflict in conflicts)
+
+
+def test_chinese_multi_card_same_listing_is_rejected() -> None:
+    score, conflicts = assess_cardhobby_match(
+        _raw_identity(),
+        _sale(title="2021-22 Immaculate Tim Duncan 邓肯 4张同出 不保卡品"),
+    )
+
+    assert score == 0
+    assert any("多卡" in conflict for conflict in conflicts)
+
+
+def test_numeric_card_number_does_not_match_digits_inside_season() -> None:
+    identity = {
+        "player_name": "Victor Wembanyama",
+        "season_start": 2024,
+        "season_end": 2025,
+        "product_name": "Mosaic Basketball",
+        "card_number": "4",
+        "insert_name": "Jam Masters",
+        "is_autograph": False,
+        "is_patch": False,
+    }
+    score, conflicts = assess_cardhobby_match(
+        identity,
+        _sale(
+            title=(
+                "2024-25 Panini Mosaic Victor Wembanyama "
+                "Thunder Road 特卡 马赛克折"
+            )
+        ),
+    )
+
+    assert score == 0
+    assert "标题未命中目标卡号或卡种" in conflicts
+
+
+def test_cross_sell_player_mention_is_not_accepted_as_target_card() -> None:
+    score, conflicts = assess_cardhobby_match(
+        {
+            **_raw_identity(),
+            "player_name": "John Stockton",
+            "season_start": 2000,
+            "season_end": 2001,
+            "product_name": "Fleer Showcase",
+            "is_patch": False,
+        },
+        _sale(
+            title=(
+                "2000 Fleer Showcase Karl Malone 卡尔马龙 银折，"
+                "主页同版 John Stockton 斯托克顿在拍"
+            )
+        ),
+    )
+    assert score == 0
+    assert any("交叉推广" in conflict for conflict in conflicts)
+
+
+def test_mosaic_texture_in_another_product_is_not_a_product_match() -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "Jaren Jackson Jr.",
+        "product_name": "Mosaic Basketball",
+        "season_start": 2019,
+        "season_end": 2020,
+        "serial_total": 50,
+        "is_patch": False,
+    }
+    score, conflicts = assess_cardhobby_match(
+        identity,
+        _sale(title="2026 Topps Finest Jaren Jackson Jr. 金马赛克折 3/50编"),
+    )
+    assert score == 0
+    assert any("产品系列" in conflict for conflict in conflicts)
+
+
+def test_chinese_multi_player_list_is_rejected() -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "Jaren Jackson Jr.",
+        "player_name_aliases": ["小贾伦 杰克逊"],
+        "product_name": "Mosaic Basketball",
+        "is_patch": False,
+    }
+    score, conflicts = assess_cardhobby_match(
+        identity,
+        _sale(
+            title=(
+                "Panini Mosaic 杜蕾斯 小贾伦 杰克逊 阿德巴约 欧文等 "
+                "特卡 Base 银折 红圈圈折"
+            )
+        ),
+    )
+    assert score == 0
+    assert any("多人卡" in conflict for conflict in conflicts)
+
+
+def test_confirmed_dual_player_memorabilia_card_is_not_rejected_as_a_lot() -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "Matas Buzelis, Tristan da Silva",
+        "player_name_aliases": ["布泽利斯 达席尔瓦"],
+        "season_start": 2024,
+        "season_end": 2025,
+        "product_name": "Immaculate Collection",
+        "card_number": "12",
+        "insert_name": "Remarkable Rookie Jerseys Dual",
+        "parallel_name": "Blue",
+        "serial_total": 25,
+        "is_autograph": False,
+        "is_patch": True,
+    }
+    score, conflicts = assess_cardhobby_match(
+        identity,
+        _sale(
+            title=(
+                "2024-25 Panini Immaculate 布泽利斯 达席尔瓦 11/25编 "
+                "蓝平行 双人双窗球衣物料 Patch"
+            )
+        ),
+    )
+    assert score >= Decimal("0.5")
+    assert conflicts == []
+
+
+def test_numbered_target_requires_target_print_run_in_title() -> None:
+    score, conflicts = assess_cardhobby_match(
+        _raw_identity(),
+        _sale(title="2021-22 Panini Immaculate Tim Duncan 球衣物料"),
+    )
+    assert score == 0
+    assert any("未命中目标总限编" in conflict for conflict in conflicts)
+
+
+def test_base_target_rejects_different_insert_when_card_number_is_omitted() -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "Scottie Barnes",
+        "brand_name": "Topps",
+        "season_start": 2025,
+        "season_end": 2026,
+        "product_name": "Topps Flagship",
+        "card_number": "31",
+        "insert_name": None,
+        "parallel_name": None,
+        "serial_total": None,
+        "is_patch": False,
+    }
+    score, conflicts = assess_cardhobby_match(
+        identity,
+        _sale(title="2025-26 Topps Flagship Scottie Barnes Power Players 特卡"),
+    )
+    assert score == 0
+    assert any("基础卡" in conflict for conflict in conflicts)
+
+
+def test_same_player_product_variant_is_retained_only_as_low_confidence_analog() -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "Scottie Barnes",
+        "brand_name": "Topps",
+        "season_start": 2025,
+        "season_end": 2026,
+        "product_name": "Topps Flagship",
+        "card_number": "31",
+        "insert_name": None,
+        "parallel_name": None,
+        "serial_total": None,
+        "is_patch": False,
+    }
+    score, conflicts, tier = assess_cardhobby_candidate(
+        identity,
+        _sale(title="2025-26 Topps Flagship Scottie Barnes Power Players 特卡"),
+    )
+    assert score == Decimal("0.40")
+    assert tier == "same_player_product_analog"
+    assert conflicts
+
+
+def test_different_product_is_never_retained_as_an_analog() -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "Luka Doncic",
+        "season_start": 2025,
+        "season_end": 2026,
+        "product_name": "Topps Chrome",
+        "serial_total": 21,
+        "is_patch": False,
+    }
+    score, _conflicts, tier = assess_cardhobby_candidate(
+        identity,
+        _sale(title="2025-26 Topps Flagship Luka Doncic /21"),
+    )
+    assert score == 0
+    assert tier is None
+
+
+def test_insert_anchor_is_required_for_specific_identity() -> None:
     identity = {
         **_raw_identity(),
         "card_number": "358",
@@ -120,6 +565,161 @@ def test_exact_card_anchor_is_required_for_specific_identity() -> None:
     )
     assert score == 0
     assert any("卡号或卡种" in conflict for conflict in conflicts)
+
+
+def test_base_card_omitting_card_number_is_only_an_analog() -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "Shareef Abdur-Rahim",
+        "brand_name": "Fleer",
+        "product_name": "Fleer Showcase",
+        "season_start": 2000,
+        "season_end": 2001,
+        "card_number": "74",
+        "insert_name": None,
+        "parallel_name": None,
+        "serial_total": None,
+        "is_patch": False,
+    }
+    score, conflicts, tier = assess_cardhobby_candidate(
+        identity,
+        _sale(title="2000-01 Fleer Showcase Shareef Abdur-Rahim 灰熊 拉希姆 老卡"),
+    )
+    assert score == Decimal("0.40")
+    assert tier == "same_player_product_analog"
+    assert any("卡号" in conflict for conflict in conflicts)
+
+
+def test_player_and_product_without_a_card_anchor_is_rejected() -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "Jaren Jackson Jr.",
+        "brand_name": "Panini",
+        "product_name": "Mosaic Basketball",
+        "season_start": 2019,
+        "season_end": 2020,
+        "card_number": "29",
+        "parallel_name": None,
+        "serial_total": None,
+        "is_patch": False,
+    }
+    score, conflicts = assess_cardhobby_match(
+        identity,
+        _sale(title="Panini Mosaic Jaren Jackson Jr. 小贾伦 杰克逊 折射看图"),
+    )
+    assert score == 0
+    assert any("卡号" in conflict for conflict in conflicts)
+
+
+def test_player_alias_can_match_and_generates_broad_query() -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "John Stockton",
+        "player_name_aliases": ["约翰 斯托克顿", "斯托克顿"],
+        "product_name": "Fleer Showcase",
+        "season_start": 2000,
+        "season_end": 2001,
+        "card_number": "90",
+        "insert_name": None,
+        "parallel_name": None,
+        "serial_total": None,
+        "is_patch": False,
+    }
+    score, conflicts = assess_cardhobby_match(
+        identity,
+        _sale(title="2000-01 Fleer Showcase 约翰 斯托克顿 #90"),
+    )
+    assert score >= Decimal("0.5")
+    assert conflicts == []
+    queries = CardHobbyProvider.build_queries(identity)
+    assert "斯托克顿 Fleer Showcase" in queries
+
+
+def test_curated_chinese_player_aliases_are_used_without_identity_metadata() -> None:
+    queries = CardHobbyProvider.build_queries(
+        {"player_name": "Stephen Curry", "product_name": "NBA Hoops"}
+    )
+    assert "斯蒂芬 库里 NBA Hoops" in queries
+    assert "库里 NBA Hoops" in queries
+
+
+def test_cross_year_finest_identity_includes_seller_copyright_year_query() -> None:
+    queries = CardHobbyProvider.build_queries(
+        {
+            "player_name": "Tracy McGrady",
+            "season_start": 1998,
+            "season_end": 1999,
+            "brand_name": "Topps",
+            "product_name": "Finest",
+            "card_number": "28",
+        }
+    )
+
+    assert "Tracy McGrady 1998 Finest" in queries
+
+
+@pytest.mark.asyncio
+async def test_direct_search_keeps_results_when_a_later_query_fails(monkeypatch) -> None:
+    class FakeResponse:
+        def __init__(self, query: str) -> None:
+            self.query = query
+
+        def raise_for_status(self) -> None:
+            if self.query == "bad":
+                request = httpx.Request("GET", "https://cardhobby.com.cn")
+                raise httpx.HTTPStatusError(
+                    "bad query", request=request, response=httpx.Response(400, request=request)
+                )
+
+        def json(self) -> dict:
+            return {
+                "data": {
+                    "PagedMarketItemList": [
+                        {
+                            "Status": -2,
+                            "OutCount": 2,
+                            "ID": 105080690,
+                            "Title": "2000-01 Fleer Showcase Shareef Abdur-Rahim",
+                            "EffectiveDate": "2026-04-04 20:00:00",
+                            "LowestPrice": 1,
+                            "ByWay": 2,
+                            "NewPostageMoney": "18",
+                        }
+                    ]
+                }
+            }
+
+    class FakeClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def get(self, _url, *, params):
+            return FakeResponse(params["searchKey"])
+
+    monkeypatch.setattr(
+        "card_platform.ingestion.cardhobby.httpx.AsyncClient",
+        lambda **_kwargs: FakeClient(),
+    )
+    monkeypatch.setattr(
+        CardHobbyProvider,
+        "build_queries",
+        staticmethod(lambda _identity: ["good", "bad"]),
+    )
+    result = await CardHobbyProvider(None, "unused")._search_direct(
+        {
+            "player_name": "Shareef Abdur-Rahim",
+            "season_start": 2000,
+            "season_end": 2001,
+            "product_name": "Fleer Showcase",
+            "is_autograph": False,
+            "is_patch": False,
+        }
+    )
+    assert [sale.item_id for sale in result.sales] == ["105080690"]
+    assert any("部分查询失败" in note for note in result.notes)
 
 
 def test_team_checklist_accepts_common_cardhobby_misspelling() -> None:
@@ -144,6 +744,38 @@ def test_team_checklist_accepts_common_cardhobby_misspelling() -> None:
 
 
 @pytest.mark.parametrize(
+    ("insert_name", "seller_title"),
+    [
+        ("Bounce House", "跳跳屋 特卡"),
+        ("Jam Masters", "扣篮大师 大头特卡"),
+        ("Bomb Squad!", "爆炸小队 特卡"),
+        ("Magicians", "魔术师 特卡"),
+        ("Penmanship", "书法签 卡签"),
+        ("Jumbo Jersey Autographs", "大窗球衣签字 卡签 球衣物料"),
+    ],
+)
+def test_cardhobby_insert_chinese_seller_aliases(
+    insert_name: str, seller_title: str
+) -> None:
+    identity = {
+        **_raw_identity(),
+        "player_name": "LeBron James",
+        "season_start": 2025,
+        "season_end": 2026,
+        "product_name": "NBA Hoops",
+        "card_number": None,
+        "insert_name": insert_name,
+        "serial_total": None,
+        "is_autograph": "签" in seller_title,
+        "is_patch": "球衣" in seller_title,
+    }
+    title = f"2025-26 NBA Hoops LeBron James {seller_title}"
+    score, conflicts = assess_cardhobby_match(identity, _sale(title=title))
+    assert score >= Decimal("0.5")
+    assert conflicts == []
+
+
+@pytest.mark.parametrize(
     "title",
     [
         "1991-92 Upper Deck Michael Jordan ward Winner Holograms 3D全息",
@@ -160,6 +792,7 @@ def test_award_winner_hologram_accepts_cardhobby_title_variants(title: str) -> N
         "season_end": 1992,
         "card_number": "AW4",
         "insert_name": "Award Winner Holograms",
+        "serial_total": None,
         "is_patch": False,
     }
     score, conflicts = assess_cardhobby_match(identity, _sale(title=title))
@@ -346,6 +979,126 @@ def test_one_and_one_queries_keep_short_serial_product_search() -> None:
     assert "Walker Kessler One and One" in queries
 
 
+def test_catalog_product_suffixes_expand_to_cardhobby_seller_vocabulary() -> None:
+    chrome_queries = CardHobbyProvider.build_queries(
+        {
+            "player_name": "Luka Doncic",
+            "product_name": "Topps Chrome Basketball",
+            "season_start": 2025,
+            "season_end": 2026,
+            "card_number": "2",
+            "parallel_name": "Red, White, and Blue Refractor",
+        }
+    )
+    signature_queries = CardHobbyProvider.build_queries(
+        {
+            "player_name": "Kevin Garnett",
+            "product_name": "Panini Signature Series Basketball",
+            "season_start": 2025,
+            "season_end": 2026,
+            "card_number": "94",
+            "parallel_name": "Plaid",
+            "serial_total": 15,
+        }
+    )
+
+    assert any("Luka Doncic Topps Chrome 2" in query for query in chrome_queries)
+    assert any("Kevin Garnett Signature Series" in query for query in signature_queries)
+    assert all("None" not in query for query in chrome_queries)
+
+
+def test_dual_player_queries_reserve_each_player_name_without_none_tokens() -> None:
+    queries = CardHobbyProvider.build_queries(
+        {
+            "player_name": "Matas Buzelis, Tristan da Silva",
+            "product_name": "Panini Immaculate Collection Basketball",
+            "season_start": 2024,
+            "season_end": 2025,
+            "card_number": "12",
+            "insert_name": "Remarkable Rookie Jerseys Dual",
+            "parallel_name": "Blue",
+            "serial_total": 25,
+            "is_rookie": True,
+            "is_patch": True,
+        }
+    )
+
+    assert any(query.startswith("Matas Buzelis Immaculate") for query in queries)
+    assert any(query.startswith("Tristan da Silva Immaculate") for query in queries)
+    assert all("None" not in query for query in queries)
+
+
+def test_topps_chrome_catalog_suffix_does_not_block_exact_seller_title() -> None:
+    identity = {
+        "player_name": "Luka Doncic",
+        "product_name": "Topps Chrome Basketball",
+        "season_start": 2025,
+        "season_end": 2026,
+        "card_number": "2",
+        "parallel_name": "Red, White, and Blue Refractor",
+        "is_autograph": False,
+        "is_patch": False,
+    }
+    score, conflicts = assess_cardhobby_match(
+        identity,
+        _sale(title="2026 Topps Chrome Luka Doncic #2 红白蓝三色平行折射卡"),
+    )
+
+    assert score >= Decimal("0.5")
+    assert conflicts == []
+
+
+def test_numbered_card_can_use_matching_print_run_when_seller_omits_card_number() -> None:
+    identity = {
+        "player_name": "Kevin Garnett",
+        "product_name": "Panini Signature Series Basketball",
+        "season_start": 2025,
+        "season_end": 2026,
+        "card_number": "94",
+        "parallel_name": "Plaid",
+        "serial_total": 15,
+        "is_autograph": False,
+        "is_patch": False,
+    }
+    score, conflicts = assess_cardhobby_match(
+        identity,
+        _sale(
+            title=(
+                "2025-26 Panini Signature Series Kevin Garnett 凯文 加内特 "
+                "Base 07/15编"
+            )
+        ),
+    )
+
+    assert score >= Decimal("0.5")
+    assert conflicts == []
+
+
+def test_numbered_card_still_rejects_explicit_different_card_number() -> None:
+    identity = {
+        "player_name": "Kevin Garnett",
+        "product_name": "Panini Signature Series Basketball",
+        "season_start": 2025,
+        "season_end": 2026,
+        "card_number": "94",
+        "parallel_name": "Plaid",
+        "serial_total": 15,
+        "is_autograph": False,
+        "is_patch": False,
+    }
+    score, conflicts = assess_cardhobby_match(
+        identity,
+        _sale(
+            title=(
+                "2025-26 Panini Signature Series Kevin Garnett #95 Base 07/15编"
+            )
+        ),
+    )
+
+    assert score == 0
+    assert "标题明确卡号与目标卡号不一致" in conflicts
+
+
 def test_mosaic_basketball_catalog_name_expands_to_seller_aliases() -> None:
     identity = {
         "player_name": "Jaren Jackson Jr.",
@@ -460,6 +1213,7 @@ def test_reference_image_requires_exact_player_product_and_card_number() -> None
         "season_end": 2013,
         "product_name": "Elite",
         "card_number": "B52",
+        "serial_total": None,
         "is_autograph": True,
         "is_patch": False,
     }

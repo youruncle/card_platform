@@ -30,8 +30,10 @@ class CardHobbyMarketDataProvider(MarketDataProvider):
         fetched_at = datetime.now(timezone.utc)
         evidence = []
         for sale in result.sales:
-            if since is not None and sale.occurred_at <= since:
-                continue
+            # SearchCommodity returns a bounded relevance snapshot, not an
+            # incremental event feed. Re-ingest the full snapshot so matcher,
+            # alias or identity-version upgrades can backfill older exact sales;
+            # the repository's provider/external-id uniqueness keeps this safe.
             external_id = cardhobby_external_id(
                 sale.source_url, sale.title, sale.occurred_at, sale.sale_price
             )

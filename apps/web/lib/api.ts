@@ -44,6 +44,8 @@ export type ScannerRecognitionJob = {
   front_orientation_method: "pending" | "apple_vision" | "vision_model" | "manual" | "unresolved";
   back_orientation_method: "pending" | "apple_vision" | "vision_model" | "manual" | "unresolved";
   result: CardRecognition | null;
+  collection_item_id: string | null;
+  imported_at: string | null;
   error_message: string | null;
   attempt_count: number;
   started_at: string | null;
@@ -67,6 +69,11 @@ export type ScannerCameraControls = {
   exposure_time: ScannerCameraProperty;
   gain: ScannerCameraProperty | null;
 };
+
+export type FlatbedRegion = { id: string; ordinal: number; bounds: { x: number; y: number; width: number; height: number; angle?: number; points?: Array<{ x: number; y: number }> }; confidence: number; failure_reason: string | null };
+export type FlatbedPair = { front_id: string; back_id: string; confidence: number; confidence_level: "high" | "medium" | "low"; conflicts: string[]; signals: Record<string, number>; requires_review: boolean };
+export type FlatbedSheet = { id: string; side: "front" | "back"; revision: number; content_type?: string; created_at?: string; detector_version?: string; layout_hypothesis?: Record<string, unknown>; requires_review?: boolean };
+export type FlatbedSession = { id: string; status: string; dpi: 300 | 600; pairing_requires_review: boolean; pairing_transform: string | null; submitted_at: string | null; pairs?: Array<Record<string, unknown>>; regions?: Array<FlatbedRegion & { side: "front" | "back" }>; sheets?: FlatbedSheet[] };
 
 export type RecognitionBenchmarkMetrics = {
   sample_count: number;
@@ -241,6 +248,7 @@ export type RecognitionSamplingAudit = {
 
 export type PortfolioItem = {
   id: string;
+  display_id: number;
   player_id: string;
   player_name: string;
   brand_name: string;
@@ -268,6 +276,7 @@ export type PortfolioItem = {
     | "none";
   memorabilia_player: string | null;
   is_patch: boolean;
+  is_numbered: boolean;
   serial_number: number | null;
   serial_total: number | null;
   grade_company: string | null;
@@ -277,6 +286,8 @@ export type PortfolioItem = {
   strategy_tags: string[];
   quantity_held: string;
   remaining_cost: string;
+  purchase_price: string | null;
+  purchase_currency: string | null;
   realized_profit: string;
   valuation_currency: string | null;
   valuation_low: string | null;
@@ -312,10 +323,14 @@ export type MarketComp = {
   source_url: string | null;
   match_confidence: string | null;
   source_reliability: string | null;
+  similarity?: string | null;
+  comparable_tier?: "T0" | "T1" | "T2" | "T3" | "rejected" | null;
   classification: {
     source_code?: string;
     origin_source_code?: string;
     ingestion?: string;
+    hard_conflicts?: string[];
+    field_matches?: Record<string, boolean | null>;
   } | null;
 };
 
@@ -452,6 +467,12 @@ export type AutomatedValuationDetail = {
       used_ids?: string[];
       rejected?: Array<{ id: string; reasons: string[] }>;
       published_value_unchanged?: boolean;
+      references?: Array<{
+        title?: string;
+        source_url?: string;
+        evidence_type?: string;
+        condition_type?: string;
+      }>;
     };
     model_version: string;
   };
@@ -504,15 +525,21 @@ export type IdentityReviewDetail = {
   market_evidence: Array<{
     id: string; provider_code: string; external_sale_id: string; raw_title: string;
     sale_price: string; shipping_price: string; currency: string; occurred_at: string;
-    source_url: string; evidence_level: string; decision: "accepted" | "rejected";
+    source_url: string; image_url: string | null; evidence_level: string; decision: "accepted" | "rejected";
     reason_codes: string[];
   }>;
   research: null | { id: string; status: string; trigger_reasons: string[]; source_version: string };
   candidates: Array<{
     id: string; rank: number; identity: ConfirmedCardIdentity; confidence: string;
     field_provenance: Record<string, unknown>; visual_reasons: string[];
-    checklist_evidence: Array<{ source_url: string; source_version: string; parallel_name: string }>;
-    market_evidence: Array<{ id: string; sale_price: string; currency: string; price_base: string; occurred_at: string; reason_codes: string[] }>;
+    checklist_evidence: Array<{ source_url: string; source_version: string; parallel_name: string | null }>;
+    market_evidence: Array<{
+      id: string; provider_code: string; external_sale_id: string;
+      raw_title?: string; source_url?: string; image_url?: string | null;
+      sale_price: string; shipping_price?: string; currency: string;
+      price_base?: string; occurred_at: string; reason_codes: string[];
+      evidence_level: string;
+    }>;
     validation_reasons: string[]; is_valid: boolean;
   }>;
   latest_shadow: null | {
@@ -661,6 +688,28 @@ export type AnalysisResult = {
   risks: string[];
 };
 
+export type ExpertAnalysisSnapshot = {
+  id: string; job_id: string; collection_item_id: string; analysis_version: number;
+  source: string; model_name: string; identity_version_id: string | null;
+  identity_summary: string; identity_confidence: string; currency: string | null;
+  fair_value_low: string | null; fair_value: string | null; fair_value_high: string | null;
+  valuation_confidence: string | null;
+  evidence_summary: Array<Record<string, unknown>>; value_drivers: string[];
+  risks_and_conflicts: string[]; investment_conclusion: string | null;
+  recommended_actions: string[]; raw_result: Record<string, unknown>;
+  status: "succeeded" | "failed"; error_message: string | null; created_at: string;
+};
+
+export type ExpertAnalysisHistory = {
+  latest: ExpertAnalysisSnapshot | null;
+  history: ExpertAnalysisSnapshot[];
+  current_job: null | {
+    id: string; collection_item_id: string; status: "queued" | "running" | "succeeded" | "failed";
+    attempt_count: number; error_message: string | null; created_at: string;
+    started_at: string | null; finished_at: string | null;
+  };
+};
+
 export type AINarrativeResult = {
   analysis_id: string;
   provider: string;
@@ -691,6 +740,8 @@ export type KnowledgeAlias = {
   language: string;
   alias_type: string;
   review_status: string;
+  source?: Record<string, unknown>;
+  confidence?: string;
 };
 
 export type KnowledgeEntity = {
@@ -733,6 +784,16 @@ export type KnowledgeObservation = {
   confidence: string | null;
   status: string;
   replay_result: Record<string, unknown>;
+  context: {
+    kind?: string;
+    canonical_name?: string;
+    entity_type?: string;
+    applicability?: Record<string, unknown>;
+    source_samples?: Array<{ title: string; url: string }>;
+    sample_count?: number;
+    requires_human_review?: boolean;
+    [key: string]: unknown;
+  };
   last_seen_at: string;
 };
 
@@ -813,8 +874,8 @@ export function externalSourceUrl(sourceUrl: string): string {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
+async function request<T>(path: string, init?: RequestInit, baseUrl = API_URL): Promise<T> {
+  const response = await fetch(`${baseUrl}${path}`, {
     ...init,
     credentials: "include",
     headers: { "Content-Type": "application/json", ...init?.headers },
@@ -824,6 +885,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
+    if (response.status === 500 && !body.detail) {
+      throw new Error("API 服务不可用，请确认后端 8000 端口已启动");
+    }
     throw new Error(body.detail ?? `请求失败 (${response.status})`);
   }
   if (response.status === 204) return undefined as T;
@@ -996,6 +1060,50 @@ export function addKnowledgeAlias(
   payload: { alias: string; language: string; alias_type: string },
 ): Promise<KnowledgeAlias> {
   return request(`/v1/knowledge/entities/${entityId}/aliases`, {
+    method: "POST",
+    headers: knowledgeHeaders(actorId, crypto.randomUUID()),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateKnowledgeAlias(
+  actorId: string,
+  aliasId: string,
+  payload: { alias?: string; language?: string; alias_type?: string },
+): Promise<KnowledgeAlias> {
+  return request(`/v1/knowledge/aliases/${aliasId}`, {
+    method: "PATCH",
+    headers: knowledgeHeaders(actorId, crypto.randomUUID()),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteKnowledgeAlias(actorId: string, aliasId: string): Promise<KnowledgeAlias> {
+  return request(`/v1/knowledge/aliases/${aliasId}`, {
+    method: "DELETE",
+    headers: knowledgeHeaders(actorId, crypto.randomUUID()),
+  });
+}
+
+export function initializeMarketplaceAliases(actorId: string): Promise<{
+  created_entities: number; created_aliases: number; existing_aliases: number;
+}> {
+  return request("/v1/knowledge/aliases/initialize", {
+    method: "POST",
+    headers: knowledgeHeaders(actorId, crypto.randomUUID()),
+  });
+}
+
+export function discoverMarketplaceAlias(
+  actorId: string,
+  payload: {
+    entity_id: string;
+    observed_alias: string;
+    applicability: Record<string, unknown>;
+    samples: Array<{ title: string; url: string }>;
+  },
+): Promise<KnowledgeObservation> {
+  return request("/v1/knowledge/aliases/discover", {
     method: "POST",
     headers: knowledgeHeaders(actorId, crypto.randomUUID()),
     body: JSON.stringify(payload),
@@ -1298,6 +1406,25 @@ export function createItem(payload: unknown): Promise<{ id: string }> {
   });
 }
 
+export function quickUpdateItem(
+  itemId: string,
+  payload: {
+    purchase_price?: number;
+    purchase_currency?: string;
+    is_rookie?: boolean;
+    is_numbered?: boolean;
+    is_autograph?: boolean;
+    is_memorabilia?: boolean;
+    serial_number?: number | null;
+    serial_total?: number | null;
+  },
+): Promise<void> {
+  return request(`/v1/portfolio/items/${itemId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function analyzeItem(
   itemId: string,
   payload: unknown,
@@ -1316,6 +1443,10 @@ export function automaticallyAnalyzeItem(
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export function getExpertAnalysis(itemId: string): Promise<ExpertAnalysisHistory> {
+  return request(`/v1/portfolio/items/${itemId}/expert-analysis`);
 }
 
 export function generateNarrative(
@@ -1577,6 +1708,53 @@ export async function getScannerJobImage(url: string, side: "front" | "back"): P
   if (!response.ok) throw new Error(`扫描图片读取失败 (${response.status})`);
   const blob = await response.blob();
   return new File([blob], `scanner-${side}.jpg`, { type: blob.type || "image/jpeg" });
+}
+
+export function getFlatbedDevice(): Promise<{ status: string; name: string; serial: string; capabilities: Record<string, unknown> }> {
+  return request("/v1/flatbed/device");
+}
+
+export function createFlatbedSession(dpi: 300 | 600): Promise<FlatbedSession> {
+  return request("/v1/flatbed/sessions", { method: "POST", body: JSON.stringify({ dpi }) });
+}
+
+export function getFlatbedSessions(): Promise<FlatbedSession[]> { return request("/v1/flatbed/sessions"); }
+export function getFlatbedSession(sessionId: string): Promise<FlatbedSession> { return request(`/v1/flatbed/sessions/${sessionId}`); }
+
+export async function uploadFlatbedSheet(sessionId: string, side: "front" | "back", image: File): Promise<{ id: string; regions: FlatbedRegion[]; failures: string[] }> {
+  const form = new FormData(); form.append("image", image);
+  const response = await fetch(`${multipartApiUrl()}/v1/flatbed/sessions/${sessionId}/sheets/${side}`, { method: "POST", credentials: "include", body: form });
+  if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.detail ?? `扫描整版上传失败 (${response.status})`); }
+  return response.json();
+}
+
+export function captureFlatbedSheet(sessionId: string, side: "front" | "back", preview = false): Promise<{ id: string; regions: FlatbedRegion[]; failures: string[] }> {
+  // A full-bed scan regularly takes longer than Next's development rewrite
+  // proxy is willing to keep the upstream response open. The API may finish
+  // and persist the sheet after that proxy has already returned a misleading
+  // 500, which encourages duplicate scans. Use the same direct local API
+  // origin as large uploads so the browser waits for the real scan result.
+  return request(
+    `/v1/flatbed/sessions/${sessionId}/capture/${side}?preview=${preview}`,
+    { method: "POST" },
+    multipartApiUrl(),
+  );
+}
+
+export function proposeFlatbedPairs(sessionId: string): Promise<{ pairs: FlatbedPair[]; missing_front: string[]; missing_back: string[]; transform: string; requires_review: boolean }> {
+  return request(`/v1/flatbed/sessions/${sessionId}/pair`, { method: "POST" });
+}
+
+export function confirmFlatbedPairs(sessionId: string, pairs: Array<{ front_region_id: string; back_region_id: string }>): Promise<{ status: string; count: number }> {
+  return request(`/v1/flatbed/sessions/${sessionId}/pairs`, { method: "PUT", body: JSON.stringify({ pairs }) });
+}
+
+export function confirmFlatbedLayout(sheetId: string, regions: Array<{ points: Array<{ x: number; y: number }> }>): Promise<{ id: string; regions: FlatbedRegion[]; failures: string[] }> {
+  return request(`/v1/flatbed/sheets/${sheetId}/layout`, { method: "PUT", body: JSON.stringify({ regions }) });
+}
+
+export function submitFlatbedSession(sessionId: string): Promise<{ status: string; job_ids: string[] }> {
+  return request(`/v1/flatbed/sessions/${sessionId}/submit`, { method: "POST" });
 }
 
 export function recognizeCardAuto(file: File): Promise<SheetCardRecognition> {

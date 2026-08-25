@@ -9,7 +9,6 @@ from card_platform.domain.comparables import (
     ComparableTier,
 )
 from card_platform.domain.hierarchical_estimator import ClassifiedSale, HierarchicalEstimator
-from card_platform.valuation_worker import AutomatedValuationWorker
 
 
 def matas_identity():
@@ -69,6 +68,21 @@ def test_listing_context_repairs_serial_total_misread_as_card_number() -> None:
     assert identity.serial_total == 149
     assert identity.insert == "First Steps"
     assert identity.parallel == "Red"
+
+
+def test_product_logo_is_not_retained_as_parallel_name() -> None:
+    identity = CardIdentityResolver().resolve(
+        {
+            "player_name": "AJ Dybantsa",
+            "season_start": 2025,
+            "season_end": 2026,
+            "product_name": "Chrome",
+            "card_number": "45",
+            "parallel_name": "Chrome",
+        }
+    )
+
+    assert identity.parallel is None
 
 
 def test_rc_parallel_is_rookie_and_matching_serial_total_is_not_card_number() -> None:
@@ -177,6 +191,51 @@ def test_nba_hoops_catalog_suffix_does_not_reject_seller_title() -> None:
     assert classification.hard_conflicts == []
 
 
+def test_bowman_seller_short_name_reaches_visual_base_classification() -> None:
+    identity = CardIdentityResolver().resolve(
+        {
+            "player_name": "Allen Iverson",
+            "season_start": 2003,
+            "season_end": 2004,
+            "product_name": "Bowman Rookies and Stars",
+            "card_number": "10",
+        }
+    )
+    classification = ComparableClassifier().classify(
+        identity,
+        ComparableInput(
+            title="2003-04 Topps Bowman Allen Iverson 艾弗森 银版SP 特卡",
+            visual_verdict="compatible",
+            visual_confidence=Decimal("0.95"),
+            visual_reasons=("local_geometry_verified_same_printed_template",),
+        ),
+    )
+
+    assert classification.tier == ComparableTier.T1
+    assert classification.hard_conflicts == []
+
+
+def test_bowman_short_name_rejects_distinct_prefixed_product() -> None:
+    identity = CardIdentityResolver().resolve(
+        {
+            "player_name": "Allen Iverson",
+            "season_start": 2003,
+            "season_end": 2004,
+            "product_name": "Bowman Rookies and Stars",
+            "card_number": "10",
+        }
+    )
+    classification = ComparableClassifier().classify(
+        identity,
+        ComparableInput(
+            title="2003 Topps Bowman's Best Allen Iverson 特卡",
+        ),
+    )
+
+    assert classification.tier == ComparableTier.REJECTED
+    assert "product_conflict" in classification.hard_conflicts
+
+
 def test_uncertain_visual_check_cannot_remain_t0() -> None:
     identity = matas_identity()
     classification = ComparableClassifier().classify(
@@ -211,6 +270,53 @@ def test_high_confidence_compatible_visual_can_confirm_unnumbered_insert() -> No
         ),
     )
     assert classification.tier == ComparableTier.T0
+
+
+def test_same_visual_cannot_replace_missing_insert_text_anchor() -> None:
+    identity = CardIdentityResolver().resolve(
+        {
+            "player_name": "Victor Wembanyama",
+            "season_start": 2024,
+            "season_end": 2025,
+            "product_name": "Panini Prizm Basketball",
+            "card_number": "10",
+            "insert_name": "Fractals",
+        }
+    )
+    classification = ComparableClassifier().classify(
+        identity,
+        ComparableInput(
+            title="2024-25 Panini Prizm Victor Wembanyama Black Base",
+            visual_verdict="same",
+            visual_confidence=Decimal("0.99"),
+        ),
+    )
+
+    assert classification.tier == ComparableTier.T2
+
+
+def test_high_confidence_visual_template_promotes_plain_base_without_card_number_to_t1() -> None:
+    identity = CardIdentityResolver().resolve(
+        {
+            "player_name": "Michael Jordan",
+            "season_start": 2001,
+            "season_end": 2002,
+            "product_name": "MJ's Back",
+            "card_number": "MJ-90",
+            "parallel_name": "Base",
+        }
+    )
+    classification = ComparableClassifier().classify(
+        identity,
+        ComparableInput(
+            title="2001 Upper Deck MJ'S Back Michael Jordan 银标套卡",
+            visual_verdict="compatible",
+            visual_confidence=Decimal("0.95"),
+        ),
+    )
+
+    assert classification.tier == ComparableTier.T1
+    assert classification.similarity == Decimal("0.86")
 
 
 def test_gu_jersey_plain_card_number_and_unnumbered_parallel_are_t0() -> None:
@@ -626,24 +732,39 @@ def test_luka_wrong_fusion_parallel_is_rejected_for_confirmed_blue_identity() ->
     assert "parallel_conflict" in result.hard_conflicts
 
 
-def test_luka_confirmed_blue_identity_loads_exact_sparse_market_sales() -> None:
-    identity = {
-        "player_name": "LUKA DONČIĆ",
-        "season_start": 2023,
-        "season_end": 2024,
-        "product_name": "Crown Royale Basketball",
-        "card_number": "4",
-        "insert_name": "Test of Time",
-        "parallel_name": "Blue",
-        "serial_number": 10,
-        "serial_total": 75,
-        "grade_company": None,
-    }
-    sales = AutomatedValuationWorker._curated_exact_comparables(identity)
-    assert len(sales) == 6
-    assert {sale.evidence_level for sale in sales} == {"aggregated_sale"}
-    assert all("Blue" in sale.title and "/75" in sale.title for sale in sales)
-    assert all(sale.grade_company is None for sale in sales)
+def test_generic_refractor_word_does_not_reject_matching_insert_finish() -> None:
+    target = CardIdentityResolver().resolve(
+        {
+            "player_name": "LeBron James",
+            "season_start": 2020,
+            "season_end": 2021,
+            "product_name": "Mosaic Basketball",
+            "card_number": "1",
+            "insert_name": "Stained Glass",
+        }
+    )
+    generic_finish = ComparableClassifier().classify(
+        target,
+        ComparableInput(
+            title=(
+                "2020-21 Panini Mosaic LeBron James Stained Glass "
+                "教堂特卡 折射卡 #1"
+            )
+        ),
+    )
+    explicit_parallel = ComparableClassifier().classify(
+        target,
+        ComparableInput(
+            title=(
+                "2020-21 Panini Mosaic LeBron James Stained Glass "
+                "教堂特卡 红折 #1"
+            )
+        ),
+    )
+
+    assert generic_finish.tier == ComparableTier.T0
+    assert explicit_parallel.tier == ComparableTier.REJECTED
+    assert "parallel_conflict" in explicit_parallel.hard_conflicts
 
 
 def test_unicode_player_name_and_short_product_title_match_luka_exactly() -> None:
@@ -671,20 +792,6 @@ def test_unicode_player_name_and_short_product_title_match_luka_exactly() -> Non
     )
     assert result.tier == ComparableTier.T0
     assert not result.hard_conflicts
-
-
-def test_luka_curated_sales_require_confirmed_exact_parallel_identity() -> None:
-    identity = {
-        "player_name": "LUKA DONČIĆ",
-        "season_start": 2023,
-        "product_name": "Crown Royale Basketball",
-        "card_number": "4",
-        "insert_name": "Test of Time",
-        "parallel_name": "Fusion Red and Yellow",
-        "serial_total": 75,
-        "grade_company": None,
-    }
-    assert AutomatedValuationWorker._curated_exact_comparables(identity) == []
 
 
 def test_base_card_without_insert_can_be_t0() -> None:
@@ -755,3 +862,221 @@ def test_autograph_and_parallel_mismatches_are_hard_conflicts() -> None:
     )
     assert "autograph_conflict" in autograph.hard_conflicts
     assert "parallel_conflict" in wrong_parallel.hard_conflicts
+
+
+def test_signature_series_numbered_sale_uses_serial_total_as_exact_anchor() -> None:
+    identity = CardIdentityResolver().resolve(
+        {
+            "player_name": "Kevin Garnett",
+            "season_start": 2025,
+            "season_end": 2026,
+            "product_name": "Panini Signature Series Basketball",
+            "card_number": "94",
+            "parallel_name": "Plaid",
+            "serial_number": 7,
+            "serial_total": 15,
+        }
+    )
+
+    result = ComparableClassifier().classify(
+        identity,
+        ComparableInput(
+            title=(
+                "2025-26 Panini Signature Series Kevin Garnett "
+                "凯文 加内特 Base 07/15编"
+            )
+        ),
+    )
+
+    assert result.tier == ComparableTier.T0
+    assert result.hard_conflicts == []
+
+
+def test_dual_jersey_alias_is_exact_insert_anchor() -> None:
+    identity = CardIdentityResolver().resolve(
+        {
+            "player_name": "Matas Buzelis, Tristan da Silva",
+            "season_start": 2024,
+            "season_end": 2025,
+            "product_name": "Panini Immaculate Collection Basketball",
+            "card_number": "12",
+            "insert_name": "Remarkable Rookie Jerseys Dual",
+            "parallel_name": "Blue",
+            "serial_number": 24,
+            "serial_total": 25,
+            "is_memorabilia": True,
+            "is_patch": False,
+        }
+    )
+
+    result = ComparableClassifier().classify(
+        identity,
+        ComparableInput(
+            title=(
+                "2024-25 Panini Immaculate Collection Matas Buzelis RC 公牛 "
+                "马塔斯布泽利斯 - 魔术 Tristan da Silva 25编双窗球衣"
+            )
+        ),
+    )
+
+    assert result.tier == ComparableTier.T0
+    assert result.hard_conflicts == []
+
+
+def test_immaculate_collection_short_title_is_not_a_product_conflict() -> None:
+    identity = CardIdentityResolver().resolve(
+        {
+            "player_name": "Scoot Henderson",
+            "season_start": 2023,
+            "season_end": 2024,
+            "product_name": "Immaculate Collection",
+            "set_name": "Base Variation",
+            "card_number": "98",
+            "parallel_name": "Gold",
+            "serial_number": 3,
+            "serial_total": 10,
+            "is_rookie": True,
+        }
+    )
+
+    result = ComparableClassifier().classify(
+        identity,
+        ComparableInput(
+            title=(
+                "2023-24 Panini Immaculate Scoot Henderson RC "
+                "Base Variation #98 Gold 03/10"
+            )
+        ),
+    )
+
+    assert "product_conflict" not in result.hard_conflicts
+    assert result.tier == ComparableTier.T0
+
+
+def test_mcdonalds_product_and_red_lava_chinese_aliases_match() -> None:
+    identity = CardIdentityResolver().resolve(
+        {
+            "player_name": "AJ Dybantsa",
+            "season_start": 2025,
+            "season_end": 2025,
+            "product_name": "Topps Chrome McDonald's All American",
+            "card_number": "45",
+            "parallel_name": "Red Lava Refractor",
+            "serial_number": 106,
+            "serial_total": 125,
+            "is_rookie": True,
+        }
+    )
+
+    result = ComparableClassifier().classify(
+        identity,
+        ComparableInput(
+            title=(
+                "2025 Topps Chrome AJ Dybantsa 麦当劳全美比赛 #45 "
+                "红熔岩折 47/125编"
+            )
+        ),
+    )
+
+    assert result.tier == ComparableTier.T0
+    assert result.hard_conflicts == []
+
+
+def test_unicode_season_dash_and_chinese_player_alias_match() -> None:
+    identity = CardIdentityResolver().resolve(
+        {
+            "player_name": "Kevin Garnett",
+            "season_start": 1997,
+            "season_end": 1998,
+            "product_name": "Metal Universe",
+            "card_number": "109",
+        }
+    )
+
+    result = ComparableClassifier().classify(
+        identity,
+        ComparableInput(
+            title="97‑98 Skybox Metal Universe #109 凯文加内特 森林狼",
+        ),
+    )
+
+    assert result.tier == ComparableTier.T0
+    assert result.hard_conflicts == []
+
+
+def test_bare_inventory_digit_does_not_impersonate_numeric_card_number() -> None:
+    identity = CardIdentityResolver().resolve(
+        {
+            "player_name": "AJ Dybantsa",
+            "season_start": 2025,
+            "season_end": 2025,
+            "product_name": "Topps Chrome McDonald's All American",
+            "card_number": "7",
+        }
+    )
+
+    result = ComparableClassifier().classify(
+        identity,
+        ComparableInput(
+            title="2025 Topps Chrome AJ Dybantsa 麦当劳 base「7.25琳」"
+        ),
+    )
+
+    assert result.tier == ComparableTier.T2
+    assert result.field_matches["card_number"] is False
+
+
+def test_base_target_rejects_explicit_parallel_variant() -> None:
+    identity = CardIdentityResolver().resolve(
+        {
+            "player_name": "AJ Dybantsa",
+            "season_start": 2025,
+            "season_end": 2025,
+            "product_name": "Topps Chrome McDonald's All American",
+            "card_number": "7",
+        }
+    )
+
+    result = ComparableClassifier().classify(
+        identity,
+        ComparableInput(
+            title=(
+                "2025 Topps Chrome AJ Dybantsa 麦当劳 #7 "
+                "McFlurry Refractor"
+            )
+        ),
+    )
+
+    assert result.tier == ComparableTier.REJECTED
+    assert "parallel_conflict" in result.hard_conflicts
+
+
+def test_dual_jersey_matches_mixed_english_and_chinese_player_names() -> None:
+    identity = CardIdentityResolver().resolve(
+        {
+            "player_name": "Matas Buzelis, Tristan da Silva",
+            "season_start": 2024,
+            "season_end": 2025,
+            "product_name": "Panini Immaculate Collection Basketball",
+            "card_number": "12",
+            "insert_name": "Remarkable Rookie Jerseys Dual",
+            "parallel_name": "Blue",
+            "serial_number": 24,
+            "serial_total": 25,
+            "is_patch": True,
+        }
+    )
+
+    result = ComparableClassifier().classify(
+        identity,
+        ComparableInput(
+            title=(
+                "2024-25 Panini Immaculate Collection Matas Buzelis RC 公牛 "
+                "马塔斯布泽利斯 - 魔术 特里斯坦达席尔瓦 "
+                "新秀 25编双窗球衣 暴力切割"
+            )
+        ),
+    )
+
+    assert result.tier == ComparableTier.T0
+    assert result.hard_conflicts == []

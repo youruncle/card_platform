@@ -24,6 +24,8 @@ from card_platform.recognition_benchmark_worker import (
 from card_platform.valuation_worker import AutomatedValuationWorker, stop_worker
 from card_platform.scanner_api import router as scanner_router
 from card_platform.scanner_queue import ScannerRecognitionWorker, stop_scanner_worker
+from card_platform.flatbed_api import router as flatbed_router
+from card_platform.ebay_notification_api import router as ebay_notification_router
 
 
 @asynccontextmanager
@@ -87,12 +89,18 @@ async def reject_cross_site_session_writes(request: Request, call_next):
 app.include_router(router)
 app.include_router(auth_router)
 app.include_router(scanner_router)
+app.include_router(flatbed_router)
 app.include_router(identity_correction_router)
 app.include_router(identity_review_router)
 app.include_router(knowledge_router)
 app.include_router(market_data_router)
 app.include_router(recognition_benchmark_router)
-app.mount("/uploads", StaticFiles(directory=get_settings().upload_dir, check_dir=False), name="uploads")
+app.include_router(ebay_notification_router)
+app.mount(
+    "/uploads",
+    StaticFiles(directory=get_settings().resolved_upload_dir, check_dir=False),
+    name="uploads",
+)
 
 
 @app.get("/health", tags=["system"])

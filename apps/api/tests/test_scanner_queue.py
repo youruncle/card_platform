@@ -6,7 +6,14 @@ import numpy as np
 import pytest
 
 from card_platform.config import Settings
-from card_platform.scanner_queue import ScannerQueueService, _quad_distance, _quad_quality
+from card_platform.image_rectification import RectifiedImage
+from card_platform.scanner_queue import (
+    ScannerQueueService,
+    _auto_import_payload,
+    _quad_distance,
+    _quad_quality,
+)
+from card_platform.schemas import CardRecognitionResult
 
 
 class _InsertResult:
@@ -80,6 +87,36 @@ def _image() -> bytes:
     return encoded.tobytes()
 
 
+def test_recognition_auto_import_preserves_editable_card_attributes() -> None:
+    owner_id = uuid4()
+    payload = _auto_import_payload(
+        owner_id,
+        CardRecognitionResult(
+            confidence="0.91",
+            player_name="Anfernee Simons",
+            brand_name="Panini",
+            season_start=2024,
+            product_name="Mosaic Basketball",
+            parallel_name="Blue Mosaic",
+            card_number="18",
+            serial_number=12,
+            serial_total=99,
+            is_rookie=False,
+            is_autograph=True,
+            is_memorabilia=True,
+        ),
+    )
+
+    assert payload.owner_id == owner_id
+    assert payload.card.player_name == "Anfernee Simons"
+    assert payload.card.parallel_name == "Blue Mosaic"
+    assert payload.is_numbered is True
+    assert payload.serial_number == 12
+    assert payload.serial_total == 99
+    assert payload.card.is_autograph is True
+    assert payload.card.is_memorabilia is True
+
+
 @pytest.mark.asyncio
 async def test_enqueue_persists_images_before_returning(tmp_path: Path) -> None:
     settings = Settings(scanner_job_dir=str(tmp_path))
@@ -111,6 +148,119 @@ async def test_enqueue_persists_images_before_returning(tmp_path: Path) -> None:
     assert front_raw_path.read_bytes() == _image()
     assert back_raw_path.read_bytes() == _image()
     assert "/images/front?v=" in job.front_image_url
+
+
+@pytest.mark.asyncio
+async def test_enqueue_recovers_suspicious_zoom_crop_from_full_resolution_frames(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    processed_front = b"zoomed-front"
+    processed_back = b"zoomed-back"
+    raw_front = b"full-resolution-front"
+    raw_back = b"full-resolution-back"
+    calls: list[bytes] = []
+
+    def fake_rectify(content: bytes, content_type: str, **_kwargs) -> RectifiedImage:
+        calls.append(content)
+        quad = (
+            ((0.30, 0.30), (0.50, 0.30), (0.50, 0.50), (0.30, 0.50))
+            if content.startswith(b"zoomed")
+            else ((0.20, 0.20), (0.60, 0.20), (0.60, 0.70), (0.20, 0.70))
+        )
+        return RectifiedImage(
+            content=b"rectified-" + content,
+            content_type="image/jpeg",
+            transformed=True,
+            confidence=0.95,
+            normalized_quad=quad,
+        )
+
+    monkeypatch.setattr("card_platform.scanner_queue.rectify_card_image", fake_rectify)
+    service = ScannerQueueService(Settings(scanner_job_dir=str(tmp_path)))
+    connection = _Connection()
+
+    await service.enqueue(
+        connection,
+        uuid4(),
+        processed_front,
+        "image/jpeg",
+        processed_back,
+        "image/jpeg",
+        front_raw_content=raw_front,
+        front_raw_content_type="image/jpeg",
+        back_raw_content=raw_back,
+        back_raw_content_type="image/jpeg",
+    )
+
+    assert calls == [processed_front, processed_back, raw_front, raw_back]
+    assert connection.params is not None
+    assert service.image_path(connection.params[2]).read_bytes() == b"rectified-" + raw_front
+    assert service.image_path(connection.params[3]).read_bytes() == b"rectified-" + raw_back
+
+
+@pytest.mark.asyncio
+async def test_enqueue_preserves_preprocessed_flatbed_crops(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def unexpected_rectify(*_args, **_kwargs):
+        raise AssertionError("preprocessed flatbed crop must not be rectified twice")
+
+    monkeypatch.setattr("card_platform.scanner_queue.rectify_card_image", unexpected_rectify)
+    service = ScannerQueueService(Settings(scanner_job_dir=str(tmp_path)))
+    connection = _Connection()
+
+    await service.enqueue(
+        connection,
+        uuid4(),
+        b"flatbed-front",
+        "image/jpeg",
+        b"flatbed-back",
+        "image/jpeg",
+        preprocessed=True,
+    )
+
+    assert connection.params is not None
+    assert service.image_path(connection.params[2]).read_bytes() == b"flatbed-front"
+    assert service.image_path(connection.params[3]).read_bytes() == b"flatbed-back"
+    assert connection.params[10:14] == (1.0, 1.0, False, False)
+
+
+@pytest.mark.asyncio
+async def test_enqueue_keeps_safe_zoom_crop_when_raw_frame_has_distractors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[bytes] = []
+
+    def fake_rectify(content: bytes, content_type: str, **_kwargs) -> RectifiedImage:
+        calls.append(content)
+        return RectifiedImage(
+            content=b"rectified-" + content,
+            content_type="image/jpeg",
+            transformed=True,
+            confidence=0.95,
+            normalized_quad=((0.20, 0.20), (0.70, 0.20), (0.70, 0.70), (0.20, 0.70)),
+        )
+
+    monkeypatch.setattr("card_platform.scanner_queue.rectify_card_image", fake_rectify)
+    service = ScannerQueueService(Settings(scanner_job_dir=str(tmp_path)))
+    connection = _Connection()
+
+    await service.enqueue(
+        connection,
+        uuid4(),
+        b"zoomed-front",
+        "image/jpeg",
+        b"zoomed-back",
+        "image/jpeg",
+        front_raw_content=b"raw-front-with-hand",
+        front_raw_content_type="image/jpeg",
+        back_raw_content=b"raw-back-with-hand",
+        back_raw_content_type="image/jpeg",
+    )
+
+    assert calls == [b"zoomed-front", b"zoomed-back"]
+    assert connection.params is not None
+    assert service.image_path(connection.params[2]).read_bytes() == b"rectified-zoomed-front"
 
 
 def test_scanner_image_path_cannot_escape_upload_root(tmp_path: Path) -> None:

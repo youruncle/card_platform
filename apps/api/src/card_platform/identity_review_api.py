@@ -28,6 +28,8 @@ from card_platform.domain.comparables import ComparableTier
 from card_platform.domain.valuation_quality import ShadowSale, ShadowValuationEstimator
 from card_platform.market_data.models import MarketIdentity
 from card_platform.market_data.repository import MarketDataRepository
+from card_platform.repository import PortfolioRepository
+from card_platform.schemas import CardIdentityInput, CollectionItemCreate
 
 
 router = APIRouter(
@@ -79,10 +81,12 @@ async def _evidence_rows(connection, item: dict) -> list[dict]:
     result = await connection.execute(
         """
         SELECT DISTINCT ON (me.provider_code, me.external_sale_id)
-               me.id, me.provider_code, me.external_sale_id, me.raw_title,
+               me.id, mc.id AS market_comp_id, me.provider_code,
+               me.external_sale_id, me.raw_title,
                me.sale_price, me.shipping_price, me.currency, me.occurred_at,
                me.source_url, me.evidence_level, me.match_confidence,
-               me.identity_classification
+               me.identity_classification,
+               NULLIF(me.raw_payload->>'image_url', '') AS image_url
         FROM market_evidence me
         LEFT JOIN market_identity_binding mib
           ON mib.identity_fingerprint = me.identity_fingerprint
@@ -94,6 +98,94 @@ async def _evidence_rows(connection, item: dict) -> list[dict]:
         (item["id"], item["card_definition_id"]),
     )
     return [dict(row) for row in await result.fetchall()]
+
+
+async def _shadow_source_rows(connection, used_ids: list[str]) -> list[dict]:
+    database_ids = _market_comp_uuid_ids(used_ids)
+    if not database_ids:
+        return []
+    result = await connection.execute(
+        """
+        SELECT mc.id, mc.id AS market_comp_id, ds.code AS provider_code,
+               mc.external_id AS external_sale_id, mc.listing_title AS raw_title,
+               mc.sale_price, mc.shipping_price, mc.currency, mc.occurred_at,
+               mc.source_url,
+               NULLIF(mc.raw_payload->>'image_url', '') AS image_url,
+               COALESCE(NULLIF(mc.raw_payload->>'evidence_level', ''),
+                        'aggregated_sale') AS evidence_level,
+               ARRAY['used_by_shadow_valuation']::text[] AS reason_codes
+        FROM market_comp mc
+        JOIN data_source ds ON ds.id = mc.data_source_id
+        WHERE mc.id = ANY(%s::uuid[])
+        ORDER BY mc.occurred_at DESC
+        """,
+        (database_ids,),
+    )
+    return [dict(row) for row in await result.fetchall()]
+
+
+def _market_comp_uuid_ids(used_ids: list[str]) -> list[str]:
+    database_ids = []
+    for value in used_ids:
+        try:
+            database_ids.append(str(UUID(str(value))))
+        except (TypeError, ValueError, AttributeError):
+            # Research fixtures and provider-native evidence IDs are valid
+            # audit identifiers, but they are not market_comp primary keys.
+            continue
+    return database_ids
+
+
+def _enrich_candidate_evidence(
+    candidates: list[dict],
+    evidence: list[dict],
+    confirmed_identity: dict | None = None,
+    shadow_used_ids: list[str] | None = None,
+) -> list[dict]:
+    """Attach canonical source metadata without changing candidate decisions."""
+    by_provider_sale = {
+        (row.get("provider_code"), row.get("external_sale_id")): row
+        for row in evidence
+    }
+    enriched = []
+    source_fields = (
+        "raw_title",
+        "source_url",
+        "image_url",
+        "sale_price",
+        "shipping_price",
+        "currency",
+        "occurred_at",
+        "evidence_level",
+    )
+    used_ids = set(shadow_used_ids or [])
+    for candidate in candidates:
+        sales = []
+        for sale in candidate.get("market_evidence") or []:
+            canonical = by_provider_sale.get(
+                (sale.get("provider_code"), sale.get("external_sale_id")), {}
+            )
+            merged = dict(sale)
+            for field in source_fields:
+                if merged.get(field) in (None, "") and canonical.get(field) not in (None, ""):
+                    merged[field] = canonical[field]
+            sales.append(merged)
+        if confirmed_identity and candidate.get("identity") == confirmed_identity:
+            existing = {
+                (sale.get("provider_code"), sale.get("external_sale_id"))
+                for sale in sales
+            }
+            for canonical in evidence:
+                key = (canonical.get("provider_code"), canonical.get("external_sale_id"))
+                source_ids = {
+                    str(canonical.get("id")),
+                    str(canonical.get("market_comp_id")),
+                }
+                if source_ids & used_ids and key not in existing:
+                    sales.append(dict(canonical))
+                    existing.add(key)
+        enriched.append({**candidate, "market_evidence": sales})
+    return enriched
 
 
 @router.get("/queue")
@@ -170,12 +262,16 @@ async def review_detail(item_id: UUID, request: Request, user: AuthenticatedUser
         research = await research_result.fetchone()
         shadow_result = await connection.execute(
             """SELECT id, identity_version_id, status, currency, low_value, fair_value,
-                      high_value, confidence, evidence_count, review_reasons, created_at
+                      high_value, confidence, evidence_count, review_reasons, evidence, created_at
                FROM valuation_shadow_result WHERE collection_item_id = %s
                ORDER BY created_at DESC LIMIT 1""",
             (item_id,),
         )
         latest_shadow = await shadow_result.fetchone()
+        shadow_used_ids = ((latest_shadow or {}).get("evidence") or {}).get(
+            "used_ids", []
+        )
+        shadow_sources = await _shadow_source_rows(connection, shadow_used_ids)
         candidates = []
         if research:
             candidate_result = await connection.execute(
@@ -185,7 +281,14 @@ async def review_detail(item_id: UUID, request: Request, user: AuthenticatedUser
                    FROM identity_research_candidate WHERE research_case_id = %s ORDER BY rank""",
                 (research["id"],),
             )
-            candidates = [dict(row) for row in await candidate_result.fetchall()]
+            candidates = _enrich_candidate_evidence(
+                [dict(row) for row in await candidate_result.fetchall()],
+                [*decisions, *shadow_sources],
+                (version or {}).get("identity")
+                if (version or {}).get("review_status") == "confirmed"
+                else None,
+                shadow_used_ids,
+            )
         return {
             "item_id": item_id,
             "images": {"front": item["image_front_url"], "back": item["image_back_url"]},
@@ -343,6 +446,7 @@ async def confirm_identity(item_id: UUID, payload: ConfirmIdentityRequest, reque
             raise HTTPException(status_code=404, detail="collection item not found")
         item = dict(item_row)
         identity = payload.identity.model_dump(mode="json")
+        evidence = await _evidence_rows(connection, item)
         market_identity = MarketIdentity.model_validate({**identity, "print_run": identity["serial_total"]})
         old_binding = await connection.execute(
             "SELECT identity_fingerprint FROM market_identity_binding WHERE collection_item_id = %s",
@@ -381,7 +485,80 @@ async def confirm_identity(item_id: UUID, payload: ConfirmIdentityRequest, reque
                VALUES (%s, %s, %s, %s, %s, %s)""",
             (item_id, version["id"], user.id, payload.reason, Jsonb(_identity(item)), Jsonb(identity)),
         )
-        evidence = await _evidence_rows(connection, item)
+        rebind_payload = CollectionItemCreate(
+            owner_id=user.id,
+            card=CardIdentityInput(
+                player_name=payload.identity.player_name,
+                brand_name=payload.identity.brand_name,
+                season_start=payload.identity.season_start,
+                season_end=payload.identity.season_end,
+                product_name=payload.identity.product_name,
+                set_name=payload.identity.set_name,
+                card_number=payload.identity.card_number,
+                insert_name=payload.identity.insert_name,
+                parallel_name=payload.identity.parallel_name,
+                is_rookie=payload.identity.is_rookie,
+                is_autograph=payload.identity.is_autograph,
+                autograph_type=payload.identity.autograph_type,
+                is_memorabilia=payload.identity.is_memorabilia,
+                memorabilia_types=payload.identity.memorabilia_types,
+                print_run=payload.identity.serial_total,
+            ),
+            serial_number=payload.identity.serial_number,
+            serial_total=payload.identity.serial_total,
+            is_numbered=payload.identity.serial_total is not None,
+            grade_company=payload.identity.grade_company,
+            grade_value=payload.identity.grade_value,
+        )
+        portfolio = PortfolioRepository()
+        player_id = await portfolio._get_or_create_player(connection, rebind_payload)
+        brand_id = await portfolio._get_or_create_brand(connection, rebind_payload)
+        card_set_id = await portfolio._get_or_create_set(connection, brand_id, rebind_payload)
+        definition_id = await portfolio._get_or_create_definition(
+            connection, player_id, card_set_id, rebind_payload
+        )
+        await connection.execute(
+            """
+            UPDATE card_definition
+            SET is_rookie = %s, is_autograph = %s, autograph_type = %s,
+                is_memorabilia = %s, memorabilia_types = %s,
+                memorabilia_usage = CASE WHEN %s THEN
+                    CASE WHEN memorabilia_usage = 'none' THEN 'unknown' ELSE memorabilia_usage END
+                    ELSE 'none' END,
+                is_patch = CASE WHEN %s THEN is_patch ELSE false END,
+                print_run = %s, updated_at = now()
+            WHERE id = %s
+            """,
+            (
+                payload.identity.is_rookie,
+                payload.identity.is_autograph,
+                payload.identity.autograph_type,
+                payload.identity.is_memorabilia,
+                payload.identity.memorabilia_types,
+                payload.identity.is_memorabilia,
+                payload.identity.is_memorabilia,
+                payload.identity.serial_total,
+                definition_id,
+            ),
+        )
+        await connection.execute(
+            """
+            UPDATE collection_item
+            SET card_definition_id = %s, serial_number = %s, serial_total = %s,
+                is_numbered = %s, grade_company = %s, grade_value = %s,
+                updated_at = now()
+            WHERE id = %s
+            """,
+            (
+                definition_id,
+                payload.identity.serial_number,
+                payload.identity.serial_total,
+                payload.identity.serial_total is not None,
+                payload.identity.grade_company,
+                payload.identity.grade_value,
+                item_id,
+            ),
+        )
         await MarketDataRepository().ensure_identity(connection, market_identity, item_id)
         accepted = rejected = 0
         for sale in evidence:

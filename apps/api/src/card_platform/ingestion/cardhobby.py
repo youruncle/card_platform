@@ -10,7 +10,9 @@ import httpx
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 
+from card_platform.domain.listing_title import is_memorabilia_listing, is_multi_card_listing
 from card_platform.knowledge import KnowledgeResolver
+from card_platform.marketplace_aliases import seller_aliases
 
 
 CARDHOBBY_DOMAIN = "cardhobby.com.cn"
@@ -23,10 +25,6 @@ CARDHOBBY_ITEM_PATH = re.compile(r"^/market/item/(?P<item_id>\d+)/?$", re.IGNORE
 CARDHOBBY_FEEDBACK_PATH = re.compile(
     r"^/market/feedback(?:/(?P<account_id>\d+))?/?$", re.IGNORECASE
 )
-LOT_PATTERN = re.compile(
-    r"(?:lot|打包|多卡|套卡|整套|未拆|卡盒|盒卡|卡包|箱卡|\bpack\b|\bbox\b)",
-    re.IGNORECASE,
-)
 GRADE_PATTERN = re.compile(
     r"(?:\b(?:PSA|BGS|SGC|CGC|RFE|BEM|CBA|GMA|BGN|GBTC)\s*(?:10|9(?:\.5)?|8(?:\.5)?)\b|评级)",
     re.IGNORECASE,
@@ -34,7 +32,15 @@ GRADE_PATTERN = re.compile(
 AUTOGRAPH_PATTERN = re.compile(r"签字|卡签|贴签|签名|\bauto(?:graph)?\b|\brpa\b", re.I)
 PATCH_PATTERN = re.compile(r"球衣|物料|切割|patch|jersey|relic|\brpa\b", re.I)
 MULTI_PLAYER_PATTERN = re.compile(
-    r"双人|三人|四人|多人|双签|三签|四签|\bdual\b|\btriple\b|\bquad\b", re.I
+    r"双人|三人|四人|多人|双签|三签|四签|各年份|等(?:\s|，|,|特卡|折射|卡|base|新秀|$)|\bdual\b|\btriple\b|\bquad\b",
+    re.I,
+)
+CROSS_SELL_PATTERN = re.compile(r"(?:主页|另有|同版).{0,60}(?:在拍|可搜|可配|同出)", re.I)
+NON_BASE_VARIANT_PATTERN = re.compile(
+    r"特卡|\binsert\b|\bssp\b|\bsp\b|(?:/\s*\d+|\d+\s*[编遍])|"
+    r"(?:金|银|红|蓝|绿|紫|橙|粉|黑|白|黄|棋盘|格子|熔岩|碎点|波纹|泡泡|hyper)\s*折|"
+    r"\b(?:cosmic|update|tcu)\b|stars\s+of\s+(?:the\s+)?nba|power\s+players",
+    re.I,
 )
 CARDHOBBY_IMAGE_PATTERN = re.compile(
     r"https://images\.cardhobby\.com/[^\"'<>?\s]+\.(?:jpe?g|png|webp)",
@@ -46,13 +52,100 @@ PRODUCT_SEARCH_ALIASES = {
     # hides otherwise exact NBA Hoops sales.
     "nba hoops basketball": ("NBA Hoops", "Hoops"),
     "nba hoops": ("NBA Hoops", "Hoops"),
+    "prizm basketball": ("Prizm", "Panini Prizm"),
+    "panini prizm basketball": ("Prizm", "Panini Prizm"),
+    "donruss basketball": ("Donruss", "Panini Donruss"),
+    "panini donruss basketball": ("Donruss", "Panini Donruss"),
     "national treasures": ("国宝", "National Treasures"),
-    "one and one": ("One and One", "One & One", "壹和壹"),
-    "one & one": ("One and One", "One & One", "壹和壹"),
+    "one and one": ("One and One", "One & One", "OAO", "壹和壹"),
+    "one & one": ("One and One", "One & One", "OAO", "壹和壹"),
     "topps three": ("Topps 3",),
     "topps 3": ("Topps 3",),
+    "topps chrome": ("Topps Chrome", "Topps Chrome Basketball", "TC"),
+    "topps chrome mcdonald's all american": (
+        "Topps Chrome",
+        "McDonald's All American",
+        "麦当劳",
+        "全美",
+    ),
+    "panini signature series": ("Signature Series", "签字系列"),
+    "signature series": ("Signature Series", "签字系列"),
     "court kings": ("油画", "Court Kings"),
+    "immaculate collection": ("Immaculate Collection", "Immaculate", "爱咪咪"),
     "mosaic": ("Mosaic 马赛克", "Mosaic", "马赛克"),
+    "fleer showcase": ("Fleer Showcase", "Flair Showcase", "Showcase"),
+    "flair showcase": ("Fleer Showcase", "Flair Showcase", "Showcase"),
+    "showcase": ("Fleer Showcase", "Flair Showcase", "Showcase"),
+    # The paper flagship is catalogued as "Bowman Rookies and Stars", while
+    # Chinese-market sellers overwhelmingly shorten it to just "Bowman" and
+    # use the release year rather than the full NBA season.  Keep the short
+    # form first so CardHobby's token-AND search can discover those sales.
+    "bowman rookies and stars": ("Bowman", "Bowman Rookies and Stars"),
+    "bowman rookies & stars": ("Bowman", "Bowman Rookies and Stars"),
+    # CardHobby sellers commonly call cards from this silver-foil 90-card set
+    # "银标" and often shorten the printed 2001-02 season to 2001.
+    # Put the narrow Chinese nickname first: broad MJ's Back queries can span
+    # hundreds of rows and exhaust CardHobby's request budget before reaching
+    # the locally common title form.
+    "mj's back": ("银标", "MJ's Back", "MJs Back"),
+}
+PRODUCT_MATCH_ALIASES = {
+    # A lone “马赛克” often describes a refractor texture in another product.
+    # Discovery may use it, but deterministic identity matching may not.
+    "mosaic": ("Panini Mosaic", "Mosaic Basketball", "Mosaic 马赛克"),
+    "mosaic basketball": ("Panini Mosaic", "Mosaic Basketball", "Mosaic 马赛克"),
+    "topps chrome basketball": ("Topps Chrome", "Topps Chrome Basketball"),
+    "panini signature series basketball": (
+        "Panini Signature Series",
+        "Signature Series Basketball",
+        "Signature Series",
+        "签字系列",
+    ),
+    "panini prizm basketball": ("Panini Prizm", "Prizm Basketball"),
+    "panini donruss basketball": ("Panini Donruss", "Donruss Basketball"),
+    # Keep the Chinese nickname discovery-only: "银标" also describes grading
+    # labels and unrelated parallels, so deterministic matching still requires
+    # the independently printed product name.
+    "mj's back": ("MJ's Back", "MJs Back"),
+    "bowman rookies and stars": ("Bowman", "Bowman Rookies and Stars"),
+    "bowman rookies & stars": ("Bowman", "Bowman Rookies and Stars"),
+}
+RELEASE_YEAR_SEARCH_PRODUCTS = {
+    "mj s back",
+    "bowman rookies and stars",
+}
+PLAYER_SEARCH_ALIASES = {
+    "jaren jackson jr": ("小贾伦 杰克逊", "贾伦 杰克逊", "JJJ"),
+    "lebron james": ("勒布朗 詹姆斯", "詹姆斯"),
+    "stephen curry": ("斯蒂芬 库里", "库里"),
+    "scottie barnes": ("斯科蒂 巴恩斯", "巴恩斯"),
+    "brandon miller": ("布兰登 米勒",),
+    "luka dončić": ("卢卡 东契奇", "东契奇"),
+    "luka doncic": ("卢卡 东契奇", "东契奇"),
+    "kevin garnett": ("凯文 加内特", "加内特"),
+    "matas buzelis": ("马塔斯 布泽利斯", "布泽利斯"),
+    "tristan da silva": ("特里斯坦 达席尔瓦", "达席尔瓦"),
+    "matas buzelis tristan da silva": (
+        "Matas Buzelis",
+        "Tristan da Silva",
+        "马塔斯 布泽利斯 特里斯坦 达席尔瓦",
+        "布泽利斯 达席尔瓦",
+    ),
+    "victor wembanyama": ("维克托 文班亚马", "文班亚马"),
+    "scoot henderson": ("斯库特 亨德森", "亨德森"),
+    "zach lavine": ("扎克 拉文", "拉文"),
+    "jalen duren": ("杰伦 杜伦", "杜伦"),
+    "brandon ingram": ("布兰登 英格拉姆", "英格拉姆"),
+    "shaedon sharpe": ("谢登 夏普", "夏普"),
+    "paolo banchero": ("保罗 班凯罗", "班凯罗"),
+    "shareef abdur rahim": ("谢里夫 阿卜杜 拉希姆", "拉希姆"),
+    "grant hill": ("格兰特 希尔",),
+    "toni kukoc": ("托尼 库科奇", "托尼 库克奇", "库科奇"),
+    "jerome williams": ("杰罗姆 威廉姆斯",),
+    "tim thomas": ("蒂姆 托马斯",),
+    "tony delk": ("托尼 德尔克",),
+    "john stockton": ("约翰 斯托克顿", "斯托克顿"),
+    "glenn robinson": ("格伦 罗宾逊", "大狗"),
 }
 
 
@@ -82,9 +175,35 @@ PARALLEL_SEARCH_ALIASES = {
     "purple parallel": "紫折",
     "green mosaic": "绿马赛克",
     "fusion red and yellow": "红黄马赛克",
+    "red, white, and blue refractor": "红白蓝",
+    "x-fractor": "X折",
+    "plaid": "格子折",
+    "red lava refractor": "红熔岩折",
 }
 PARALLEL_MATCH_ALIASES = {
+    "red lava refractor": (
+        "red lava refractor",
+        "red lava",
+        "红熔岩折",
+        "红熔岩",
+    ),
     "green mosaic": ("green mosaic", "绿马赛克", "绿折"),
+    "fusion red and yellow": (
+        "fusion red and yellow",
+        "red and yellow fusion",
+        "红黄马赛克",
+        "红黄融合",
+        "红黄折",
+    ),
+    "red, white, and blue refractor": (
+        "red white and blue refractor",
+        "red white blue refractor",
+        "rwb refractor",
+        "红白蓝三色平行折射",
+        "红白蓝",
+    ),
+    "x-fractor": ("x-fractor", "xfractor", "x折", "x碎冰"),
+    "plaid": ("plaid", "格子折", "格子"),
 }
 INSERT_MATCH_ALIASES = {
     "team checklist": ("team checklist", "team checklits"),
@@ -106,10 +225,39 @@ INSERT_MATCH_ALIASES = {
         "双捧杯",
         "奖杯",
     ),
+    "bounce house": ("bounce house", "跳跳屋", "弹跳屋", "扣篮板报"),
+    "jam masters": ("jam masters", "扣篮大师", "大头特卡", "大头"),
+    "bomb squad": ("bomb squad", "爆炸小队"),
+    "bomb squad!": ("bomb squad", "爆炸小队"),
+    "magicians": ("magicians", "魔术师"),
+    "penmanship": ("penmanship", "书法签"),
+    "jumbo jersey autographs": (
+        "jumbo jersey autographs",
+        "jumbo jersey auto",
+        "大窗球衣签字",
+        "大窗 签字 球衣",
+        "ja 签字 卡签 球衣",
+    ),
 }
 
 INSERT_SEARCH_ALIASES = {
+    # Chinese sellers overwhelmingly call Mosaic's Stained Glass insert
+    # “教堂” (and sometimes “彩色玻璃”), not its English checklist name.
+    # Keep both seller terms in the query ladder: CardHobby token search cannot
+    # recover them from “Stained Glass” alone.
+    "stained glass": ("Stained Glass", "教堂", "彩色玻璃"),
     "finals mvps": ("捧杯", "总决赛MVP", "FMVP", "Finals MVPs"),
+    "bounce house": ("Bounce House", "跳跳屋", "弹跳屋"),
+    "jam masters": ("Jam Masters", "扣篮大师", "大头特卡"),
+    "bomb squad": ("Bomb Squad", "爆炸小队"),
+    "bomb squad!": ("Bomb Squad", "爆炸小队"),
+    "magicians": ("Magicians", "魔术师"),
+    "penmanship": ("Penmanship", "书法签"),
+    "jumbo jersey autographs": (
+        "Jumbo Jersey Autographs",
+        "大窗球衣签字",
+        "JA 球衣签字",
+    ),
 }
 
 
@@ -224,6 +372,80 @@ def _contains_phrase(title: str, value: object) -> bool:
     return bool(target) and target in _normalized(title)
 
 
+def _matches_product(title: str, product_name: object) -> bool:
+    normalized_product = _normalized(product_name)
+    normalized_title = _normalized(title)
+    if "topps chrome" in normalized_product and any(
+        token in normalized_product
+        for token in ("mcdonald", "all american", "麦当劳", "全美")
+    ):
+        return "topps chrome" in normalized_title and any(
+            token in normalized_title
+            for token in ("mcdonald", "all american", "麦当劳", "全美")
+        )
+    if normalized_product == "bowman rookies and stars":
+        # Plain "Bowman" is the common seller name for the paper flagship, but
+        # the same token also prefixes several genuinely different products.
+        # Discover broadly while retaining deterministic product boundaries.
+        conflicting_families = (
+            "bowman s best",
+            "bowman best",
+            "bowman chrome",
+            "bowman draft",
+            "bowman signature",
+            "bowman sterling",
+        )
+        return "bowman" in normalized_title and not any(
+            family in normalized_title for family in conflicting_families
+        )
+    aliases = PRODUCT_MATCH_ALIASES.get(
+        str(product_name or "").strip().casefold(),
+        product_search_aliases(product_name),
+    )
+    return any(_contains_phrase(title, alias) for alias in aliases)
+
+
+def _contains_card_number(title: str, value: object) -> bool:
+    target = _normalized(value)
+    if not target:
+        return False
+    return bool(
+        re.search(
+            rf"(?<![0-9a-z]){re.escape(target)}(?![0-9a-z])",
+            _normalized(title),
+        )
+    )
+
+
+def _identity_aliases(identity: dict, field: str) -> tuple[str, ...]:
+    """Return canonical identity text plus explicitly audited seller aliases."""
+    canonical = str(identity.get(field) or "").strip()
+    raw_aliases = identity.get(f"{field}_aliases") or []
+    if isinstance(raw_aliases, str):
+        raw_aliases = [raw_aliases]
+    curated_aliases = (
+        PLAYER_SEARCH_ALIASES.get(_normalized(canonical), ())
+        if field == "player_name"
+        else ()
+    )
+    return tuple(
+        dict.fromkeys(
+            value
+            for value in (
+                canonical,
+                *curated_aliases,
+                *(str(value).strip() for value in raw_aliases),
+            )
+            if value
+        )
+    )
+
+
+def _identity_is_multi_player(identity: dict) -> bool:
+    player = str(identity.get("player_name") or "")
+    return bool(re.search(r",|\s+&\s+|\s+and\s+|\s+/\s+", player, re.I))
+
+
 def assess_cardhobby_match(identity: dict, sale: CardHobbySale) -> tuple[Decimal, list[str]]:
     """Apply deterministic safety gates after model-assisted CardHobby discovery."""
     title = sale.title
@@ -249,18 +471,21 @@ def assess_cardhobby_match(identity: dict, sale: CardHobbySale) -> tuple[Decimal
     else:
         conflicts.append("未证明为已确认交易或有出价的结束拍卖")
         return Decimal("0"), conflicts
-    if LOT_PATTERN.search(title):
+    if is_multi_card_listing(title, identity.get("product_name")):
         conflicts.append("标题疑似多卡、套卡或未拆产品")
         return Decimal("0"), conflicts
-    if MULTI_PLAYER_PATTERN.search(title):
+    if MULTI_PLAYER_PATTERN.search(title) and not _identity_is_multi_player(identity):
         conflicts.append("标题疑似多人卡，不能作为单球员同款成交")
+        return Decimal("0"), conflicts
+    if CROSS_SELL_PATTERN.search(title):
+        conflicts.append("标题含其他在拍卡的交叉推广，无法确认目标球员是本商品主体")
         return Decimal("0"), conflicts
 
     title_is_autograph = bool(AUTOGRAPH_PATTERN.search(title))
     if bool(identity.get("is_autograph")) != title_is_autograph:
         conflicts.append("签字属性与目标卡不一致")
         return Decimal("0"), conflicts
-    title_is_patch = bool(PATCH_PATTERN.search(title))
+    title_is_patch = is_memorabilia_listing(title)
     if bool(identity.get("is_patch")) != title_is_patch:
         conflicts.append("物料/球衣属性与目标卡不一致")
         return Decimal("0"), conflicts
@@ -285,8 +510,8 @@ def assess_cardhobby_match(identity: dict, sale: CardHobbySale) -> tuple[Decimal
             return Decimal("0"), conflicts
 
     score = Decimal("0")
-    player_name = identity.get("player_name")
-    if not _contains_phrase(title, player_name):
+    player_aliases = _identity_aliases(identity, "player_name")
+    if not any(_contains_phrase(title, alias) for alias in player_aliases):
         conflicts.append("标题未命中目标球员")
         return Decimal("0"), conflicts
     score += Decimal("0.35")
@@ -320,22 +545,23 @@ def assess_cardhobby_match(identity: dict, sale: CardHobbySale) -> tuple[Decimal
                 f"{season_start}-{season_end}",
             }
         )
-    if season_tokens and not any(token in title for token in season_tokens):
-        conflicts.append("产品赛季与目标卡不一致或无法确认")
-        return Decimal("0"), conflicts
-    if season_tokens:
+    season_matches = bool(season_tokens and any(token in title for token in season_tokens))
+    if season_matches:
         score += Decimal("0.15")
 
     if _contains_phrase(title, identity.get("brand_name")):
         score += Decimal("0.10")
-    product_aliases = product_search_aliases(identity.get("product_name"))
-    product_matches = any(_contains_phrase(title, alias) for alias in product_aliases)
-    if product_aliases and not product_matches:
+    product_name = str(identity.get("product_name") or "").strip()
+    product_matches = _matches_product(title, product_name)
+    if product_name and not product_matches:
         conflicts.append("标题未命中目标产品系列")
         return Decimal("0"), conflicts
     if product_matches:
-        score += Decimal("0.15")
-    card_number_matches = _contains_phrase(title, identity.get("card_number"))
+        # Player + product alone is intentionally below the acceptance floor.
+        # A season, card/insert, parallel or print-run anchor must establish
+        # that a long seller title is about this card rather than a lot/list.
+        score += Decimal("0.10")
+    card_number_matches = _contains_card_number(title, identity.get("card_number"))
     target_card_number = str(identity.get("card_number") or "").strip()
     prefixed_number = re.fullmatch(r"([A-Za-z]+)[#\s-]*(\d+)", target_card_number)
     if prefixed_number:
@@ -346,6 +572,11 @@ def assess_cardhobby_match(identity: dict, sale: CardHobbySale) -> tuple[Decimal
         if explicit_same_family and target_number not in explicit_same_family:
             conflicts.append("标题明确卡号与目标卡号不一致")
             return Decimal("0"), conflicts
+    if target_card_number.isdigit():
+        explicit_hash_numbers = set(re.findall(r"#\s*(\d+)", title))
+        if explicit_hash_numbers and target_card_number not in explicit_hash_numbers:
+            conflicts.append("标题明确卡号与目标卡号不一致")
+            return Decimal("0"), conflicts
     target_insert = str(identity.get("insert_name") or "").casefold()
     insert_aliases = INSERT_MATCH_ALIASES.get(
         target_insert,
@@ -354,8 +585,36 @@ def assess_cardhobby_match(identity: dict, sale: CardHobbySale) -> tuple[Decimal
     insert_matches = bool(target_insert) and any(
         _contains_phrase(title, alias) for alias in insert_aliases
     )
-    if (identity.get("card_number") or identity.get("insert_name")) and not (
-        card_number_matches or insert_matches
+    if (
+        target_insert
+        and _identity_is_multi_player(identity)
+        and bool(identity.get("is_patch"))
+        and title_is_patch
+        and re.search(r"双人|双窗|\bdual\b", title, re.I)
+    ):
+        insert_matches = True
+    # Numeric card numbers are especially unsafe in long marketplace titles:
+    # seller inventory suffixes such as “(1)” commonly create false matches.
+    # An insert target therefore always needs its canonical name or a reviewed
+    # seller alias; a card-number token alone cannot establish the card kind.
+    if identity.get("insert_name") and not insert_matches:
+        conflicts.append("标题未命中目标卡号或卡种")
+        return Decimal("0"), conflicts
+    if (
+        identity.get("card_number")
+        and not identity.get("insert_name")
+        and not identity.get("parallel_name")
+        and not (identity.get("serial_total") or identity.get("print_run"))
+        and not card_number_matches
+        and NON_BASE_VARIANT_PATTERN.search(title)
+    ):
+        conflicts.append("目标为基础卡，但标题显示为其他特卡、产品变体、平行或限编")
+        return Decimal("0"), conflicts
+    if (
+        identity.get("card_number")
+        and not identity.get("insert_name")
+        and not card_number_matches
+        and not (identity.get("serial_total") or identity.get("print_run"))
     ):
         conflicts.append("标题未命中目标卡号或卡种")
         return Decimal("0"), conflicts
@@ -372,7 +631,11 @@ def assess_cardhobby_match(identity: dict, sale: CardHobbySale) -> tuple[Decimal
     parallel_matches = not target_parallel or any(
         _contains_phrase(title, alias) for alias in parallel_aliases
     )
-    if strict_parallel_aliases and not parallel_matches:
+    if (
+        strict_parallel_aliases
+        and not parallel_matches
+        and not (identity.get("serial_total") or identity.get("print_run"))
+    ):
         conflicts.append("标题未命中目标平行版本")
         return Decimal("0"), conflicts
     if target_parallel and parallel_matches:
@@ -391,23 +654,95 @@ def assess_cardhobby_match(identity: dict, sale: CardHobbySale) -> tuple[Decimal
     if print_run and explicit_print_runs and int(print_run) not in explicit_print_runs:
         conflicts.append("明确限编与目标卡不一致")
         return Decimal("0"), conflicts
-    if print_run and re.search(
+    print_run_matches = bool(print_run and re.search(
         rf"(?:/\s*{int(print_run)}(?!\d)|(?<!\d){int(print_run)}\s*[编遍])",
         title,
         re.IGNORECASE,
-    ):
+    ))
+    if print_run_matches:
         score += Decimal("0.08")
+    if print_run and not print_run_matches:
+        conflicts.append("目标为限编卡，但标题未命中目标总限编")
+        return Decimal("0"), conflicts
     if identity.get("is_autograph") and title_is_autograph:
         score += Decimal("0.05")
     if identity.get("is_patch") and title_is_patch:
         score += Decimal("0.05")
 
+    if not any(
+        (
+            season_matches,
+            card_number_matches,
+            insert_matches,
+            bool(target_parallel and parallel_matches),
+            print_run_matches,
+        )
+    ):
+        conflicts.append("标题只命中球员和产品，缺少赛季、卡号、版本或限编锚点")
+        return Decimal("0"), conflicts
+
     sale.source_reliability = source_reliability
     return min(score, Decimal("1")), conflicts
 
 
+ANALOG_SOFT_CONFLICTS = (
+    "产品赛季与目标卡不一致或无法确认",
+    "标题未命中目标卡号或卡种",
+    "标题未命中目标平行版本",
+    "明确限编与目标卡不一致",
+    "目标为限编卡，但标题未命中目标总限编",
+    "标题只命中球员和产品",
+    "目标为基础卡，但标题显示为其他特卡",
+)
+
+
+def assess_cardhobby_candidate(
+    identity: dict, sale: CardHobbySale
+) -> tuple[Decimal, list[str], str | None]:
+    """Classify a safe sale as exact-ish evidence or a bounded product analog.
+
+    The strict matcher remains the authority for T0-like evidence.  A failed
+    strict match may enter the downstream comparable classifier only when the
+    failure is a value-bearing card variant difference, never a source,
+    player, product, lot, autograph, memorabilia or grade conflict.
+    """
+    score, conflicts = assess_cardhobby_match(identity, sale)
+    if score >= Decimal("0.5"):
+        return score, conflicts, "exact_or_near_exact"
+    if not conflicts or not all(
+        any(conflict.startswith(prefix) for prefix in ANALOG_SOFT_CONFLICTS)
+        for conflict in conflicts
+    ):
+        return Decimal("0"), conflicts, None
+    title = sale.title
+    if not any(
+        _contains_phrase(title, alias)
+        for alias in _identity_aliases(identity, "player_name")
+    ):
+        return Decimal("0"), conflicts, None
+    product_name = str(identity.get("product_name") or "").strip()
+    if product_name and not _matches_product(title, product_name):
+        return Decimal("0"), conflicts, None
+    explicit_seasons = [
+        int(start)
+        for start, _end in re.findall(
+            r"(?<!\d)((?:19|20)\d{2})\s*[-–/]\s*((?:(?:19|20)\d{2})|\d{2})(?!\d)",
+            title,
+        )
+    ]
+    target_season = identity.get("season_start")
+    if explicit_seasons and target_season and min(
+        abs(value - int(target_season)) for value in explicit_seasons
+    ) > 2:
+        return Decimal("0"), [*conflicts, "类比赛季与目标相距超过两年"], None
+    sale.matching_fields = list(
+        dict.fromkeys([*sale.matching_fields, "analog_same_player_product"])
+    )
+    return Decimal("0.40"), conflicts, "same_player_product_analog"
+
+
 class CardHobbyProvider:
-    """Fetches CardHobby's public sold-item search, with model search as fallback."""
+    """Fetch CardHobby sold items; model search is discovery-only fallback."""
 
     def __init__(
         self,
@@ -429,7 +764,17 @@ class CardHobbyProvider:
         if direct.sales:
             return direct
         fallback = await self._search_model(identity)
-        return fallback.model_copy(update={"notes": [*direct.notes, *fallback.notes]})
+        return fallback.model_copy(update={
+            "sales": [],
+            "notes": [
+                *direct.notes,
+                *fallback.notes,
+                (
+                    f"模型检索发现 {len(fallback.sales)} 条卡淘候选，但公开接口未能独立确认"
+                    " Status=-2 与真实出价；候选仅作发现线索，未进入估值。"
+                ),
+            ],
+        })
 
     async def reference_images(self, identity: dict) -> CardHobbyReferenceImages | None:
         direct = await self._search_direct(identity)
@@ -468,11 +813,22 @@ class CardHobbyProvider:
         )
 
     async def _search_direct(self, identity: dict) -> CardHobbySearchResult:
-        queries = (
-            [stage.query for stage in self.resolver.build_query_plan(identity)]
-            if self.resolver and self.resolver.entities
-            else self.build_queries(identity)
-        )
+        query_identity = {
+            **identity,
+            "player_name_aliases": list(_identity_aliases(identity, "player_name"))[1:],
+        }
+        provider_queries = self.build_queries(query_identity)
+        if self.resolver and self.resolver.entities:
+            knowledge_queries = [
+                stage.query for stage in self.resolver.build_query_plan(query_identity)
+            ]
+            # Generic knowledge aliases and provider-specific seller vocabulary
+            # are complementary. Never let the generic plan replace CardHobby
+            # aliases such as Chinese product nicknames or source-specific year
+            # forms. Keep the remote-query budget bounded and deterministic.
+            queries = list(dict.fromkeys([*provider_queries, *knowledge_queries]))[:12]
+        else:
+            queries = provider_queries
         headers = {
             "Accept": "application/json, text/plain, */*",
             "X-Requested-With": "XMLHttpRequest",
@@ -483,46 +839,83 @@ class CardHobbyProvider:
             ),
         }
         found: dict[str, CardHobbySale] = {}
+        failed_queries: list[str] = []
         async with httpx.AsyncClient(
             timeout=self.timeout, follow_redirects=True, headers=headers
         ) as client:
             for query in queries:
                 for page_index in (1, 2):
-                    response = await client.get(
-                        CARDHOBBY_SEARCH_URL,
-                        params=self.search_params(query, page_index),
-                    )
-                    response.raise_for_status()
-                    payload = response.json()
+                    try:
+                        response = await client.get(
+                            CARDHOBBY_SEARCH_URL,
+                            params=self.search_params(query, page_index),
+                        )
+                        response.raise_for_status()
+                        payload = response.json()
+                    except (httpx.HTTPError, ValueError, TypeError) as error:
+                        failed_queries.append(f"{query}: {str(error)[:120]}")
+                        break
                     rows = ((payload.get("data") or {}).get("PagedMarketItemList") or [])
                     for row in rows:
                         sale = self.parse_market_item(row)
                         if sale is None:
                             continue
-                        score, conflicts = assess_cardhobby_match(identity, sale)
-                        if score < Decimal("0.5"):
+                        score, conflicts, tier = assess_cardhobby_candidate(identity, sale)
+                        if score < Decimal("0.35"):
                             continue
                         found[sale.item_id or sale.source_url] = sale.model_copy(
-                            update={"match_confidence": score, "conflicts": conflicts}
+                            update={
+                                "match_confidence": score,
+                                "conflicts": conflicts,
+                                "matching_fields": list(
+                                    dict.fromkeys(
+                                        [*sale.matching_fields, f"cardhobby_tier:{tier}"]
+                                    )
+                                ),
+                            }
                         )
                     if len(rows) < 60:
                         break
         return CardHobbySearchResult(
             search_queries=[f"卡淘已售接口：{query}" for query in queries],
-            sales=sorted(found.values(), key=lambda sale: sale.occurred_at, reverse=True)[:20],
+            # The image verifier has a bounded candidate budget. Prefer an
+            # otherwise exact base-card candidate that merely omits its card
+            # number over a newer title that explicitly calls itself a
+            # different insert/parallel. Recency remains the tie-breaker.
+            sales=sorted(
+                found.values(),
+                key=lambda sale: (
+                    not sale.conflicts,
+                    bool(sale.conflicts)
+                    and all(
+                        conflict.startswith("标题未命中目标卡号或卡种")
+                        for conflict in sale.conflicts
+                    ),
+                    sale.match_confidence,
+                    sale.occurred_at,
+                ),
+                reverse=True,
+            )[:20],
             notes=[
                 "数据来自卡淘公开 SearchCommodity 接口，Status=-2；有出价的结束拍卖"
-                "作为卡淘结束价参考，未宣称已付款。"
+                "作为卡淘结束价参考，未宣称已付款。",
+                *(
+                    [f"部分查询失败但已保留其他查询结果：{'；'.join(failed_queries[:3])}"]
+                    if failed_queries
+                    else []
+                ),
             ],
         )
 
     @staticmethod
     def build_queries(identity: dict) -> list[str]:
-        player = str(identity.get("player_name") or "").strip()
+        players = _identity_aliases(identity, "player_name")
+        player = players[0].replace(",", " ") if players else ""
         product = str(identity.get("product_name") or "").strip()
         product_aliases = product_search_aliases(product)
         print_run = identity.get("serial_total") or identity.get("print_run")
         insert = str(identity.get("insert") or identity.get("insert_name") or "").strip()
+        card_number = str(identity.get("card_number") or "").strip().lstrip("#")
         card_type = (
             "RPA"
             if identity.get("is_autograph") and identity.get("is_patch")
@@ -544,16 +937,29 @@ class CardHobbyProvider:
             str(identity.get("parallel_name") or "").casefold(),
             "",
         )
-        insert_search_aliases = INSERT_SEARCH_ALIASES.get(
-            insert.casefold(),
-            (insert,) if insert else (),
+        # The central marketplace catalog is the source of truth for reviewed
+        # seller vocabulary.  Keep the legacy map as a temporary fallback for
+        # entries that have not yet been migrated into the reviewable catalog.
+        insert_search_aliases = seller_aliases("insert", insert) or INSERT_SEARCH_ALIASES.get(
+            insert.casefold(), (insert,) if insert else ()
         )
 
         def query(*parts: object) -> str:
-            return " ".join(str(part).strip() for part in parts if str(part).strip())
+            return " ".join(
+                str(part).strip()
+                for part in parts
+                if part is not None and str(part).strip()
+            )
 
         queries: list[str] = []
-        for alias in product_aliases:
+        for alias_index, alias in enumerate(product_aliases):
+            release_year_query = (
+                query(player, season_start, alias)
+                if season_start and season_end and season_start != season_end
+                else ""
+            )
+            if release_year_query and _normalized(product) in RELEASE_YEAR_SEARCH_PRODUCTS:
+                queries.append(release_year_query)
             for insert_alias in insert_search_aliases:
                 queries.extend(
                     [
@@ -591,6 +997,23 @@ class CardHobbyProvider:
                     query(player, alias),
                 ]
             )
+            if (
+                release_year_query
+                and _normalized(product) not in RELEASE_YEAR_SEARCH_PRODUCTS
+                and alias_index == 0
+            ):
+                # Sellers often print only the copyright/release year ("2001")
+                # while the catalog identity uses an NBA season ("2001-02").
+                # Keep exact serial/insert queries first, then add this bounded
+                # product-level recall query for every cross-year identity.
+                queries.append(release_year_query)
+            if card_number:
+                queries.extend(
+                    [
+                        query(player, season, alias, card_number),
+                        query(player, alias, card_number),
+                    ]
+                )
         queries.extend(
             [
                 query(player, season, serial),
@@ -598,7 +1021,20 @@ class CardHobbyProvider:
                 player,
             ]
         )
-        return list(dict.fromkeys(value for value in queries if value))[:12]
+        unique = list(dict.fromkeys(value for value in queries if value))
+        alias_queries = [
+            query(player_alias, product_aliases[0])
+            for player_alias in players[1:5]
+            if product_aliases
+        ]
+        if alias_queries:
+            # Preserve exact-first ordering while reserving bounded stages for
+            # audited seller-language aliases and each name on multi-player cards.
+            unique = [*unique[: 12 - len(alias_queries)], *alias_queries, *unique[10:]]
+        bounded = list(dict.fromkeys(unique))[:12]
+        if player and player not in bounded and not alias_queries:
+            bounded = [*bounded[:11], player]
+        return bounded
 
     @staticmethod
     def search_params(search_key: str, page_index: int) -> dict[str, str | int]:
@@ -739,12 +1175,20 @@ class CardHobbyProvider:
         parsed = CardHobbySearchResult.model_validate_json(content)
         accepted: list[CardHobbySale] = []
         for sale in parsed.sales:
-            score, conflicts = assess_cardhobby_match(identity, sale)
-            if score < Decimal("0.5"):
+            score, conflicts, tier = assess_cardhobby_candidate(identity, sale)
+            if score < Decimal("0.35"):
                 continue
             accepted.append(
                 sale.model_copy(
-                    update={"match_confidence": score, "conflicts": conflicts}
+                    update={
+                        "match_confidence": score,
+                        "conflicts": conflicts,
+                        "matching_fields": list(
+                            dict.fromkeys(
+                                [*sale.matching_fields, f"cardhobby_tier:{tier}"]
+                            )
+                        ),
+                    }
                 )
             )
         return parsed.model_copy(update={"sales": accepted[:20]})

@@ -20,6 +20,8 @@ from card_platform.knowledge_repository import (
     KnowledgeRepository,
 )
 from card_platform.knowledge_seed import CURATED_RELATIONS, builtin_seed
+from card_platform.marketplace_aliases import INITIAL_MARKETPLACE_ALIAS_CATALOG
+from card_platform.marketplace_alias_discovery import AliasDiscoveryError, build_alias_proposal
 
 async def _knowledge_connection(request: Request):
     async with request.app.state.database.connection() as connection:
@@ -54,6 +56,14 @@ class AliasCreate(BaseModel):
     confidence: float = Field(default=1, ge=0, le=1)
 
 
+class AliasUpdate(BaseModel):
+    alias: str | None = Field(default=None, min_length=1, max_length=200)
+    language: str | None = Field(default=None, max_length=12)
+    alias_type: Literal["canonical", "synonym", "translation", "misspelling", "seller_term"] | None = None
+    source: dict[str, Any] | None = None
+    confidence: float | None = Field(default=None, ge=0, le=1)
+
+
 class ReviewPayload(BaseModel):
     decision: Literal["approved", "rejected"]
 
@@ -75,6 +85,18 @@ class ValidatePayload(BaseModel):
 class ObservationCreate(BaseModel):
     observed_text: str = Field(min_length=1, max_length=500)
     context: dict[str, Any] = Field(default_factory=dict)
+
+
+class AliasDiscoverySample(BaseModel):
+    title: str = Field(min_length=1, max_length=1000)
+    url: str = Field(min_length=1, max_length=2000)
+
+
+class AliasDiscoveryCreate(BaseModel):
+    entity_id: UUID
+    observed_alias: str = Field(min_length=1, max_length=200)
+    applicability: dict[str, Any]
+    samples: list[AliasDiscoverySample] = Field(min_length=2, max_length=20)
 
 
 class RelationCreate(BaseModel):
@@ -259,6 +281,184 @@ async def add_alias(
             )
         except KnowledgeConflictError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@router.patch("/aliases/{alias_id}")
+async def update_alias(
+    alias_id: UUID, payload: AliasUpdate, request: Request,
+    x_knowledge_actor: UUID | None = Header(default=None),
+    idempotency_key: str | None = Header(default=None),
+) -> dict[str, Any]:
+    async with request.state.connection.transaction():
+        workspace, actor_id = await _actor(request, {"editor"}, x_knowledge_actor)
+        try:
+            return await repository.update_alias(
+                request.state.connection, workspace, actor_id, alias_id,
+                payload.model_dump(exclude_none=True), idempotency_key,
+            )
+        except KnowledgeConflictError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="别名不存在") from error
+
+
+@router.delete("/aliases/{alias_id}")
+async def delete_alias(
+    alias_id: UUID, request: Request,
+    x_knowledge_actor: UUID | None = Header(default=None),
+    idempotency_key: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Soft-delete so published snapshots and audit evidence remain reproducible."""
+    async with request.state.connection.transaction():
+        workspace, actor_id = await _actor(request, {"editor"}, x_knowledge_actor)
+        try:
+            return await repository.deactivate_alias(
+                request.state.connection, workspace, actor_id, alias_id, idempotency_key
+            )
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="别名不存在") from error
+
+
+@router.post("/aliases/initialize")
+async def initialize_marketplace_aliases(
+    request: Request,
+    x_knowledge_actor: UUID | None = Header(default=None),
+) -> dict[str, int]:
+    """Create auditable, unpublished seller-term drafts from the shared catalog.
+
+    Public marketplace wording improves recall but does not prove identity, so
+    candidates require review and an explicit version publish before runtime use.
+    """
+    async with request.state.connection.transaction():
+        workspace, actor_id = await _actor(request, {"editor"}, x_knowledge_actor)
+        created_entities = created_aliases = existing_aliases = 0
+        for candidate in INITIAL_MARKETPLACE_ALIAS_CATALOG:
+            entity_result = await request.state.connection.execute(
+                """
+                INSERT INTO knowledge_entity (
+                    workspace_id, entity_type, canonical_name, normalized_name,
+                    source, confidence, review_status, created_by
+                ) VALUES (%s, %s, %s, %s, %s, 0.85, 'draft', %s)
+                ON CONFLICT (workspace_id, entity_type, normalized_name) DO UPDATE
+                    SET active = true, updated_at = now()
+                RETURNING id, (xmax = 0) AS inserted
+                """,
+                (
+                    workspace["id"], candidate.entity_type, candidate.canonical_name,
+                    normalize_knowledge_text(candidate.canonical_name),
+                    Jsonb({"kind": "marketplace_alias_catalog", "source_url": candidate.evidence_url(), "note": candidate.note}),
+                    actor_id,
+                ),
+            )
+            entity = dict(await entity_result.fetchone())
+            created_entities += int(entity["inserted"])
+            for alias in candidate.aliases[1:]:
+                result = await request.state.connection.execute(
+                    """
+                    INSERT INTO knowledge_alias (
+                        workspace_id, entity_id, alias, normalized_alias, language, alias_type,
+                        source, confidence, review_status, created_by
+                    ) VALUES (%s, %s, %s, %s, %s, 'seller_term', %s, 0.80, 'draft', %s)
+                    ON CONFLICT (workspace_id, entity_id, normalized_alias) DO NOTHING
+                    RETURNING id
+                    """,
+                    (
+                        workspace["id"], entity["id"], alias, normalize_knowledge_text(alias),
+                        "zh" if any("\u4e00" <= char <= "\u9fff" for char in alias) else "en",
+                        Jsonb({"kind": "marketplace_alias_catalog", "source_url": candidate.evidence_url(), "canonical_name": candidate.canonical_name, "note": candidate.note, "verification": "public_cardhobby_query_required"}),
+                        actor_id,
+                    ),
+                )
+                if await result.fetchone():
+                    created_aliases += 1
+                else:
+                    existing_aliases += 1
+        await request.state.connection.execute(
+            "UPDATE knowledge_workspace SET revision = revision + 1, updated_at = now() WHERE id = %s",
+            (workspace["id"],),
+        )
+        await repository.audit(
+            request.state.connection, workspace["id"], actor_id, "initialize_marketplace_aliases",
+            "workspace", workspace["id"], None,
+            {"created_entities": created_entities, "created_aliases": created_aliases, "existing_aliases": existing_aliases}, None,
+        )
+        return {"created_entities": created_entities, "created_aliases": created_aliases, "existing_aliases": existing_aliases}
+
+
+@router.post("/aliases/discover", status_code=status.HTTP_201_CREATED)
+async def discover_marketplace_alias(
+    payload: AliasDiscoveryCreate,
+    request: Request,
+    x_knowledge_actor: UUID | None = Header(default=None),
+    idempotency_key: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Collect a scoped, source-backed alias candidate without activating it."""
+    async with request.state.connection.transaction():
+        workspace, actor_id = await _actor(request, {"editor"}, x_knowledge_actor)
+        entity_result = await request.state.connection.execute(
+            """
+            SELECT id, entity_type, canonical_name FROM knowledge_entity
+            WHERE id = %s AND workspace_id = %s AND active
+            """,
+            (payload.entity_id, workspace["id"]),
+        )
+        entity = await entity_result.fetchone()
+        if entity is None:
+            raise HTTPException(status_code=404, detail="目标知识实体不存在")
+        try:
+            proposal = build_alias_proposal(
+                observed_alias=payload.observed_alias,
+                canonical_name=entity["canonical_name"],
+                entity_type=entity["entity_type"],
+                applicability=payload.applicability,
+                samples=[sample.model_dump() for sample in payload.samples],
+            )
+        except AliasDiscoveryError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+        context = {
+            "kind": "cardhobby_public_alias_discovery",
+            "canonical_name": proposal.canonical_name,
+            "entity_type": proposal.entity_type,
+            "applicability": proposal.applicability,
+            "source_samples": [asdict(sample) for sample in proposal.samples],
+            "sample_count": len(proposal.samples),
+            "requires_human_review": True,
+        }
+        result = await request.state.connection.execute(
+            """
+            INSERT INTO knowledge_observation (
+                workspace_id, observed_text, normalized_text, context,
+                occurrence_count, proposed_entity_id, proposed_alias,
+                proposal_source, confidence, status
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'rule', %s, 'proposed')
+            ON CONFLICT (workspace_id, normalized_text) DO UPDATE
+            SET occurrence_count = GREATEST(
+                    knowledge_observation.occurrence_count, EXCLUDED.occurrence_count
+                ),
+                context = EXCLUDED.context,
+                proposed_entity_id = EXCLUDED.proposed_entity_id,
+                proposed_alias = EXCLUDED.proposed_alias,
+                proposal_source = 'rule', confidence = EXCLUDED.confidence,
+                status = CASE WHEN knowledge_observation.status = 'promoted'
+                              THEN knowledge_observation.status ELSE 'proposed' END,
+                last_seen_at = now(), updated_at = now()
+            RETURNING *
+            """,
+            (
+                workspace["id"], proposal.observed_alias,
+                normalize_knowledge_text(proposal.observed_alias), Jsonb(context),
+                len(proposal.samples), payload.entity_id, proposal.observed_alias,
+                proposal.confidence,
+            ),
+        )
+        observation = dict(await result.fetchone())
+        await repository.audit(
+            request.state.connection, workspace["id"], actor_id,
+            "discover_marketplace_alias", "observation", observation["id"],
+            None, observation, idempotency_key,
+        )
+        return observation
 
 
 @router.get("/relations")

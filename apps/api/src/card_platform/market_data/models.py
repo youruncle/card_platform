@@ -9,7 +9,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
-IDENTITY_VERSION = 1
+IDENTITY_VERSION = 2
 
 
 class Freshness(StrEnum):
@@ -30,6 +30,7 @@ def _normalize(value: Any) -> Any:
 
 class MarketIdentity(BaseModel):
     player_name: str
+    player_name_aliases: list[str] = Field(default_factory=list)
     season_start: int | None = None
     season_end: int | None = None
     brand_name: str | None = None
@@ -97,3 +98,4 @@ class MarketDataResult(BaseModel):
     data_as_of: datetime | None = None
     refresh_job_id: str | None = None
     notes: list[str] = Field(default_factory=list)
+    provider_diagnostics: list[dict[str, Any]] = Field(default_factory=list)

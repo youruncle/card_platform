@@ -109,6 +109,7 @@ class CollectionItemCreate(ApiModel):
     card: CardIdentityInput
     serial_number: int | None = Field(default=None, gt=0)
     serial_total: int | None = Field(default=None, gt=0)
+    is_numbered: bool = False
     grade_company: str | None = Field(default=None, max_length=40)
     grade_value: Decimal | None = Field(default=None, ge=0, le=10)
     grade_cert_number: str | None = Field(default=None, max_length=80)
@@ -118,6 +119,29 @@ class CollectionItemCreate(ApiModel):
 
     @model_validator(mode="after")
     def validate_serial(self) -> "CollectionItemCreate":
+        if self.serial_number is not None or self.serial_total is not None:
+            self.is_numbered = True
+        if (
+            self.serial_number is not None
+            and self.serial_total is not None
+            and self.serial_number > self.serial_total
+        ):
+            raise ValueError("serial_number cannot exceed serial_total")
+        return self
+
+
+class PortfolioItemQuickUpdate(ApiModel):
+    purchase_price: Decimal | None = Field(default=None, ge=0, max_digits=18, decimal_places=2)
+    purchase_currency: str | None = Field(default=None, min_length=3, max_length=3)
+    is_rookie: bool | None = None
+    is_numbered: bool | None = None
+    is_autograph: bool | None = None
+    is_memorabilia: bool | None = None
+    serial_number: int | None = Field(default=None, gt=0)
+    serial_total: int | None = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def validate_serial(self) -> "PortfolioItemQuickUpdate":
         if (
             self.serial_number is not None
             and self.serial_total is not None
@@ -252,6 +276,7 @@ class AuthSessionView(ApiModel):
 
 class PortfolioItem(ApiModel):
     id: UUID
+    display_id: int
     owner_id: UUID
     player_id: UUID
     player_name: str
@@ -273,6 +298,7 @@ class PortfolioItem(ApiModel):
     memorabilia_usage: str
     memorabilia_player: str | None
     is_patch: bool
+    is_numbered: bool
     serial_number: int | None
     serial_total: int | None
     grade_company: str | None
@@ -282,6 +308,8 @@ class PortfolioItem(ApiModel):
     strategy_tags: list[str]
     quantity_held: Decimal
     remaining_cost: Decimal
+    purchase_price: Decimal | None
+    purchase_currency: str | None
     realized_profit: Decimal
     valuation_currency: str | None
     valuation_low: Decimal | None
@@ -375,6 +403,60 @@ class CardAnalysisResult(ApiModel):
     confidence: Decimal
     catalysts: list[str]
     risks: list[str]
+
+
+class ExpertAnalysisRun(ApiModel):
+    force: bool = False
+
+
+class ExpertAnalysisSnapshot(ApiModel):
+    id: UUID
+    job_id: UUID
+    collection_item_id: UUID
+    analysis_version: int
+    source: str
+    model_name: str
+    identity_version_id: UUID | None
+    identity_summary: str
+    identity_confidence: Decimal
+    currency: str | None
+    fair_value_low: Decimal | None
+    fair_value: Decimal | None
+    fair_value_high: Decimal | None
+    valuation_confidence: Decimal | None
+    evidence_summary: list[dict]
+    value_drivers: list[str]
+    risks_and_conflicts: list[str]
+    investment_conclusion: str | None
+    recommended_actions: list[str]
+    raw_result: dict
+    status: str
+    error_message: str | None
+    created_at: datetime
+
+
+class ExpertAnalysisJobView(ApiModel):
+    id: UUID
+    collection_item_id: UUID
+    status: str
+    attempt_count: int
+    error_message: str | None
+    created_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+
+
+class ExpertAnalysisHistory(ApiModel):
+    latest: ExpertAnalysisSnapshot | None
+    history: list[ExpertAnalysisSnapshot]
+    current_job: ExpertAnalysisJobView | None
+
+
+class ExpertAnalysisBatchResult(ApiModel):
+    total: int
+    succeeded: int
+    failed: int
+    item_ids: list[UUID]
 
 
 class PlayerMetricUpsert(ApiModel):
@@ -617,15 +699,18 @@ class CardCandidateIdentity(ApiModel):
     inscription_text: str | None = None
     is_memorabilia: bool | None = None
     memorabilia_types: list[str] = Field(default_factory=list)
-    memorabilia_usage: Literal[
-        "game_used",
-        "player_worn",
-        "event_worn",
-        "not_from_specific_game_or_event",
-        "manufactured",
-        "unknown",
-        "none",
-    ] | None = None
+    memorabilia_usage: (
+        Literal[
+            "game_used",
+            "player_worn",
+            "event_worn",
+            "not_from_specific_game_or_event",
+            "manufactured",
+            "unknown",
+            "none",
+        ]
+        | None
+    ) = None
     memorabilia_player: str | None = None
     is_patch: bool | None = None
 
@@ -698,15 +783,18 @@ class CardRecognitionResult(ApiModel):
     inscription_text: str | None = None
     is_memorabilia: bool | None = None
     memorabilia_types: list[str] = Field(default_factory=list)
-    memorabilia_usage: Literal[
-        "game_used",
-        "player_worn",
-        "event_worn",
-        "not_from_specific_game_or_event",
-        "manufactured",
-        "unknown",
-        "none",
-    ] | None = None
+    memorabilia_usage: (
+        Literal[
+            "game_used",
+            "player_worn",
+            "event_worn",
+            "not_from_specific_game_or_event",
+            "manufactured",
+            "unknown",
+            "none",
+        ]
+        | None
+    ) = None
     memorabilia_player: str | None = None
     is_patch: bool | None = None
     confidence: Decimal = Field(ge=0, le=1)
@@ -827,6 +915,8 @@ class ScannerRecognitionJob(ApiModel):
         "pending", "apple_vision", "vision_model", "manual", "unresolved"
     ] = "pending"
     result: CardRecognitionResult | None = None
+    collection_item_id: UUID | None = None
+    imported_at: datetime | None = None
     error_message: str | None = None
     attempt_count: int
     started_at: datetime | None = None
@@ -866,12 +956,15 @@ class SheetCardRecognitionItem(ApiModel):
     """One independently editable card discovered inside a composite image."""
 
     result: CardRecognitionResult
-    card_image_bbox: tuple[
-        Annotated[int, Field(ge=0, le=1000)],
-        Annotated[int, Field(ge=0, le=1000)],
-        Annotated[int, Field(ge=0, le=1000)],
-        Annotated[int, Field(ge=0, le=1000)],
-    ] | None = None
+    card_image_bbox: (
+        tuple[
+            Annotated[int, Field(ge=0, le=1000)],
+            Annotated[int, Field(ge=0, le=1000)],
+            Annotated[int, Field(ge=0, le=1000)],
+            Annotated[int, Field(ge=0, le=1000)],
+        ]
+        | None
+    ) = None
     listing_title: str | None = None
     visible_description: str | None = None
     text_derived_fields: dict[str, str] = Field(default_factory=dict)

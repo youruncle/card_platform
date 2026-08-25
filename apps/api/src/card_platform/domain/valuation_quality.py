@@ -23,6 +23,7 @@ EVIDENCE_LEVEL_GRADES = {
     "human_verified_exact_identity": EvidenceGrade.E2,
     "codex_assisted_exact_identity": EvidenceGrade.E2,
     "aggregated_sale": EvidenceGrade.E2,
+    "public_completed_sale": EvidenceGrade.E2,
     "legacy_market_comp": EvidenceGrade.E2,
     "asking_price": EvidenceGrade.E3,
     "active_listing": EvidenceGrade.E3,
@@ -58,7 +59,16 @@ def identity_review_reasons(identity: dict) -> list[str]:
     product = normalize_text(identity.get("product_name"))
     if parallel in {"prizm", "refractor", "parallel", "折射"}:
         reasons.append("generic_parallel_name")
-    if serial_total and not parallel:
+    # A print run plus a real card/insert anchor is already specific enough to
+    # search safely. Many products number their base or insert directly and do
+    # not assign a separate parallel name; requiring one invents catalog data.
+    has_insert_anchor = bool(
+        normalize_text(identity.get("insert_name") or identity.get("insert"))
+    )
+    has_card_number_anchor = bool(normalize_text(identity.get("card_number")))
+    if serial_total and not parallel and not (
+        has_insert_anchor or has_card_number_anchor
+    ):
         reasons.append("numbered_parallel_unknown")
     if parallel and product and parallel == product:
         reasons.append("parallel_matches_product")
@@ -79,9 +89,9 @@ class ShadowSale:
     evidence_level: str
 
     @property
-    def landed_price(self) -> Decimal:
-        """Buyer-paid value while retaining hammer and shipping as separate evidence."""
-        return self.price + self.shipping
+    def card_value(self) -> Decimal:
+        """Card-only proceeds; shipping is evidence, never part of inventory value."""
+        return self.price
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,7 +130,7 @@ class ShadowValuationEstimator:
         identity_blockers = identity_review_reasons(identity)
         if identity_blockers:
             return ShadowEstimate(
-                "manual_review", None, None, None, Decimal("0"), (), (),
+                "insufficient", None, None, None, Decimal("0"), (), (),
                 tuple(identity_blockers),
             )
         half_life = 180 if int(identity.get("serial_total") or 999) <= 99 else 90
@@ -129,8 +139,10 @@ class ShadowValuationEstimator:
         for sale in sales:
             grade = evidence_grade(sale.evidence_level)
             reasons = []
-            if sale.tier != ComparableTier.T0:
-                reasons.append("not_exact_identity")
+            if sale.tier == ComparableTier.REJECTED:
+                reasons.append("identity_conflict")
+            if sale.tier in {ComparableTier.T2, ComparableTier.T3}:
+                reasons.append("relative_card_requires_reproducible_price_adjustment")
             if grade not in {EvidenceGrade.E0, EvidenceGrade.E1, EvidenceGrade.E2}:
                 reasons.append(f"evidence_grade_{grade.value}_not_center_eligible")
             if sale.price <= 0:
@@ -142,10 +154,28 @@ class ShadowValuationEstimator:
         if not eligible:
             return ShadowEstimate(
                 "insufficient", None, None, None, Decimal("0"), (),
-                tuple(rejected), ("no_exact_center_eligible_sales",),
+                tuple(rejected), ("no_eligible_relative_candidates",),
             )
 
-        prices = [sale.landed_price for sale in eligible]
+        # T1 may stand in for an exact sale when the identity remains strongly
+        # anchored. T2/T3 are context only: publishing their raw price without
+        # a reproducible card/parallel adjustment creates systematic outliers.
+        tier_priority = {
+            ComparableTier.T0: 0,
+            ComparableTier.T1: 1,
+            ComparableTier.T2: 2,
+            ComparableTier.T3: 3,
+        }
+        best_priority = min(tier_priority[sale.tier] for sale in eligible)
+        relative_candidates = [
+            sale for sale in eligible if tier_priority[sale.tier] == best_priority
+        ]
+        for sale in eligible:
+            if sale not in relative_candidates:
+                rejected.append({"id": sale.id, "reasons": ["weaker_relative_tier"]})
+        eligible = relative_candidates
+
+        prices = [sale.card_value for sale in eligible]
         if len(prices) >= 5:
             center = Decimal(str(median(prices)))
             deviations = [abs(price - center) for price in prices]
@@ -153,7 +183,7 @@ class ShadowValuationEstimator:
             if mad > 0:
                 kept = []
                 for sale in eligible:
-                    robust_z = Decimal("0.6745") * abs(sale.landed_price - center) / mad
+                    robust_z = Decimal("0.6745") * abs(sale.card_value - center) / mad
                     if robust_z > Decimal("3.5"):
                         rejected.append({"id": sale.id, "reasons": ["price_outlier_mad"]})
                     else:
@@ -169,7 +199,7 @@ class ShadowValuationEstimator:
                 EvidenceGrade.E2: Decimal("0.62"),
             }[evidence_grade(sale.evidence_level)]
             weight = recency * grade_weight * sale.similarity * sale.source_reliability
-            weighted.append((sale.landed_price, weight))
+            weighted.append((sale.card_value, weight))
         fair = _weighted_quantile(weighted, Decimal("0.5"))
         count = len(eligible)
         if count == 1:
@@ -184,6 +214,8 @@ class ShadowValuationEstimator:
             confidence = min(Decimal("0.85"), Decimal("0.62") + Decimal(count) * Decimal("0.035"))
 
         review: list[str] = []
+        if eligible[0].tier != ComparableTier.T0:
+            review.append(f"relative_candidate_tier_{eligible[0].tier.value}")
         if count < 2:
             review.append("fewer_than_two_exact_sales")
         if max(sale.age_days for sale in eligible) > 180:
@@ -195,8 +227,15 @@ class ShadowValuationEstimator:
             review.append("interval_wider_than_center")
         if int(identity.get("serial_total") or 999) <= 10:
             review.append("ultra_rare_numbered_card")
+        tier_confidence_cap = {
+            ComparableTier.T0: Decimal("0.90"),
+            ComparableTier.T1: Decimal("0.60"),
+            ComparableTier.T2: Decimal("0.35"),
+            ComparableTier.T3: Decimal("0.20"),
+        }[eligible[0].tier]
+        confidence = min(confidence, tier_confidence_cap)
         return ShadowEstimate(
-            "manual_review" if review else "estimated",
+            "estimated",
             _q(low), _q(fair), _q(high), confidence,
             tuple(sale.id for sale in eligible), tuple(rejected),
             tuple(dict.fromkeys(review)),

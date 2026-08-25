@@ -1,0 +1,378 @@
+from __future__ import annotations
+
+from pathlib import Path
+from uuid import UUID, uuid4
+
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi.responses import FileResponse
+from psycopg import AsyncConnection
+
+from card_platform.auth import AuthenticatedUser, current_user
+from card_platform.config import get_settings
+from card_platform.flatbed_detection import Detection
+from card_platform.flatbed_service import FlatbedBridgeError, FlatbedService
+from card_platform.image_service import InvalidImageError, read_validated_image
+from card_platform.scanner_queue import ScannerQueueService
+
+router = APIRouter(prefix="/v1/flatbed", tags=["flatbed"], dependencies=[Depends(current_user)])
+
+
+async def connection(request: Request):
+    async with request.app.state.database.connection() as value:
+        yield value
+
+
+def service() -> FlatbedService:
+    settings = get_settings()
+    return FlatbedService(
+        settings.flatbed_scan_dir, settings.flatbed_bridge_script, settings.flatbed_ocr_script
+    )
+
+
+@router.get("/device")
+async def device() -> dict:
+    try:
+        events = await service().bridge("capabilities", timeout=15)
+        return {
+            "status": "ready",
+            "name": "Canon CanoScan LiDE 400",
+            "serial": "4706E5",
+            "capabilities": events[-1],
+        }
+    except FlatbedBridgeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+@router.post("/sessions", status_code=status.HTTP_201_CREATED)
+async def create_session(
+    payload: dict,
+    user: AuthenticatedUser = Depends(current_user),
+    db: AsyncConnection = Depends(connection),
+) -> dict:
+    dpi = int(payload.get("dpi", 300))
+    if dpi not in {300, 600}:
+        raise HTTPException(422, "DPI 仅支持 300 或 600")
+    return await service().create_session(db, user.id, dpi)
+
+
+@router.get("/sessions")
+async def sessions(
+    user: AuthenticatedUser = Depends(current_user), db: AsyncConnection = Depends(connection)
+) -> list[dict]:
+    result = await db.execute(
+        "SELECT * FROM flatbed_scan_session WHERE owner_id=%s ORDER BY created_at DESC LIMIT 30",
+        (user.id,),
+    )
+    return [dict(row) for row in await result.fetchall()]
+
+
+@router.get("/sessions/{session_id}")
+async def get_session(
+    session_id: UUID,
+    user: AuthenticatedUser = Depends(current_user),
+    db: AsyncConnection = Depends(connection),
+) -> dict:
+    result = await db.execute(
+        "SELECT * FROM flatbed_scan_session WHERE id=%s AND owner_id=%s", (session_id, user.id)
+    )
+    row = await result.fetchone()
+    if row is None:
+        raise HTTPException(404, "扫描会话不存在")
+    pairs = await db.execute(
+        "SELECT * FROM flatbed_pair_proposal WHERE session_id=%s AND owner_id=%s ORDER BY created_at",
+        (session_id, user.id),
+    )
+    regions = await db.execute(
+        """SELECT r.*,s.side,s.revision FROM flatbed_scan_region r
+           JOIN flatbed_scan_sheet s ON s.id=r.sheet_id
+           WHERE s.session_id=%s AND r.owner_id=%s
+             AND s.revision=(SELECT max(latest.revision) FROM flatbed_scan_sheet latest
+                             WHERE latest.session_id=s.session_id AND latest.side=s.side)
+           ORDER BY s.side,r.ordinal""",
+        (session_id, user.id),
+    )
+    sheets = await db.execute(
+        """SELECT id,side,revision,content_type,created_at,detector_version,layout_hypothesis,front_to_back_prior,requires_review,derived_version FROM flatbed_scan_sheet s
+           WHERE session_id=%s AND owner_id=%s
+             AND revision=(SELECT max(latest.revision) FROM flatbed_scan_sheet latest
+                           WHERE latest.session_id=s.session_id AND latest.side=s.side)
+           ORDER BY side""",
+        (session_id, user.id),
+    )
+    return {
+        **dict(row),
+        "pairs": [dict(item) for item in await pairs.fetchall()],
+        "regions": [dict(item) for item in await regions.fetchall()],
+        "sheets": [dict(item) for item in await sheets.fetchall()],
+    }
+
+
+@router.post("/sessions/{session_id}/sheets/{side}", status_code=201)
+async def upload_sheet(
+    session_id: UUID,
+    side: str,
+    image: UploadFile = File(...),
+    user: AuthenticatedUser = Depends(current_user),
+    db: AsyncConnection = Depends(connection),
+) -> dict:
+    if side not in {"front", "back"}:
+        raise HTTPException(404, "扫描面不存在")
+    try:
+        content = await read_validated_image(image, get_settings().max_image_bytes * 8)
+        return await service().store_sheet(
+            db, user.id, session_id, side, content, image.content_type or "image/jpeg"
+        )
+    except (InvalidImageError, ValueError) as error:
+        raise HTTPException(422, str(error)) from error
+    except LookupError as error:
+        raise HTTPException(404, str(error)) from error
+
+
+@router.put("/sheets/{sheet_id}/layout", status_code=201)
+async def override_layout(
+    sheet_id: UUID,
+    payload: dict,
+    user: AuthenticatedUser = Depends(current_user),
+    db: AsyncConnection = Depends(connection),
+) -> dict:
+    """Create a derived revision from editable quads without changing source bytes."""
+    source = await db.execute(
+        "SELECT session_id,side,original_path,content_type FROM flatbed_scan_sheet WHERE id=%s AND owner_id=%s",
+        (sheet_id, user.id),
+    )
+    row = await source.fetchone()
+    if row is None:
+        raise HTTPException(404, "整版扫描图片不存在")
+    raw_regions = payload.get("regions") or []
+    if not 1 <= len(raw_regions) <= 30:
+        raise HTTPException(422, "人工布局必须包含 1 至 30 个区域")
+    detections = []
+    for raw in raw_regions:
+        points = tuple((float(p["x"]), float(p["y"])) for p in raw.get("points", []))
+        if len(points) != 4 or any(not 0 <= value <= 1 for point in points for value in point):
+            raise HTTPException(422, "每个区域必须提供四个有效归一化角点")
+        xs, ys = [p[0] for p in points], [p[1] for p in points]
+        if max(xs) - min(xs) < .02 or max(ys) - min(ys) < .02:
+            raise HTTPException(422, "人工区域过小")
+        detections.append(Detection(min(xs), min(ys), max(xs)-min(xs), max(ys)-min(ys), 0, 1, points=points, evidence=("manual_override",)))
+    flatbed = service()
+    path = flatbed.resolve_path(row["original_path"])
+    return await flatbed.store_sheet(
+        db, user.id, row["session_id"], row["side"], path.read_bytes(), row["content_type"],
+        detections_override=detections,
+    )
+
+
+@router.post("/sheets/{sheet_id}/reprocess", status_code=201)
+async def reprocess_sheet(
+    sheet_id: UUID,
+    user: AuthenticatedUser = Depends(current_user),
+    db: AsyncConnection = Depends(connection),
+) -> dict:
+    """Create a new detector revision from immutable source bytes, without rescanning."""
+    source = await db.execute(
+        "SELECT session_id,side,original_path,content_type FROM flatbed_scan_sheet WHERE id=%s AND owner_id=%s",
+        (sheet_id, user.id),
+    )
+    row = await source.fetchone()
+    if row is None:
+        raise HTTPException(404, "整版扫描图片不存在")
+    flatbed = service()
+    path = flatbed.resolve_path(row["original_path"])
+    return await flatbed.store_sheet(
+        db,
+        user.id,
+        row["session_id"],
+        row["side"],
+        path.read_bytes(),
+        row["content_type"],
+    )
+
+
+@router.post("/sessions/{session_id}/capture/{side}", status_code=201)
+async def capture_sheet(
+    session_id: UUID,
+    side: str,
+    preview: bool = False,
+    user: AuthenticatedUser = Depends(current_user),
+    db: AsyncConnection = Depends(connection),
+) -> dict:
+    """Scan from LiDE 400 directly; the CLI process owns and always closes the session."""
+    if side not in {"front", "back"}:
+        raise HTTPException(404, "扫描面不存在")
+    session_result = await db.execute(
+        "SELECT dpi FROM flatbed_scan_session WHERE id=%s AND owner_id=%s",
+        (session_id, user.id),
+    )
+    session = await session_result.fetchone()
+    if session is None:
+        raise HTTPException(404, "扫描会话不存在")
+    capture_dir = service().root / str(user.id) / str(session_id) / "captures"
+    requested_path = capture_dir / f"{side}-{uuid4()}.png"
+    try:
+        events = await service().bridge(
+            "preview" if preview else "scan",
+            output=requested_path,
+            dpi=session["dpi"],
+            timeout=90 if preview else 240,
+        )
+        completed = next(
+            (item for item in reversed(events) if item.get("event") == "scan_complete"), None
+        )
+        path = (Path(completed["path"]) if completed else requested_path).resolve()
+        if not path.is_relative_to(capture_dir.resolve()):
+            raise FlatbedBridgeError("扫描仪返回了不安全的输出路径")
+        if not path.is_file():
+            raise FlatbedBridgeError("扫描完成但未生成图像")
+        stored = await service().store_sheet(
+            db, user.id, session_id, side, path.read_bytes(), "image/png"
+        )
+        path.unlink()
+        try:
+            capture_dir.rmdir()
+        except OSError:
+            pass
+        return stored
+    except FlatbedBridgeError as error:
+        detail = str(error)
+        code = 409 if "busy" in detail.lower() or "in use" in detail.lower() else 503
+        raise HTTPException(code, detail) from error
+
+
+@router.post("/sessions/{session_id}/pair")
+async def pair(
+    session_id: UUID,
+    user: AuthenticatedUser = Depends(current_user),
+    db: AsyncConnection = Depends(connection),
+) -> dict:
+    return await service().pair(db, user.id, session_id)
+
+
+@router.put("/sessions/{session_id}/pairs")
+async def override_pairs(
+    session_id: UUID,
+    payload: dict,
+    user: AuthenticatedUser = Depends(current_user),
+    db: AsyncConnection = Depends(connection),
+) -> dict:
+    pairs = payload.get("pairs") or []
+    front_ids = [UUID(item["front_region_id"]) for item in pairs]
+    back_ids = [UUID(item["back_region_id"]) for item in pairs]
+    if len(front_ids) != len(set(front_ids)) or len(back_ids) != len(set(back_ids)):
+        raise HTTPException(409, "正反面必须一一对应")
+    owned = await db.execute(
+        "SELECT id FROM flatbed_scan_region WHERE owner_id=%s AND id=ANY(%s) AND sheet_id IN (SELECT id FROM flatbed_scan_sheet WHERE session_id=%s)",
+        (user.id, front_ids + back_ids, session_id),
+    )
+    if len(await owned.fetchall()) != len(front_ids) + len(back_ids):
+        raise HTTPException(404, "配对区域不存在")
+    await db.execute(
+        "UPDATE flatbed_pair_proposal SET selected=false WHERE session_id=%s AND owner_id=%s",
+        (session_id, user.id),
+    )
+    for item in pairs:
+        await db.execute(
+            """INSERT INTO flatbed_pair_proposal(session_id,owner_id,front_region_id,back_region_id,score,confidence_level,transform,signals,conflicts,selected,manual_override) VALUES(%s,%s,%s,%s,1,'high','manual','{}','[]',true,true)""",
+            (session_id, user.id, UUID(item["front_region_id"]), UUID(item["back_region_id"])),
+        )
+    await db.execute(
+        "UPDATE flatbed_scan_session SET pairing_requires_review=false,status='paired',updated_at=now() WHERE id=%s AND owner_id=%s",
+        (session_id, user.id),
+    )
+    return {"status": "paired", "count": len(pairs)}
+
+
+@router.post("/sessions/{session_id}/submit")
+async def submit(
+    session_id: UUID,
+    user: AuthenticatedUser = Depends(current_user),
+    db: AsyncConnection = Depends(connection),
+) -> dict:
+    locked = await db.execute(
+        "SELECT * FROM flatbed_scan_session WHERE id=%s AND owner_id=%s FOR UPDATE",
+        (session_id, user.id),
+    )
+    session = await locked.fetchone()
+    if session is None:
+        raise HTTPException(404, "扫描会话不存在")
+    if session["submitted_at"]:
+        existing = await db.execute(
+            "SELECT scanner_job_id FROM flatbed_pair_proposal WHERE session_id=%s AND owner_id=%s AND selected AND scanner_job_id IS NOT NULL ORDER BY created_at",
+            (session_id, user.id),
+        )
+        return {
+            "status": "submitted",
+            "job_ids": [str(row["scanner_job_id"]) for row in await existing.fetchall()],
+        }
+    if session["pairing_requires_review"]:
+        raise HTTPException(409, "必须先确认低置信度或冲突配对")
+    rows = await db.execute(
+        """SELECT p.id pair_id,p.scanner_job_id,f.crop_path front_path,b.crop_path back_path FROM flatbed_pair_proposal p JOIN flatbed_scan_region f ON f.id=p.front_region_id JOIN flatbed_scan_region b ON b.id=p.back_region_id WHERE p.session_id=%s AND p.owner_id=%s AND p.selected ORDER BY p.created_at""",
+        (session_id, user.id),
+    )
+    jobs = []
+    queue = ScannerQueueService(get_settings())
+    flatbed = service()
+    for row in await rows.fetchall():
+        if row["scanner_job_id"]:
+            jobs.append(str(row["scanner_job_id"]))
+            continue
+        front = flatbed.resolve_path(row["front_path"]).read_bytes()
+        back = flatbed.resolve_path(row["back_path"]).read_bytes()
+        job = await queue.enqueue(
+            db,
+            user.id,
+            front,
+            "image/jpeg",
+            back,
+            "image/jpeg",
+            front_raw_content=front,
+            front_raw_content_type="image/jpeg",
+            back_raw_content=back,
+            back_raw_content_type="image/jpeg",
+            preprocessed=True,
+        )
+        jobs.append(str(job.id))
+        await db.execute(
+            "UPDATE flatbed_pair_proposal SET scanner_job_id=%s WHERE id=%s AND owner_id=%s",
+            (job.id, row["pair_id"], user.id),
+        )
+    await db.execute(
+        "UPDATE flatbed_scan_session SET status='submitted',submitted_at=now(),updated_at=now() WHERE id=%s",
+        (session_id,),
+    )
+    return {"status": "submitted", "job_ids": jobs}
+
+
+@router.get("/regions/{region_id}/image")
+async def region_image(
+    region_id: UUID,
+    user: AuthenticatedUser = Depends(current_user),
+    db: AsyncConnection = Depends(connection),
+) -> FileResponse:
+    result = await db.execute(
+        "SELECT crop_path FROM flatbed_scan_region WHERE id=%s AND owner_id=%s",
+        (region_id, user.id),
+    )
+    row = await result.fetchone()
+    if row is None:
+        raise HTTPException(404, "图片不存在")
+    path = service().resolve_path(row["crop_path"])
+    return FileResponse(path, media_type="image/jpeg")
+
+
+@router.get("/sheets/{sheet_id}/image")
+async def sheet_image(
+    sheet_id: UUID,
+    user: AuthenticatedUser = Depends(current_user),
+    db: AsyncConnection = Depends(connection),
+) -> FileResponse:
+    result = await db.execute(
+        "SELECT original_path,content_type FROM flatbed_scan_sheet WHERE id=%s AND owner_id=%s",
+        (sheet_id, user.id),
+    )
+    row = await result.fetchone()
+    if row is None:
+        raise HTTPException(404, "整版扫描图片不存在")
+    path = service().resolve_path(row["original_path"])
+    return FileResponse(path, media_type=row["content_type"])

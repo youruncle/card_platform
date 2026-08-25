@@ -109,7 +109,7 @@ async def read_validated_image(upload: UploadFile, max_bytes: int) -> bytes:
 
 class ImageStorageService:
     def __init__(self, settings: Settings) -> None:
-        self.upload_dir = Path(settings.upload_dir).resolve()
+        self.upload_dir = settings.resolved_upload_dir
         self.max_bytes = settings.max_image_bytes
         self.upload_dir.mkdir(parents=True, exist_ok=True)
 
@@ -141,6 +141,70 @@ class ImageStorageService:
             content,
             upload.content_type or "",
             standardize_ratio=not bool(item_row.get("grade_company")),
+        )
+
+    async def save_item_image_content(
+        self,
+        connection: AsyncConnection,
+        item_id: UUID,
+        owner_id: UUID,
+        side: str,
+        content: bytes,
+        content_type: str,
+    ) -> ImageUploadResult:
+        if side not in {"front", "back"}:
+            raise InvalidImageError("side must be front or back")
+        if len(content) > self.max_bytes or not has_valid_signature(content, content_type):
+            raise InvalidImageError("image content is invalid or exceeds the size limit")
+        item = await connection.execute(
+            """
+            SELECT grade_company FROM collection_item
+            WHERE id = %s AND owner_id = %s AND deleted_at IS NULL
+            """,
+            (item_id, owner_id),
+        )
+        row = await item.fetchone()
+        if row is None:
+            raise NotFoundError("collection item not found")
+        return await self._save_content(
+            connection,
+            item_id,
+            side,
+            content,
+            content_type,
+            standardize_ratio=not bool(row.get("grade_company")),
+        )
+
+    async def save_preprocessed_item_image_content(
+        self,
+        connection: AsyncConnection,
+        item_id: UUID,
+        owner_id: UUID,
+        side: str,
+        content: bytes,
+        content_type: str,
+    ) -> ImageUploadResult:
+        """Persist a scanner image that has already been cropped and oriented."""
+        if side not in {"front", "back"}:
+            raise InvalidImageError("side must be front or back")
+        if len(content) > self.max_bytes or not has_valid_signature(content, content_type):
+            raise InvalidImageError("image content is invalid or exceeds the size limit")
+        item = await connection.execute(
+            """
+            SELECT id FROM collection_item
+            WHERE id = %s AND owner_id = %s AND deleted_at IS NULL
+            """,
+            (item_id, owner_id),
+        )
+        if await item.fetchone() is None:
+            raise NotFoundError("collection item not found")
+        return await self._save_content(
+            connection,
+            item_id,
+            side,
+            content,
+            content_type,
+            rectify=False,
         )
 
     async def save_remote_item_image(
@@ -197,14 +261,16 @@ class ImageStorageService:
         content_type: str,
         *,
         standardize_ratio: bool = True,
+        rectify: bool = True,
     ) -> ImageUploadResult:
-        rectified = rectify_card_image(
-            content,
-            content_type,
-            standardize_ratio=standardize_ratio,
-        )
-        content = rectified.content
-        content_type = rectified.content_type
+        if rectify:
+            rectified = rectify_card_image(
+                content,
+                content_type,
+                standardize_ratio=standardize_ratio,
+            )
+            content = rectified.content
+            content_type = rectified.content_type
         suffix = ALLOWED_IMAGE_TYPES[content_type]
         filename = f"{item_id}-{side}-{uuid4().hex}{suffix}"
         destination = self.upload_dir / filename

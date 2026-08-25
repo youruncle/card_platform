@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "detector_version": "layout-recovery-v3",
+  "corpus_glob": "data/flatbed-scans/*/*/*/original.*",
+  "expected_count_by_session": {
+    "1143db53-b905-4b52-a9c2-aa9450c886ab": 8,
+    "34358aef-f55a-4504-aa0f-bfcc8a5d4a80": 8,
+    "8527da4a-6c5c-42dc-a368-cb18568d8b0a": 8,
+    "db7056ee-b9d0-41bd-a88f-647465e2b2ca": 8,
+    "dca1a79a-b1bf-4e4f-b74e-3bc43b0875d0": 8,
+    "dfbf09bc-5568-4ba9-8b25-34668c9d5623": 8,
+    "e30922b3-ef3d-4749-b055-bb9afbecf8bf": 8
+  },
+  "notes": "Local-only replay manifest. Original scans are immutable and untracked."
+}

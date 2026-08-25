@@ -2,7 +2,12 @@ import asyncio
 from decimal import Decimal
 
 from card_platform.schemas import CardRecognitionResult
-from card_platform.vision_routing import TieredVisionRouter, recognition_quality_issues
+from card_platform.vision_routing import (
+    TieredVisionRouter,
+    finalize_recognition_status,
+    recognition_quality_issues,
+    sanitize_birthdate_serial_false_positive,
+)
 
 
 def result(**updates) -> CardRecognitionResult:
@@ -97,6 +102,30 @@ def test_color_or_serial_only_parallel_is_underspecified() -> None:
     assert "parallel_contains_serial_fraction" in recognition_quality_issues(
         result(parallel_name="Gold /50", serial_number=27, serial_total=50)
     )
+
+
+def test_birthdate_fraction_is_not_accepted_as_serial_number() -> None:
+    cleaned = sanitize_birthdate_serial_false_positive(result(
+        serial_number=3,
+        serial_total=6,
+        is_numbered=True,
+        field_evidence={"serial_number": ["Back text: BORN: 3/6/73, MELROSE PARK"]},
+    ))
+    assert cleaned.serial_number is None
+    assert cleaned.serial_total is None
+    assert cleaned.is_numbered is None
+    assert "birthdate_serial_false_positive" in recognition_quality_issues(cleaned)
+    assert finalize_recognition_status(cleaned).recognition_status == "research_required"
+
+
+def test_independently_evidenced_serial_is_preserved() -> None:
+    cleaned = sanitize_birthdate_serial_false_positive(result(
+        serial_number=24,
+        serial_total=199,
+        is_numbered=True,
+        field_evidence={"serial_number": ["Front foil stamp: 024/199"]},
+    ))
+    assert (cleaned.serial_number, cleaned.serial_total, cleaned.is_numbered) == (24, 199, True)
 
 
 def test_flash_provider_failure_falls_forward_to_plus() -> None:

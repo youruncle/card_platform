@@ -71,7 +71,23 @@ python3.12 -m venv .venv
 .venv/bin/uvicorn card_platform.main:app --reload
 ```
 
-API 文档默认位于 `http://localhost:8000/docs`。主要接口包括：
+API 文档默认位于 `http://localhost:8000/docs`。
+
+本机需要长期同时运行 API 与 Web 时，使用带健康检查和 PID 保护的启动脚本，避免只剩
+Next.js 前端、登录代理却连接不到 8000 端口的半启动状态：
+
+```bash
+./scripts/local-stack.sh start
+./scripts/local-stack.sh status
+```
+
+首次执行 `start` 会安装两个 macOS 用户级 LaunchAgent；登录后自动启动，进程异常退出时
+由 `launchd` 拉起。运行日志保存在 `~/Library/Logs/CardPlatform/`；Web 使用 Next.js standalone server，
+并自动连接 `.next/static` 与 `public` 静态资源。仅重启 API 可执行
+`./scripts/local-stack.sh restart-api`，仅重启 Web 可执行
+`./scripts/local-stack.sh restart-web`。
+
+主要接口包括：
 
 首次启用登录系统时，在登录页选择“注册 / 认领旧账户”，使用原卡库邮箱设置密码；
 原有卡片会保留并自动归入该账户。首个设置凭证的账户会成为管理员。完成首次设置后，
@@ -120,6 +136,12 @@ API 文档默认位于 `http://localhost:8000/docs`。主要接口包括：
 组合汇总只使用与账户基准币一致的估值计算未实现盈亏；未估值或币种不一致的卡会计入 `unvalued_item_count`，不会被错误计算为亏损。
 
 新卡保存后会在同一数据库事务中写入 `valuation_job`。应用内 Worker 使用 PostgreSQL `FOR UPDATE SKIP LOCKED` 异步领取任务，通过联网检索收集真实成交，以身份匹配度和时间衰减计算加权分位数估值。列表在任务期间显示“估值中”，完成后可点击价格查看区间、置信度、模型版本、检索词、汇率和逐条来源；没有可靠成交时显示“证据不足”，不会使用买入价伪造市场价格。
+
+稀有卡可选配置 `SEARCH_INDEX_BRAVE_API_KEY` 和/或
+`SEARCH_INDEX_SERPAPI_KEY` 启用独立搜索索引取证。系统会用多种标题变体查找旧
+eBay 单品页，并保存 provider、query、snippet 与 itemId；只有摘要明确包含
+`Sold`、成交日期、币种和金额时才进入三级候选。`Best Offer` 未披露接受价、
+仅 `Ended`、当前挂牌和搜索结果页都不会作为成交。
 
 国内成交优先通过卡淘公开 `NewCommodity/SearchCommodity` 查询：限定篮球单卡、`Status=-2`（“售出的宝贝”）并按结束时间倒序拉取。系统使用 `LowestPrice`、`NewPostageMoney`、`OutCount` 和 `EffectiveDate` 还原结束价、运费、出价次数与时间；只接受有出价记录，并严格过滤多卡 Lot、不同赛季、不同限编、签字/非签字、物料/非物料和裸卡/评级卡混用。卡淘 `Status=-2` 证据在界面中明确标为“有出价的结束拍卖（未确认付款）”，不会伪装成支付完成记录；接口无可靠同款时才降级到通用联网检索。卡淘命中后跳过大模型市场检索，避免无关说明并缩短估值耗时。
 

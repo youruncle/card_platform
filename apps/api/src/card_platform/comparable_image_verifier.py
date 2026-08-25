@@ -43,13 +43,7 @@ class ComparableImageVerifier:
     MIN_TARGET_EDGE = 300
 
     def __init__(self, settings: Settings) -> None:
-        configured = Path(settings.upload_dir)
-        roots = [configured]
-        if not configured.is_absolute():
-            # The API is started both from `apps/api` and from the repository root.
-            # Uploaded image URLs must resolve identically in both cases.
-            roots.append(Path("apps/api") / configured)
-        self.upload_dirs = tuple(dict.fromkeys(root.resolve() for root in roots))
+        self.upload_dirs = (settings.resolved_upload_dir,)
         self.model = settings.vision_model
         self.client = (
             AsyncOpenAI(
@@ -241,10 +235,17 @@ class ComparableImageVerifier:
             strong_template = good >= 20 and inliers >= 15 and ratio >= Decimal("0.25")
             if not strong_template:
                 continue
-            reasons = [
-                *decision.reasons,
-                f"geometry_same_template:matches={good},inliers={inliers},ratio={ratio:.3f}",
-            ]
+            reasons = list(
+                dict.fromkeys(
+                    [
+                        *decision.reasons,
+                        (
+                            "geometry_same_template:"
+                            f"matches={good},inliers={inliers},ratio={ratio:.3f}"
+                        ),
+                    ]
+                )
+            )
             if decision.verdict in {"different", "uncertain"}:
                 # Geometry can prove the same printed template despite foil glare,
                 # but not the exact parallel coating. The identity classifier keeps

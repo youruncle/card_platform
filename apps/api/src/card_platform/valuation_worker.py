@@ -5,10 +5,10 @@ import logging
 import mimetypes
 import re
 from contextlib import suppress
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 from uuid import UUID
 
 import httpx
@@ -70,6 +70,7 @@ from card_platform.market_data.ebay_provider import EbayMarketplaceInsightsProvi
 from card_platform.market_data.models import MarketIdentity
 from card_platform.market_data.protection import ProtectedProvider
 from card_platform.market_data.service import MarketDataService
+from card_platform.search_index import SearchIndexHit, SearchIndexResearch
 from card_platform.knowledge_runtime import KnowledgeRuntime
 
 
@@ -78,12 +79,337 @@ logger = logging.getLogger(__name__)
 
 VALUATION_SITES = [
     "ebay.com",
+    "sportscardspro.com",
+    "sportscardinvestor.com",
     "psacard.com",
     "130point.com",
     "goldin.co",
     "fanaticscollect.com",
     "beckett.com",
 ]
+
+
+def market_search_query_ladder(identity: dict) -> list[str]:
+    """Build recall-first queries without letting one OCR field monopolize search."""
+    player_values = [
+        identity.get("player_name"),
+        *(identity.get("player_name_aliases") or []),
+    ]
+    players = list(
+        dict.fromkeys(str(value).strip() for value in player_values if str(value or "").strip())
+    )
+    if not players:
+        return []
+    player = players[0]
+    start = identity.get("season_start")
+    end = identity.get("season_end")
+    seasons = []
+    if start and end:
+        seasons.append(f"{start}-{str(end)[-2:]}")
+        # OCR/catalog imports often use the copyright year as season_start.
+        # Search the adjacent label for unconfirmed identities, but keep the
+        # stored identity unchanged until authoritative review.
+        if not identity.get("confirmed_identity_version_id"):
+            seasons.append(f"{end}-{str(int(end) + 1)[-2:]}")
+            seasons.append(str(end))
+    elif start:
+        seasons.append(str(start))
+
+    product = identity.get("product_name")
+    insert = identity.get("insert_name") or identity.get("insert")
+    set_name = identity.get("set_name")
+    descriptors = list(
+        dict.fromkeys(
+            str(value).strip()
+            for value in (insert, set_name)
+            if str(value or "").strip()
+        )
+    )
+    primary_descriptor = descriptors[0] if descriptors else None
+    card_number = identity.get("card_number")
+    serial_total = identity.get("serial_total") or identity.get("print_run")
+    autograph = "autograph" if identity.get("is_autograph") else None
+
+    def query(*parts: object) -> str:
+        return " ".join(str(part).strip() for part in parts if str(part or "").strip())
+
+    queries = []
+    for season in seasons[:3] or [None]:
+        queries.extend(
+            [
+                query(
+                    player,
+                    season,
+                    product,
+                    primary_descriptor,
+                    card_number,
+                    f"/{serial_total}" if serial_total else None,
+                ),
+                # Always pair the precise identity query with a product-level
+                # year query. OCR-only insert/card-number fields are a common
+                # source of false negatives (for example protective-coating
+                # text misread as a Finest insert name).
+                query(player, season, product),
+            ]
+        )
+    queries.extend(
+        [
+            query(player, product, primary_descriptor, card_number, autograph),
+            query(player, card_number, f"/{serial_total}" if serial_total else None),
+            query(player, card_number),
+            query(player, product, autograph),
+        ]
+    )
+    for descriptor in descriptors[:2]:
+        queries.append(query(player, descriptor, card_number, autograph))
+    for alias in players[1:3]:
+        queries.append(query(alias, card_number, insert, autograph))
+    return list(dict.fromkeys(item for item in queries if item))[:12]
+
+
+def ebay_completed_search_url(query: str) -> str:
+    return "https://www.ebay.com/sch/i.html?" + urlencode(
+        {
+            "_nkw": query,
+            "_sacat": "0",
+            "rt": "nc",
+            "LH_Sold": "1",
+            "LH_Complete": "1",
+        }
+    )
+
+
+def search_index_query_ladder(identity: dict) -> list[str]:
+    """Generate bounded search-engine discovery queries for old eBay sales."""
+    ladder = market_search_query_ladder(identity)
+    if not ladder:
+        return []
+    exact = ladder[:3]
+    queries = [f"site:ebay.com/itm {query}" for query in exact]
+    queries.extend(f'"{query}" sold ebay' for query in exact[:2])
+    queries.extend(f'"{query}" 130point' for query in exact[:2])
+    return list(dict.fromkeys(queries))[:7]
+
+
+def ebay_item_id(url: str) -> str | None:
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").casefold()
+    if host != "ebay.com" and not host.endswith(".ebay.com"):
+        return None
+    match = re.search(r"^/itm/(?:[^/]+/)?(\d{9,15})(?:/|$)", parsed.path, re.I)
+    return match.group(1) if match else None
+
+
+def sold_date_from_search_snippet(snippet: str) -> datetime | None:
+    month_date = (
+        r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|"
+        r"jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|"
+        r"nov(?:ember)?|dec(?:ember)?)\s+\d{1,2},\s*20\d{2}"
+    )
+    iso_date = r"20\d{2}[-/]\d{1,2}[-/]\d{1,2}"
+    match = re.search(
+        rf"\bsold(?:\s+on)?\s*[:·-]?\s*(?P<date>{month_date}|{iso_date})\b",
+        snippet,
+        re.I,
+    )
+    if match is None:
+        return None
+    value = match.group("date")
+    for pattern in ("%B %d, %Y", "%b %d, %Y", "%Y-%m-%d", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(value, pattern).replace(tzinfo=UTC)
+        except ValueError:
+            continue
+    return None
+
+
+def search_index_sale_is_usable(comp: "DiscoveredComparable") -> bool:
+    """Require a self-contained sold/date/price snippet; reject ambiguous offers."""
+    snippet = str(comp.search_snippet or "").strip()
+    provider = str(comp.search_provider or "").strip().casefold()
+    if (
+        comp.evidence_level != "search_index_sale"
+        or ebay_item_id(comp.source_url) is None
+        or provider not in {"google", "bing", "brave", "serpapi", "search_engine"}
+        or not str(comp.search_query or "").strip()
+        or not snippet
+        or "sold" not in snippet.casefold()
+        or re.search(r"best\s+offer", snippet, re.I)
+        or str(comp.sale_status or "").casefold() != "sold"
+        or comp.price_basis != "search_index_displayed_sold_price"
+    ):
+        return False
+    currency_tokens = {
+        "USD": r"(?:US\s*)?\$|USD\s*",
+        "CAD": r"C\$|CAD\s*",
+        "AUD": r"AU\$|AUD\s*",
+        "GBP": r"£|GBP\s*",
+        "EUR": r"€|EUR\s*",
+    }
+    token = currency_tokens.get(comp.currency.upper())
+    if sold_date_from_search_snippet(snippet) is None or token is None:
+        return False
+    prices = re.findall(rf"(?:{token})\s*([0-9][0-9,]*(?:\.\d{{1,2}})?)", snippet, re.I)
+    return any(
+        abs(Decimal(value.replace(",", "")) - comp.sale_price) <= Decimal("0.01")
+        for value in prices
+    )
+
+
+def search_index_hit_to_comparable(hit: SearchIndexHit) -> "DiscoveredComparable | None":
+    snippet = hit.snippet.strip()
+    sold_at = sold_date_from_search_snippet(snippet)
+    if sold_at is None or ebay_item_id(hit.url) is None:
+        return None
+    currencies = (
+        ("USD", r"(?:US\s*)?\$\s*([0-9][0-9,]*(?:\.\d{1,2})?)"),
+        ("CAD", r"(?:C\$|CAD\s*)\s*([0-9][0-9,]*(?:\.\d{1,2})?)"),
+        ("AUD", r"(?:AU\$|AUD\s*)\s*([0-9][0-9,]*(?:\.\d{1,2})?)"),
+        ("GBP", r"(?:£|GBP\s*)\s*([0-9][0-9,]*(?:\.\d{1,2})?)"),
+        ("EUR", r"(?:€|EUR\s*)\s*([0-9][0-9,]*(?:\.\d{1,2})?)"),
+    )
+    currency = None
+    price = None
+    for code, pattern in currencies:
+        match = re.search(pattern, snippet, re.I)
+        if match:
+            currency = code
+            price = Decimal(match.group(1).replace(",", ""))
+            break
+    if currency is None or price is None or price <= 0:
+        return None
+    grade = re.search(r"\b(PSA|BGS|SGC|CGC)\s*(10|9(?:\.5)?|8(?:\.5)?)\b", hit.title, re.I)
+    comp = DiscoveredComparable(
+        title=hit.title,
+        source_url=hit.url,
+        occurred_at=sold_at,
+        sale_price=price,
+        currency=currency,
+        # Search APIs do not provide FX. The caller must replace this neutral
+        # transport value with a verified rate before the comparable is returned.
+        fx_rate_to_base=Decimal("1"),
+        grade_company=grade.group(1).upper() if grade else None,
+        grade_value=Decimal(grade.group(2)) if grade else None,
+        match_confidence=Decimal("0.75"),
+        source_reliability=Decimal("0.55"),
+        evidence_level="search_index_sale",
+        sale_status="sold",
+        sale_status_evidence=snippet,
+        price_basis="search_index_displayed_sold_price",
+        search_provider=hit.provider,
+        search_query=hit.query,
+        search_snippet=snippet,
+    )
+    return comp if search_index_sale_is_usable(comp) else None
+
+
+def third_party_exact_search_queries(identity: dict) -> list[str]:
+    """Build exact-page discovery queries for third-tier completed-sale indexes."""
+    durable = [
+        identity.get("player_name"),
+        identity.get("product_name"),
+        identity.get("insert_name") or identity.get("set_name"),
+        identity.get("card_number"),
+        identity.get("parallel_name"),
+        f"/{identity.get('serial_total')}" if identity.get("serial_total") else None,
+    ]
+    terms = " ".join(str(value).strip() for value in durable if str(value or "").strip())
+    if not terms:
+        return []
+    return [
+        f"site:sportscardspro.com/game {terms}",
+        f"site:sportscardinvestor.com/cards {terms}",
+    ]
+
+
+def recognition_candidate_overrides(current: dict, recognized) -> dict:
+    """Promote rich vision output into a review candidate, never a confirmation."""
+    candidate = {
+        key: current.get(key)
+        for key in (
+            "player_name",
+            "season_start",
+            "season_end",
+            "brand_name",
+            "product_name",
+            "set_name",
+            "card_number",
+            "insert_name",
+            "parallel_name",
+            "serial_number",
+            "serial_total",
+            "is_rookie",
+            "is_autograph",
+            "autograph_type",
+            "is_memorabilia",
+            "memorabilia_types",
+            "grade_company",
+            "grade_value",
+        )
+    }
+    card_number = recognized.card_number or current.get("card_number")
+    if re.fullmatch(r"0*\d+\s*/\s*0*\d+", str(card_number or "").strip()):
+        card_number = None
+    is_autograph = (
+        recognized.is_autograph
+        if recognized.is_autograph is not None
+        else bool(current.get("is_autograph"))
+    )
+    is_memorabilia = (
+        recognized.is_memorabilia
+        if recognized.is_memorabilia is not None
+        else bool(current.get("is_memorabilia"))
+    )
+    autograph_type = recognized.autograph_type or current.get("autograph_type")
+    if not is_autograph:
+        autograph_type = "none"
+    elif autograph_type in {None, "none"}:
+        autograph_type = "unknown"
+    memorabilia_types = (
+        list(recognized.memorabilia_types)
+        if recognized.memorabilia_types
+        else list(current.get("memorabilia_types") or [])
+    )
+    if recognized.is_patch and "patch" not in memorabilia_types:
+        memorabilia_types.append("patch")
+    if not is_memorabilia:
+        memorabilia_types = []
+    return {
+        **candidate,
+        "player_name": recognized.player_name or current.get("player_name"),
+        "season_start": recognized.season_start or current.get("season_start"),
+        "season_end": recognized.season_end or current.get("season_end"),
+        "brand_name": recognized.brand_name or current.get("brand_name"),
+        "product_name": recognized.product_name or current.get("product_name"),
+        "card_number": card_number,
+        "insert_name": (
+            recognized.insert_name
+            if recognized.insert_name is not None
+            else current.get("insert_name")
+        ),
+        "parallel_name": (
+            recognized.parallel_name
+            if recognized.parallel_name is not None
+            else current.get("parallel_name")
+        ),
+        "serial_number": recognized.serial_number,
+        "serial_total": recognized.serial_total,
+        "is_rookie": (
+            recognized.is_rookie
+            if recognized.is_rookie is not None
+            else bool(current.get("is_rookie"))
+        ),
+        "is_autograph": is_autograph,
+        "autograph_type": autograph_type,
+        "is_memorabilia": is_memorabilia,
+        "memorabilia_types": memorabilia_types,
+        "grade_company": recognized.grade_company or current.get("grade_company"),
+        "grade_value": (
+            recognized.grade_value
+            if recognized.grade_value is not None
+            else current.get("grade_value")
+        ),
+    }
 
 
 def deduplicate_market_rows(
@@ -192,6 +518,15 @@ class DiscoveredComparable(BaseModel):
     matching_fields: list[str] = Field(default_factory=list)
     conflicts: list[str] = Field(default_factory=list)
     evidence_level: str = "aggregated_sale"
+    source_code: str = "public_market_research"
+    source_tier: int = Field(default=3, ge=1, le=3)
+    sale_status: str | None = None
+    sale_status_evidence: str | None = None
+    price_basis: str | None = None
+    discovery_url: str | None = None
+    search_provider: str | None = None
+    search_query: str | None = None
+    search_snippet: str | None = None
 
 
 class ValuationReference(BaseModel):
@@ -245,11 +580,49 @@ class FallbackValuation(BaseModel):
 class ComparableSearchResult(BaseModel):
     search_queries: list[str] = Field(default_factory=list)
     comparables: list[DiscoveredComparable] = Field(default_factory=list)
-    resolved_identity: dict[str, str | int | bool | None] = Field(default_factory=dict)
+    resolved_identity: dict[str, str | int | bool | list[str] | None] = Field(
+        default_factory=dict
+    )
     identity_conflicts: list[str] = Field(default_factory=list)
     fallback_valuation: FallbackValuation | None = None
     player_adjustments: list[PlayerAdjustment] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def discard_invalid_player_adjustment_pairs(cls, value):
+        if not isinstance(value, dict):
+            return value
+        cleaned = dict(value)
+        fallback = value.get("fallback_valuation")
+        if isinstance(fallback, dict):
+            fallback_cleaned = dict(fallback)
+            valid_references = []
+            for reference in fallback.get("references") or []:
+                if not isinstance(reference, dict):
+                    continue
+                try:
+                    observed_price = Decimal(str(reference.get("observed_price_base")))
+                except (ArithmeticError, TypeError, ValueError):
+                    continue
+                if observed_price > 0:
+                    valid_references.append(reference)
+            fallback_cleaned["references"] = valid_references
+            cleaned["fallback_valuation"] = fallback_cleaned
+        adjustments = []
+        for adjustment in value.get("player_adjustments") or []:
+            if not isinstance(adjustment, dict):
+                continue
+            pairs = [
+                pair
+                for pair in adjustment.get("pairs") or []
+                if isinstance(pair, dict)
+                and pair.get("target_price_base") not in (None, "")
+                and pair.get("reference_price_base") not in (None, "")
+            ]
+            adjustments.append({**adjustment, "pairs": pairs})
+        cleaned["player_adjustments"] = adjustments
+        return cleaned
 
 
 class IdentityVisualObservations(BaseModel):
@@ -295,6 +668,13 @@ class AutomatedValuationWorker:
             )
             if self.client is not None
             else None
+        )
+        self.search_index = SearchIndexResearch(
+            brave_api_key=settings.search_index_brave_api_key,
+            serpapi_key=settings.search_index_serpapi_key,
+            timeout=settings.search_index_timeout_seconds,
+            max_queries=settings.search_index_max_queries,
+            concurrency=settings.search_index_concurrency,
         )
         providers = []
         if self.cardhobby is not None:
@@ -356,11 +736,35 @@ class AutomatedValuationWorker:
 
     async def _claim(self) -> UUID | None:
         async with self.database.connection() as connection, connection.transaction():
+            await connection.execute(
+                """
+                UPDATE valuation_job
+                SET status = CASE WHEN attempt_count >= 3 THEN 'failed' ELSE 'queued' END,
+                    error_message = CASE
+                        WHEN attempt_count >= 3
+                        THEN COALESCE(error_message, 'valuation worker lease expired')
+                        ELSE error_message
+                    END,
+                    finished_at = CASE WHEN attempt_count >= 3 THEN now() ELSE NULL END,
+                    started_at = CASE WHEN attempt_count >= 3 THEN started_at ELSE NULL END,
+                    updated_at = now()
+                WHERE status IN ('identifying', 'searching', 'calculating')
+                  AND started_at < now() - interval '15 minutes'
+                """
+            )
             result = await connection.execute(
                 """
-                SELECT id FROM valuation_job
-                WHERE status = 'queued' AND attempt_count < 3
-                ORDER BY created_at
+                SELECT vj.id FROM valuation_job vj
+                WHERE vj.status = 'queued' AND vj.attempt_count < 3
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM market_identity_binding binding
+                      JOIN market_refresh_job refresh
+                        ON refresh.identity_fingerprint = binding.identity_fingerprint
+                      WHERE binding.collection_item_id = vj.collection_item_id
+                        AND refresh.status IN ('queued', 'running')
+                  )
+                ORDER BY vj.created_at
                 FOR UPDATE SKIP LOCKED LIMIT 1
                 """
             )
@@ -395,24 +799,6 @@ class AutomatedValuationWorker:
                     },
                 )
                 return
-            if not identity.get("confirmed_identity_version_id"):
-                research = await self._start_identity_research(
-                    identity, ["identity_confirmation_required"]
-                )
-                await self._finish(
-                    job_id,
-                    "insufficient_evidence",
-                    {
-                        "reason": "身份版本尚未确认，已阻止生成新价格",
-                        "identity_review_status": (
-                            identity.get("latest_identity_review_status") or "not_created"
-                        ),
-                        "research_status": research["status"],
-                        "research_case_id": research["case_id"],
-                        "candidate_count": research["candidate_count"],
-                    },
-                )
-                return
             await self._set_status(job_id, "searching")
             search = await self._search(identity)
             await self._store_comparables(identity, search)
@@ -431,7 +817,13 @@ class AutomatedValuationWorker:
             result = await connection.execute(
                 """
                 SELECT vj.collection_item_id, ci.card_definition_id, u.base_currency,
-                       p.full_name AS player_name, b.name AS brand_name,
+                       COALESCE(canonical_player.full_name, p.full_name) AS player_name,
+                       CASE
+                           WHEN canonical_player.full_name IS NOT NULL
+                           THEN ARRAY[p.full_name]
+                           ELSE ARRAY[]::text[]
+                       END AS player_name_aliases,
+                       b.name AS brand_name,
                        cs.season_start, cs.season_end, cs.product_name, cs.set_name,
                        cd.card_number, cd.insert_name, cd.parallel_name,
                        cd.is_rookie, cd.is_autograph, cd.autograph_type,
@@ -450,6 +842,23 @@ class AutomatedValuationWorker:
                 JOIN app_user u ON u.id = ci.owner_id
                 JOIN card_definition cd ON cd.id = ci.card_definition_id
                 JOIN player p ON p.id = cd.player_id
+                LEFT JOIN LATERAL (
+                    SELECT candidate.full_name
+                    FROM player candidate
+                    WHERE candidate.id <> p.id
+                      AND candidate.normalized_name ~ '^[a-z0-9 .''-]+$'
+                      AND p.normalized_name ~ '^[a-z0-9 .''-]+$'
+                      AND regexp_replace(
+                              candidate.normalized_name, '[^a-z0-9]', '', 'g'
+                          ) = regexp_replace(
+                              p.normalized_name, '[^a-z0-9]', '', 'g'
+                          )
+                    ORDER BY
+                        length(candidate.normalized_name),
+                        candidate.created_at,
+                        candidate.id
+                    LIMIT 1
+                ) canonical_player ON true
                 JOIN card_set cs ON cs.id = cd.card_set_id
                 JOIN brand b ON b.id = cs.brand_id
                 LEFT JOIN LATERAL (
@@ -485,12 +894,25 @@ class AutomatedValuationWorker:
                 stored["print_run"] = confirmed_identity.get("serial_total")
                 stored["is_patch"] = confirmed_identity.get("is_memorabilia", False)
             resolved = CardIdentityResolver().resolve(stored)
-            return {
+            valuation_identity = {
                 **stored,
                 **resolved.as_dict(),
                 "insert_name": resolved.insert,
                 "parallel_name": resolved.parallel,
             }
+            if self.knowledge_runtime:
+                explicit_aliases = valuation_identity.get("player_name_aliases") or []
+                valuation_identity["player_name_aliases"] = list(
+                    dict.fromkeys(
+                        (
+                            *self.knowledge_runtime.resolver.aliases_for(
+                                "player", valuation_identity.get("player_name")
+                            ),
+                            *(str(value).strip() for value in explicit_aliases),
+                        )
+                    )
+                )
+            return valuation_identity
 
     async def _start_identity_research(self, identity: dict, blockers: list[str]) -> dict:
         current = {
@@ -591,7 +1013,21 @@ class AutomatedValuationWorker:
                     recognized.parallel_name or "", *recognized.caveats,
                     *(text for values in recognized.field_evidence.values() for text in values),
                 ]
+                checklist_evidence = [
+                    {
+                        "source_url": recognized.reference_image_source_url,
+                        "image_url": recognized.reference_image_front_url,
+                        "match_confidence": (
+                            str(recognized.reference_image_match_confidence)
+                            if recognized.reference_image_match_confidence is not None
+                            else None
+                        ),
+                    }
+                ] if recognized.reference_image_source_url else []
                 return {
+                    "identity_overrides": recognition_candidate_overrides(
+                        identity, recognized
+                    ),
                     "product_season_start": recognized.season_start,
                     "product_season_end": recognized.season_end,
                     "product_name": recognized.product_name,
@@ -610,6 +1046,14 @@ class AutomatedValuationWorker:
                           for step in recognized.recognition_route),
                     ],
                     "confidence": recognized.confidence,
+                    "field_provenance": {
+                        field: [
+                            {"source": "tiered_vision_plus_web", "detail": detail}
+                            for detail in details
+                        ]
+                        for field, details in recognized.field_evidence.items()
+                    },
+                    "checklist_evidence": checklist_evidence,
                 }
             except Exception as error:
                 logger.warning(
@@ -634,7 +1078,9 @@ class AutomatedValuationWorker:
                             "必须严格区分卡号与限编流水号；Prizm、Refractor 等产品技术词不能"
                             "直接当作具体平行版。base_card 只有在没有限编、没有独特平行纹理且"
                             "版式符合基础卡时才为 true。parallel_name_hint 可以为空，禁止仅凭"
-                            "颜色猜名称。卡背版权年与完整赛季统计用于推断产品赛季。"
+                            "颜色猜名称。卡背版权年仅是发行时间线索，球员统计、履历、"
+                            "新秀赛季或正文中的年份都不是产品赛季证据；只有卡面明确产品"
+                            "标题、评级标签或经核验 checklist 才能确认 season_start/season_end。"
                             f"只返回符合 JSON Schema 的 JSON：{schema}"
                         ),
                     },
@@ -673,8 +1119,7 @@ class AutomatedValuationWorker:
             return None
         name = Path(image_url).name
         candidates = [
-            Path(self.settings.upload_dir) / name,
-            Path("apps/api") / self.settings.upload_dir / name,
+            self.settings.resolved_upload_dir / name,
         ]
         path = next((candidate for candidate in candidates if candidate.is_file()), None)
         if path is None:
@@ -691,8 +1136,7 @@ class AutomatedValuationWorker:
             return image_url
         name = Path(image_url).name
         candidates = [
-            Path(self.settings.upload_dir) / name,
-            Path("apps/api") / self.settings.upload_dir / name,
+            self.settings.resolved_upload_dir / name,
         ]
         path = next((candidate for candidate in candidates if candidate.is_file()), None)
         if path is None:
@@ -729,6 +1173,8 @@ class AutomatedValuationWorker:
                 ),
                 conflicts=list(item.identity_classification.get("conflicts", [])),
                 evidence_level=item.evidence_level,
+                source_code=item.provider_code,
+                source_tier=self._source_tier(item.provider_code),
             )
             for item in cached.evidence
         ]
@@ -746,7 +1192,7 @@ class AutomatedValuationWorker:
                     grade_company=comp.grade_company,
                     grade_value=comp.grade_value,
                     source_reliability=comp.source_reliability,
-                    source_code="cardhobby",
+                    source_code=comp.source_code,
                 ),
             )
             if classification.hard_conflicts:
@@ -765,25 +1211,35 @@ class AutomatedValuationWorker:
         ]
         if rejected_cached:
             notes.append(f"已在估值前剔除 {rejected_cached} 条身份冲突缓存成交")
-        curated = self._curated_exact_comparables(identity)
-        if curated:
-            notes.append(
-                "已加载经清单核验的同卡聚合成交；不同流水号不视为身份冲突"
-            )
         result = ComparableSearchResult(
-            comparables=[*comparables, *curated][:12], notes=notes
+            comparables=comparables[:12], notes=notes
         )
-        if len(result.comparables) < self.market_data.MIN_EVIDENCE and self.client is not None:
+        if len(result.comparables) < self.market_data.MIN_EVIDENCE and (
+            self.client is not None or self.search_index.enabled
+        ):
             # The durable provider cache is intentionally strict. Rare cards get
             # a separately labelled, source-backed fallback instead of becoming
             # permanently unpriceable when exact sales are sparse.
-            external = await self._search_external_legacy(identity)
+            try:
+                async with asyncio.timeout(
+                    self.settings.valuation_search_timeout_seconds
+                ):
+                    external = await self._search_external_legacy(identity)
+            except TimeoutError:
+                external = ComparableSearchResult(
+                    search_queries=market_search_query_ladder(identity),
+                    notes=[
+                        "外部市场检索超过总时限；已保留严格缓存证据并结束本次检索"
+                    ],
+                )
             by_url = {comp.source_url: comp for comp in result.comparables}
             by_url.update({comp.source_url: comp for comp in external.comparables})
             result = external.model_copy(
                 update={
                     "comparables": list(by_url.values())[:12],
-                    "notes": [*notes, *external.notes],
+                    "notes": self._truthful_source_availability_notes(
+                        [*notes, *external.notes], cached.provider_diagnostics
+                    ),
                 }
             )
         result = await self._verify_comparable_images(identity, result)
@@ -833,65 +1289,6 @@ class AutomatedValuationWorker:
             "comparables": accepted,
             "notes": [*search.notes, *rejection_notes],
         })
-
-    @staticmethod
-    def _curated_exact_comparables(identity: dict) -> list[DiscoveredComparable]:
-        """Stable, source-linked regressions for confirmed sparse-market identities."""
-        player = str(identity.get("player_name") or "").casefold()
-        product = str(identity.get("product_name") or "").casefold()
-        insert = str(identity.get("insert_name") or "").casefold()
-        parallel = str(identity.get("parallel_name") or "").casefold()
-        card_number = re.sub(r"^(?:no\.?|#)\s*", "", str(identity.get("card_number") or ""),
-                             flags=re.IGNORECASE)
-        if not (
-            "luka" in player
-            and identity.get("season_start") == 2023
-            and "crown royale" in product
-            and insert == "test of time"
-            and parallel == "blue"
-            and card_number == "4"
-            and identity.get("serial_total") == 75
-            and identity.get("grade_company") is None
-        ):
-            return []
-        source = (
-            "https://www.sportscardspro.com/game/"
-            "basketball-cards-2023-panini-crown-royale-test-of-time/"
-            "luka-doncic-blue-4"
-        )
-        sales = (
-            # /75 is uniquely Blue for this insert in the verified checklist;
-            # the listing need not repeat the color to be an exact identity.
-            ("2026-01-04T00:00:00Z", "18.00", "serial-not-reported"),
-            ("2025-06-15T00:00:00Z", "15.50", "24/75"),
-            ("2025-01-12T00:00:00Z", "15.00", "serial-not-reported"),
-            ("2024-11-14T00:00:00Z", "24.00", "serial-not-reported"),
-            ("2024-10-02T00:00:00Z", "24.00", "8/75"),
-            ("2024-09-14T00:00:00Z", "25.00", "8/75"),
-        )
-        return [
-            DiscoveredComparable(
-                title=(
-                    "2023-24 Panini Crown Royale Luka Doncic Test of Time "
-                    f"Blue /75 #4 Raw (sold copy {serial})"
-                ),
-                source_url=f"{source}#sale-{occurred_at[:10]}-{serial.replace('/', '-')}",
-                occurred_at=datetime.fromisoformat(occurred_at.replace("Z", "+00:00")),
-                sale_price=Decimal(price),
-                shipping_price=Decimal("0"),
-                currency="USD",
-                fx_rate_to_base=Decimal("6.77"),
-                match_confidence=Decimal("0.98"),
-                source_reliability=Decimal("0.82"),
-                matching_fields=[
-                    "player_name", "season_start", "season_end", "product_name",
-                    "insert_name", "parallel_name", "card_number", "serial_total",
-                    "raw_condition", "aggregated_completed_sale",
-                ],
-                evidence_level="aggregated_sale",
-            )
-            for occurred_at, price, serial in sales
-        ]
 
     async def _verify_comparable_images(
         self,
@@ -972,8 +1369,6 @@ class AutomatedValuationWorker:
 
     async def _search_external_legacy(self, identity: dict) -> ComparableSearchResult:
         """Deprecated synchronous search retained temporarily for migration rollback only."""
-        if self.client is None:
-            return ComparableSearchResult(notes=["未配置市场检索模型"])
         cardhobby_result = None
         if self.cardhobby is not None:
             try:
@@ -993,7 +1388,7 @@ class AutomatedValuationWorker:
             )
             if self.settings.valuation_verify_sources:
                 direct_result = await self._verify_sources(direct_result)
-            return direct_result.model_copy(
+            direct_result = direct_result.model_copy(
                 update={
                     "comparables": [
                         comp
@@ -1003,7 +1398,33 @@ class AutomatedValuationWorker:
                     ][:12]
                 }
             )
+            if len(direct_result.comparables) >= self.market_data.MIN_EVIDENCE:
+                return direct_result
+        search_index_result = await self._search_index_comparables(identity)
+        if self.client is None:
+            return search_index_result.model_copy(
+                update={
+                    "search_queries": [
+                        *(cardhobby_result.search_queries if cardhobby_result else []),
+                        *search_index_result.search_queries,
+                    ],
+                    "comparables": [
+                        *(
+                            self._cardhobby_comparables(cardhobby_result)
+                            if cardhobby_result is not None
+                            else []
+                        ),
+                        *search_index_result.comparables,
+                    ],
+                    "notes": [
+                        *(cardhobby_result.notes if cardhobby_result is not None else []),
+                        *search_index_result.notes,
+                        "未配置市场检索模型",
+                    ],
+                }
+            )
         schema = json.dumps(ComparableSearchResult.model_json_schema(), ensure_ascii=False)
+        query_ladder = market_search_query_ladder(identity)
         response = await self.client.chat.completions.create(
             model=self.settings.valuation_search_model,
             messages=[
@@ -1024,6 +1445,30 @@ class AutomatedValuationWorker:
                         "在售价格并施加流动性折价。fallback 价格全部换算为账户基础币种，至少"
                         "提供一个可访问来源，逐条写明 evidence_type、匹配度和调整逻辑；置信度"
                         "不得超过0.65。不要因为没有完全同款就直接放弃估值。"
+                        "检索必须遵守来源瀑布：第一优先卡淘，第二优先 eBay 公开搜索，第三优先"
+                        "SportscardsPro、Sports Card Investor、130point、PSA、Beckett 等第三方。"
+                        "eBay 只有页面明确显示 Sold/Ended 且能核验实际成交价时才可进入"
+                        "comparables，evidence_level=public_completed_sale；普通在售、Buy It Now、"
+                        "未成交结束商品只能作为 fallback reference，evidence_type=asking_price。"
+                        "每条 eBay comparables 必须链接到单个 /itm/ 商品页，并填写 sale_status="
+                        "sold、sale_status_evidence（页面可见的 Sold/Ended 文本）、price_basis。"
+                        "price_basis 仅允许 fixed_price_sale、auction_final_price、displayed_sold_price；"
+                        "Best Offer 未显示实际接受价时不得进入 comparables。discovery_url 写入发现"
+                        "该商品的 LH_Sold=1 且 LH_Complete=1 搜索页。搜索结果页和 /p/ 产品聚合页"
+                        "只能用于发现，不能作为逐笔成交 source_url。"
+                        "第三方逐笔历史成交可标 aggregated_sale；网站计算出的价格指数只能标"
+                        "price_guide 并放入 fallback。绝不能把搜索摘要中的挂牌价当成交价。"
+                        "搜索引擎索引只能作为低等级发现证据。只有 snippet 同时明确包含 Sold、"
+                        "成交日期、币种和价格，并链接到单个 ebay.com/itm/{item_id} 页面时，才可"
+                        "返回 evidence_level=search_index_sale，同时填写 search_provider、"
+                        "search_query、search_snippet，price_basis=search_index_displayed_sold_price。"
+                        "snippet 若含 Best Offer、只有 Ended、价格缺失或只是搜索结果页，一律不得"
+                        "进入 comparables；可以写入 notes，但不得用于估值。"
+                        "不得在 notes 声称 manual inspection、人工检查、exhaustive search 或全部"
+                        "查询已执行；来源执行状态只由后端 provider 诊断记录。"
+                        "在宣称第三方无结果前，必须逐条执行输入中的 third_party_exact_search_queries，"
+                        "打开命中的单卡详情页并检查 completed sales/sales history；只能返回页面"
+                        "明确列出的日期和成交价，搜索摘要、当前在售和页面估算价均不得冒充成交。"
                         "评级状态是硬约束：目标为裸卡时，comparables 和 fallback references 只能"
                         "使用 condition_type=raw 且没有评级公司/分数的裸卡；目标为评级卡时，只能"
                         "使用 condition_type=graded 且评级公司和分数都完全相同的卡。不得用 PSA "
@@ -1047,6 +1492,17 @@ class AutomatedValuationWorker:
                                 not in {"collection_item_id", "card_definition_id"}
                             },
                             "required_base_currency": identity["base_currency"],
+                            "required_search_query_ladder": query_ladder,
+                            "ebay_completed_search_urls": [
+                                ebay_completed_search_url(query)
+                                for query in query_ladder[:6]
+                            ],
+                            "search_index_discovery_queries": (
+                                search_index_query_ladder(identity)
+                            ),
+                            "third_party_exact_search_queries": (
+                                third_party_exact_search_queries(identity)
+                            ),
                         },
                         ensure_ascii=False,
                         default=str,
@@ -1068,31 +1524,61 @@ class AutomatedValuationWorker:
             parsed = ComparableSearchResult(notes=["通用市场检索未返回结果"])
         else:
             parsed = ComparableSearchResult.model_validate_json(content)
+            parsed = parsed.model_copy(
+                update={
+                    "notes": [
+                        f"模型辅助检索备注（非证据）：{note}" for note in parsed.notes
+                    ]
+                }
+            )
         if cardhobby_result is not None:
             parsed = parsed.model_copy(
                 update={
                     "search_queries": [
                         *cardhobby_result.search_queries,
+                        *search_index_result.search_queries,
                         *parsed.search_queries,
                     ],
                     "comparables": [
                         *self._cardhobby_comparables(cardhobby_result),
+                        *search_index_result.comparables,
                         *parsed.comparables,
                     ],
-                    "notes": [*cardhobby_result.notes, *parsed.notes],
+                    "notes": [
+                        *cardhobby_result.notes,
+                        *search_index_result.notes,
+                        *parsed.notes,
+                    ],
+                }
+            )
+        else:
+            parsed = parsed.model_copy(
+                update={
+                    "search_queries": [
+                        *search_index_result.search_queries,
+                        *parsed.search_queries,
+                    ],
+                    "comparables": [
+                        *search_index_result.comparables,
+                        *parsed.comparables,
+                    ],
+                    "notes": [*search_index_result.notes, *parsed.notes],
                 }
             )
         if cardhobby_error:
             parsed = parsed.model_copy(update={"notes": [cardhobby_error, *parsed.notes]})
         if self.settings.valuation_verify_sources:
             parsed = await self._verify_sources(parsed)
-        valid = [
-            comp
-            for comp in parsed.comparables
-            if urlparse(comp.source_url).scheme in {"http", "https"}
-            and comp.match_confidence >= Decimal("0.5")
-            and self._comparable_grade_matches(identity, comp)
-        ]
+        valid = []
+        for comp in parsed.comparables:
+            normalized = self._normalize_public_comparable(comp)
+            if (
+                normalized is not None
+                and normalized.match_confidence >= Decimal("0.5")
+                and self._comparable_grade_matches(identity, normalized)
+            ):
+                valid.append(normalized)
+        valid.sort(key=lambda comp: (comp.source_tier, -float(comp.match_confidence)))
         fallback = parsed.fallback_valuation
         if fallback is not None:
             references = [
@@ -1107,6 +1593,109 @@ class AutomatedValuationWorker:
         return parsed.model_copy(
             update={"comparables": valid[:12], "fallback_valuation": fallback}
         )
+
+    async def _search_index_comparables(self, identity: dict) -> ComparableSearchResult:
+        queries = search_index_query_ladder(identity)
+        if not self.search_index.enabled:
+            return ComparableSearchResult(
+                search_queries=queries,
+                notes=["独立搜索索引提供商未配置；未执行 Brave/SerpAPI 取证"],
+            )
+        hits, errors = await self.search_index.search(queries)
+        candidates = [search_index_hit_to_comparable(hit) for hit in hits]
+        parsed = [candidate for candidate in candidates if candidate is not None]
+        rates: dict[tuple[str, str], Decimal | None] = {}
+        base_currency = str(identity["base_currency"]).upper()
+        accepted = []
+        async with httpx.AsyncClient(
+            timeout=self.settings.search_index_timeout_seconds,
+            follow_redirects=True,
+        ) as client:
+            for comp in parsed:
+                pair = (comp.currency.upper(), base_currency)
+                if pair not in rates:
+                    if pair[0] == pair[1]:
+                        rates[pair] = Decimal("1")
+                    else:
+                        try:
+                            response = await client.get(
+                                "https://api.frankfurter.app/latest",
+                                params={"from": pair[0], "to": pair[1]},
+                            )
+                            response.raise_for_status()
+                            rate = response.json().get("rates", {}).get(pair[1])
+                            rates[pair] = Decimal(str(rate)) if rate else None
+                        except (httpx.HTTPError, ValueError, TypeError):
+                            rates[pair] = None
+                if rates[pair] is not None:
+                    accepted.append(
+                        comp.model_copy(update={"fx_rate_to_base": rates[pair]})
+                    )
+        rejected = len(hits) - len(accepted)
+        provider_counts = {
+            provider: sum(hit.provider == provider for hit in hits)
+            for provider in sorted({hit.provider for hit in hits})
+        }
+        return ComparableSearchResult(
+            search_queries=queries,
+            comparables=accepted,
+            notes=[
+                "独立搜索索引取证："
+                f"命中 {len(hits)}，通过 Sold+日期+币种+价格+itemId 门槛 "
+                f"{len(accepted)}，拒绝 {rejected}；提供商 {provider_counts}",
+                *([f"搜索索引部分失败：{'；'.join(errors[:3])}"] if errors else []),
+            ],
+        )
+
+    @staticmethod
+    def _source_tier(source_code: str) -> int:
+        if source_code == "cardhobby":
+            return 1
+        if source_code in {"ebay", "ebay_public"}:
+            return 2
+        return 3
+
+    @staticmethod
+    def _truthful_source_availability_notes(
+        notes: list[str], provider_diagnostics: list[dict[str, object]]
+    ) -> list[str]:
+        """Do not turn a provider outage into a claim that its market is empty."""
+        unavailable = {
+            str(item.get("provider") or "").strip().casefold()
+            for item in provider_diagnostics
+            if str(item.get("status") or "").casefold() != "succeeded"
+        }
+        if not unavailable:
+            return notes
+        absence_markers = (
+            "no completed",
+            "no exact",
+            "no publicly",
+            "returned zero",
+            "zero result",
+            "zero sold",
+            "未找到",
+            "未检索到",
+            "没有找到",
+            "无成交",
+            "无结果",
+        )
+        truthful = []
+        for note in notes:
+            normalized = note.casefold()
+            if any(
+                provider in normalized
+                and any(marker in normalized for marker in absence_markers)
+                for provider in unavailable
+            ):
+                continue
+            truthful.append(note)
+        for provider in sorted(unavailable):
+            truthful.append(
+                f"{provider} 来源不可用，本次无法判断是否存在已售记录；"
+                "不得将来源故障解释为零成交。"
+            )
+        return list(dict.fromkeys(truthful))
 
     @staticmethod
     def _cardhobby_comparables(
@@ -1132,9 +1721,123 @@ class AutomatedValuationWorker:
                 ],
                 conflicts=sale.conflicts,
                 evidence_level=sale.evidence_level,
+                source_code="cardhobby_provider",
+                source_tier=1,
             )
             for sale in result.sales
         ]
+
+    @staticmethod
+    def _normalize_public_comparable(
+        comp: DiscoveredComparable,
+    ) -> DiscoveredComparable | None:
+        if comp.source_code == "cardhobby_provider":
+            if (
+                not is_cardhobby_evidence_url(comp.source_url)
+                or comp.evidence_level not in {
+                    "confirmed_transaction",
+                    "ended_auction",
+                    "legacy_cardhobby_sale",
+                }
+                or not any(
+                    field in comp.matching_fields
+                    for field in ("cardhobby_status_sold", "cardhobby:confirmed_transaction")
+                )
+            ):
+                return None
+            return comp.model_copy(update={"source_code": "cardhobby", "source_tier": 1})
+        if comp.source_code == "cardhobby":
+            # Search models may name a source, but they cannot promote their own
+            # CardHobby discoveries to first-party transaction evidence.
+            return None
+        parsed = urlparse(comp.source_url)
+        if parsed.scheme not in {"http", "https"}:
+            return None
+        host = (parsed.hostname or "").casefold()
+        if host == "ebay.com" or host.endswith(".ebay.com"):
+            if comp.evidence_level == "search_index_sale":
+                if not search_index_sale_is_usable(comp):
+                    return None
+                return comp.model_copy(
+                    update={
+                        "source_code": "public_market_research",
+                        "source_tier": 3,
+                        "source_reliability": min(
+                            comp.source_reliability, Decimal("0.55")
+                        ),
+                        "matching_fields": list(
+                            dict.fromkeys(
+                                [
+                                    *comp.matching_fields,
+                                    "search_index:sold_date_price",
+                                    "origin_marketplace:ebay",
+                                ]
+                            )
+                        ),
+                    }
+                )
+            sold_status = str(comp.sale_status or "").strip().casefold()
+            price_basis = str(comp.price_basis or "").strip().casefold()
+            if comp.evidence_level not in {
+                "public_completed_sale",
+                "ended_auction",
+                "aggregated_sale",
+            } or not re.search(r"^/itm/(?:[^/]+/)?\d+", parsed.path) or sold_status not in {
+                "sold",
+                "ended_with_bid",
+            } or not str(comp.sale_status_evidence or "").strip() or price_basis not in {
+                "fixed_price_sale",
+                "auction_final_price",
+                "displayed_sold_price",
+            }:
+                return None
+            return comp.model_copy(
+                update={
+                    "source_code": "ebay_public",
+                    "source_tier": 2,
+                    "source_reliability": min(
+                        comp.source_reliability, Decimal("0.82")
+                    ),
+                    "evidence_level": "public_completed_sale",
+                }
+            )
+        profiles = {
+            "sportscardspro.com": ("sportscardspro", Decimal("0.72")),
+            "sportscardinvestor.com": ("sports_card_investor", Decimal("0.70")),
+            "130point.com": ("public_market_research", Decimal("0.72")),
+            "psacard.com": ("public_market_research", Decimal("0.72")),
+            "beckett.com": ("public_market_research", Decimal("0.70")),
+            "goldin.co": ("public_market_research", Decimal("0.78")),
+            "fanaticscollect.com": ("public_market_research", Decimal("0.78")),
+        }
+        profile = next(
+            (
+                value
+                for domain, value in profiles.items()
+                if host == domain or host.endswith(f".{domain}")
+            ),
+            None,
+        )
+        if profile is None or comp.evidence_level in {
+            "active_listing",
+            "asking_price",
+            "price_guide",
+        }:
+            return None
+        source_code, reliability_cap = profile
+        if source_code == "sportscardspro" and not re.fullmatch(
+            r"/game/basketball-cards-[a-z0-9-]+/[a-z0-9-]+/?",
+            parsed.path,
+        ):
+            return None
+        return comp.model_copy(
+            update={
+                "source_code": source_code,
+                "source_tier": 3,
+                "source_reliability": min(comp.source_reliability, reliability_cap),
+                "evidence_level": "aggregated_sale",
+            }
+        )
 
     async def _verify_sources(
         self, result: ComparableSearchResult
@@ -1151,10 +1854,17 @@ class AutomatedValuationWorker:
             headers={"User-Agent": "Mozilla/5.0 CardPlatformValuation/1.2"},
         ) as client:
             checks = await asyncio.gather(
-                *(self._url_reachable(client, url) for url in urls),
+                *(self._url_verification_status(client, url) for url in urls),
                 return_exceptions=True,
             )
-        reachable = {url for url, check in zip(urls, checks, strict=True) if check is True}
+        verification = {
+            url: check if isinstance(check, str) else "unreachable"
+            for url, check in zip(urls, checks, strict=True)
+        }
+        reachable = {
+            url for url, status in verification.items()
+            if status in {"verified", "browser_required"}
+        }
         fallback = result.fallback_valuation
         if fallback:
             fallback = fallback.model_copy(
@@ -1178,32 +1888,101 @@ class AutomatedValuationWorker:
             )
             for adjustment in result.player_adjustments
         ]
+        comparables = []
+        for comp in result.comparables:
+            status = verification.get(comp.source_url, "unreachable")
+            if status not in {"verified", "browser_required"}:
+                continue
+            if status == "browser_required":
+                comp = comp.model_copy(update={
+                    "source_reliability": min(
+                        comp.source_reliability, Decimal("0.60")
+                    ),
+                    "matching_fields": [
+                        *comp.matching_fields,
+                        "source_access:browser_required",
+                    ],
+                })
+            comparables.append(comp)
+        browser_required_count = sum(
+            status == "browser_required" for status in verification.values()
+        )
         return result.model_copy(
             update={
-                "comparables": [
-                    comp for comp in result.comparables if comp.source_url in reachable
-                ],
+                "comparables": comparables,
                 "fallback_valuation": fallback,
                 "player_adjustments": adjustments,
+                "notes": [
+                    *result.notes,
+                    *(
+                        [
+                            "第三级来源中有 "
+                            f"{browser_required_count} 个链接被反爬挑战保护；"
+                            "已标记 browser_required 并把来源可靠度上限降至 0.60"
+                        ]
+                        if browser_required_count
+                        else []
+                    ),
+                ],
             }
         )
 
     @staticmethod
-    async def _url_reachable(client: httpx.AsyncClient, url: str) -> bool:
+    async def _url_verification_status(client: httpx.AsyncClient, url: str) -> str:
         try:
             if cardhobby_item_id(url):
                 # These item IDs were returned by CardHobby's first-party sold search API.
                 # Historical detail pages can return 404 to HEAD even while the API record
                 # remains available, so the API response itself is the verification source.
-                return True
+                return "verified"
             if is_cardhobby_evidence_url(url):
                 response = await client.head(url)
                 length = int(response.headers.get("content-length", "0") or 0)
-                return 200 <= response.status_code < 400 and length > 0
+                return (
+                    "verified"
+                    if 200 <= response.status_code < 400 and length > 0
+                    else "unreachable"
+                )
             response = await client.get(url)
-            return 200 <= response.status_code < 400 and bool(response.content)
+            if 200 <= response.status_code < 400 and bool(response.content):
+                return "verified"
+            parsed = urlparse(url)
+            host = (parsed.hostname or "").casefold()
+            challenge = response.text[:6000].casefold()
+            if (
+                response.status_code == 403
+                and (host == "sportscardspro.com" or host.endswith(".sportscardspro.com"))
+                and re.fullmatch(
+                    r"/game/basketball-cards-[a-z0-9-]+/[a-z0-9-]+/?",
+                    parsed.path,
+                )
+                and "challenges.cloudflare.com" in challenge
+                and "just a moment" in challenge
+            ):
+                return "browser_required"
+            if (
+                response.status_code == 403
+                and ebay_item_id(url) is not None
+                and (
+                    "akamai" in challenge
+                    or "access denied" in challenge
+                    or "security measure" in challenge
+                )
+            ):
+                # The individual item URL is still the evidence address, but eBay
+                # commonly denies non-browser verification. This status never
+                # promotes a listing by itself: normalization has already required
+                # a self-contained sold/date/currency/price search-index snapshot.
+                return "browser_required"
+            return "unreachable"
         except httpx.HTTPError:
-            return False
+            return "unreachable"
+
+    @staticmethod
+    async def _url_reachable(client: httpx.AsyncClient, url: str) -> bool:
+        return (
+            await AutomatedValuationWorker._url_verification_status(client, url)
+        ) in {"verified", "browser_required"}
 
     @staticmethod
     def _grade_matches(identity: dict, reference: ValuationReference) -> bool:
@@ -1305,55 +2084,50 @@ class AutomatedValuationWorker:
         async with self.database.connection() as connection, connection.transaction():
             sources = await connection.execute(
                 "SELECT id, code FROM data_source "
-                "WHERE code IN ('automated_market_search', 'cardhobby')"
+                "WHERE code IN ('automated_market_search', 'cardhobby', "
+                "'ebay_public', 'sportscardspro', 'sports_card_investor', "
+                "'public_market_research')"
             )
             source_ids = {row["code"]: row["id"] for row in await sources.fetchall()}
             for comp in search.comparables:
                 cardhobby_key = cardhobby_external_id(
                     comp.source_url, comp.title, comp.occurred_at, comp.sale_price
                 )
-                source_code = (
-                    "cardhobby" if cardhobby_key is not None else "automated_market_search"
+                ebay_key = ebay_item_id(comp.source_url)
+                source_code = "cardhobby" if cardhobby_key is not None else comp.source_code
+                source_id = source_ids.get(
+                    source_code, source_ids["automated_market_search"]
                 )
-                source_id = source_ids[source_code]
                 external_id = (
-                    cardhobby_key if cardhobby_key is not None else comp.source_url
+                    cardhobby_key
+                    if cardhobby_key is not None
+                    else f"ebay:{ebay_key}"
+                    if ebay_key is not None
+                    else comp.source_url
                 )
-                existing_identity = await connection.execute(
-                    """
-                    SELECT card_definition_id
-                    FROM market_comp
-                    WHERE data_source_id = %s AND external_id = %s
-                    LIMIT 1
-                    """,
-                    (source_id, external_id),
+                classification = (
+                    {"origin_source_code": "ebay", "ebay_item_id": ebay_key}
+                    if ebay_key is not None
+                    else {}
                 )
-                existing_identity_row = await existing_identity.fetchone()
-                if (
-                    existing_identity_row is not None
-                    and str(existing_identity_row["card_definition_id"])
-                    != str(identity["card_definition_id"])
-                ):
-                    logger.warning(
-                        "quarantined market comparable %s because it is already "
-                        "bound to card definition %s instead of %s",
-                        external_id,
-                        existing_identity_row["card_definition_id"],
-                        identity["card_definition_id"],
-                    )
-                    continue
+                # A public sale can legitimately be a comparable for multiple
+                # owners and for a corrected card definition. The database's
+                # identity-scoped unique key prevents duplicates within one
+                # definition; a global external-id quarantine would strand
+                # evidence on superseded identities after manual correction.
                 await connection.execute(
                     """
                     INSERT INTO market_comp (
                         card_definition_id, data_source_id, occurred_at, sale_price,
                         shipping_price, currency, fx_rate_to_base, grade_company,
                         grade_value, listing_title, source_url, external_id,
-                        match_confidence, source_reliability, raw_payload
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        match_confidence, source_reliability, classification, raw_payload
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (card_definition_id, data_source_id, external_id)
                     DO UPDATE SET
                         match_confidence = EXCLUDED.match_confidence,
                         source_reliability = EXCLUDED.source_reliability,
+                        classification = market_comp.classification || EXCLUDED.classification,
                         raw_payload = EXCLUDED.raw_payload
                     """,
                     (
@@ -1371,12 +2145,14 @@ class AutomatedValuationWorker:
                         external_id,
                         comp.match_confidence,
                         comp.source_reliability,
+                        Jsonb(classification),
                         Jsonb(
                             {
                                 "matching_fields": comp.matching_fields,
                                 "conflicts": comp.conflicts,
                                 "automated": True,
                                 "source": source_code,
+                                "source_tier": comp.source_tier,
                                 "image_url": comp.image_url,
                                 "visual_verdict": comp.visual_verdict,
                                 "visual_confidence": (
@@ -1386,6 +2162,14 @@ class AutomatedValuationWorker:
                                 ),
                                 "visual_reasons": comp.visual_reasons,
                                 "evidence_level": comp.evidence_level,
+                                "sale_status": comp.sale_status,
+                                "sale_status_evidence": comp.sale_status_evidence,
+                                "price_basis": comp.price_basis,
+                                "discovery_url": comp.discovery_url,
+                                "search_provider": comp.search_provider,
+                                "search_query": comp.search_query,
+                                "search_snippet": comp.search_snippet,
+                                "ebay_item_id": ebay_key,
                             }
                         ),
                     ),
@@ -1449,21 +2233,10 @@ class AutomatedValuationWorker:
             if not rows:
                 fallback = search.fallback_valuation
                 fallback_failure_reason: str | None = None
-                if identity.get("confirmed_identity_version_id") and fallback is not None:
+                if fallback is not None:
                     await self._store_model_fallback_shadow(
                         connection, job_id, identity, fallback, search
                     )
-                    await connection.execute(
-                        """UPDATE valuation_job SET status = 'succeeded', result_summary = %s,
-                               finished_at = now(), updated_at = now() WHERE id = %s""",
-                        (Jsonb({
-                            "shadow_only": True,
-                            "shadow_status": "manual_review",
-                            "valuation_tier": "model_fallback",
-                            "published_value_unchanged": True,
-                        }), job_id),
-                    )
-                    return
                 if fallback is not None:
                     coefficients = self.build_player_coefficients(
                         identity, search.player_adjustments
@@ -1681,6 +2454,13 @@ class AutomatedValuationWorker:
                         row["id"],
                     ),
                 )
+                rows_by_id[str(row["id"])]["comparable_tier"] = (
+                    classification.tier.value
+                )
+                rows_by_id[str(row["id"])]["classification"] = {
+                    "field_matches": classification.field_matches,
+                    "hard_conflicts": classification.hard_conflicts,
+                }
                 grade = evidence_grade(row["evidence_level"])
                 shadow_sales.append(
                     ShadowSale(
@@ -1728,8 +2508,29 @@ class AutomatedValuationWorker:
                 )
             shadow = ShadowValuationEstimator().estimate(shadow_sales, identity)
             await self._store_shadow_result(connection, job_id, identity, shadow)
+            if shadow.fair is not None:
+                valuation_id = await self._publish_relative_valuation(
+                    connection, job_id, identity, shadow, search, rows_by_id
+                )
+                await connection.execute(
+                    """UPDATE valuation_job SET status = 'succeeded', result_summary = %s,
+                           finished_at = now(), updated_at = now() WHERE id = %s""",
+                    (
+                        Jsonb(
+                            {
+                                "valuation_id": str(valuation_id),
+                                "evidence_count": len(shadow.used_ids),
+                                "confidence": str(shadow.confidence),
+                                "valuation_tier": "best_relative_candidate",
+                                "risk_flags": list(shadow.review_reasons),
+                            }
+                        ),
+                        job_id,
+                    ),
+                )
+                return
             if identity.get("confirmed_identity_version_id"):
-                if shadow.fair is None and search.fallback_valuation is not None:
+                if search.fallback_valuation is not None:
                     await self._store_model_fallback_shadow(
                         connection,
                         job_id,
@@ -1738,16 +2539,37 @@ class AutomatedValuationWorker:
                         search,
                     )
                     shadow_status = "manual_review"
-                    valuation_tier = "model_fallback"
+                    valuation_tier = "model_fallback_shadow"
                 else:
                     shadow_status = shadow.status
-                    valuation_tier = "exact_shadow"
+                    valuation_tier = "no_eligible_candidate"
                 await connection.execute(
-                    """UPDATE valuation_job SET status = 'succeeded', result_summary = %s,
+                    """UPDATE valuation_job SET status = 'insufficient_evidence',
+                           result_summary = %s,
                            finished_at = now(), updated_at = now() WHERE id = %s""",
-                    (Jsonb({"shadow_only": True, "shadow_status": shadow_status,
-                            "valuation_tier": valuation_tier,
-                            "published_value_unchanged": True}), job_id),
+                    (
+                        Jsonb(
+                            {
+                                "reason": (
+                                    "只有模型回退或存在硬冲突的类比，未发布正式估值"
+                                ),
+                                "published_value_unchanged": True,
+                                "shadow_status": shadow_status,
+                                "valuation_tier": valuation_tier,
+                                "confidence": (
+                                    str(
+                                        self._model_fallback_confidence(
+                                            search.fallback_valuation
+                                        )
+                                    )
+                                    if search.fallback_valuation is not None
+                                    else "0"
+                                ),
+                                "rejected_comparables": rejected,
+                            }
+                        ),
+                        job_id,
+                    ),
                 )
                 return
             if not classified:
@@ -1846,6 +2668,63 @@ class AutomatedValuationWorker:
             )
 
     @staticmethod
+    async def _publish_relative_valuation(
+        connection,
+        job_id: UUID,
+        identity: dict,
+        shadow,
+        search: ComparableSearchResult,
+        rows_by_id: dict[str, dict],
+    ) -> UUID:
+        used = [
+            {
+                "market_comp_id": comp_id,
+                "title": rows_by_id.get(comp_id, {}).get("listing_title"),
+                "source_url": rows_by_id.get(comp_id, {}).get("source_url"),
+                "tier": rows_by_id.get(comp_id, {}).get("comparable_tier"),
+                "classification": rows_by_id.get(comp_id, {}).get("classification") or {},
+                "visual_verdict": (
+                    rows_by_id.get(comp_id, {}).get("raw_payload") or {}
+                ).get("visual_verdict"),
+                "visual_confidence": (
+                    rows_by_id.get(comp_id, {}).get("raw_payload") or {}
+                ).get("visual_confidence"),
+            }
+            for comp_id in shadow.used_ids
+        ]
+        result = await connection.execute(
+            """
+            INSERT INTO valuation_snapshot (
+                collection_item_id, method, currency, low_value, fair_value,
+                high_value, confidence, evidence, model_version
+            ) VALUES (
+                %s, 'ai_estimate', %s, %s, %s, %s, %s, %s,
+                'relative-multimodal-comps-1.0'
+            ) RETURNING id
+            """,
+            (
+                identity["collection_item_id"],
+                identity["base_currency"],
+                shadow.low,
+                shadow.fair,
+                shadow.high,
+                shadow.confidence,
+                Jsonb(
+                    {
+                        "selection_policy": "strongest_non_conflicting_relative_tier",
+                        "used_comparables": used,
+                        "rejected_comparables": list(shadow.rejected),
+                        "risk_flags": list(shadow.review_reasons),
+                        "search_queries": search.search_queries,
+                        "notes": search.notes,
+                        "automatic_publication": True,
+                    }
+                ),
+            ),
+        )
+        return (await result.fetchone())["id"]
+
+    @staticmethod
     def _model_fallback_confidence(
         fallback: FallbackValuation,
     ) -> Decimal:
@@ -1855,7 +2734,7 @@ class AutomatedValuationWorker:
             if reference_count >= 2
             else Decimal("0.25")
             if reference_count == 1
-            else Decimal("0.15")
+            else Decimal("0")
         )
         return min(fallback.confidence, cap)
 
@@ -1978,14 +2857,16 @@ class AutomatedValuationWorker:
                 )
                 identity_row = await inserted.fetchone()
         identity_version_id = identity_row["id"]
-        shadow_status = shadow.status if confirmed else "manual_review"
-        shadow_low = shadow.low if confirmed else None
-        shadow_fair = shadow.fair if confirmed else None
-        shadow_high = shadow.high if confirmed else None
-        shadow_confidence = shadow.confidence if confirmed else 0
+        shadow_status = shadow.status
+        shadow_low = shadow.low
+        shadow_fair = shadow.fair
+        shadow_high = shadow.high
+        shadow_confidence = shadow.confidence
         shadow_reasons = list(shadow.review_reasons)
         if not confirmed:
-            shadow_reasons = list(dict.fromkeys([*shadow_reasons, "identity_not_confirmed"]))
+            shadow_reasons = list(
+                dict.fromkeys([*shadow_reasons, "identity_inferred_automatically"])
+            )
         await connection.execute(
             """
             INSERT INTO valuation_shadow_result (
@@ -1997,13 +2878,13 @@ class AutomatedValuationWorker:
             (
                 identity["collection_item_id"], job_id, identity_version_id,
                 shadow_status, identity["base_currency"], shadow_low, shadow_fair,
-                shadow_high, shadow_confidence, len(shadow.used_ids) if confirmed else 0,
+                shadow_high, shadow_confidence, len(shadow.used_ids),
                 Jsonb(shadow_reasons),
                 Jsonb(
                     {
                         "used_ids": list(shadow.used_ids),
                         "rejected": list(shadow.rejected),
-                        "published_value_unchanged": True,
+                        "automatic_publication": shadow.fair is not None,
                     }
                 ),
             ),

@@ -6,6 +6,7 @@ from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
 from card_platform.analysis_repository import AnalysisRepository
+from card_platform.expert_analysis_repository import ExpertAnalysisRepository
 from card_platform.auth import AuthenticatedUser, current_user, require_admin
 from card_platform.ai_service import AIAdvisoryService
 from card_platform.card_search_service import CardSearchService
@@ -28,6 +29,9 @@ from card_platform.repository import (
 from card_platform.schemas import (
     CardAnalysisCreate,
     CardAnalysisResult,
+    ExpertAnalysisBatchResult,
+    ExpertAnalysisHistory,
+    ExpertAnalysisRun,
     AINarrativeResult,
     AutomatedValuationDetail,
     AutoCardAnalysisCreate,
@@ -36,6 +40,7 @@ from card_platform.schemas import (
     CollectionItemOwnerAction,
     CreatedResource,
     PortfolioItem,
+    PortfolioItemQuickUpdate,
     PortfolioItemDetail,
     PortfolioSummary,
     PlayerEventCreate,
@@ -64,6 +69,7 @@ from card_platform.schemas import (
 router = APIRouter(prefix="/v1", dependencies=[Depends(current_user)])
 repository = PortfolioRepository()
 analysis_repository = AnalysisRepository()
+expert_analysis_repository = ExpertAnalysisRepository()
 intelligence_repository = IntelligenceRepository()
 market_repository = MarketRepository()
 
@@ -128,16 +134,12 @@ async def confirm_cardhobby_import(
     connection: AsyncConnection = Depends(get_connection),
 ) -> CardHobbyImportConfirmResult:
     try:
-        imported, skipped = await CardHobbyImportService(
-            get_settings(), repository
-        ).confirm(
+        imported, skipped = await CardHobbyImportService(get_settings(), repository).confirm(
             connection,
             batch_id,
             user.id,
             [
-                item.model_copy(
-                    update={"item": item.item.model_copy(update={"owner_id": user.id})}
-                )
+                item.model_copy(update={"item": item.item.model_copy(update={"owner_id": user.id})})
                 for item in payload.items
             ],
         )
@@ -156,6 +158,19 @@ async def list_items(
     connection: AsyncConnection = Depends(get_connection),
 ) -> list[PortfolioItem]:
     return await repository.list_items(connection, user.id)
+
+
+@router.patch("/portfolio/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def quick_update_item(
+    item_id: UUID,
+    payload: PortfolioItemQuickUpdate,
+    user: AuthenticatedUser = Depends(current_user),
+    connection: AsyncConnection = Depends(get_connection),
+) -> None:
+    try:
+        await repository.quick_update_item(connection, item_id, user.id, payload)
+    except (NotFoundError, ConflictError) as error:
+        raise translate_domain_error(error) from error
 
 
 @router.get("/portfolio/trash", response_model=list[PortfolioItem])
@@ -207,9 +222,7 @@ async def permanently_delete_item(
     connection: AsyncConnection = Depends(get_connection),
 ) -> None:
     try:
-        image_urls = await repository.permanently_delete_item(
-            connection, item_id, user.id
-        )
+        image_urls = await repository.permanently_delete_item(connection, item_id, user.id)
     except (NotFoundError, ConflictError) as error:
         raise translate_domain_error(error) from error
     ImageStorageService(get_settings()).delete_item_images(item_id, image_urls)
@@ -256,9 +269,7 @@ async def enrich_item_catalog(
         if cached:
             return CardRecognitionResult.model_validate(cached["result"])
     item = detail.item
-    context = "；".join(
-        row.notes for row in detail.transactions if row.notes
-    ) or None
+    context = "；".join(row.notes for row in detail.transactions if row.notes) or None
     identity = CardRecognitionResult(
         player_name=item.player_name,
         season_start=item.season_start,
@@ -316,9 +327,7 @@ async def add_transaction(
     connection: AsyncConnection = Depends(get_connection),
 ) -> CreatedResource:
     try:
-        transaction_id = await repository.add_transaction(
-            connection, item_id, user.id, payload
-        )
+        transaction_id = await repository.add_transaction(connection, item_id, user.id, payload)
     except (NotFoundError, PositionError) as error:
         raise translate_domain_error(error) from error
     return CreatedResource(id=transaction_id)
@@ -581,7 +590,9 @@ async def recognize_card_pair(
 
 
 @router.post("/cards/recognize-batch", response_model=list[BatchCardRecognitionItem])
-async def recognize_card_batch(images: list[UploadFile] = File(...)) -> list[BatchCardRecognitionItem]:
+async def recognize_card_batch(
+    images: list[UploadFile] = File(...),
+) -> list[BatchCardRecognitionItem]:
     if not 1 <= len(images) <= 20:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -635,6 +646,60 @@ async def analyze_item(
         )
     except NotFoundError as error:
         raise translate_domain_error(error) from error
+
+
+@router.get(
+    "/portfolio/items/{item_id}/expert-analysis",
+    response_model=ExpertAnalysisHistory,
+)
+async def get_expert_analysis(
+    item_id: UUID,
+    user: AuthenticatedUser = Depends(current_user),
+    connection: AsyncConnection = Depends(get_connection),
+) -> ExpertAnalysisHistory:
+    try:
+        return await expert_analysis_repository.history(connection, item_id, user.id)
+    except NotFoundError as error:
+        raise translate_domain_error(error) from error
+
+
+@router.post(
+    "/portfolio/items/{item_id}/expert-analysis",
+    response_model=ExpertAnalysisHistory,
+    status_code=status.HTTP_201_CREATED,
+)
+async def run_expert_analysis(
+    item_id: UUID,
+    payload: ExpertAnalysisRun,
+    user: AuthenticatedUser = Depends(current_user),
+    connection: AsyncConnection = Depends(get_connection),
+) -> ExpertAnalysisHistory:
+    del item_id, payload, user, connection
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=(
+            "Codex multimodal analysis cannot be generated by the web backend. "
+            "Run the reviewed external Codex import contract instead."
+        ),
+    )
+
+
+@router.post(
+    "/portfolio/expert-analysis/batch",
+    response_model=ExpertAnalysisBatchResult,
+)
+async def run_all_expert_analyses(
+    user: AuthenticatedUser = Depends(current_user),
+    connection: AsyncConnection = Depends(get_connection),
+) -> ExpertAnalysisBatchResult:
+    del user, connection
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=(
+            "Codex multimodal analysis cannot be generated by the web backend. "
+            "Run the reviewed external Codex import contract instead."
+        ),
+    )
 
 
 @router.post(
