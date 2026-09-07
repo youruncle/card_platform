@@ -92,6 +92,11 @@ def test_partial_serial_fraction_is_a_hard_quality_issue() -> None:
     )
 
 
+def test_missing_brand_or_season_end_cannot_auto_resolve() -> None:
+    assert "missing_brand_name" in recognition_quality_issues(result(brand_name=None))
+    assert "missing_season_end" in recognition_quality_issues(result(season_end=None))
+
+
 def test_cross_product_prizm_name_is_a_hard_quality_issue() -> None:
     assert "parallel_product_technology_conflict" in recognition_quality_issues(
         result(product_name="Flagship", parallel_name="Gold Prizm")

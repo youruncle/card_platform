@@ -54,22 +54,31 @@ database immutability triggers; derived crops can be rebuilt. Reloading a
 session returns latest front/back regions, candidate history, selected pairs,
 and manual overrides.
 
-## Layout recovery v2
+## Layout recovery v14
 
-`layout-recovery-v2` treats a scan as one layout rather than a bag of contours.
-Its evidence routes are multi/global thresholding, adaptive thresholding,
-gradient contours and Hough segments, horizontal/vertical projection
-periodicity, and connected-component splitting. Whole-bed components are scale
-evidence and are rejected as cards. Hypotheses are ranked globally by region
-boundary energy, rectangular/card aspect plausibility, coverage, row/column
-consistency, overlap/conflict penalties, missing slots, clipping and rotation.
+The detector keeps count and geometry as separate questions. Threshold,
+gradient, component, mixed-holder and physical-grid routes propose geometry;
+each proposed cell must also contain distributed current-image evidence. An
+expected count is never permission to divide an empty bed into synthetic card
+regions. Empty slots remain missing and visible to the editor.
 
-Once a front revision is confirmed, its count is a hard constraint for the
-back. Identity, horizontal/vertical mirrors and their 180-degree combination
-are scored against back-side edge evidence; an independent back result can
-refine boundaries but cannot silently change eight cards into three. Low edge
-energy, count changes, overlaps, whole-sheet candidates and severe clipping
-set `requires_review` and retain their reasons in the sheet hypothesis.
+The normal back-side workflow is explicitly **flip each card in place**. Front
+regions define stable identity slots and bounded search windows, but their
+polygons are not copied as back-side answers. SAM 2 searches each slot in the
+current back image, retries a failed slot once with a neighbour-bounded wider
+window, and accepts only current-image geometry that passes object-presence,
+size, aspect, slot-containment and peer-overlap checks. A failed or empty slot
+is recorded in `slot_refinement.missing_slot_indices`; the implementation keeps
+`manufactured_count=0`. Count-based whole-bed projection is disabled in this
+mode because aligned white information bands inside card backs are not reliable
+holder seams.
+
+Every final crop then passes an independent validator which does not read the
+detector or SAM confidence. It records presence, isolation, boundary and
+usability scores plus explainable blank/fragment, multi-card, neighbour-overlap
+and source-edge violations in `signals.crop_quality`. Regions remain visible
+and editable; the overview uses green, amber and red geometry to expose quality
+instead of silently hiding low-quality results.
 
 The sheet editor supports add/delete, four-corner dragging, undo and confirm.
 Confirmation creates a new derived sheet/crop revision and a
@@ -79,3 +88,40 @@ immutable originals with:
 ```sh
 PYTHONPATH=apps/api/src .venv/bin/python scripts/replay_flatbed_layouts.py --json
 ```
+
+The replay is SHA-256 deduplicated and runs front-style standalone detection.
+Expected counts are scoring truth only: they and detector-generated priors are
+never fed into the detector. Use `--enforce` to apply the manifest's regression
+floors. This intentionally replaces the old oracle-assisted 72/72 result.
+
+## Optional SAM 2 boundary refinement
+
+The production detector remains responsible for standalone candidates. On a
+back scan, an isolated SAM 2.1 Tiny worker instead localizes one current-image
+object per front slot. It never performs unprompted card discovery and cannot
+manufacture a failed slot. Without a usable front slot workflow, the same worker
+can still tighten a classical coarse box with geometry and overlap fallback.
+
+Install the isolated Apple Silicon runtime and checkpoint:
+
+```bash
+./scripts/setup_flatbed_ml.sh
+```
+
+Then opt in with `FLATBED_ML_ENABLED=true`. The default is disabled so API
+deployments without the 149 MB checkpoint or PyTorch sidecar remain functional.
+Accepted sheets use a detector version ending in `+sam2.1-tiny`; audit metadata
+is stored in `layout_hypothesis.ml_refinement`, and refined regions include
+`sam2_box_prompt` in `signals.detection_evidence`. Each accepted mask receives a
+1.2% per-side source-image safety margin (`sam2_safety_margin`) before cropping;
+the margin is clamped at scan-bed edges and still passes the global overlap gate.
+The worker retains the mask's minimum-area rotated rectangle
+(`sam2_oriented_mask`) and the cropper perspective-rectifies those four corners;
+one conflicting mask falls back independently instead of disabling refinement
+for every other card on the sheet. When SAM instead fills an almost horizontal
+white scanner slot that is materially larger than its prompt, four independent
+Canny thresholds must agree on the same 1.5–12 degree card edge before the
+worker substitutes an oriented quad (`edge_consensus_oriented`). This hybrid
+route fixes tilted sleeves without letting a single noisy edge override a good
+mask. General-purpose vision-language grounding may be used as a semantic
+review signal, but it is not the pixel-geometry authority for crop corners.

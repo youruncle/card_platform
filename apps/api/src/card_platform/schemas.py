@@ -328,8 +328,19 @@ class PortfolioItem(ApiModel):
     valuation_result_summary: dict = Field(default_factory=dict)
     valuation_job_id: UUID | None = None
     valuation_error: str | None = None
+    recognition_confidence: Decimal | None = None
+    recognition_status: Literal["resolved", "research_required"] | None = None
+    recognition_quality_issues: list[str] = Field(default_factory=list)
     deleted_at: datetime | None = None
     deleted_reason: str | None = None
+
+
+class PortfolioPage(ApiModel):
+    items: list[PortfolioItem]
+    total: int = Field(ge=0)
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=1, le=30)
+    total_pages: int = Field(ge=1)
 
 
 class CollectionItemDelete(ApiModel):
@@ -909,10 +920,24 @@ class ScannerRecognitionJob(ApiModel):
     front_orientation_confidence: Decimal = Decimal("0")
     back_orientation_confidence: Decimal = Decimal("0")
     front_orientation_method: Literal[
-        "pending", "apple_vision", "vision_model", "manual", "unresolved"
+        "pending",
+        "apple_vision",
+        "apple_vision_text",
+        "apple_vision_face_text",
+        "apple_vision_face_override",
+        "vision_model",
+        "manual",
+        "unresolved",
     ] = "pending"
     back_orientation_method: Literal[
-        "pending", "apple_vision", "vision_model", "manual", "unresolved"
+        "pending",
+        "apple_vision",
+        "apple_vision_text",
+        "apple_vision_face_text",
+        "apple_vision_face_override",
+        "vision_model",
+        "manual",
+        "unresolved",
     ] = "pending"
     result: CardRecognitionResult | None = None
     collection_item_id: UUID | None = None

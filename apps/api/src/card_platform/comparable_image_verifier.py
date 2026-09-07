@@ -174,22 +174,11 @@ class ComparableImageVerifier:
                 )
         if not downloaded:
             return decisions
-        model_candidates: list[tuple[VisualCandidate, bytes, str]] = []
-        for candidate, image, content_type in downloaded:
-            good, inliers, ratio = geometry[candidate.id]
-            strong_template = good >= 20 and inliers >= 15 and ratio >= Decimal("0.25")
-            if strong_template and not requires_parallel_match:
-                decisions[candidate.id] = VisualDecision(
-                    candidate_id=candidate.id,
-                    verdict="compatible",
-                    confidence=Decimal("0.95"),
-                    reasons=[
-                        "local_geometry_verified_same_printed_template",
-                        f"geometry_same_template:matches={good},inliers={inliers},ratio={ratio:.3f}",
-                    ],
-                )
-            else:
-                model_candidates.append((candidate, image, content_type))
+        # ORB/RANSAC is only a supporting signal.  Shared player photos, card
+        # sleeves, scanner backgrounds and repeated product templates can all
+        # produce many inliers for a different insert or base card.  Every
+        # downloaded candidate therefore still goes through semantic vision.
+        model_candidates = list(downloaded)
         batches = [
             model_candidates[index : index + self.MAX_CANDIDATES]
             for index in range(0, len(model_candidates), self.MAX_CANDIDATES)
@@ -246,21 +235,11 @@ class ComparableImageVerifier:
                     ]
                 )
             )
-            if decision.verdict in {"different", "uncertain"}:
-                # Geometry can prove the same printed template despite foil glare,
-                # but not the exact parallel coating. The identity classifier keeps
-                # this T0 only when no explicit parallel distinction is required.
-                decisions[candidate_id] = decision.model_copy(
-                    update={
-                        "verdict": "compatible",
-                        "confidence": max(decision.confidence, Decimal("0.90")),
-                        "reasons": reasons,
-                    }
-                )
-            else:
-                decisions[candidate_id] = decision.model_copy(
-                    update={"reasons": reasons}
-                )
+            # Do not overwrite the semantic verdict here. The downstream
+            # identity classifier may use this audited geometry signal to
+            # demote a false visual conflict only when exact text/card anchors
+            # agree and no product/parallel/serial conflict exists.
+            decisions[candidate_id] = decision.model_copy(update={"reasons": reasons})
         return decisions
 
     async def _compare_batch(

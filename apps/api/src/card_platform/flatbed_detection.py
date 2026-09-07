@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from itertools import product
-
 import cv2
 import numpy as np
 
@@ -20,7 +18,30 @@ class Detection:
     evidence: tuple[str, ...] = ()
 
 
-DETECTOR_VERSION = "layout-recovery-v3"
+DETECTOR_VERSION = "component-first-layout-v14"
+
+GRID_INK_LOW_QUANTILE = 0.008
+GRID_INK_HIGH_QUANTILE = 0.992
+GRID_INK_MARGIN_RATIO = 0.035
+GRID_MIN_REFINEMENT_INSET_RATIO = 0.018
+GRID_MAX_REFINED_AREA_RATIO = 0.96
+GRID_OCCUPANCY_CORE_INSET_RATIO = 0.10
+GRID_EMPTY_MIN_MEAN_LUMA = 210.0
+GRID_EMPTY_MAX_INK_RATIO = 0.035
+GRID_EMPTY_MAX_EDGE_RATIO = 0.005
+GRID_EMPTY_MAX_LUMA_STDDEV = 20.0
+GRID_TRAILING_SLIVER_MAX_INK_RATIO = 0.12
+GRID_TRAILING_SLIVER_MAX_EDGE_RATIO = 0.015
+GRID_TRAILING_SLIVER_MAX_AXIS_COVERAGE = 0.16
+GRID_MIN_PROJECTION_SPAN_REGULARITY = 0.62
+
+IRREGULAR_PRIMARY_MIN_AREA_RATIO = 0.045
+IRREGULAR_PRIMARY_MAX_AREA_RATIO = 0.16
+IRREGULAR_SATELLITE_MIN_AREA_RATIO = 0.006
+IRREGULAR_SATELLITE_MAX_AREA_RATIO = 0.06
+IRREGULAR_COMPONENT_MIN_FILL_RATIO = 0.12
+IRREGULAR_PRIMARY_MIN_FILL_RATIO = 0.20
+IRREGULAR_COMPONENT_MARGIN_RATIO = 0.06
 
 
 @dataclass(frozen=True)
@@ -149,6 +170,394 @@ def _foreground_detections(image: np.ndarray) -> list[Detection]:
     return found
 
 
+def _foreground_layout_is_complete(detections: list[Detection]) -> bool:
+    """Recognize a complete irregular sheet before considering a grid fallback.
+
+    A global grid is useful when touching holders collapse into one component,
+    but it must not replace a full set of separated card-sized components. Mixed
+    portrait/landscape sheets do not share row and column boundaries, so forcing
+    them into equal cells necessarily cuts cards in half.
+    """
+    if not 4 <= len(detections) <= 20:
+        return False
+    areas = [item.width * item.height for item in detections]
+    if sum(areas) < 0.45 or min(areas) <= 0:
+        return False
+    if max(areas) / min(areas) > 2.6:
+        return False
+    if any(
+        _intersection_over_smaller(left, right) > 0.18
+        for index, left in enumerate(detections)
+        for right in detections[index + 1 :]
+    ):
+        return False
+    return True
+
+
+def _component_intersection_over_smaller(left: dict, right: dict) -> float:
+    intersection_width = max(
+        0,
+        min(left["x"] + left["width"], right["x"] + right["width"])
+        - max(left["x"], right["x"]),
+    )
+    intersection_height = max(
+        0,
+        min(left["y"] + left["height"], right["y"] + right["height"])
+        - max(left["y"], right["y"]),
+    )
+    smaller = min(
+        left["width"] * left["height"], right["width"] * right["height"]
+    )
+    return intersection_width * intersection_height / smaller if smaller else 0.0
+
+
+def _irregular_slab_detections(image: np.ndarray) -> list[Detection]:
+    """Recover mixed raw-card and graded-slab layouts from content islands.
+
+    Clear holders on a white scanner bed are often invisible while their card
+    artwork and grading label remain strongly saturated. A global foreground
+    close joins adjacent holders into one whole-bed component; instead, this
+    route finds the large card-art islands independently and associates at most
+    one nearby, collinear label island with each card. The one-label rule is
+    important when vertically stacked slabs have labels facing each other.
+    """
+    height, width = image.shape[:2]
+    saturation = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)[:, :, 1]
+    image_area = width * height
+    components: list[dict] = []
+    for threshold in (20, 35):
+        count, _, stats, _ = cv2.connectedComponentsWithStats(
+            (saturation > threshold).astype(np.uint8), connectivity=8
+        )
+        for x, y, box_width, box_height, pixel_count in stats[1:count]:
+            box_area = box_width * box_height
+            area_ratio = box_area / image_area
+            fill_ratio = pixel_count / max(1, box_area)
+            if (
+                area_ratio < 0.002
+                or fill_ratio < IRREGULAR_COMPONENT_MIN_FILL_RATIO
+            ):
+                continue
+            components.append(
+                {
+                    "x": int(x),
+                    "y": int(y),
+                    "width": int(box_width),
+                    "height": int(box_height),
+                    "area_ratio": float(area_ratio),
+                    "fill_ratio": float(fill_ratio),
+                    "threshold": threshold,
+                }
+            )
+
+    # The lower saturation pass recovers silver/monochrome cards; the higher
+    # pass separates colourful cards from grey scanner rails. Consolidate the
+    # near-identical observations before label association.
+    unique: list[dict] = []
+    for component in sorted(
+        components,
+        key=lambda item: (item["fill_ratio"], item["threshold"]),
+        reverse=True,
+    ):
+        duplicate = any(
+            _component_intersection_over_smaller(component, existing) >= 0.85
+            and 0.72 <= component["width"] / existing["width"] <= 1.40
+            and 0.72 <= component["height"] / existing["height"] <= 1.40
+            for existing in unique
+        )
+        if not duplicate:
+            unique.append(component)
+
+    primary = []
+    for component in unique:
+        short, long = sorted((component["width"], component["height"]))
+        ratio = long / max(1, short)
+        if (
+            IRREGULAR_PRIMARY_MIN_AREA_RATIO
+            <= component["area_ratio"]
+            <= IRREGULAR_PRIMARY_MAX_AREA_RATIO
+            and IRREGULAR_PRIMARY_MIN_FILL_RATIO <= component["fill_ratio"]
+            and 1.15 <= ratio <= 1.85
+        ):
+            primary.append(component)
+
+    detections: list[Detection] = []
+    for card in primary:
+        horizontal = card["width"] > card["height"]
+        compatible: list[tuple[float, float, dict]] = []
+        for candidate in unique:
+            if candidate is card or not (
+                IRREGULAR_SATELLITE_MIN_AREA_RATIO
+                <= candidate["area_ratio"]
+                <= IRREGULAR_SATELLITE_MAX_AREA_RATIO
+            ):
+                continue
+            # A label must extend the card envelope, rather than being a logo
+            # or printed panel contained inside the artwork.
+            if _component_intersection_over_smaller(card, candidate) > 0.35:
+                continue
+            if horizontal:
+                overlap = max(
+                    0,
+                    min(
+                        card["y"] + card["height"],
+                        candidate["y"] + candidate["height"],
+                    )
+                    - max(card["y"], candidate["y"]),
+                ) / min(card["height"], candidate["height"])
+                gap = max(
+                    0,
+                    max(card["x"], candidate["x"])
+                    - min(
+                        card["x"] + card["width"],
+                        candidate["x"] + candidate["width"],
+                    ),
+                )
+                extends = (
+                    candidate["x"] < card["x"] - card["width"] * 0.02
+                    or candidate["x"] + candidate["width"]
+                    > card["x"] + card["width"] * 1.02
+                )
+                is_compatible = (
+                    extends
+                    and overlap >= 0.65
+                    and gap <= card["height"] * 0.42
+                    and candidate["width"] <= card["width"] * 0.55
+                    and candidate["height"] >= card["height"] * 0.60
+                )
+            else:
+                overlap = max(
+                    0,
+                    min(
+                        card["x"] + card["width"],
+                        candidate["x"] + candidate["width"],
+                    )
+                    - max(card["x"], candidate["x"]),
+                ) / min(card["width"], candidate["width"])
+                gap = max(
+                    0,
+                    max(card["y"], candidate["y"])
+                    - min(
+                        card["y"] + card["height"],
+                        candidate["y"] + candidate["height"],
+                    ),
+                )
+                extends = (
+                    candidate["y"] < card["y"] - card["height"] * 0.02
+                    or candidate["y"] + candidate["height"]
+                    > card["y"] + card["height"] * 1.02
+                )
+                is_compatible = (
+                    extends
+                    and overlap >= 0.65
+                    and gap <= card["width"] * 0.42
+                    and candidate["height"] <= card["height"] * 0.55
+                    and candidate["width"] >= card["width"] * 0.60
+                )
+            if is_compatible:
+                compatible.append((float(gap), -float(overlap), candidate))
+
+        label = (
+            min(compatible, key=lambda item: (item[0], item[1]))[2]
+            if compatible
+            else None
+        )
+        members = [card, *([label] if label is not None else [])]
+        left = min(item["x"] for item in members)
+        top = min(item["y"] for item in members)
+        right = max(item["x"] + item["width"] for item in members)
+        bottom = max(item["y"] + item["height"] for item in members)
+        margin = round(
+            min(card["width"], card["height"])
+            * IRREGULAR_COMPONENT_MARGIN_RATIO
+        )
+        left = max(0, left - margin)
+        top = max(0, top - margin)
+        right = min(width, right + margin)
+        bottom = min(height, bottom + margin)
+        clipped = left <= 2 or top <= 2 or right >= width - 2 or bottom >= height - 2
+        evidence = ["saturation_content_island", "mixed_format_instance"]
+        if label is not None:
+            evidence.append("grading_label_association")
+        detections.append(
+            Detection(
+                left / width,
+                top / height,
+                (right - left) / width,
+                (bottom - top) / height,
+                0.0,
+                0.90 if label is not None else 0.84,
+                "source_edge_contact" if clipped else None,
+                (
+                    (left / width, top / height),
+                    (right / width, top / height),
+                    (right / width, bottom / height),
+                    (left / width, bottom / height),
+                ),
+                tuple(evidence),
+            )
+        )
+    detections.sort(key=lambda item: (item.y, item.x))
+    return _complete_aligned_slab_envelopes(detections)
+
+
+def _complete_aligned_slab_envelopes(
+    detections: list[Detection],
+) -> list[Detection]:
+    """Restore a pale grading label from neighbouring aligned slab envelopes.
+
+    A white/grey label can disappear from the saturation mask even though the
+    colourful card area remains visible. When at least two independently
+    associated slabs establish a shared outer edge, extend only an unlabeled,
+    collinear detection whose opposite edge already agrees with that envelope.
+    """
+    labelled = [
+        item
+        for item in detections
+        if "grading_label_association" in item.evidence
+    ]
+    if len(labelled) < 2:
+        return detections
+
+    horizontal = sum(item.width > item.height for item in labelled) >= len(labelled) / 2
+    same_orientation = [
+        item for item in labelled if (item.width > item.height) == horizontal
+    ]
+    if len(same_orientation) < 2:
+        return detections
+
+    if horizontal:
+        outer_start = float(np.median([item.x for item in same_orientation]))
+        outer_end = float(
+            np.median([item.x + item.width for item in same_orientation])
+        )
+    else:
+        outer_start = float(np.median([item.y for item in same_orientation]))
+        outer_end = float(
+            np.median([item.y + item.height for item in same_orientation])
+        )
+    envelope_size = outer_end - outer_start
+    if envelope_size <= 0:
+        return detections
+
+    completed: list[Detection] = []
+    for item in detections:
+        if (
+            "grading_label_association" in item.evidence
+            or (item.width > item.height) != horizontal
+        ):
+            completed.append(item)
+            continue
+        start = item.x if horizontal else item.y
+        end = item.x + item.width if horizontal else item.y + item.height
+        agrees_at_end = abs(end - outer_end) <= envelope_size * 0.08
+        agrees_at_start = abs(start - outer_start) <= envelope_size * 0.08
+        missing_start = start - outer_start >= envelope_size * 0.10
+        missing_end = outer_end - end >= envelope_size * 0.10
+        if not ((agrees_at_end and missing_start) or (agrees_at_start and missing_end)):
+            completed.append(item)
+            continue
+
+        new_start = outer_start if agrees_at_end and missing_start else start
+        new_end = outer_end if agrees_at_start and missing_end else end
+        if horizontal:
+            x, y = new_start, item.y
+            width, height = new_end - new_start, item.height
+        else:
+            x, y = item.x, new_start
+            width, height = item.width, new_end - new_start
+        completed.append(
+            Detection(
+                x,
+                y,
+                width,
+                height,
+                item.angle,
+                min(item.confidence, 0.82),
+                item.failure,
+                (
+                    (x, y),
+                    (x + width, y),
+                    (x + width, y + height),
+                    (x, y + height),
+                ),
+                (*item.evidence, "aligned_slab_envelope"),
+            )
+        )
+    return completed
+
+
+def _grid_cell_occupancy(
+    image: np.ndarray,
+    x: float,
+    y: float,
+    right: float,
+    bottom: float,
+) -> tuple[bool, dict[str, float]]:
+    """Distinguish an occupied grid slot from exposed scanner-bed space.
+
+    Grid boundaries can contain a narrow edge from the adjacent top-loader, so
+    measurements use the central 80% of the slot. A slot is discarded only
+    when four independent signals agree that it is bright, nearly uniform,
+    almost ink-free, and structurally empty. This intentionally keeps pale card
+    backs when their text, logos, or borders provide either ink or edge energy.
+    """
+    image_height, image_width = image.shape[:2]
+    x1 = max(0, int(round(x * image_width)))
+    y1 = max(0, int(round(y * image_height)))
+    x2 = min(image_width, int(round(right * image_width)))
+    y2 = min(image_height, int(round(bottom * image_height)))
+    cell = image[y1:y2, x1:x2]
+    if cell.size == 0:
+        return False, {
+            "ink_ratio": 0.0,
+            "edge_ratio": 0.0,
+            "mean_luma": 255.0,
+            "luma_stddev": 0.0,
+        }
+
+    inset_y = round(cell.shape[0] * GRID_OCCUPANCY_CORE_INSET_RATIO)
+    inset_x = round(cell.shape[1] * GRID_OCCUPANCY_CORE_INSET_RATIO)
+    core = cell[
+        inset_y : max(inset_y + 1, cell.shape[0] - inset_y),
+        inset_x : max(inset_x + 1, cell.shape[1] - inset_x),
+    ]
+    gray = cv2.cvtColor(core, cv2.COLOR_BGR2GRAY)
+    saturation = cv2.cvtColor(core, cv2.COLOR_BGR2HSV)[:, :, 1]
+    edges = cv2.Canny(cv2.GaussianBlur(gray, (5, 5), 0), 30, 90)
+    metrics = {
+        "ink_ratio": float(np.mean((saturation > 22) | (gray < 190))),
+        "edge_ratio": float(np.mean(edges > 0)),
+        "mean_luma": float(np.mean(gray)),
+        "luma_stddev": float(np.std(gray)),
+    }
+    ink = (saturation > 22) | (gray < 190)
+    metrics["ink_row_coverage"] = float(np.mean(np.mean(ink, axis=1) > 0.02))
+    metrics["ink_column_coverage"] = float(np.mean(np.mean(ink, axis=0) > 0.02))
+    uniformly_empty = (
+        metrics["mean_luma"] > GRID_EMPTY_MIN_MEAN_LUMA
+        and metrics["ink_ratio"] < GRID_EMPTY_MAX_INK_RATIO
+        and metrics["edge_ratio"] < GRID_EMPTY_MAX_EDGE_RATIO
+        and metrics["luma_stddev"] < GRID_EMPTY_MAX_LUMA_STDDEV
+    )
+    # A card from the preceding row can protrude a few pixels into an otherwise
+    # empty allocation cell. That produces enough ink and one strong horizontal
+    # edge to defeat the uniform-empty rule, but the signal occupies only one
+    # axis and has no card-sized body. Pale printed card backs remain occupied
+    # because their text/borders create distributed structure or more edge
+    # energy across the cell.
+    trailing_neighbour_sliver = (
+        metrics["mean_luma"] > 200
+        and metrics["ink_ratio"] > GRID_EMPTY_MAX_INK_RATIO
+        and metrics["ink_ratio"] < GRID_TRAILING_SLIVER_MAX_INK_RATIO
+        and metrics["edge_ratio"] < GRID_TRAILING_SLIVER_MAX_EDGE_RATIO
+        and min(metrics["ink_row_coverage"], metrics["ink_column_coverage"])
+        < GRID_TRAILING_SLIVER_MAX_AXIS_COVERAGE
+    )
+    confidently_empty = uniformly_empty or trailing_neighbour_sliver
+    return not confidently_empty, metrics
+
+
 def _full_bed_grid_detections(
     image: np.ndarray, foreground: list[Detection], edge_references: list[Detection], dpi: int
 ) -> list[Detection] | None:
@@ -201,7 +610,11 @@ def _full_bed_grid_detections(
     for rows in range(2, 11):
         for columns in range(2, 7):
             count = rows * columns
-            if count <= len(references) or count > 20:
+            # Edge references are contours, not distinct cards. A single card
+            # can contribute several artwork/holder rectangles, so using their
+            # count as a lower bound rejects the correct 2x4 layout and can
+            # split every landscape card into two 4x4 cells.
+            if count < 4 or count > 20:
                 continue
             cell_width_px = sheet_width_px / columns
             cell_height_px = sheet_height_px / rows
@@ -218,7 +631,7 @@ def _full_bed_grid_detections(
         for rows in range(2, 11):
             for columns in range(2, 7):
                 count = rows * columns
-                if count <= len(references) or count > 20:
+                if count < 4 or count > 20:
                     continue
                 ratio = max(sheet_width_px / columns, sheet_height_px / rows) / max(
                     1.0, min(sheet_width_px / columns, sheet_height_px / rows)
@@ -243,6 +656,35 @@ def _full_bed_grid_detections(
             y = whole_bed.y + row * cell_height
             right = x + cell_width
             bottom = y + cell_height
+            occupied, occupancy = _grid_cell_occupancy(image, x, y, right, bottom)
+            if not occupied:
+                # The inferred shape is scanner-bed capacity, not proof that
+                # every slot contains a card. A neighbouring holder edge can
+                # enter an otherwise blank slot, so central texture is the
+                # deciding evidence.
+                continue
+            occupancy_evidence = (
+                "cell_occupied:"
+                f"ink={occupancy['ink_ratio']:.3f},"
+                f"edge={occupancy['edge_ratio']:.3f},"
+                f"luma={occupancy['mean_luma']:.1f}"
+            )
+            refined = _refine_grid_cell_to_ink_extent(image, x, y, right, bottom)
+            if refined is not None:
+                grid.append(
+                    Detection(
+                        refined.x,
+                        refined.y,
+                        refined.width,
+                        refined.height,
+                        refined.angle,
+                        refined.confidence,
+                        refined.failure,
+                        refined.points,
+                        (*refined.evidence, occupancy_evidence),
+                    )
+                )
+                continue
             clipped = (
                 x <= 0.002 or y <= 0.002 or right >= 0.998 or bottom >= 0.998
             )
@@ -253,12 +695,121 @@ def _full_bed_grid_detections(
                     cell_width,
                     cell_height,
                     0.0,
-                    0.84,
-                    "severely_clipped" if clipped else None,
+                    0.46,
+                    "card_outline_unresolved",
                     ((x, y), (right, y), (right, bottom), (x, bottom)),
+                    (
+                        "full_bed_grid",
+                        "cell_extent_fallback",
+                        "source_edge_contact" if clipped else "outline_evidence_weak",
+                        occupancy_evidence,
+                    ),
                 )
             )
     return grid
+
+
+def _refine_grid_cell_to_ink_extent(
+    image: np.ndarray,
+    x: float,
+    y: float,
+    right: float,
+    bottom: float,
+) -> Detection | None:
+    """Tighten an inferred grid slot around its visible card/holder content.
+
+    A full-bed grid is useful for cardinality but its row boundaries are only
+    allocation boundaries. Treating them as crop edges clips one neighbour and
+    includes part of the next. Robust colour/brightness extents recover the
+    physical object while ignoring isolated dust, glare, and scanner noise.
+    """
+    image_height, image_width = image.shape[:2]
+    x1 = max(0, int(round(x * image_width)))
+    y1 = max(0, int(round(y * image_height)))
+    x2 = min(image_width, int(round(right * image_width)))
+    y2 = min(image_height, int(round(bottom * image_height)))
+    cell = image[y1:y2, x1:x2]
+    if cell.size == 0:
+        return None
+
+    gray = cv2.cvtColor(cell, cv2.COLOR_BGR2GRAY)
+    saturation = cv2.cvtColor(cell, cv2.COLOR_BGR2HSV)[:, :, 1]
+    mask = ((saturation > 22) | (gray < 190)).astype(np.uint8) * 255
+    kernel_size = max(3, round(min(cell.shape[:2]) * 0.012))
+    if kernel_size % 2 == 0:
+        kernel_size += 1
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_size, kernel_size))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    ink_y, ink_x = np.nonzero(mask)
+    if len(ink_x) < cell.shape[0] * cell.shape[1] * 0.01:
+        return None
+
+    local_left, local_right = np.quantile(
+        ink_x, (GRID_INK_LOW_QUANTILE, GRID_INK_HIGH_QUANTILE)
+    )
+    local_top, local_bottom = np.quantile(
+        ink_y, (GRID_INK_LOW_QUANTILE, GRID_INK_HIGH_QUANTILE)
+    )
+    ink_width = max(1.0, float(local_right - local_left))
+    ink_height = max(1.0, float(local_bottom - local_top))
+    margin_x = ink_width * GRID_INK_MARGIN_RATIO
+    margin_y = ink_height * GRID_INK_MARGIN_RATIO
+    refined_x1 = max(x1, int(np.floor(x1 + local_left - margin_x)))
+    refined_y1 = max(y1, int(np.floor(y1 + local_top - margin_y)))
+    refined_x2 = min(x2, int(np.ceil(x1 + local_right + margin_x + 1)))
+    refined_y2 = min(y2, int(np.ceil(y1 + local_bottom + margin_y + 1)))
+
+    refined_width = refined_x2 - refined_x1
+    refined_height = refined_y2 - refined_y1
+    cell_width = x2 - x1
+    cell_height = y2 - y1
+    area_ratio = refined_width * refined_height / max(1, cell_width * cell_height)
+    side_insets = (
+        (refined_x1 - x1) / max(1, cell_width),
+        (x2 - refined_x2) / max(1, cell_width),
+        (refined_y1 - y1) / max(1, cell_height),
+        (y2 - refined_y2) / max(1, cell_height),
+    )
+    if (
+        refined_width < cell_width * 0.55
+        or refined_height < cell_height * 0.55
+        or area_ratio < 0.35
+        # Merely reproducing the allocation cell is not a refinement. This was
+        # the cause of oversized bottom-row crops: the dark/colour mask reached
+        # every cell edge, yet the result was promoted as a precise outline.
+        or (
+            area_ratio > GRID_MAX_REFINED_AREA_RATIO
+            and max(side_insets) < GRID_MIN_REFINEMENT_INSET_RATIO
+        )
+    ):
+        return None
+
+    normalized_x1 = refined_x1 / image_width
+    normalized_y1 = refined_y1 / image_height
+    normalized_x2 = refined_x2 / image_width
+    normalized_y2 = refined_y2 / image_height
+    clipped = (
+        refined_x1 <= 2
+        or refined_y1 <= 2
+        or refined_x2 >= image_width - 2
+        or refined_y2 >= image_height - 2
+    )
+    return Detection(
+        normalized_x1,
+        normalized_y1,
+        normalized_x2 - normalized_x1,
+        normalized_y2 - normalized_y1,
+        0.0,
+        0.86,
+        "severely_clipped" if clipped else None,
+        (
+            (normalized_x1, normalized_y1),
+            (normalized_x2, normalized_y1),
+            (normalized_x2, normalized_y2),
+            (normalized_x1, normalized_y2),
+        ),
+        ("full_bed_grid", "ink_extent_refinement"),
+    )
 
 
 def _local_candidates(content: bytes, *, dpi: int = 300) -> list[Detection]:
@@ -266,6 +817,22 @@ def _local_candidates(content: bytes, *, dpi: int = 300) -> list[Detection]:
     if image is None:
         raise ValueError("无法解码扫描图像")
     height, width = image.shape[:2]
+    irregular = _irregular_slab_detections(image)
+    associated_labels = sum(
+        "grading_label_association" in item.evidence for item in irregular
+    )
+    irregular_areas = [item.width * item.height for item in irregular]
+    irregular_is_complete = (
+        len(irregular) >= 3
+        and associated_labels >= 2
+        and min(irregular_areas, default=0) > 0
+        and max(irregular_areas, default=0) / min(irregular_areas, default=1) <= 2.6
+        and not _layout_conflicts(irregular)
+    )
+    if irregular_is_complete:
+        # Mixed graded/raw sheets have no shared row, column, or object size.
+        # Their independent instances are stronger evidence than a forced grid.
+        return irregular
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(cv2.GaussianBlur(gray, (7, 7), 0), 35, 110)
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -323,7 +890,16 @@ def _local_candidates(content: bytes, *, dpi: int = 300) -> list[Detection]:
     # greedily merged here: the global layout layer compares signals, while
     # contour-level containment would let repeated threshold boxes suppress a
     # stronger perspective/connected-component observation.
-    full_bed_grid = _full_bed_grid_detections(image, foreground, found, dpi)
+    full_bed_grid = (
+        None
+        if _foreground_layout_is_complete(foreground)
+        else _full_bed_grid_detections(
+            image,
+            foreground,
+            [*found, *threshold_candidates, *irregular],
+            dpi,
+        )
+    )
     if full_bed_grid is not None:
         # The grid cells include the clear-holder border; partial edge
         # rectangles describe only printed card interiors and would otherwise
@@ -432,6 +1008,140 @@ def _grid_shape(count: int, image: np.ndarray, prior: list[Detection]) -> tuple[
     return min(choices, key=lambda rc: abs((rc[1] / rc[0]) - aspect * 1.35))
 
 
+def _projection_gap_grid_detections(
+    image: np.ndarray, rows: int, columns: int
+) -> tuple[list[Detection], float]:
+    """Recover a packed grid from the white seams between neighbouring cards.
+
+    Front and back scans often contain the same number of cards without keeping
+    the holders at pixel-identical positions. Reusing transformed front quads in
+    that situation shifts every crop into its neighbour. The scanner-bed seams
+    are much stronger evidence for the current image: find the lowest-ink valley
+    near each expected division and use those valleys as non-overlapping cells.
+    """
+    if rows <= 0 or columns <= 0:
+        return [], 0.0
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    saturation = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)[:, :, 1]
+    ink = ((saturation > 22) | (gray < 190)).astype(np.float32)
+
+    def divisions(profile: np.ndarray, count: int) -> tuple[list[float], list[float]]:
+        if count == 1:
+            return [0.0, 1.0], []
+        smoothing = max(5, len(profile) // 300)
+        smoothed = np.convolve(
+            profile, np.ones(smoothing, dtype=np.float32) / smoothing, mode="same"
+        )
+        boundaries = [0.0]
+        qualities: list[float] = []
+        radius = 0.35 / count
+        for index in range(1, count):
+            expected = index / count
+            start = max(1, round((expected - radius) * len(smoothed)))
+            stop = min(len(smoothed) - 1, round((expected + radius) * len(smoothed)))
+            window = smoothed[start:stop]
+            if not len(window):
+                return [], []
+            offset = int(np.argmin(window))
+            valley = float(window[offset])
+            local_median = float(np.median(window))
+            qualities.append(
+                max(0.0, min(1.0, (local_median - valley) / max(local_median, 0.05)))
+            )
+            boundaries.append((start + offset) / len(smoothed))
+        boundaries.append(1.0)
+        return boundaries, qualities
+
+    x_edges, x_quality = divisions(ink.mean(axis=0), columns)
+    y_edges, y_quality = divisions(ink.mean(axis=1), rows)
+    qualities = [*x_quality, *y_quality]
+    if len(x_edges) != columns + 1 or len(y_edges) != rows + 1 or not qualities:
+        return [], 0.0
+    gap_quality = float(np.mean(qualities))
+    # A weak local fluctuation is not enough to override a confirmed front-side
+    # prior. Real scanner seams provide a clearly darker/lighter occupancy valley.
+    if gap_quality < 0.20:
+        return [], gap_quality
+
+    # Each division is chosen from a local projection valley. Without a global
+    # geometry check, one boundary can jump past a weak inter-row seam to the
+    # much stronger transition into the unused scanner bed. That makes a
+    # nominal 3x2 layout contain one double-height row plus a blank trailing
+    # row. A grid hypothesis is only credible when its allocation spans remain
+    # broadly comparable; genuinely mixed holder sizes must use independent
+    # component detections instead of a forced grid.
+    x_spans = np.diff(np.asarray(x_edges, dtype=np.float32))
+    y_spans = np.diff(np.asarray(y_edges, dtype=np.float32))
+    x_regularity = float(np.min(x_spans) / max(float(np.max(x_spans)), 1e-6))
+    y_regularity = float(np.min(y_spans) / max(float(np.max(y_spans)), 1e-6))
+    if min(x_regularity, y_regularity) < GRID_MIN_PROJECTION_SPAN_REGULARITY:
+        return [], gap_quality
+
+    detections: list[Detection] = []
+    for row in range(rows):
+        for column in range(columns):
+            left, right = x_edges[column], x_edges[column + 1]
+            top, bottom = y_edges[row], y_edges[row + 1]
+            occupied, occupancy = _grid_cell_occupancy(
+                image, left, top, right, bottom
+            )
+            if not occupied:
+                # A projection valley at the transition from the final card row
+                # into unused bed space can still form a geometrically regular
+                # cell. Never preserve cardinality by manufacturing a crop from
+                # a cell whose own pixels say it is empty.
+                continue
+            occupancy_evidence = (
+                "cell_occupied:"
+                f"ink={occupancy['ink_ratio']:.3f},"
+                f"edge={occupancy['edge_ratio']:.3f},"
+                f"luma={occupancy['mean_luma']:.1f}"
+            )
+            refined = _refine_grid_cell_to_ink_extent(
+                image, left, top, right, bottom
+            )
+            if refined is not None:
+                detections.append(
+                    Detection(
+                        refined.x,
+                        refined.y,
+                        refined.width,
+                        refined.height,
+                        refined.angle,
+                        max(refined.confidence, 0.78 + 0.16 * gap_quality),
+                        refined.failure,
+                        refined.points,
+                        (
+                            *refined.evidence,
+                            "projection_gap_grid",
+                            "global_count",
+                            occupancy_evidence,
+                        ),
+                    )
+                )
+                continue
+            confidence = 0.72 + 0.16 * gap_quality
+            detections.append(
+                Detection(
+                    left,
+                    top,
+                    right - left,
+                    bottom - top,
+                    0.0,
+                    confidence,
+                    "card_outline_unresolved",
+                    ((left, top), (right, top), (right, bottom), (left, bottom)),
+                    (
+                        "projection_gap_grid",
+                        "grid_cell_fallback",
+                        "global_count",
+                        occupancy_evidence,
+                    ),
+                )
+            )
+    return detections, gap_quality
+
+
 def _transform_prior(prior: list[Detection], transform: str) -> list[Detection]:
     result = []
     for item in prior:
@@ -443,8 +1153,35 @@ def _transform_prior(prior: list[Detection], transform: str) -> list[Detection]:
         if "mirror_y" in transform:
             y = 1 - item.y - item.height
             points = tuple((px, 1 - py) for px, py in points or ()) or None
-        result.append(Detection(x, y, item.width, item.height, item.angle, 0.0, points=points))
+        result.append(
+            Detection(
+                x,
+                y,
+                item.width,
+                item.height,
+                item.angle,
+                0.0,
+                points=points,
+                evidence=item.evidence,
+            )
+        )
     return result
+
+
+def _stationary_layout_similarity(
+    original: list[Detection], transformed: list[Detection]
+) -> float:
+    """Measure whether a transform preserves the same physical bed regions."""
+    if not original or len(original) != len(transformed):
+        return 0.0
+    return float(
+        np.mean(
+            [
+                max(_intersection_over_union(item, reference) for reference in original)
+                for item in transformed
+            ]
+        )
+    )
 
 
 def _boundary_score(gray: np.ndarray, item: Detection) -> float:
@@ -460,12 +1197,82 @@ def _boundary_score(gray: np.ndarray, item: Detection) -> float:
     return min(1.0, float(np.mean(samples)) / 80.0) if samples.size else 0.0
 
 
-def detect_layout(content: bytes, *, dpi: int = 300, expected_count: int | None = None,
-                  prior: list[Detection] | None = None) -> LayoutHypothesis:
-    """Recover a sheet layout from local evidence and a globally-scored grid/prior.
+def _current_side_grid_score(
+    image: np.ndarray,
+    gray: np.ndarray,
+    detections: list[Detection],
+) -> float | None:
+    """Score an occupancy grid using current-side evidence, or reject it.
 
-    The expected front count is a hard back-side constraint. Local contour evidence
-    refines it but can never silently reduce an eight-card back to three cards.
+    This intentionally does not use the front-side coordinates. A strong grid
+    must have card-like physical aspect, comparable cell sizes, distributed
+    two-dimensional content in every cell, and boundary energy in this scan.
+    """
+    if not detections or not all(
+        "full_bed_grid" in item.evidence for item in detections
+    ):
+        return None
+    pixel_areas: list[float] = []
+    aspect_qualities: list[float] = []
+    body_qualities: list[float] = []
+    for item in detections:
+        pixel_width = item.width * image.shape[1]
+        pixel_height = item.height * image.shape[0]
+        pixel_areas.append(pixel_width * pixel_height)
+        ratio = max(pixel_width, pixel_height) / max(
+            1.0, min(pixel_width, pixel_height)
+        )
+        if not 1.15 <= ratio <= 1.90:
+            return None
+        aspect_qualities.append(max(0.0, 1 - abs(ratio - 1.40) / 0.50))
+        occupied, metrics = _grid_cell_occupancy(
+            image,
+            item.x,
+            item.y,
+            item.x + item.width,
+            item.y + item.height,
+        )
+        if not occupied:
+            return None
+        axis_coverage = min(
+            metrics["ink_row_coverage"], metrics["ink_column_coverage"]
+        )
+        # Reject a neighbour edge or shadow that happens to survive the basic
+        # occupancy threshold. Pale/text-heavy backs are kept by either their
+        # distributed ink or their stronger structural edge density.
+        if axis_coverage < 0.12 and metrics["edge_ratio"] < 0.015:
+            return None
+        body_qualities.append(min(1.0, max(axis_coverage / 0.35, metrics["edge_ratio"] / 0.03)))
+
+    size_regularity = min(pixel_areas) / max(max(pixel_areas), 1.0)
+    if size_regularity < 0.65:
+        return None
+    mean_boundary = float(np.mean([_boundary_score(gray, item) for item in detections]))
+    score = (
+        0.72
+        + 0.06 * size_regularity
+        + 0.05 * float(np.mean(aspect_qualities))
+        + 0.06 * float(np.mean(body_qualities))
+        + 0.06 * mean_boundary
+    )
+    return round(min(0.94, score), 4)
+
+
+def detect_layout(
+    content: bytes,
+    *,
+    dpi: int = 300,
+    expected_count: int | None = None,
+    prior: list[Detection] | None = None,
+    stationary_prior: bool = False,
+) -> LayoutHypothesis:
+    """Recover a sheet layout from current pixels and optional front-side slots.
+
+    ``stationary_prior`` represents the product's normal workflow: the user
+    flips each card in place. In that mode front regions are topology/search
+    slots, not evidence that a back-side object exists. Empty slots are omitted
+    and the full-bed count projection is disabled; it cannot manufacture a
+    region merely to make the two side counts agree.
     """
     image = cv2.imdecode(np.frombuffer(content, np.uint8), cv2.IMREAD_COLOR)
     if image is None:
@@ -492,37 +1299,153 @@ def detect_layout(content: bytes, *, dpi: int = 300, expected_count: int | None 
         "projection_x_periodicity": periodicity(projection_x),
         "projection_y_periodicity": periodicity(projection_y),
         "line_segment_count": 0 if lines is None else len(lines),
-        "candidate_routes": "multi_threshold+adaptive+gradient_lines+projection+components",
+        "candidate_routes": "multi_threshold+adaptive+gradient_lines+projection+components+mixed_slab_instances",
     }
     hypotheses: list[LayoutHypothesis] = []
     if expected_count and prior and len(prior) == count:
-        for transform in ("mirror_x", "mirror_y", "mirror_x+mirror_y", "identity"):
-            boxes = _transform_prior(prior, transform)
+        prior_transforms = (
+            ("identity",)
+            if stationary_prior
+            else ("mirror_x", "mirror_y", "mirror_x+mirror_y", "identity")
+        )
+        for transform in prior_transforms:
+            transformed = _transform_prior(prior, transform)
+            boxes: list[Detection] = []
+            slot_occupancy: list[float] = []
+            for slot_index, box in enumerate(transformed):
+                occupied, metrics = _grid_cell_occupancy(
+                    image,
+                    box.x,
+                    box.y,
+                    box.x + box.width,
+                    box.y + box.height,
+                )
+                if stationary_prior and not occupied:
+                    continue
+                slot_occupancy.append(
+                    min(
+                        metrics["ink_row_coverage"],
+                        metrics["ink_column_coverage"],
+                    )
+                )
+                boxes.append(
+                    Detection(
+                        box.x,
+                        box.y,
+                        box.width,
+                        box.height,
+                        box.angle,
+                        box.confidence,
+                        box.failure,
+                        box.points,
+                        (
+                            *box.evidence,
+                            f"front_slot_index:{slot_index}",
+                            "stationary_slot_occupancy"
+                            if stationary_prior
+                            else "transformed_prior_occupancy",
+                        ),
+                    )
+                )
+            if not boxes:
+                continue
             scores = [_boundary_score(gray, box) for box in boxes]
+            stationary_similarity = _stationary_layout_similarity(prior, boxes)
+            movement_penalty = 0.04 * (1 - stationary_similarity)
             refined = tuple(Detection(b.x, b.y, b.width, b.height, b.angle, round(0.68 + 0.28*s, 4),
                                       "boundary_evidence_weak" if s < .08 else None, b.points,
-                                      ("front_to_back_prior", "gradient_boundary", "global_count")) for b, s in zip(boxes, scores))
-            rows, columns = _grid_shape(count, image, boxes)
-            hypotheses.append(LayoutHypothesis(refined, round(.72 + .23*float(np.mean(scores)), 4), rows, columns, transform,
-                {**base_signals, "candidate_count": len(local), "expected_count": count, "mean_boundary_energy": round(float(np.mean(scores)),4), "dpi": dpi, "prior_weight": .72}))
+                                      (*b.evidence, "front_to_back_prior", "gradient_boundary", "global_count")) for b, s in zip(boxes, scores))
+            rows, columns = _grid_shape(len(boxes), image, boxes)
+            hypotheses.append(LayoutHypothesis(refined, round(.72 + .23*float(np.mean(scores)) - movement_penalty, 4), rows, columns, transform,
+                {**base_signals, "candidate_count": len(local), "expected_count": count, "mean_boundary_energy": round(float(np.mean(scores)),4), "stationary_layout_similarity": round(stationary_similarity, 4), "movement_penalty": round(movement_penalty, 4), "dpi": dpi, "prior_weight": .72,
+                 "prior_role": "identity_slot_topology_only" if stationary_prior else "layout_hypothesis",
+                 "occupied_slot_count": len(boxes), "missing_slot_count": count - len(boxes),
+                 "minimum_slot_body_coverage": round(min(slot_occupancy, default=0.0), 4)}))
+        if not stationary_prior:
+            rows, columns = _grid_shape(count, image, prior)
+            independent, gap_quality = _projection_gap_grid_detections(
+                image, rows, columns
+            )
+            if len(independent) == count and not _layout_conflicts(independent):
+                hypotheses.append(
+                    LayoutHypothesis(
+                        tuple(independent),
+                        round(0.78 + 0.16 * gap_quality, 4),
+                        rows,
+                        columns,
+                        "independent",
+                        {
+                            **base_signals,
+                            "candidate_count": len(local),
+                            "expected_count": count,
+                            "projection_gap_quality": round(gap_quality, 4),
+                            "dpi": dpi,
+                            "prior_weight": 0.0,
+                        },
+                    )
+                )
     if len(local) == count and not _layout_conflicts(local):
         rows, columns = _grid_shape(count, image, local)
-        hypotheses.append(LayoutHypothesis(tuple(local), round(float(np.mean([x.confidence for x in local])),4), rows, columns,
-            signals={**base_signals, "candidate_count": len(local), "expected_count": count, "dpi": dpi, "sources": "multi_threshold+gradient+components"}))
+        current_grid_score = _current_side_grid_score(image, gray, local)
+        full_bed_grid_exact_count = current_grid_score is not None
+        # Occupancy-filtered full-bed cells come from the current image and can
+        # correctly leave unused scanner-bed capacity below the last row. In
+        # contrast, an expected-count projection grid always partitions the
+        # entire bed and can therefore invent blank rows. When its count agrees
+        # with the confirmed front, treat current-side occupancy as stronger
+        # geometry evidence than a transformed front prior.
+        local_score = (
+            current_grid_score
+            if full_bed_grid_exact_count
+            else round(float(np.mean([x.confidence for x in local])), 4)
+        )
+        hypotheses.append(LayoutHypothesis(tuple(local), local_score, rows, columns,
+            signals={**base_signals, "candidate_count": len(local), "expected_count": count, "dpi": dpi,
+                     "sources": "full_bed_grid+current_side_occupancy" if full_bed_grid_exact_count else "multi_threshold+gradient+components",
+                     "front_prior_role": "count_only" if full_bed_grid_exact_count and expected_count else "not_applicable",
+                     "current_grid_evidence_score": current_grid_score or 0.0}))
     if expected_count and len(prior) != count and len(local) != count:
-        rows, columns = _grid_shape(count, image, [])
-        cell_w, cell_h = 1 / columns, 1 / rows
-        boxes = tuple(Detection(c*cell_w, r*cell_h, cell_w, cell_h, 0, .55, "layout_requires_review",
-            ((c*cell_w,r*cell_h),((c+1)*cell_w,r*cell_h),((c+1)*cell_w,(r+1)*cell_h),(c*cell_w,(r+1)*cell_h)),
-            ("projection_grid", "global_count")) for r,c in product(range(rows), range(columns)))
-        hypotheses.append(LayoutHypothesis(boxes, .55, rows, columns, signals={**base_signals,"candidate_count":len(local),"expected_count":count,"dpi":dpi}, rejected_reasons=("prior_missing",)))
+        # Count is metadata/expectation, never permission to synthesize evenly
+        # divided crops. Preserve the current-side candidates so missing slots
+        # remain visible as a count mismatch and can be edited or rescanned.
+        rows, columns = _grid_shape(len(local), image, local) if local else (0, 0)
+        hypotheses.append(
+            LayoutHypothesis(
+                tuple(local),
+                round(float(np.mean([item.confidence for item in local])), 4)
+                if local
+                else 0.0,
+                rows,
+                columns,
+                signals={
+                    **base_signals,
+                    "candidate_count": len(local),
+                    "expected_count": count,
+                    "dpi": dpi,
+                    "manufactured_count": 0,
+                },
+                rejected_reasons=("prior_missing", "expected_count_not_manufactured"),
+            )
+        )
     if not hypotheses:
         rows, columns = _grid_shape(len(local), image, local)
         hypotheses.append(LayoutHypothesis(tuple(local), round(float(np.mean([x.confidence for x in local])),4), rows, columns,
             signals={**base_signals,"candidate_count":len(local),"expected_count":count,"dpi":dpi}))
     valid = [item for item in hypotheses if not _layout_conflicts(item.detections)]
     if valid:
-        return max(valid, key=lambda item: item.score - .3*abs(len(item.detections)-count))
+        return max(
+            valid,
+            key=lambda item: (
+                int(
+                    stationary_prior
+                    and item.transform == "identity"
+                    and item.signals.get("prior_role")
+                    == "identity_slot_topology_only"
+                    and len(item.detections) == count
+                ),
+                item.score - 0.3 * abs(len(item.detections) - count),
+            ),
+        )
     safest = _non_conflicting_subset(list(hypotheses[0].detections))
     rows, columns = _grid_shape(len(safest), image, safest) if safest else (0, 0)
     return LayoutHypothesis(tuple(safest), 0.0, rows, columns,
@@ -530,9 +1453,23 @@ def detect_layout(content: bytes, *, dpi: int = 300, expected_count: int | None 
         rejected_reasons=local_conflicts or ("invalid_layout_geometry",))
 
 
-def detect_cards(content: bytes, *, dpi: int = 300, expected_count: int | None = None,
-                 prior: list[Detection] | None = None) -> list[Detection]:
-    return list(detect_layout(content, dpi=dpi, expected_count=expected_count, prior=prior).detections)
+def detect_cards(
+    content: bytes,
+    *,
+    dpi: int = 300,
+    expected_count: int | None = None,
+    prior: list[Detection] | None = None,
+    stationary_prior: bool = False,
+) -> list[Detection]:
+    return list(
+        detect_layout(
+            content,
+            dpi=dpi,
+            expected_count=expected_count,
+            prior=prior,
+            stationary_prior=stationary_prior,
+        ).detections
+    )
 
 
 def explain_detection(content: bytes, detections: list[Detection]) -> list[str]:

@@ -3,7 +3,10 @@ import asyncio
 from uuid import uuid4
 
 import httpx
+import pytest
 
+from card_platform.config import Settings
+from card_platform.domain.comparables import Classification, ComparableTier
 from card_platform.valuation_worker import (
     AutomatedValuationWorker,
     ComparableSearchResult,
@@ -12,16 +15,39 @@ from card_platform.valuation_worker import (
     PlayerAdjustment,
     PlayerPricePair,
     ValuationReference,
+    cached_candidate_needs_image_review,
     ebay_completed_search_url,
     ebay_item_id,
     market_search_query_ladder,
+    rank_cached_comparables,
+    reconcile_cardhobby_classification,
     recognition_candidate_overrides,
+    revalidated_cardhobby_assessment,
+    revalidated_cardhobby_tier,
     search_index_hit_to_comparable,
     search_index_query_ladder,
     third_party_exact_search_queries,
 )
 from card_platform.schemas import CardRecognitionResult
 from card_platform.search_index import SearchIndexHit
+
+
+def test_worker_keeps_direct_cardhobby_provider_without_model_credentials() -> None:
+    worker = AutomatedValuationWorker(
+        object(),
+        Settings(
+            vision_api_key=None,
+            ai_api_key=None,
+            search_index_brave_api_key=None,
+            search_index_serpapi_key=None,
+        ),
+    )
+
+    assert worker.client is None
+    assert worker.cardhobby is not None
+    assert [provider.provider.code for provider in worker.market_data.providers] == [
+        "cardhobby"
+    ]
 
 
 def _public_comparable(url: str, evidence_level: str) -> DiscoveredComparable:
@@ -36,6 +62,456 @@ def _public_comparable(url: str, evidence_level: str) -> DiscoveredComparable:
         source_reliability=Decimal("0.95"),
         evidence_level=evidence_level,
     )
+
+
+@pytest.mark.parametrize(
+    "conflict",
+    [
+        "visual_identity_conflict",
+        "lot_or_multi_card",
+        "grade_state_conflict",
+        "grade_conflict",
+        "material_conflict",
+        "autograph_conflict",
+        "player_conflict",
+        "product_conflict",
+        "card_number_conflict",
+        "insert_conflict",
+        "parallel_conflict",
+        "serial_total_conflict",
+        "season_conflict",
+        "image_review_unconfirmed",
+    ],
+)
+@pytest.mark.parametrize(
+    "provider_tier",
+    [
+        "exact_or_near_exact",
+        "same_player_product_analog",
+        "image_review_candidate",
+    ],
+)
+def test_cardhobby_provider_tier_never_erases_hard_conflict(
+    conflict: str, provider_tier: str
+) -> None:
+    classification = Classification(
+        ComparableTier.REJECTED,
+        Decimal("0"),
+        Decimal("0.70"),
+        hard_conflicts=[conflict],
+    )
+
+    reconciled, changed = reconcile_cardhobby_classification(
+        classification, provider_tier
+    )
+
+    assert reconciled == classification
+    assert not changed
+
+
+@pytest.mark.parametrize(
+    "conflict",
+    [
+        "card_number_conflict",
+        "insert_conflict",
+        "parallel_conflict",
+        "serial_total_conflict",
+        "season_conflict",
+    ],
+)
+def test_cardhobby_exact_tier_keeps_relative_difference_as_hard_conflict(
+    conflict: str,
+) -> None:
+    classification = Classification(
+        ComparableTier.REJECTED,
+        Decimal("0"),
+        Decimal("0.70"),
+        hard_conflicts=[conflict],
+    )
+
+    reconciled, changed = reconcile_cardhobby_classification(
+        classification, "exact_or_near_exact"
+    )
+
+    assert reconciled == classification
+    assert not changed
+
+
+def test_cardhobby_relative_tier_never_hides_a_real_hard_conflict() -> None:
+    classification = Classification(
+        ComparableTier.REJECTED,
+        Decimal("0"),
+        Decimal("0.70"),
+        hard_conflicts=["parallel_conflict", "player_conflict"],
+    )
+
+    reconciled, changed = reconcile_cardhobby_classification(
+        classification, "same_player_product_analog"
+    )
+
+    assert reconciled == classification
+    assert not changed
+
+
+def test_current_cardhobby_payload_rejection_cannot_fall_back_to_stale_marker() -> None:
+    identity = {
+        "player_name": "Kobe Bryant",
+        "season_start": 2018,
+        "season_end": 2019,
+        "product_name": "Donruss Basketball",
+        "card_number": "19",
+        "insert_name": "All Heart",
+        "parallel_name": None,
+        "is_autograph": False,
+        "is_patch": False,
+        "is_memorabilia": False,
+        "grade_company": None,
+    }
+    payload = {
+        "item_id": "123",
+        "title": "2018-19 Panini Donruss Optic Kobe Bryant All Heart #19",
+        "source_url": "https://cardhobby.com.cn/Market/Item/123",
+        "occurred_at": "2026-08-01T20:00:00+08:00",
+        "sale_price": "100",
+        "shipping_price": "18",
+        "bid_count": 5,
+        "sale_type": "auction",
+        "evidence_level": "ended_auction",
+        "sold_status_evidence": "Status=-2 and 5 bids",
+        "matching_fields": ["cardhobby_tier:exact_or_near_exact"],
+        "match_confidence": "0.85",
+    }
+
+    assert revalidated_cardhobby_tier(
+        identity,
+        payload,
+        ["cardhobby_tier:exact_or_near_exact"],
+    ) is None
+
+
+def test_current_cardhobby_payload_rejection_is_a_final_veto() -> None:
+    identity = {
+        "player_name": "Kobe Bryant",
+        "season_start": 2018,
+        "season_end": 2019,
+        "product_name": "Donruss Basketball",
+        "card_number": "19",
+        "insert_name": "All Heart",
+        "parallel_name": None,
+        "is_autograph": False,
+        "is_patch": False,
+        "is_memorabilia": False,
+        "grade_company": None,
+    }
+    payload = {
+        "item_id": "123",
+        "title": "2018-19 Donruss Kobe Bryant All Heart #19 Mojo /25",
+        "source_url": "https://cardhobby.com.cn/Market/Item/123",
+        "occurred_at": "2026-08-01T20:00:00+08:00",
+        "sale_price": "100",
+        "shipping_price": "18",
+        "bid_count": 5,
+        "sale_type": "auction",
+        "evidence_level": "ended_auction",
+        "sold_status_evidence": "Status=-2 and 5 bids",
+        "matching_fields": ["cardhobby_tier:exact_or_near_exact"],
+        "match_confidence": "0.85",
+    }
+    provider_tier, provider_rejection_reasons = revalidated_cardhobby_assessment(
+        identity, payload
+    )
+    downstream = Classification(
+        ComparableTier.T2,
+        Decimal("0.55"),
+        Decimal("0.70"),
+        field_matches={"player": True, "product": True},
+    )
+
+    reconciled, changed = reconcile_cardhobby_classification(
+        downstream,
+        provider_tier,
+        provider_rejection_reasons=provider_rejection_reasons,
+    )
+
+    assert provider_tier is None
+    assert provider_rejection_reasons
+    assert not changed
+    assert reconciled.tier == ComparableTier.REJECTED
+    assert reconciled.similarity == Decimal("0")
+    assert reconciled.hard_conflicts == ["cardhobby_provider_identity_conflict"]
+
+
+def test_current_cardhobby_revalidation_discards_historical_matcher_conflicts() -> None:
+    identity = {
+        "player_name": "Kobe Bryant",
+        "season_start": 2018,
+        "season_end": 2019,
+        "product_name": "Donruss Basketball",
+        "card_number": "19",
+        "insert_name": "All Heart",
+        "parallel_name": None,
+        "is_autograph": False,
+        "is_patch": False,
+        "is_memorabilia": False,
+        "grade_company": None,
+    }
+    payload = {
+        "item_id": "123",
+        "title": "2018-19 Panini Donruss Kobe Bryant All Heart #19",
+        "source_url": "https://cardhobby.com.cn/Market/Item/123",
+        "occurred_at": "2026-08-01T20:00:00+08:00",
+        "sale_price": "100",
+        "shipping_price": "18",
+        "bid_count": 5,
+        "sale_type": "auction",
+        "evidence_level": "ended_auction",
+        "sold_status_evidence": "Status=-2 and 5 bids",
+        "conflicts": ["标题未命中目标产品系列"],
+        "matching_fields": ["cardhobby_tier:exact_or_near_exact"],
+        "match_confidence": "0.85",
+    }
+
+    assert revalidated_cardhobby_tier(
+        identity,
+        payload,
+        ["cardhobby_tier:exact_or_near_exact"],
+    ) == "exact_or_near_exact"
+
+
+def test_cached_named_variant_revalidates_only_as_analog_for_unanchored_target() -> None:
+    identity = {
+        "player_name": "Kon Knueppel",
+        "season_start": 2025,
+        "season_end": 2026,
+        "brand_name": "Topps",
+        "product_name": "Midnight",
+        "card_number": None,
+        "insert_name": None,
+        "parallel_name": None,
+        "serial_total": None,
+        "print_run": None,
+        "is_autograph": False,
+        "is_patch": False,
+        "is_memorabilia": False,
+        "grade_company": None,
+    }
+    payload = {
+        "item_id": "120944301",
+        "title": (
+            "2025-26 Topps Midnight Kon Knueppel RC "
+            "Twilight 暮光特卡 大比例 SSP"
+        ),
+        "source_url": "https://cardhobby.com.cn/Market/Item/120944301",
+        "occurred_at": "2026-08-01T20:00:00+08:00",
+        "sale_price": "4482",
+        "shipping_price": "18",
+        "bid_count": 18,
+        "sale_type": "auction",
+        "evidence_level": "ended_auction",
+        "sold_status_evidence": "Status=-2 and 18 bids",
+        # Simulate a durable row written before this identity-contract fix.
+        "matching_fields": ["cardhobby_tier:exact_or_near_exact"],
+        "match_confidence": "0.85",
+    }
+
+    assert revalidated_cardhobby_tier(
+        identity,
+        payload,
+        ["cardhobby_tier:exact_or_near_exact"],
+    ) == "same_player_product_analog"
+
+
+def test_cardhobby_tier_only_refines_a_non_conflicting_classification() -> None:
+    downstream = Classification(
+        ComparableTier.T2,
+        Decimal("0.55"),
+        Decimal("0.70"),
+        field_matches={"player": True, "product": True},
+    )
+
+    reconciled, changed = reconcile_cardhobby_classification(
+        downstream, "exact_or_near_exact"
+    )
+
+    assert changed
+    assert reconciled.tier == ComparableTier.T1
+    assert reconciled.hard_conflicts == []
+    assert reconciled.field_matches["cardhobby_identity_contract"] is True
+
+
+def test_cardhobby_image_candidate_remains_low_confidence_until_verified() -> None:
+    unverified = Classification(
+        ComparableTier.T2,
+        Decimal("0.60"),
+        Decimal("0.70"),
+        field_matches={
+            "player": True,
+            "product": True,
+            "visual_same_template_anchor": False,
+        },
+    )
+    verified = Classification(
+        ComparableTier.T0,
+        Decimal("1"),
+        Decimal("0.70"),
+        field_matches={
+            "player": True,
+            "product": True,
+            "visual_same_template_anchor": True,
+        },
+    )
+
+    provisional, provisional_changed = reconcile_cardhobby_classification(
+        unverified, "image_review_candidate"
+    )
+    accepted, accepted_changed = reconcile_cardhobby_classification(
+        verified, "image_review_candidate"
+    )
+
+    assert provisional_changed
+    assert provisional.tier == ComparableTier.T2
+    assert provisional.similarity == Decimal("0.55")
+    assert provisional.hard_conflicts == []
+    assert provisional.field_matches["cardhobby_image_review_verified"] is False
+    assert provisional.field_matches["cardhobby_image_review_pending"] is True
+    assert accepted_changed
+    assert accepted.tier == ComparableTier.T0
+    assert accepted.hard_conflicts == []
+    assert accepted.field_matches["cardhobby_image_review_verified"] is True
+
+
+def test_cached_comparable_ranking_prioritizes_exact_match_over_recency() -> None:
+    recent_analog = _public_comparable(
+        "https://example.com/recent-analog", "ended_auction"
+    ).model_copy(
+        update={
+            "occurred_at": "2026-08-20T00:00:00Z",
+            "match_confidence": Decimal("0.40"),
+            "conflicts": ["标题未命中目标卡号或卡种"],
+        }
+    )
+    older_exact = _public_comparable(
+        "https://example.com/older-exact", "ended_auction"
+    ).model_copy(
+        update={
+            "occurred_at": "2026-06-20T00:00:00Z",
+            "match_confidence": Decimal("0.84"),
+            "conflicts": [],
+        }
+    )
+
+    ranked = rank_cached_comparables([recent_analog, older_exact])
+
+    assert [item.source_url for item in ranked] == [
+        "https://example.com/older-exact",
+        "https://example.com/recent-analog",
+    ]
+
+
+def test_cached_insert_candidate_waits_for_image_only_on_soft_finish_conflict() -> None:
+    candidate = _public_comparable(
+        "https://cardhobby.com.cn/Market/Item/96774784", "ended_auction"
+    ).model_copy(
+        update={
+            "image_url": "https://images.cardhobby.com/jason-kidd.jpg",
+            "conflicts": ["标题未命中目标卡种，需图像确认"],
+        }
+    )
+    identity = {"insert_name": "Starstruck"}
+
+    assert not cached_candidate_needs_image_review(
+        identity, candidate, ["parallel_conflict"]
+    )
+    assert cached_candidate_needs_image_review(
+        identity,
+        candidate,
+        ["parallel_conflict", "image_review_unconfirmed"],
+        "image_review_candidate",
+    )
+    assert not cached_candidate_needs_image_review(
+        identity,
+        candidate,
+        ["player_conflict", "parallel_conflict"],
+        "image_review_candidate",
+    )
+
+
+def test_cached_base_with_ambiguous_silver_finish_reaches_image_review() -> None:
+    candidate = _public_comparable(
+        "https://cardhobby.com.cn/Market/Item/96774785", "ended_auction"
+    ).model_copy(
+        update={
+            "title": "2023-24 Panini Revolution LeBron James #31 银折 折射",
+            "image_url": "https://images.cardhobby.com/lebron-revolution.jpg",
+            "conflicts": [],
+        }
+    )
+    identity = {
+        "product_name": "Revolution Basketball",
+        "card_number": "31",
+        "insert_name": None,
+    }
+
+    assert cached_candidate_needs_image_review(
+        identity, candidate, ["parallel_conflict"]
+    )
+
+
+def test_explicit_base_without_catalog_number_can_reach_image_review() -> None:
+    candidate = _public_comparable(
+        "https://cardhobby.com.cn/Market/Item/96774787", "ended_auction"
+    ).model_copy(
+        update={
+            "title": "2025-26 Topps Midnight Kon Knueppel RC Base 折射",
+            "image_url": "https://images.cardhobby.com/knueppel-midnight.jpg",
+            "conflicts": [],
+        }
+    )
+    identity = {
+        "product_name": "Midnight",
+        "card_number": None,
+        "insert_name": None,
+    }
+
+    assert cached_candidate_needs_image_review(
+        identity, candidate, ["parallel_conflict"]
+    )
+
+
+def test_cached_base_with_explicit_red_diamond_does_not_bypass_parallel_gate() -> None:
+    candidate = _public_comparable(
+        "https://cardhobby.com.cn/Market/Item/96774786", "ended_auction"
+    ).model_copy(
+        update={
+            "title": "2023-24 Panini Revolution LeBron James #31 红钻石折",
+            "image_url": "https://images.cardhobby.com/lebron-red-diamond.jpg",
+            "conflicts": [],
+        }
+    )
+    identity = {
+        "product_name": "Revolution Basketball",
+        "card_number": "31",
+        "insert_name": None,
+    }
+
+    assert not cached_candidate_needs_image_review(
+        identity, candidate, ["parallel_conflict"]
+    )
+
+
+def test_search_result_keeps_rejected_candidate_urls_and_reasons() -> None:
+    result = ComparableSearchResult(
+        rejected_candidates=[
+            {
+                "title": "different parallel",
+                "source_url": "https://cardhobby.com.cn/Market/Item/123",
+                "reason_codes": ["parallel_conflict"],
+            }
+        ]
+    )
+
+    assert result.rejected_candidates[0]["reason_codes"] == ["parallel_conflict"]
+    assert result.rejected_candidates[0]["source_url"].endswith("/123")
 
 
 def test_resolved_identity_accepts_memorabilia_type_list() -> None:
@@ -127,8 +603,8 @@ def test_market_search_query_ladder_relaxes_unconfirmed_ocr_fields() -> None:
 
     assert any("/133" in query for query in queries)
     assert any(query == "Justin Champagnie HR-JCH" for query in queries)
-    assert any("2021-22" in query for query in queries)
     assert "Justin Champagnie 2021 Chronicles Hoops Draft Picks" in queries
+    assert "Justin Champagnie 2020 Chronicles Hoops Draft Picks" in queries
     assert any("Hoops Retro Autographs" in query for query in queries)
     sold_url = ebay_completed_search_url(queries[0])
     assert "LH_Sold=1" in sold_url
@@ -148,6 +624,22 @@ def test_market_search_query_ladder_includes_single_copyright_year_without_ocr_i
     )
 
     assert "Tracy McGrady 1998 Finest" in queries
+
+
+def test_confirmed_cross_year_identity_keeps_both_seller_year_conventions() -> None:
+    queries = market_search_query_ladder(
+        {
+            "player_name": "MICHAEL JORDAN",
+            "season_start": 1998,
+            "season_end": 1999,
+            "product_name": "Black Diamond",
+            "card_number": "12",
+            "confirmed_identity_version_id": "confirmed-v2",
+        }
+    )
+
+    assert "MICHAEL JORDAN 1999 Black Diamond 12" in queries
+    assert "MICHAEL JORDAN 1998 Black Diamond 12" in queries
 
 
 def test_search_index_queries_and_ebay_item_id_are_bounded() -> None:
@@ -284,6 +776,57 @@ def test_rich_recognition_becomes_review_candidate_without_serial_as_card_number
     assert candidates[0]["is_valid"] is True
     assert candidates[0]["identity"]["serial_total"] == 60
     assert "None" not in candidates[0]["search_queries"][0]
+
+
+def test_recognition_candidate_honors_deliberately_cleared_prizm_logo() -> None:
+    current = {
+        "player_name": "Jayson Tatum",
+        "season_start": 2019,
+        "season_end": 2020,
+        "brand_name": "Panini",
+        "product_name": "Contenders Optic",
+        "card_number": "8",
+        "insert_name": "Superstar",
+        "parallel_name": "Prizm",
+    }
+    recognized = CardRecognitionResult(
+        player_name="Jayson Tatum",
+        season_start=2019,
+        season_end=2020,
+        brand_name="Panini",
+        product_name="Contenders Optic",
+        card_number="8",
+        insert_name="Superstar",
+        caveats=["generic_panini_prizm_logo_removed: technology logo"],
+        confidence=Decimal("0.86"),
+    )
+
+    overrides = recognition_candidate_overrides(current, recognized)
+
+    assert overrides["parallel_name"] is None
+
+
+def test_recognition_candidate_explicit_raw_observation_clears_stale_grade() -> None:
+    current = {
+        "player_name": "Kevin Durant",
+        "product_name": "Mosaic Basketball",
+        "grade_company": "PSA",
+        "grade_value": Decimal("10"),
+    }
+    recognized = CardRecognitionResult.model_validate(
+        {
+            "player_name": "Kevin Durant",
+            "product_name": "Mosaic Basketball",
+            "grade_company": None,
+            "grade_value": None,
+            "confidence": "0.95",
+        }
+    )
+
+    overrides = recognition_candidate_overrides(current, recognized)
+
+    assert overrides["grade_company"] is None
+    assert overrides["grade_value"] is None
 
 
 def test_sportscardspro_sale_is_tier_three_aggregated_evidence() -> None:

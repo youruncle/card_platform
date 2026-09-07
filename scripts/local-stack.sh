@@ -42,12 +42,6 @@ install_service() {
 }
 
 install_services() {
-  ln -sfn "$repo_dir/apps/web/.next/static" \
-    "$repo_dir/apps/web/.next/standalone/.next/static"
-  if [[ -d "$repo_dir/apps/web/public" ]]; then
-    ln -sfn "$repo_dir/apps/web/public" \
-      "$repo_dir/apps/web/.next/standalone/public"
-  fi
   install_service "$api_label" "$repo_dir/scripts/launchd/$api_label.plist"
   install_service "$web_label" "$repo_dir/scripts/launchd/$web_label.plist"
 }

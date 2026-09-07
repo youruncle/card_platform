@@ -17,6 +17,8 @@ from card_platform.db import Database
 from card_platform.image_rectification import RectifiedImage, rectify_card_image
 from card_platform.image_service import ALLOWED_IMAGE_TYPES, CardVisionService, ImageStorageService
 from card_platform.repository import PortfolioRepository
+from card_platform.recognition_benchmark_predictor import canonicalize_identity
+from card_platform.vision_routing import finalize_recognition_status
 from card_platform.schemas import (
     CardIdentityInput,
     CardRecognitionResult,
@@ -174,14 +176,25 @@ def scanner_job_view(row: dict) -> ScannerRecognitionJob:
 
 def _auto_import_payload(owner_id: UUID, result: CardRecognitionResult) -> CollectionItemCreate:
     season_start = result.season_start or result.copyright_year or datetime.now().year
+    season_end = (
+        result.season_end
+        if result.season_end in {season_start, season_start + 1}
+        else None
+    )
+    confidence_percent = round(float(result.confidence) * 100)
+    issue_note = (
+        f"；待核对：{', '.join(result.recognition_quality_issues)}"
+        if result.recognition_quality_issues
+        else ""
+    )
     return CollectionItemCreate(
         owner_id=owner_id,
         card=CardIdentityInput(
-            player_name=result.player_name or "待确认球员",
-            brand_name=result.brand_name or "待确认品牌",
+            player_name=result.player_name or "无法识别球员",
+            brand_name=result.brand_name or "无法识别品牌",
             season_start=season_start,
-            season_end=result.season_end,
-            product_name=result.product_name or "待确认产品",
+            season_end=season_end,
+            product_name=result.product_name or "无法识别产品",
             card_number=result.card_number,
             insert_name=result.insert_name,
             parallel_name=result.parallel_name,
@@ -202,7 +215,10 @@ def _auto_import_payload(owner_id: UUID, result: CardRecognitionResult) -> Colle
         is_numbered=bool(result.is_numbered),
         grade_company=result.grade_company,
         grade_value=result.grade_value,
-        notes="后台高拍仪 AI 识别后自动录入；可在详情页继续修正身份。",
+        notes=(
+            f"后台扫描自动录入；识别置信度 {confidence_percent}%{issue_note}。"
+            "识别依据已保留，可编辑并参与估值。"
+        ),
     )
 
 
@@ -227,6 +243,8 @@ class ScannerQueueService:
         back_raw_content: bytes | None = None,
         back_raw_content_type: str | None = None,
         preprocessed: bool = False,
+        front_crop_confidence: float | None = None,
+        back_crop_confidence: float | None = None,
     ) -> ScannerRecognitionJob:
         job_id = uuid4()
         job_dir = self.root / str(owner_id) / str(job_id)
@@ -246,8 +264,16 @@ class ScannerQueueService:
         front_raw_path = job_dir / f"front-raw{ALLOWED_IMAGE_TYPES[effective_front_raw_type]}"
         back_raw_path = job_dir / f"back-raw{ALLOWED_IMAGE_TYPES[effective_back_raw_type]}"
         if preprocessed:
-            front = _preserved_image(front_content, front_content_type, 1.0)
-            back = _preserved_image(back_content, back_content_type, 1.0)
+            front = _preserved_image(
+                front_content,
+                front_content_type,
+                1.0 if front_crop_confidence is None else front_crop_confidence,
+            )
+            back = _preserved_image(
+                back_content,
+                back_content_type,
+                1.0 if back_crop_confidence is None else back_crop_confidence,
+            )
         else:
             front, back = _rectify_pair(
                 front_content,
@@ -494,12 +520,19 @@ class ScannerRecognitionWorker:
                     front_content = await source.read()
                 async with aiofiles.open(back_path, "rb") as source:
                     back_content = await source.read()
-                result = await vision.recognize_pair_contents(
-                    front_content,
-                    "image/jpeg",
-                    back_content,
-                    "image/jpeg",
+                result = finalize_recognition_status(
+                    canonicalize_identity(
+                        await vision.recognize_pair_contents(
+                            front_content,
+                            "image/jpeg",
+                            back_content,
+                            "image/jpeg",
+                        )
+                    )
                 )
+                # Recognition quality is advisory. A successful scanner job is
+                # always imported, queued for valuation, and remains editable;
+                # uncertainty is exposed as confidence and issue metadata.
                 async with connection.transaction():
                     item_id = await PortfolioRepository().create_item(
                         connection, _auto_import_payload(job["owner_id"], result)
@@ -564,11 +597,14 @@ class ScannerRecognitionWorker:
 
 
 async def stop_scanner_worker(
-    task: asyncio.Task, worker: ScannerRecognitionWorker
+    tasks: asyncio.Task | list[asyncio.Task], worker: ScannerRecognitionWorker
 ) -> None:
     await worker.stop()
-    task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        pass
+    worker_tasks = [tasks] if isinstance(tasks, asyncio.Task) else tasks
+    for task in worker_tasks:
+        task.cancel()
+    for task in worker_tasks:
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass

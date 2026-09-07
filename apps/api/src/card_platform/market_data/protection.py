@@ -14,6 +14,10 @@ class SourceLimitedError(RuntimeError):
     pass
 
 
+class ProviderConcurrencyBusy(SourceLimitedError):
+    """A transient database lease collision, not a provider failure."""
+
+
 def retry_after_seconds(value: str | None) -> int | None:
     if not value:
         return None
@@ -34,11 +38,23 @@ class ProtectedProvider:
         self.provider = provider
         self._semaphore = asyncio.Semaphore(1)
 
+    async def _reserve_request(self, *, timeout_seconds: float = 30.0) -> float:
+        deadline = monotonic() + timeout_seconds
+        while True:
+            try:
+                return await self._begin()
+            except ProviderConcurrencyBusy:
+                if monotonic() >= deadline:
+                    raise SourceLimitedError(
+                        f"{self.provider.code} concurrency wait timed out"
+                    ) from None
+                await asyncio.sleep(min(0.25, max(0.0, deadline - monotonic())))
+
     async def fetch_sales(
         self, identity: MarketIdentity, *, since: datetime | None = None
     ) -> ProviderFetchResult:
         async with self._semaphore:
-            wait_seconds = await self._begin()
+            wait_seconds = await self._reserve_request()
             if wait_seconds:
                 await asyncio.sleep(wait_seconds)
             started = monotonic()
@@ -116,7 +132,9 @@ class ProtectedProvider:
                     (self.provider.code,),
                 )
             if state["active_requests"] >= state["concurrent_limit"]:
-                raise SourceLimitedError(f"{self.provider.code} concurrency limit reached")
+                raise ProviderConcurrencyBusy(
+                    f"{self.provider.code} concurrency limit reached"
+                )
             wait_seconds = 0.0
             if state["last_request_at"]:
                 elapsed = (now - state["last_request_at"]).total_seconds()

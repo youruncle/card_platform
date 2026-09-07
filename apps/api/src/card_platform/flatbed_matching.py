@@ -23,6 +23,7 @@ class CardRegion:
     height: float
     confidence: float = 1.0
     signals: dict[str, Any] = field(default_factory=dict)
+    failure_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -104,6 +105,24 @@ def _visual_similarity(left: CardRegion, right: CardRegion) -> float:
     return (histogram_score + hash_score) / 2
 
 
+def _crop_quality(region: CardRegion) -> tuple[float, tuple[str, ...]]:
+    raw = region.signals.get("crop_quality")
+    if not isinstance(raw, dict):
+        return region.confidence, ()
+    score = float(raw.get("usability_score", region.confidence))
+    violations = raw.get("violations")
+    if not isinstance(violations, list):
+        return score, ()
+    errors = tuple(
+        str(item.get("code"))
+        for item in violations
+        if isinstance(item, dict)
+        and item.get("severity") == "error"
+        and item.get("code")
+    )
+    return score, errors
+
+
 def score_pair(front: CardRegion, back: CardRegion, transform: str) -> PairCandidate:
     fx, fy = _position(front, "identity")
     bx, by = _position(back, transform)
@@ -120,6 +139,8 @@ def score_pair(front: CardRegion, back: CardRegion, transform: str) -> PairCandi
     explicit_visual = back.signals.get("visual_similarity", {})
     visual = float(explicit_visual.get(front.id, _visual_similarity(front, back)))
     recognition = float(back.signals.get("recognition_similarity", {}).get(front.id, text))
+    front_crop_quality, front_crop_errors = _crop_quality(front)
+    back_crop_quality, back_crop_errors = _crop_quality(back)
     values = {
         "geometry": geometry,
         "shape": shape,
@@ -127,6 +148,7 @@ def score_pair(front: CardRegion, back: CardRegion, transform: str) -> PairCandi
         "ocr": text,
         "visual": visual,
         "recognition": recognition,
+        "crop_quality": min(front_crop_quality, back_crop_quality),
     }
     score = (
         0.38 * geometry
@@ -143,6 +165,14 @@ def score_pair(front: CardRegion, back: CardRegion, transform: str) -> PairCandi
         conflicts.append("ocr_identity_conflict")
     if shape < 0.75:
         conflicts.append("outline_size_conflict")
+    if front.failure_reason:
+        conflicts.append(f"front_crop_{front.failure_reason}")
+    if back.failure_reason:
+        conflicts.append(f"back_crop_{back.failure_reason}")
+    conflicts.extend(
+        f"front_crop_quality_{code}" for code in front_crop_errors
+    )
+    conflicts.extend(f"back_crop_quality_{code}" for code in back_crop_errors)
     return PairCandidate(front.id, back.id, round(score, 6), transform, values, tuple(conflicts))
 
 

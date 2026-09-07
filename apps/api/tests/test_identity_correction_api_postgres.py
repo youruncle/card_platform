@@ -20,14 +20,17 @@ def test_suggestion_badge_api_and_one_click_apply(tmp_path) -> None:
     os.environ["UPLOAD_DIR"] = str(tmp_path / "uploads")
     get_settings.cache_clear()
     with TestClient(app) as client:
-        owner_id = client.post(
-            "/v1/users",
+        registered = client.post(
+            "/v1/auth/register",
             json={
                 "email": f"identity-fix-{uuid4()}@example.com",
                 "display_name": "Identity Fix",
                 "base_currency": "CNY",
+                "password": "A-safe-integration-password-2026!",
             },
-        ).json()["id"]
+        )
+        assert registered.status_code == 201, registered.text
+        owner_id = registered.json()["id"]
         wrong_card_number = f"WRONG-{uuid4().hex[:8]}"
         source_url = (
             "https://www.cardhobby.com.cn/market/item/122450195"

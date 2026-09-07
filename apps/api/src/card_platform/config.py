@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     recognition_worker_enabled: bool = True
     valuation_worker_poll_seconds: float = 2.0
     valuation_verify_sources: bool = True
+    # CardHobby remains the first-choice source, but rare cards must be allowed
+    # to fall through to independently verified completed-sale research.
+    valuation_cardhobby_only: bool = False
     valuation_source_verify_timeout_seconds: float = 8.0
     search_index_brave_api_key: str | None = None
     search_index_serpapi_key: str | None = None
@@ -81,6 +84,7 @@ class Settings(BaseSettings):
     auth_max_failed_logins: int = 5
     auth_lock_minutes: int = 15
     scanner_worker_enabled: bool = True
+    scanner_worker_concurrency: int = 4
     scanner_worker_poll_seconds: float = 1.0
     scanner_job_max_attempts: int = 3
     scanner_job_dir: str = "data/scanner-jobs"
@@ -90,6 +94,11 @@ class Settings(BaseSettings):
     flatbed_scan_dir: str = "data/flatbed-scans"
     flatbed_bridge_script: str = "scripts/canon_lide400_bridge.swift"
     flatbed_ocr_script: str = "scripts/ocr_card_region.swift"
+    flatbed_ml_enabled: bool = False
+    flatbed_ml_python: str = ".runtime/flatbed-ml/bin/python"
+    flatbed_ml_worker_script: str = "scripts/flatbed_sam2_worker.py"
+    flatbed_ml_checkpoint: str = ".runtime/models/sam2.1_hiera_tiny.pt"
+    flatbed_ml_timeout_seconds: float = 20.0
 
     @property
     def cors_origins(self) -> list[str]:

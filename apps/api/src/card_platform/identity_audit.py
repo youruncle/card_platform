@@ -11,7 +11,7 @@ from psycopg.types.json import Jsonb
 from card_platform.domain.card_identity import INSERT_ALIASES, normalize_text
 
 
-DETECTOR_VERSION = "market-title-identity-1.0"
+DETECTOR_VERSION = "market-title-identity-1.1"
 PARALLEL_ALIASES = {
     "Cur": ("cur", "curry"),
     "Red": ("red", "红平行"),
@@ -24,7 +24,8 @@ PARALLEL_ALIASES = {
 AUTOGRAPH_PATTERN = re.compile(r"签字|卡签|贴签|签名|\bauto(?:graph)?\b|\brpa\b", re.I)
 PATCH_PATTERN = re.compile(r"球衣|物料|切割|patch|jersey|relic|\brpa\b", re.I)
 EXPLICIT_CARD_NUMBER = re.compile(
-    r"(?:卡号|card\s*(?:no\.?|number)|#|no\.?)\s*[:：#]?\s*([a-z0-9][a-z0-9-]{0,15})\b",
+    r"(?:卡号|card\s*(?:no\.?|number)|#|\bno\.?(?=\s|[:：#]|\d))"
+    r"\s*[:：#]?\s*([a-z0-9][a-z0-9-]{0,15})\b",
     re.I,
 )
 
@@ -118,6 +119,14 @@ def build_identity_suggestions(
     )
     values: dict[tuple[str, str], Any] = {}
     for comp in comparables:
+        comparable_tier = str(comp.get("comparable_tier") or "").upper()
+        classification = comp.get("classification") or {}
+        if comparable_tier and comparable_tier != "T0":
+            # Analog sales can inform price, but must never rewrite the exact
+            # card identity in the opposite direction.
+            continue
+        if classification.get("hard_conflicts"):
+            continue
         title = str(comp.get("listing_title") or "")
         source_url = str(comp.get("source_url") or "")
         if not (

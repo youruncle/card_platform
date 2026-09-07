@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "detector_version": "layout-recovery-v3",
+  "detector_version": "component-first-layout-v14",
   "corpus_glob": "data/flatbed-scans/*/*/*/original.*",
   "expected_count_by_session": {
     "1143db53-b905-4b52-a9c2-aa9450c886ab": 8,
@@ -9,7 +9,34 @@
     "db7056ee-b9d0-41bd-a88f-647465e2b2ca": 8,
     "dca1a79a-b1bf-4e4f-b74e-3bc43b0875d0": 8,
     "dfbf09bc-5568-4ba9-8b25-34668c9d5623": 8,
-    "e30922b3-ef3d-4749-b055-bb9afbecf8bf": 8
+    "e30922b3-ef3d-4749-b055-bb9afbecf8bf": 8,
+    "b42eb953-4d51-40ac-8672-7bade5a0bc51": 8,
+    "ba0d998f-729f-4ccb-be42-205ae7a94027": 8,
+    "4c8ea546-1b0e-4d77-a10e-4e700af71013": 6,
+    "869be071-c2c2-42ab-aef2-455f8b2539cb": 5,
+    "820fefac-ea4a-4100-b63a-c5339647aff4": 8,
+    "21facd5d-c965-4aae-b3da-3be4cc2cbb37": 5,
+    "165b6654-4e5b-4a88-a98b-ba1863780055": 8,
+    "609508cb-de55-4e6d-8e4b-75bb9e6abcd3": 8,
+    "f38c4606-7dac-4b42-abc6-510743bc8997": 6
   },
-  "notes": "Local-only replay manifest. Original scans are immutable and untracked."
+  "expected_count_by_sheet": {
+    "fdd0731e-12cc-4536-93e9-4402a1b1e465": 8,
+    "ed35d948-0b32-4f16-9433-e2bae9764f0b": 8
+  },
+  "geometry_rules_by_sheet": {
+    "072c29ed-1137-43ed-bed2-b23919ab1773": {
+      "max_region_height": 0.32,
+      "max_region_bottom": 0.82,
+      "max_unusable_regions": 0
+    }
+  },
+  "minimum_metrics": {
+    "standalone_count_recall": 0.80,
+    "duplicate_free_rate": 1.0,
+    "whole_sheet_rejection_rate": 1.0,
+    "usable_region_rate": 0.99,
+    "critical_geometry_pass_rate": 1.0
+  },
+  "notes": "Local-only SHA-deduplicated replay manifest. Original scans are immutable and untracked; expected counts are used only for scoring, never passed to the detector."
 }

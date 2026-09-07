@@ -11,9 +11,11 @@ if [[ ! -f "$standalone_dir/server.js" ]]; then
   exit 1
 fi
 
-ln -sfn "$web_dir/.next/static" "$standalone_dir/.next/static"
+mkdir -p "$standalone_dir/.next/static"
+rsync -a "$web_dir/.next/static/" "$standalone_dir/.next/static/"
 if [[ -d "$web_dir/public" ]]; then
-  ln -sfn "$web_dir/public" "$standalone_dir/public"
+  mkdir -p "$standalone_dir/public"
+  rsync -a "$web_dir/public/" "$standalone_dir/public/"
 fi
 
 cd "$standalone_dir"

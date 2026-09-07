@@ -1,7 +1,7 @@
 import hashlib
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
@@ -96,6 +96,21 @@ class MarketDataResult(BaseModel):
     freshness: Freshness
     evidence: list[EvidenceRecord] = Field(default_factory=list)
     data_as_of: datetime | None = None
+    next_refresh_at: datetime | None = None
     refresh_job_id: str | None = None
     notes: list[str] = Field(default_factory=list)
     provider_diagnostics: list[dict[str, Any]] = Field(default_factory=list)
+
+    def refresh_is_due(self, *, now: datetime | None = None) -> bool:
+        """Whether another provider refresh may be queued now.
+
+        ``freshness=insufficient`` describes evidence quantity, not refresh
+        scheduling.  Keeping the backoff deadline separate lets valuation use
+        one or two retained sales without immediately starting another refresh.
+        """
+        if self.next_refresh_at is None:
+            return True
+        deadline = self.next_refresh_at
+        if deadline.tzinfo is None:
+            deadline = deadline.replace(tzinfo=timezone.utc)
+        return deadline <= (now or datetime.now(timezone.utc))

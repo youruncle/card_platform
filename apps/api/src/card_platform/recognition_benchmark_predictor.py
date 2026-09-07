@@ -12,6 +12,7 @@ from psycopg.types.json import Jsonb
 
 from card_platform.card_search_service import CardSearchService
 from card_platform.config import Settings
+from card_platform.domain.card_identity import canonical_insert
 from card_platform.image_service import (
     QwenVisionProvider,
     detect_image_content_type,
@@ -59,9 +60,32 @@ SERIAL_AS_PARALLEL = re.compile(
     re.IGNORECASE,
 )
 CARD_NUMBER_PREFIX = re.compile(r"^\s*(?:card\s*)?(?:no\.?|#)\s*", re.IGNORECASE)
+SERIAL_SPECULATION = re.compile(
+    r"推测|推断|猜测|可能|疑似|假设|根据.{0,20}(?:卡号|card\s*number)|"
+    r"\b(?:infer(?:red|ence)?|guess(?:ed)?|possibly|probably|assum(?:e|ed|ption))\b",
+    re.IGNORECASE,
+)
+SERIAL_REMOTE_EVIDENCE = re.compile(
+    r"联网候选|目录核验|validated[_ ]anchors?|tcdb|beckett|checklist|"
+    r"official (?:checklist|database)|权威(?:来源|图鉴|渠道)",
+    re.IGNORECASE,
+)
+SERIAL_NEGATIVE_OR_DATE_EVIDENCE = re.compile(
+    r"(?:no|not|without|absence of|未|无|不是|并非|非).{0,32}"
+    r"(?:serial|numbered|限编|编号|x/y|fraction)|"
+    r"(?:serial|numbered|限编|编号|x/y|fraction).{0,32}"
+    r"(?:no|not|without|absence|未|无|不是|并非|非)|"
+    r"birth(?:day|date)?|born|date|debut|首秀|生日|出生|日期|手写|套袋|外部标记",
+    re.IGNORECASE,
+)
+SERIAL_PHYSICAL_EVIDENCE = re.compile(
+    r"printed|visible|card (?:front|back)|front|back|ocr|"
+    r"正面|背面|卡面|卡背|印刷|可见|清晰|竖排|左上|右上|左下|右下",
+    re.IGNORECASE,
+)
 VISION_MAX_EDGE = 1800
 BENCHMARK_REMOTE_MAX_BYTES = 25 * 1024 * 1024
-RECOGNITION_PIPELINE_VERSION = "image-v5.3.0"
+RECOGNITION_PIPELINE_VERSION = "image-v5.4.0"
 RICH_ATTRIBUTE_FIELDS = (
     "is_rookie",
     "is_autograph",
@@ -156,6 +180,12 @@ def canonicalize_identity(result: CardRecognitionResult) -> CardRecognitionResul
     caveats = list(result.caveats)
     cleaned = False
 
+    canonicalized_insert = canonical_insert(result.insert_name)
+    if canonicalized_insert and canonicalized_insert != result.insert_name:
+        updates["insert_name"] = canonicalized_insert
+        caveats.append("特卡名已按已审核的完整标题/常见遮挡转写别名归一化")
+        cleaned = True
+
     release_evidence_rows = [
         *(result.field_evidence.get("product_name") or []),
         *(result.field_evidence.get("season_start") or []),
@@ -163,7 +193,10 @@ def canonicalize_identity(result: CardRecognitionResult) -> CardRecognitionResul
     ]
     inferred_release_evidence = re.compile(
         r"(?:结合|对应|推断|惯例|同上|tcdb|beckett|checklist|"
-        r"\bstat(?:s|istics)?\b|\bcareer\b|draft(?:ed)?|统计|履历|生涯|战绩|选秀)",
+        r"\bstat(?:s|istics)?\b|\bcareer\b|draft(?:ed)?|"
+        r"\bnba\s+finals\b|\bgame[- ]high\b|\bgame\s*\d+\b|"
+        r"\brookie\s+of\s+the\s+year\b|\bprofessional\s+seasons?\b|"
+        r"统计|履历|生涯|战绩|选秀|总决赛|比赛|年度最佳新秀|职业赛季)",
         re.IGNORECASE,
     )
     release_evidence = " ".join(
@@ -240,7 +273,10 @@ def canonicalize_identity(result: CardRecognitionResult) -> CardRecognitionResul
         cleaned = True
     if not product_seasons and re.search(
         r"(?:season\s+record|international\s+record|\bstats?\b|\bcareer\b|"
-        r"draft(?:ed)?|statistics?|统计|履历|生涯|战绩|选秀)",
+        r"draft(?:ed)?|statistics?|\bnba\s+finals\b|\bgame[- ]high\b|"
+        r"\bgame\s*\d+\b|\brookie\s+of\s+the\s+year\b|"
+        r"\bprofessional\s+seasons?\b|统计|履历|生涯|战绩|选秀|"
+        r"总决赛|比赛|年度最佳新秀|职业赛季)",
         season_evidence,
     ):
         updates["season_start"] = result.copyright_year
@@ -320,6 +356,40 @@ def canonicalize_identity(result: CardRecognitionResult) -> CardRecognitionResul
         caveats.append("产品名已去除运动后缀或补全厂商品牌前缀")
         cleaned = True
 
+    # Topps' NBA Hoops and Topps Chrome basketball products use an NBA season
+    # label whose end year matches the printed copyright year.  Models often
+    # copy the latest statistics season instead, making every otherwise-correct
+    # CardHobby result look one year off.  This is a deterministic product rule,
+    # not an inference from player biography text.
+    normalized_brand = _identity_token(updates.get("brand_name", result.brand_name))
+    normalized_product = _identity_token(
+        updates.get("product_name", result.product_name)
+    )
+    if (
+        normalized_brand == "topps"
+        and result.copyright_year is not None
+        and result.copyright_year >= 2020
+        and (
+            normalized_product == "nbahoops"
+            or (
+                normalized_product in {"toppschrome", "chrome"}
+                and result.copyright_year >= 2026
+            )
+        )
+    ):
+        season_start = result.copyright_year - 1
+        season_end = result.copyright_year
+        if (
+            updates.get("season_start", result.season_start) != season_start
+            or updates.get("season_end", result.season_end) != season_end
+        ):
+            updates["season_start"] = season_start
+            updates["season_end"] = season_end
+            caveats.append(
+                "Topps NBA 赛季产品已按版权结束年归一为跨年发行赛季"
+            )
+            cleaned = True
+
     if result.card_number:
         card_number = CARD_NUMBER_PREFIX.sub("", result.card_number).strip()
         if card_number and card_number != result.card_number:
@@ -345,12 +415,69 @@ def canonicalize_identity(result: CardRecognitionResult) -> CardRecognitionResul
         caveats.append("已按卡背 Nº/No./# 标签将字母编号归入 card_number")
         cleaned = True
 
-    numbered_evidence = " ".join(
-        result.field_evidence.get("is_numbered") or []
+    # Recent Topps backs print a manufacturing/web code such as CODE#CMP132931
+    # alongside the actual checklist number (for example O-17 or BH-10).  Vision
+    # models frequently choose the longer code or a jersey number because it
+    # looks more salient.  A unique prefixed checklist number in card-number
+    # evidence is the safer anchor; a lone CMP code is never a checklist card
+    # number and must not contaminate marketplace queries.
+    prefixed_evidence_numbers = {
+        match.group(1).upper()
+        for match in re.finditer(
+            r"\b([A-Z]{1,5}-(?:\d{1,5}|[A-Z]{1,5}))\b",
+            card_number_evidence,
+            re.IGNORECASE,
+        )
+        if not match.group(1).upper().startswith("CMP-")
+    }
+    current_card_number = str(
+        updates.get("card_number", result.card_number) or ""
+    ).strip()
+    is_manufacturing_code = bool(
+        re.fullmatch(r"(?:CODE#?)?CMP\d{5,}", current_card_number, re.IGNORECASE)
+        or re.fullmatch(r"\d{6,}", current_card_number)
     )
+    if len(prefixed_evidence_numbers) == 1 and (
+        is_manufacturing_code or current_card_number.isdigit()
+    ):
+        updates["card_number"] = next(iter(prefixed_evidence_numbers))
+        caveats.append(
+            "已将卡背厂内 CODE/CMP 编码或球衣数字替换为可核验的字母前缀清单卡号"
+        )
+        cleaned = True
+    elif is_manufacturing_code:
+        updates["card_number"] = None
+        caveats.append(
+            "卡背 CODE/CMP 为厂内编码而非清单卡号；未找到唯一真实卡号，已清空"
+        )
+        cleaned = True
+
+    effective_card_number = updates.get("card_number", result.card_number)
+    effective_insert_name = updates.get("insert_name", result.insert_name)
+    if (
+        not effective_card_number
+        and effective_insert_name
+        and re.fullmatch(r"[A-Z]{1,5}-(?:\d{1,5}|[A-Z]{1,5})", effective_insert_name, re.I)
+    ):
+        updates["card_number"] = str(effective_insert_name).upper()
+        updates["insert_name"] = None
+        caveats.append("字母前缀清单编号误放在特卡字段，已归入 card_number")
+        cleaned = True
+
     visible_serials = {
         (int(match.group(1)), int(match.group(2)))
-        for match in re.finditer(r"\b0*(\d{1,6})\s*/\s*0*(\d{1,6})\b", numbered_evidence)
+        for evidence in (result.field_evidence.get("is_numbered") or [])
+        if not SERIAL_SPECULATION.search(evidence)
+        and not SERIAL_REMOTE_EVIDENCE.search(evidence)
+        and not SERIAL_NEGATIVE_OR_DATE_EVIDENCE.search(evidence)
+        and (
+            SERIAL_PHYSICAL_EVIDENCE.search(evidence)
+            or re.fullmatch(r"\s*0*\d{1,6}\s*/\s*0*\d{1,6}\s*", evidence)
+        )
+        for match in re.finditer(
+            r"(?<![\d/])0*(\d{1,6})\s*/\s*0*(\d{1,6})(?!\s*/\s*\d)",
+            evidence,
+        )
         if int(match.group(1)) <= int(match.group(2))
     }
     if len(visible_serials) == 1:
@@ -365,24 +492,13 @@ def canonicalize_identity(result: CardRecognitionResult) -> CardRecognitionResul
             caveats.append("限编已按 is_numbered 的可见 x/y 证据纠正")
             cleaned = True
     elif (
-        result.card_number
-        and result.serial_number is not None
-        and result.serial_total is not None
-        and str(result.serial_number) == str(result.serial_total) == result.card_number
-    ):
+        result.serial_number is not None
+        or result.serial_total is not None
+    ) and not SERIAL_AS_PARALLEL.fullmatch(result.parallel_name or ""):
         updates["is_numbered"] = None
         updates["serial_number"] = None
         updates["serial_total"] = None
-        caveats.append("卡号被重复解释为 x/x 限编，因无可见分数证据已清空")
-        cleaned = True
-    elif (
-        result.serial_number is not None
-        and result.serial_total is None
-        and not visible_serials
-    ):
-        updates["is_numbered"] = None
-        updates["serial_number"] = None
-        caveats.append("仅看到单个数字且无 x/y 分母，不能作为限编，已清空")
+        caveats.append("限编缺少图片中可见的 x/y 分数证据，已清空")
         cleaned = True
 
     serial_match = SERIAL_AS_PARALLEL.fullmatch(result.parallel_name or "")
@@ -454,13 +570,36 @@ def canonicalize_identity(result: CardRecognitionResult) -> CardRecognitionResul
         "prizmblack",
         "obsidian",
         "noir",
+        "chrome",
+        "toppschrome",
     }
-    if (
-        effective_parallel_token in generic_product_parallel_tokens
+    product_logo_parallel = (
+        effective_parallel_token in generic_product_parallel_tokens - {"chrome"}
         and effective_parallel_token in effective_product_token
-    ):
+    ) or (
+        effective_parallel_token == "chrome"
+        and effective_product_token in {"chrome", "toppschrome"}
+    )
+    if product_logo_parallel:
         updates["parallel_name"] = None
         caveats.append("产品Logo不能作为具体平行版本，已清空并等待颜色/纹理证据")
+        effective_parallel_token = ""
+        cleaned = True
+
+    # Panini prints the PRIZM technology logo on the back of regular Optic and
+    # Mosaic inserts. It does not identify a parallel by itself. Real variants
+    # are named explicitly (for example Cracked Ice, Gold, or Gold Vinyl).
+    if (
+        effective_parallel_token == "prizm"
+        and any(token in effective_product_token for token in ("optic", "mosaic"))
+        and bool(updates.get("insert_name", result.insert_name))
+        and updates.get("serial_total", result.serial_total) is None
+    ):
+        updates["parallel_name"] = None
+        caveats.append(
+            "generic_panini_prizm_logo_removed: 背面 PRIZM 为 Panini 工艺标识，"
+            "未见具体颜色、纹理或限编时不作为平行版本"
+        )
         effective_parallel_token = ""
         cleaned = True
     compound_parallel = str(updates.get("parallel_name", result.parallel_name) or "")
@@ -610,6 +749,53 @@ def canonicalize_identity(result: CardRecognitionResult) -> CardRecognitionResul
         updates["insert_name"] = None
         caveats.append("特卡名与产品名重复，缺少独立卡面证据，已留空")
         cleaned = True
+
+    autograph_evidence = " ".join(
+        [
+            *(result.field_evidence.get("is_autograph") or []),
+            *(result.field_evidence.get("autograph_type") or []),
+        ]
+    )
+    if result.is_autograph is True:
+        certified_autograph = bool(
+            re.search(
+                r"certified autograph|guarantee(?:s|d)? (?:the )?authenticity|"
+                r"autograph(?:s)? (?:is|are) guaranteed|签字认证|保证.{0,20}(?:签字|签名)",
+                autograph_evidence,
+                re.IGNORECASE,
+            )
+            or "autograph" in _identity_token(result.insert_name)
+        )
+        explicitly_not_player_autograph = bool(
+            re.search(
+                r"not (?:a )?(?:player|athlete).{0,20}autograph|"
+                r"no (?:player )?autograph|不是球员签名|非球员签名",
+                autograph_evidence,
+                re.IGNORECASE,
+            )
+        )
+        if explicitly_not_player_autograph:
+            updates.update(
+                {
+                    "is_autograph": False,
+                    "autograph_type": "none",
+                    "has_inscription": None,
+                    "inscription_text": None,
+                }
+            )
+            caveats.append("非球员签名或印刷签名不得作为球员亲签属性")
+            cleaned = True
+        elif not certified_autograph:
+            updates.update(
+                {
+                    "is_autograph": None,
+                    "autograph_type": None,
+                    "has_inscription": None,
+                    "inscription_text": None,
+                }
+            )
+            caveats.append("签名仅凭笔迹外观且缺少卡背认证声明，签字属性已改为未知")
+            cleaned = True
 
     critical_negative_dependencies = {
         "is_autograph": {
@@ -1244,6 +1430,10 @@ class RecognitionBenchmarkPredictor:
                                 "识别为铭文并尽量逐字抄录；物料的 game-used/player-worn/event-worn/"
                                 "not from any specific game or event 必须读取背面声明，不能猜。"
                                 "copyright_year 只取 © 行。"
+                                "特卡标题被球员、圆形图案、Logo 或卡号徽章遮挡时，要联合"
+                                "正反面逐字重建完整印刷词；不要把遮挡后可见的残片擅自改写"
+                                "成带连字符的新词。若不能可靠补全则留空，并在 field_evidence"
+                                "抄录可见字母。"
                                 "统计表、履历、DRAFTED/选秀年份不能作为发行赛季。不得假定"
                                 "第2张就是背面；parallel_name 只填写颜色/纹理平行，产品Logo"
                                 "和卡片层级（如 PRIZM、OBSIDIAN、PRIZM BLACK、PREMIUM LEVEL）"

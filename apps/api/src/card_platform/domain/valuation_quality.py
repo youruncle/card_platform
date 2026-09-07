@@ -4,7 +4,10 @@ from enum import StrEnum
 from math import exp, log
 from statistics import median
 
-from card_platform.domain.card_identity import normalize_text
+from card_platform.domain.card_identity import (
+    has_misplaced_season_numbering,
+    normalize_text,
+)
 from card_platform.domain.comparables import ComparableTier
 
 
@@ -40,7 +43,13 @@ def evidence_grade(level: str | None) -> EvidenceGrade:
 
 def identity_review_reasons(identity: dict) -> list[str]:
     reasons = []
-    for field in ("player_name", "season_start", "season_end", "product_name"):
+    if has_misplaced_season_numbering(identity):
+        reasons.append("season_text_misplaced_as_card_or_serial_number")
+    # ``season_start`` is the searchable release-year anchor.  Some calendar-
+    # year products and older checklists do not expose an unambiguous NBA
+    # season end; blocking valuation on that optional field created a needless
+    # human-confirmation queue even though every marketplace query can be built.
+    for field in ("player_name", "season_start", "product_name"):
         if identity.get(field) in (None, ""):
             reasons.append(f"missing_{field}")
     if not any(
@@ -57,15 +66,21 @@ def identity_review_reasons(identity: dict) -> list[str]:
             reasons.append("serial_number_out_of_range")
     parallel = normalize_text(identity.get("parallel_name") or identity.get("parallel"))
     product = normalize_text(identity.get("product_name"))
-    if parallel in {"prizm", "refractor", "parallel", "折射"}:
-        reasons.append("generic_parallel_name")
-    # A print run plus a real card/insert anchor is already specific enough to
-    # search safely. Many products number their base or insert directly and do
-    # not assign a separate parallel name; requiring one invents catalog data.
     has_insert_anchor = bool(
         normalize_text(identity.get("insert_name") or identity.get("insert"))
     )
     has_card_number_anchor = bool(normalize_text(identity.get("card_number")))
+    official_chrome_refractor = bool(
+        parallel == "refractor"
+        and "chrome" in product
+        and has_insert_anchor
+        and has_card_number_anchor
+    )
+    if parallel in {"prizm", "refractor", "parallel", "折射"} and not official_chrome_refractor:
+        reasons.append("generic_parallel_name")
+    # A print run plus a real card/insert anchor is already specific enough to
+    # search safely. Many products number their base or insert directly and do
+    # not assign a separate parallel name; requiring one invents catalog data.
     if serial_total and not parallel and not (
         has_insert_anchor or has_card_number_anchor
     ):
@@ -124,15 +139,10 @@ def _weighted_quantile(
 
 
 class ShadowValuationEstimator:
-    """Conservative estimator used beside, never in place of, published values."""
+    """Evidence-first estimator with explicit low-confidence proxy output."""
 
     def estimate(self, sales: list[ShadowSale], identity: dict) -> ShadowEstimate:
         identity_blockers = identity_review_reasons(identity)
-        if identity_blockers:
-            return ShadowEstimate(
-                "insufficient", None, None, None, Decimal("0"), (), (),
-                tuple(identity_blockers),
-            )
         half_life = 180 if int(identity.get("serial_total") or 999) <= 99 else 90
         eligible = []
         rejected: list[dict] = []
@@ -141,7 +151,9 @@ class ShadowValuationEstimator:
             reasons = []
             if sale.tier == ComparableTier.REJECTED:
                 reasons.append("identity_conflict")
-            if sale.tier in {ComparableTier.T2, ComparableTier.T3}:
+            if sale.tier == ComparableTier.T3:
+                reasons.append("relative_card_too_weak_for_price_center")
+            if sale.tier == ComparableTier.T2 and sale.provider_code != "cardhobby":
                 reasons.append("relative_card_requires_reproducible_price_adjustment")
             if grade not in {EvidenceGrade.E0, EvidenceGrade.E1, EvidenceGrade.E2}:
                 reasons.append(f"evidence_grade_{grade.value}_not_center_eligible")
@@ -154,12 +166,14 @@ class ShadowValuationEstimator:
         if not eligible:
             return ShadowEstimate(
                 "insufficient", None, None, None, Decimal("0"), (),
-                tuple(rejected), ("no_eligible_relative_candidates",),
+                tuple(rejected),
+                tuple(dict.fromkeys([*identity_blockers, "no_eligible_relative_candidates"])),
             )
 
         # T1 may stand in for an exact sale when the identity remains strongly
-        # anchored. T2/T3 are context only: publishing their raw price without
-        # a reproducible card/parallel adjustment creates systematic outliers.
+        # anchored. A real CardHobby T2 transaction may still provide a useful
+        # same-player/product proxy: publish it with a deliberately broad range
+        # and low confidence instead of hiding the card. T3 remains context only.
         tier_priority = {
             ComparableTier.T0: 0,
             ComparableTier.T1: 1,
@@ -202,7 +216,29 @@ class ShadowValuationEstimator:
             weighted.append((sale.card_value, weight))
         fair = _weighted_quantile(weighted, Decimal("0.5"))
         count = len(eligible)
-        if count == 1:
+        selected_tier = eligible[0].tier
+        if selected_tier == ComparableTier.T2 and count == 1:
+            low = fair * Decimal("0.45")
+            high = fair * Decimal("1.65")
+            confidence = Decimal("0.18")
+        elif selected_tier == ComparableTier.T2 and count == 2:
+            low = min(value for value, _ in weighted) * Decimal("0.55")
+            high = max(value for value, _ in weighted) * Decimal("1.45")
+            confidence = Decimal("0.22")
+        elif selected_tier == ComparableTier.T2:
+            low = min(
+                _weighted_quantile(weighted, Decimal("0.25")) * Decimal("0.70"),
+                fair * Decimal("0.60"),
+            )
+            high = max(
+                _weighted_quantile(weighted, Decimal("0.75")) * Decimal("1.30"),
+                fair * Decimal("1.40"),
+            )
+            confidence = min(
+                Decimal("0.30"),
+                Decimal("0.20") + Decimal(count) * Decimal("0.02"),
+            )
+        elif count == 1:
             low, high, confidence = fair * Decimal("0.65"), fair * Decimal("1.35"), Decimal("0.45")
         elif count == 2:
             low = min(value for value, _ in weighted) * Decimal("0.85")
@@ -213,11 +249,15 @@ class ShadowValuationEstimator:
             high = max(_weighted_quantile(weighted, Decimal("0.75")), fair * Decimal("1.15"))
             confidence = min(Decimal("0.85"), Decimal("0.62") + Decimal(count) * Decimal("0.035"))
 
-        review: list[str] = []
+        review: list[str] = list(identity_blockers)
         if eligible[0].tier != ComparableTier.T0:
             review.append(f"relative_candidate_tier_{eligible[0].tier.value}")
-        if count < 2:
+        if selected_tier == ComparableTier.T2:
+            review.append("cardhobby_same_type_proxy_range")
+        if count < 2 and selected_tier != ComparableTier.T2:
             review.append("fewer_than_two_exact_sales")
+        elif count < 2:
+            review.append("single_cardhobby_proxy_sale")
         if max(sale.age_days for sale in eligible) > 180:
             review.append("stale_exact_evidence")
         providers = {sale.provider_code for sale in eligible}
@@ -234,6 +274,8 @@ class ShadowValuationEstimator:
             ComparableTier.T3: Decimal("0.20"),
         }[eligible[0].tier]
         confidence = min(confidence, tier_confidence_cap)
+        if identity_blockers:
+            confidence = min(confidence, Decimal("0.25"))
         return ShadowEstimate(
             "estimated",
             _q(low), _q(fair), _q(high), confidence,

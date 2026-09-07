@@ -10,6 +10,14 @@ export type PortfolioSummary = {
   realized_profit: string;
 };
 
+export type PortfolioPage = {
+  items: PortfolioItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+};
+
 export type AuthUser = {
   id: string;
   email: string;
@@ -70,10 +78,28 @@ export type ScannerCameraControls = {
   gain: ScannerCameraProperty | null;
 };
 
-export type FlatbedRegion = { id: string; ordinal: number; bounds: { x: number; y: number; width: number; height: number; angle?: number; points?: Array<{ x: number; y: number }> }; confidence: number; failure_reason: string | null };
+export type FlatbedCropQuality = {
+  presence_score: number;
+  isolation_score: number;
+  boundary_score: number;
+  usability_score: number;
+  usable: boolean;
+  needs_review: boolean;
+  violations: Array<{ code: string; severity: "warning" | "error"; message: string }>;
+};
+export type FlatbedRegion = {
+  id: string;
+  ordinal: number;
+  bounds: { x: number; y: number; width: number; height: number; angle?: number; points?: Array<{ x: number; y: number }> };
+  confidence: number;
+  failure_reason: string | null;
+  crop_quality?: FlatbedCropQuality;
+  signals?: { crop_quality?: FlatbedCropQuality; [key: string]: unknown };
+};
 export type FlatbedPair = { front_id: string; back_id: string; confidence: number; confidence_level: "high" | "medium" | "low"; conflicts: string[]; signals: Record<string, number>; requires_review: boolean };
 export type FlatbedSheet = { id: string; side: "front" | "back"; revision: number; content_type?: string; created_at?: string; detector_version?: string; layout_hypothesis?: Record<string, unknown>; requires_review?: boolean };
 export type FlatbedSession = { id: string; status: string; dpi: 300 | 600; pairing_requires_review: boolean; pairing_transform: string | null; submitted_at: string | null; pairs?: Array<Record<string, unknown>>; regions?: Array<FlatbedRegion & { side: "front" | "back" }>; sheets?: FlatbedSheet[] };
+export type FlatbedCaptureProgress = { capture_id: string; session_id: string; side: "front" | "back"; phase: "scanning" | "processing" | "completed" | "failed"; detail: string | null; updated_at: string };
 
 export type RecognitionBenchmarkMetrics = {
   sample_count: number;
@@ -306,6 +332,9 @@ export type PortfolioItem = {
   valuation_result_summary: Record<string, unknown>;
   valuation_job_id: string | null;
   valuation_error: string | null;
+  recognition_confidence: string | null;
+  recognition_status: "resolved" | "research_required" | null;
+  recognition_quality_issues: string[];
   deleted_at: string | null;
   deleted_reason: string | null;
 };
@@ -846,9 +875,14 @@ function multipartApiUrl(): string {
   if (process.env.NEXT_PUBLIC_UPLOAD_API_URL) {
     return process.env.NEXT_PUBLIC_UPLOAD_API_URL;
   }
-  if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
+  if (
+    typeof window !== "undefined"
+    && (process.env.NODE_ENV === "development" || window.location.port === "3000")
+  ) {
     // Keep the exact browser hostname so host-scoped Session cookies work for
-    // both localhost and 127.0.0.1, while bypassing Next's large-body proxy.
+    // both localhost and 127.0.0.1, while bypassing Next's long-request proxy.
+    // The local launchd stack serves a production build on port 3000, so the
+    // direct API route must not be limited to NODE_ENV=development.
     return `${window.location.protocol}//${window.location.hostname}:8000`;
   }
   return API_URL;
@@ -1306,10 +1340,13 @@ export function changePassword(payload: {
 
 export function getPortfolio(
   ownerId: string,
-): Promise<[PortfolioSummary, PortfolioItem[]]> {
+  page = 1,
+): Promise<[PortfolioSummary, PortfolioPage]> {
   return Promise.all([
     request<PortfolioSummary>(`/v1/portfolio/summary?owner_id=${ownerId}`),
-    request<PortfolioItem[]>(`/v1/portfolio/items?owner_id=${ownerId}`),
+    request<PortfolioPage>(
+      `/v1/portfolio/items/page?owner_id=${ownerId}&page=${page}&page_size=30`,
+    ),
   ]);
 }
 
@@ -1728,24 +1765,28 @@ export async function uploadFlatbedSheet(sessionId: string, side: "front" | "bac
   return response.json();
 }
 
-export function captureFlatbedSheet(sessionId: string, side: "front" | "back", preview = false): Promise<{ id: string; regions: FlatbedRegion[]; failures: string[] }> {
+export function captureFlatbedSheet(sessionId: string, side: "front" | "back", preview = false, captureId?: string): Promise<{ id: string; regions: FlatbedRegion[]; failures: string[] }> {
   // A full-bed scan regularly takes longer than Next's development rewrite
   // proxy is willing to keep the upstream response open. The API may finish
   // and persist the sheet after that proxy has already returned a misleading
   // 500, which encourages duplicate scans. Use the same direct local API
   // origin as large uploads so the browser waits for the real scan result.
   return request(
-    `/v1/flatbed/sessions/${sessionId}/capture/${side}?preview=${preview}`,
+    `/v1/flatbed/sessions/${sessionId}/capture/${side}?preview=${preview}${captureId ? `&capture_id=${encodeURIComponent(captureId)}` : ""}`,
     { method: "POST" },
     multipartApiUrl(),
   );
+}
+
+export function getFlatbedCaptureProgress(captureId: string): Promise<FlatbedCaptureProgress> {
+  return request(`/v1/flatbed/captures/${captureId}/status`, {}, multipartApiUrl());
 }
 
 export function proposeFlatbedPairs(sessionId: string): Promise<{ pairs: FlatbedPair[]; missing_front: string[]; missing_back: string[]; transform: string; requires_review: boolean }> {
   return request(`/v1/flatbed/sessions/${sessionId}/pair`, { method: "POST" });
 }
 
-export function confirmFlatbedPairs(sessionId: string, pairs: Array<{ front_region_id: string; back_region_id: string }>): Promise<{ status: string; count: number }> {
+export function confirmFlatbedPairs(sessionId: string, pairs: Array<{ front_region_id: string; back_region_id: string }>): Promise<{ status: string; count: number; skipped: { front: number; back: number } }> {
   return request(`/v1/flatbed/sessions/${sessionId}/pairs`, { method: "PUT", body: JSON.stringify({ pairs }) });
 }
 

@@ -276,6 +276,10 @@ export default function Dashboard() {
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [summary, setSummary] = useState(emptySummary);
   const [items, setItems] = useState<PortfolioItem[]>([]);
+  const [portfolioPage, setPortfolioPage] = useState(1);
+  const [portfolioTotal, setPortfolioTotal] = useState(0);
+  const [portfolioTotalPages, setPortfolioTotalPages] = useState(1);
+  const portfolioPageRef = useRef(1);
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [trashItems, setTrashItems] = useState<PortfolioItem[]>([]);
@@ -349,16 +353,20 @@ export default function Dashboard() {
     serialTotal: string;
   } | null>(null);
 
-  const refresh = useCallback(async (id: string) => {
+  const refresh = useCallback(async (id: string, requestedPage = portfolioPageRef.current) => {
     setLoading(true);
     setError("");
     try {
-      const [[nextSummary, nextItems], nextIssueCounts] = await Promise.all([
-        getPortfolio(id),
+      const [[nextSummary, nextPage], nextIssueCounts] = await Promise.all([
+        getPortfolio(id, requestedPage),
         getIdentityCorrectionCounts(id),
       ]);
       setSummary(nextSummary);
-      setItems(nextItems);
+      setItems(nextPage.items);
+      setPortfolioPage(nextPage.page);
+      setPortfolioTotal(nextPage.total);
+      setPortfolioTotalPages(nextPage.total_pages);
+      portfolioPageRef.current = nextPage.page;
       setIdentityIssueCounts(nextIssueCounts);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "暂时无法读取卡库");
@@ -369,11 +377,15 @@ export default function Dashboard() {
 
   useEffect(() => {
     void getCurrentUser()
-      .then((user) => {
+      .then(async (user) => {
         setCurrentUser(user);
         setOwnerId(user.id);
         setShowSetup(false);
-        return refresh(user.id);
+        const [, jobs] = await Promise.all([
+          refresh(user.id),
+          getScannerRecognitionJobs().catch(() => []),
+        ]);
+        setScannerJobs(jobs);
       })
       .catch(() => {
         setCurrentUser(null);
@@ -500,11 +512,15 @@ export default function Dashboard() {
     if (!active) return;
     const timer = window.setInterval(() => {
       void Promise.all([
-        getPortfolio(ownerId),
+        getPortfolio(ownerId, portfolioPageRef.current),
         getIdentityCorrectionCounts(ownerId),
-      ]).then(([[nextSummary, nextItems], nextIssueCounts]) => {
+      ]).then(([[nextSummary, nextPage], nextIssueCounts]) => {
         setSummary(nextSummary);
-        setItems(nextItems);
+        setItems(nextPage.items);
+        setPortfolioPage(nextPage.page);
+        setPortfolioTotal(nextPage.total);
+        setPortfolioTotalPages(nextPage.total_pages);
+        portfolioPageRef.current = nextPage.page;
         setIdentityIssueCounts(nextIssueCounts);
       });
     }, 3000);
@@ -574,6 +590,10 @@ export default function Dashboard() {
       setCurrentUser(null);
       setOwnerId(null);
       setItems([]);
+      setPortfolioPage(1);
+      setPortfolioTotal(0);
+      setPortfolioTotalPages(1);
+      portfolioPageRef.current = 1;
       setSummary(emptySummary);
       setShowSetup(true);
     }
@@ -1546,7 +1566,7 @@ export default function Dashboard() {
             <Search size={17} />
             <input
               aria-label="搜索球员或卡片"
-              placeholder="搜索球员、品牌或卡种"
+              placeholder="搜索当前页的球员、品牌或卡种"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
@@ -1777,6 +1797,25 @@ export default function Dashboard() {
                                 >
                                   {item.player_name}
                                 </button>
+                                {item.recognition_confidence !== null && (
+                                  <span
+                                    className={`recognition-badge${
+                                      Number(item.recognition_confidence) < 0.75
+                                        ? " low"
+                                        : Number(item.recognition_confidence) < 0.9
+                                          ? " medium"
+                                          : ""
+                                    }`}
+                                    title={
+                                      item.recognition_quality_issues.length
+                                        ? `待核对：${item.recognition_quality_issues.join("；")}`
+                                        : "扫描识别结果"
+                                    }
+                                  >
+                                    识别 {Math.round(Number(item.recognition_confidence) * 100)}%
+                                    {item.recognition_quality_issues.length > 0 ? " · 待核对" : ""}
+                                  </span>
+                                )}
                               </div>
                               <small>
                                 {season(item)} · {item.product_name}
@@ -1910,10 +1949,12 @@ export default function Dashboard() {
                               className="valuation-status insufficient"
                               onClick={() => void openValuationDetail(item)}
                             >
-                              {item.valuation_result_summary?.research_status ===
-                                "awaiting_confirmation" ||
-                              item.valuation_result_summary?.identity_review_status === "pending"
-                                ? "待确认身份"
+                              {item.valuation_result_summary?.identity_resolution_status ===
+                                "unresolved" ||
+                              ["identity_research_required", "awaiting_confirmation"].includes(
+                                String(item.valuation_result_summary?.research_status ?? ""),
+                              )
+                                ? "无法识别"
                                 : "证据不足"}
                             </button>
                           ) : item.valuation_status === "failed" ? (
@@ -2019,6 +2060,26 @@ export default function Dashboard() {
                   )}
                 </tbody>
               </table>
+            </div>
+            <div className="portfolio-pagination" aria-label="卡牌列表分页">
+              <span>共 {portfolioTotal} 张 · 每页最多 30 张</span>
+              <div>
+                <button
+                  type="button"
+                  disabled={loading || portfolioPage <= 1}
+                  onClick={() => ownerId && void refresh(ownerId, portfolioPage - 1)}
+                >
+                  上一页
+                </button>
+                <strong>第 {portfolioPage} / {portfolioTotalPages} 页</strong>
+                <button
+                  type="button"
+                  disabled={loading || portfolioPage >= portfolioTotalPages}
+                  onClick={() => ownerId && void refresh(ownerId, portfolioPage + 1)}
+                >
+                  下一页
+                </button>
+              </div>
             </div>
           </section>
 
@@ -2145,15 +2206,6 @@ export default function Dashboard() {
             setValuationDetail(null);
           }}
           onRetry={handleValuationRetry}
-          onIdentityReview={async () => {
-            const itemId = valuationDetailItem.id;
-            const opened = await openItemDetail(itemId);
-            if (opened) {
-              setValuationDetailItem(null);
-              setValuationDetail(null);
-            }
-            return opened;
-          }}
         />
       )}
       {potentialItem && (
@@ -3411,6 +3463,7 @@ function ItemDetailDialog({
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>("manual");
   const confirmationFormRef = useRef<HTMLDivElement | null>(null);
   const [reviewReason, setReviewReason] = useState("人工核对正反面图片及成交证据");
+  const showLegacyIdentityReview: boolean = false;
   const item = detail.item;
   const catalogFields = [
     ["球员", catalog?.player_name ?? item.player_name],
@@ -3574,7 +3627,78 @@ function ItemDetailDialog({
           </section>
         </div>
 
-        {identityReview && reviewDraft && (
+        {identityReview && (() => {
+          const candidate = identityReview.candidates.find((item) => item.is_valid)
+            ?? identityReview.candidates[0];
+          const resolved = identityReview.latest_version?.review_status === "confirmed";
+          const sourceLinks = candidate
+            ? Array.from(new Map([
+                ...candidate.checklist_evidence
+                  .filter((source) => Boolean(source.source_url))
+                  .map((source) => [source.source_url, source.source_version || "身份图鉴"] as const),
+                ...candidate.market_evidence
+                  .filter((source) => Boolean(source.source_url))
+                  .map((source) => [source.source_url as string, source.raw_title || "同卡例证"] as const),
+              ]).entries())
+            : [];
+          return (
+            <section className="dossier-section identity-review-workbench">
+              <div className="dossier-section-heading">
+                <div>
+                  <p className="eyebrow">AUTOMATIC IDENTITY / 自动身份判定</p>
+                  <h3>{resolved ? "身份已自动判定" : "无法识别"}</h3>
+                </div>
+                <span className={`tag ${resolved ? "lime" : "muted"}`}>
+                  {resolved ? "已通过身份门禁" : "未通过身份门禁"}
+                </span>
+              </div>
+              {!resolved && (
+                <p className="identity-review-warning">
+                  后台已记录失败阶段、缺失/冲突字段、模型路线、候选及拒绝原因；无需人工确认。
+                </p>
+              )}
+              <div className="identity-candidate-list">
+                {candidate ? (
+                  <article className="identity-candidate selected">
+                    <div className="identity-candidate-heading">
+                      <div>
+                        <span>{resolved ? "自动采用的身份" : "被质量门禁拒绝的最佳候选"}</span>
+                        <strong>
+                          {candidate.identity.player_name} · {candidate.identity.product_name}
+                          {candidate.identity.card_number ? ` #${candidate.identity.card_number}` : ""}
+                        </strong>
+                      </div>
+                      <b>{Math.round(Number(candidate.confidence) * 100)}%</b>
+                    </div>
+                    <ul>
+                      {candidate.visual_reasons.slice(0, 12).map((reason) => (
+                        <li key={reason}>{reason}</li>
+                      ))}
+                      {!candidate.is_valid && candidate.validation_reasons.map((reason) => (
+                        <li className="candidate-conflict" key={reason}>拒绝：{reason}</li>
+                      ))}
+                    </ul>
+                    <div className="identity-candidate-sources">
+                      <strong>例图 / 证据链接</strong>
+                      {sourceLinks.map(([url, label]) => (
+                        <a key={url} href={externalSourceUrl(url)} target="_blank" rel="noreferrer">
+                          {label} ↗
+                        </a>
+                      ))}
+                      {sourceLinks.length === 0 && <small>暂无可访问的公开例图链接</small>}
+                    </div>
+                  </article>
+                ) : (
+                  <p className="muted-copy">
+                    没有生成达到最小身份锚点的候选；根因已写入后台诊断。
+                  </p>
+                )}
+              </div>
+            </section>
+          );
+        })()}
+
+        {identityReview && reviewDraft && showLegacyIdentityReview && (
           <section className="dossier-section identity-review-workbench">
             <div className="dossier-section-heading">
               <div>
@@ -4035,44 +4159,26 @@ function AutomatedValuationDialog({
   detail,
   onClose,
   onRetry,
-  onIdentityReview,
 }: {
   item: PortfolioItem;
   detail: AutomatedValuationDetail;
   onClose: () => void;
   onRetry: () => Promise<void>;
-  onIdentityReview: () => Promise<boolean>;
 }) {
   const [retrying, setRetrying] = useState(false);
-  const [openingIdentityReview, setOpeningIdentityReview] = useState(false);
-  const [identityReviewError, setIdentityReviewError] = useState("");
   const valuation = detail.valuation;
   const shadow = detail.shadow_valuation;
   const evidence = valuation?.evidence;
   const comps = evidence?.comparables ?? [];
-  const savedAcceptedEvidence = detail.comparables.filter(
-    (comp) => comp.source_url && comp.comparable_tier !== "rejected",
-  );
+  const acceptedComparableIds = new Set(comps.map((comp) => comp.id));
   const rejectedEvidence = detail.comparables.filter(
-    (comp) => comp.source_url && comp.comparable_tier === "rejected",
+    (comp) => comp.source_url && !acceptedComparableIds.has(comp.id),
   );
   const evidenceSources = [
     ...comps.map((comp) => ({
       title: comp.title || "估值采用的可比成交",
       sourceUrl: comp.source_url,
       detail: comp.source ?? comp.evidence_level ?? "已采用成交",
-    })),
-    ...(shadow?.evidence.references ?? []).map((reference) => ({
-      title: reference.title || "影子估值参考",
-      sourceUrl: reference.source_url ?? null,
-      detail: reference.evidence_type ?? "仅供人工复核的参考",
-    })),
-    ...savedAcceptedEvidence.map((comp) => ({
-      title: comp.listing_title || "已保存的市场证据",
-      sourceUrl: comp.source_url,
-      detail: comp.comparable_tier
-        ? `${comp.comparable_tier} · 已通过身份门禁`
-        : "已保存市场证据",
     })),
   ].filter(
     (source, index, all) =>
@@ -4081,7 +4187,9 @@ function AutomatedValuationDialog({
   );
   const running = isValuationRunning(detail.status);
   const researchStatus = String(detail.result_summary.research_status ?? "");
-  const awaitingIdentityConfirmation = researchStatus === "awaiting_confirmation";
+  const identityUnresolved =
+    detail.result_summary.identity_resolution_status === "unresolved"
+    || ["identity_research_required", "awaiting_confirmation"].includes(researchStatus);
   return (
     <div className="modal-backdrop">
       <div className="modal valuation-detail-modal">
@@ -4290,7 +4398,7 @@ function AutomatedValuationDialog({
           <section className="valuation-evidence-links">
             <h3>可查验证据链接 · {evidenceSources.length}</h3>
             <p>
-              链接保留卡淘单品页、eBay 单品页及第三方来源。来源仅用于核验；页面状态以本系统标注的成交状态和证据等级为准。
+              此处只展示当前估值实际采用且通过身份门禁的成交。宽检索、影子参考和被拒绝候选单独列在下方。
             </p>
             <div>
               {evidenceSources.map((source) => (
@@ -4339,36 +4447,28 @@ function AutomatedValuationDialog({
             </p>
           </div>
         )}
-        {awaitingIdentityConfirmation && (
+        {identityUnresolved && (
           <div className="valuation-running-panel">
             <ShieldAlert size={20} />
             <div>
-              <strong>已找到候选身份，等待你确认</strong>
+              <strong>无法识别</strong>
               <p>
-                系统已生成 {String(detail.result_summary.candidate_count ?? 0)} 个候选；
-                确认前不会产生或覆盖价格。
+                自动身份门禁未通过，未生成或覆盖价格。后台已记录完整身份、查询词、
+                候选、拒绝原因与缺失字段，无需你确认。
               </p>
-              <button
-                className="primary-button"
-                disabled={openingIdentityReview}
-                onClick={async () => {
-                  setOpeningIdentityReview(true);
-                  setIdentityReviewError("");
-                  try {
-                    const opened = await onIdentityReview();
-                    if (!opened) setIdentityReviewError("身份复核加载失败，请重试");
-                  } finally {
-                    setOpeningIdentityReview(false);
-                  }
-                }}
-              >
-                {openingIdentityReview ? "正在打开身份复核…" : "打开身份复核并确认候选"}
-              </button>
-              {identityReviewError && <small className="candidate-conflict">{identityReviewError}</small>}
+              <small>
+                根因：{Array.isArray(
+                  (detail.result_summary.identity_failure_diagnostics as { root_cause_codes?: unknown[] } | undefined)
+                    ?.root_cause_codes,
+                )
+                  ? ((detail.result_summary.identity_failure_diagnostics as { root_cause_codes: unknown[] })
+                    .root_cause_codes.map(String).join("、"))
+                  : String(detail.result_summary.reason ?? "身份锚点不足")}
+              </small>
             </div>
           </div>
         )}
-        {!running && !awaitingIdentityConfirmation && (
+        {!running && (
           <button
             className="secondary-button full"
             disabled={retrying}
@@ -4769,7 +4869,7 @@ function RecognitionDialog({
   onFlatbedCompleted: (jobIds: string[]) => void | Promise<void>;
 }) {
   const [batchFileCount, setBatchFileCount] = useState(0);
-  const [showFlatbed, setShowFlatbed] = useState(false);
+  const [showFlatbed, setShowFlatbed] = useState(true);
 
   return (
     <div className="modal-backdrop" onMouseDown={(event) => closeOnBackdrop(event, onClose, loading)}>
@@ -4814,7 +4914,10 @@ function RecognitionDialog({
             type="button"
             disabled={loading}
             className={showFlatbed ? "active" : ""}
-            onClick={() => setShowFlatbed((current) => !current)}
+            onClick={() => {
+              setShowFlatbed(true);
+              setBatchFileCount(0);
+            }}
           >
             Canon 扫描仪
             <small>LiDE 400 整版批量录入</small>
@@ -4956,7 +5059,9 @@ function RecognitionDialog({
                   <strong>
                     {job.status === "queued" && "等待识别"}
                     {job.status === "running" && "AI 识别中"}
-                    {job.status === "succeeded" && `${job.result?.player_name || "识别完成"}${job.collection_item_id ? " · 已自动入库" : ""}`}
+                    {job.status === "succeeded" && (
+                      `${job.result?.player_name || "识别完成"}${job.collection_item_id ? " · 已自动入库" : ""}`
+                    )}
                     {job.status === "failed" && "识别失败"}
                     {job.status === "cancelled" && "已取消"}
                   </strong>
@@ -5022,7 +5127,7 @@ function RecognitionDialog({
                   <strong>
                     {draft.error
                       ? `失败：${draft.error}`
-                      : draft.result?.player_name || "待人工确认"}
+                      : draft.result?.player_name || "无法识别"}
                   </strong>
                   <small>{draft.result ? "校正并录入" : "无法录入"}</small>
                   {draft.acquisition?.purchase_price && (
@@ -5060,8 +5165,8 @@ function RecognitionDialog({
             <div className="recognition-confidence">
               <span>
                 {result.recognition_status === "research_required"
-                  ? "需要清单研究，当前结果不会自动确认"
-                  : "身份质量门禁已通过"}
+                  ? "识别结果需核对；仍可入库、编辑和估值"
+                  : "识别结果可信度较高"}
               </span>
               <strong>
                 {result.recognition_model ?? "本地/兼容模型"}
@@ -5072,7 +5177,7 @@ function RecognitionDialog({
             </div>
             {result.recognition_quality_issues && result.recognition_quality_issues.length > 0 && (
               <div className="recognition-caveats">
-                <strong>身份门禁</strong>
+                <strong>待核对项</strong>
                 <span>{result.recognition_quality_issues.join("；")}</span>
               </div>
             )}

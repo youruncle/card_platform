@@ -67,12 +67,15 @@ def test_full_investment_workflow(tmp_path) -> None:
     with TestClient(app) as client:
         ready = client.get("/health/ready")
         assert ready.status_code == 200, ready.text
+        email = f"e2e-{uuid4()}@card-alpha.local"
+        password = "A-safe-integration-password-2026!"
         user = client.post(
-            "/v1/users",
+            "/v1/auth/register",
             json={
-                "email": f"e2e-{uuid4()}@card-alpha.local",
+                "email": email,
                 "display_name": "E2E Portfolio",
                 "base_currency": "CNY",
+                "password": password,
             },
         )
         assert user.status_code == 201, user.text
@@ -335,12 +338,29 @@ def test_full_investment_workflow(tmp_path) -> None:
         assert shared_item.status_code == 201, shared_item.text
         shared_item_id = shared_item.json()["id"]
 
+        other_email = f"e2e-other-{uuid4()}@card-alpha.local"
+        other_password = "Another-safe-integration-password-2026!"
+        other_user = client.post(
+            "/v1/auth/register",
+            json={
+                "email": other_email,
+                "display_name": "Other E2E Portfolio",
+                "base_currency": "CNY",
+                "password": other_password,
+            },
+        )
+        assert other_user.status_code == 201, other_user.text
         unauthorized = client.request(
             "DELETE",
             f"/v1/portfolio/items/{item_id}",
-            json={"owner_id": str(uuid4())},
+            json={"owner_id": other_user.json()["id"]},
         )
         assert unauthorized.status_code == 404
+        logged_back_in = client.post(
+            "/v1/auth/login",
+            json={"email": email, "password": password},
+        )
+        assert logged_back_in.status_code == 200, logged_back_in.text
 
         deleted = client.request(
             "DELETE",
@@ -373,10 +393,20 @@ def test_full_investment_workflow(tmp_path) -> None:
         trash = client.get("/v1/portfolio/trash", params={"owner_id": owner_id})
         assert trash.status_code == 200
         assert trash.json()[0]["id"] == item_id
+        logged_in_as_other = client.post(
+            "/v1/auth/login",
+            json={"email": other_email, "password": other_password},
+        )
+        assert logged_in_as_other.status_code == 200, logged_in_as_other.text
         assert client.post(
             f"/v1/portfolio/items/{item_id}/restore",
-            json={"owner_id": str(uuid4())},
+            json={"owner_id": other_user.json()["id"]},
         ).status_code == 404
+        logged_back_in = client.post(
+            "/v1/auth/login",
+            json={"email": email, "password": password},
+        )
+        assert logged_back_in.status_code == 200, logged_back_in.text
 
         restored = client.post(
             f"/v1/portfolio/items/{item_id}/restore",

@@ -28,6 +28,15 @@ class MarketDataService:
             return int(timedelta(hours=8).total_seconds())
         return int(timedelta(days=2).total_seconds())
 
+    @classmethod
+    def should_refresh(cls, cached: MarketDataResult) -> bool:
+        """Return whether evidence needs refresh and its backoff has expired."""
+        needs_more_evidence = len(cached.evidence) < cls.MIN_EVIDENCE or cached.freshness in {
+            Freshness.STALE,
+            Freshness.INSUFFICIENT,
+        }
+        return needs_more_evidence and cached.refresh_is_due()
+
     async def get(
         self,
         identity: MarketIdentity,
@@ -46,10 +55,34 @@ class MarketDataService:
                     connection, fingerprint, card_definition_id
                 )
             cached = await self.repository.cached(connection, fingerprint)
-            needs_refresh = (
-                len(cached.evidence) < self.MIN_EVIDENCE
-                or cached.freshness in {Freshness.STALE, Freshness.INSUFFICIENT}
-            )
+            if card_definition_id is not None:
+                historical = await self.repository.historical_evidence_for_card_definition(
+                    connection, fingerprint, card_definition_id
+                )
+                existing = {
+                    (item.provider_code, item.external_sale_id)
+                    for item in cached.evidence
+                }
+                reusable = [
+                    item
+                    for item in historical
+                    if (item.provider_code, item.external_sale_id) not in existing
+                ]
+                if reusable:
+                    cached.evidence.extend(reusable)
+                    cached.evidence.sort(
+                        key=lambda item: item.occurred_at,
+                        reverse=True,
+                    )
+                    cached.evidence = cached.evidence[:100]
+                    cached.data_as_of = max(
+                        item.occurred_at for item in cached.evidence
+                    )
+                    if cached.freshness == Freshness.INSUFFICIENT:
+                        cached.freshness = Freshness.CACHED
+                    cached.notes.append(
+                        f"按当前身份重新校验 {len(reusable)} 条同卡定义历史成交"
+                    )
             if cached.evidence:
                 await connection.execute(
                     """
@@ -57,7 +90,7 @@ class MarketDataService:
                     WHERE provider_code = 'cardhobby'
                     """
                 )
-            if queue_refresh and needs_refresh:
+            if queue_refresh and self.should_refresh(cached):
                 job_id, _ = await self.repository.enqueue_refresh(
                     connection,
                     fingerprint,
@@ -75,6 +108,17 @@ class MarketDataService:
             job = await self.repository.claim_refresh(connection)
         if job is None:
             return False
+        await self.process_claimed_refresh(job)
+        return True
+
+    async def process_claimed_refresh(self, job: dict) -> None:
+        """Process a refresh that the caller has already claimed.
+
+        Keeping provider I/O outside the claim transaction is intentional.  A
+        batch command can atomically enqueue and claim one specific identity,
+        commit its ``running`` lease, then execute this shared refresh body with
+        the exact same provider, persistence, and audit semantics as the worker.
+        """
         try:
             identity = MarketIdentity.model_validate(job["normalized_identity"])
             all_evidence = []
@@ -124,9 +168,7 @@ class MarketDataService:
                 await self.repository.store_evidence(
                     connection, job["identity_fingerprint"], all_evidence
                 )
-                cached = await self.repository.cached(
-                    connection, job["identity_fingerprint"]
-                )
+                cached = await self.repository.cached(connection, job["identity_fingerprint"])
                 count = len(cached.evidence)
                 if source_limited:
                     freshness = Freshness.SOURCE_LIMITED
@@ -157,4 +199,3 @@ class MarketDataService:
                     message,
                 )
             raise
-        return True

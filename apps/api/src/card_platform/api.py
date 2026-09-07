@@ -1,7 +1,7 @@
 from collections.abc import AsyncIterator
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
@@ -40,6 +40,7 @@ from card_platform.schemas import (
     CollectionItemOwnerAction,
     CreatedResource,
     PortfolioItem,
+    PortfolioPage,
     PortfolioItemQuickUpdate,
     PortfolioItemDetail,
     PortfolioSummary,
@@ -158,6 +159,32 @@ async def list_items(
     connection: AsyncConnection = Depends(get_connection),
 ) -> list[PortfolioItem]:
     return await repository.list_items(connection, user.id)
+
+
+@router.get("/portfolio/items/page", response_model=PortfolioPage)
+async def list_items_page(
+    owner_id: UUID | None = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=30, ge=1, le=30),
+    user: AuthenticatedUser = Depends(current_user),
+    connection: AsyncConnection = Depends(get_connection),
+) -> PortfolioPage:
+    total = await repository.count_items(connection, user.id)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    current_page = min(page, total_pages)
+    items = await repository.list_items(
+        connection,
+        user.id,
+        limit=page_size,
+        offset=(current_page - 1) * page_size,
+    )
+    return PortfolioPage(
+        items=items,
+        total=total,
+        page=current_page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
 
 
 @router.patch("/portfolio/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)

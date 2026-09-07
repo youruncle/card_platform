@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     recognition_worker = None
     recognition_worker_task = None
     scanner_worker = None
-    scanner_worker_task = None
+    scanner_worker_tasks: list[asyncio.Task] = []
     if get_settings().recognition_worker_enabled:
         recognition_worker = RecognitionBenchmarkWorker(database, get_settings())
         recognition_worker_task = asyncio.create_task(recognition_worker.run())
@@ -50,7 +50,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         worker_tasks = [asyncio.create_task(worker.run()) for _ in range(concurrency)]
     if get_settings().scanner_worker_enabled:
         scanner_worker = ScannerRecognitionWorker(database, get_settings())
-        scanner_worker_task = asyncio.create_task(scanner_worker.run())
+        concurrency = max(1, get_settings().scanner_worker_concurrency)
+        scanner_worker_tasks = [
+            asyncio.create_task(scanner_worker.run()) for _ in range(concurrency)
+        ]
     try:
         yield
     finally:
@@ -58,12 +61,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             await stop_worker(worker_tasks, worker)
         if recognition_worker_task is not None and recognition_worker is not None:
             await stop_recognition_worker(recognition_worker_task, recognition_worker)
-        if scanner_worker_task is not None and scanner_worker is not None:
-            await stop_scanner_worker(scanner_worker_task, scanner_worker)
+        if scanner_worker_tasks and scanner_worker is not None:
+            await stop_scanner_worker(scanner_worker_tasks, scanner_worker)
         await database.close()
 
 
-app = FastAPI(title="Card Platform API", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="Card Platform API", version="0.4.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().cors_origins,

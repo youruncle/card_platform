@@ -64,6 +64,21 @@ def test_numbered_card_with_generic_parallel_requires_review() -> None:
     assert "numbered_parallel_unknown" not in reasons
 
 
+def test_official_chrome_refractor_with_card_and_insert_anchors_is_specific() -> None:
+    reasons = identity_review_reasons(
+        _identity(
+            product_name="Cosmic Chrome Basketball",
+            card_number="ET-7",
+            insert_name="Extraterrestrial Talent",
+            parallel_name="Refractor",
+            serial_number=None,
+            serial_total=None,
+        )
+    )
+
+    assert "generic_parallel_name" not in reasons
+
+
 def test_numbered_autograph_insert_does_not_require_separate_parallel() -> None:
     reasons = identity_review_reasons(
         _identity(
@@ -91,13 +106,14 @@ def test_numbered_card_without_card_insert_or_parallel_requires_review() -> None
     assert "numbered_parallel_unknown" in reasons
 
 
-def test_identity_blockers_prevent_even_shadow_price_output() -> None:
+def test_identity_uncertainty_caps_but_does_not_hide_evidence_backed_price() -> None:
     estimate = ShadowValuationEstimator().estimate(
         [_sale("wrong-identity", "100")],
         _identity(parallel_name="Prizm"),
     )
-    assert estimate.status == "insufficient"
-    assert estimate.fair is None
+    assert estimate.status == "estimated"
+    assert estimate.fair == Decimal("100.00")
+    assert estimate.confidence <= Decimal("0.25")
     assert "generic_parallel_name" in estimate.review_reasons
 
 
@@ -132,18 +148,57 @@ def test_shadow_estimate_uses_best_relative_tier_when_exact_sale_is_absent() -> 
     assert "relative_candidate_tier_T1" in estimate.review_reasons
 
 
-def test_shadow_estimate_does_not_publish_unadjusted_t2_card_price() -> None:
+def test_single_cardhobby_t2_sale_publishes_broad_low_confidence_proxy() -> None:
     estimate = ShadowValuationEstimator().estimate(
-        [_sale("same-player-product-only", "500", tier=ComparableTier.T2)],
+        [
+            _sale(
+                "same-player-product-only",
+                "500",
+                tier=ComparableTier.T2,
+                provider="cardhobby",
+                level="ended_auction",
+            )
+        ],
+        _identity(),
+    )
+
+    assert estimate.status == "estimated"
+    assert estimate.fair == Decimal("500.00")
+    assert estimate.low == Decimal("225.00")
+    assert estimate.high == Decimal("825.00")
+    assert estimate.confidence == Decimal("0.18")
+    assert "cardhobby_same_type_proxy_range" in estimate.review_reasons
+    assert "single_cardhobby_proxy_sale" in estimate.review_reasons
+
+
+def test_non_cardhobby_t2_sale_still_requires_a_reproducible_adjustment() -> None:
+    estimate = ShadowValuationEstimator().estimate(
+        [_sale("unverified-proxy", "500", tier=ComparableTier.T2)],
         _identity(),
     )
 
     assert estimate.status == "insufficient"
     assert estimate.fair is None
     assert estimate.rejected == ({
-        "id": "same-player-product-only",
+        "id": "unverified-proxy",
         "reasons": ["relative_card_requires_reproducible_price_adjustment"],
     },)
+
+
+def test_multiple_cardhobby_t2_sales_keep_a_wide_interval_and_low_confidence() -> None:
+    estimate = ShadowValuationEstimator().estimate(
+        [
+            _sale("proxy-1", "80", tier=ComparableTier.T2, provider="cardhobby"),
+            _sale("proxy-2", "100", tier=ComparableTier.T2, provider="cardhobby"),
+            _sale("proxy-3", "120", tier=ComparableTier.T2, provider="cardhobby"),
+        ],
+        _identity(),
+    )
+
+    assert estimate.status == "estimated"
+    assert estimate.low <= estimate.fair * Decimal("0.60")
+    assert estimate.high >= estimate.fair * Decimal("1.40")
+    assert estimate.confidence <= Decimal("0.30")
 
 
 def test_shadow_estimate_rejects_mad_outlier_with_five_sales() -> None:

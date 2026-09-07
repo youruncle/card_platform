@@ -4,6 +4,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.encoders import jsonable_encoder
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field
 
@@ -74,7 +75,9 @@ async def _item_identity(connection, item_id: UUID, owner_id: UUID, lock: bool =
 
 def _identity(row: dict) -> dict:
     keys = ConfirmedIdentity.model_fields.keys()
-    return {key: row.get(key) for key in keys}
+    # Database numerics arrive as Decimal.  Identity snapshots are written to
+    # jsonb audit columns, so normalize them before handing the value to Jsonb.
+    return jsonable_encoder({key: row.get(key) for key in keys})
 
 
 async def _evidence_rows(connection, item: dict) -> list[dict]:
@@ -209,7 +212,7 @@ async def review_queue(request: Request, user: AuthenticatedUser = Depends(curre
             LEFT JOIN LATERAL (
                 SELECT version, review_status, conflicts FROM card_identity_version
                 WHERE collection_item_id = ci.id
-                ORDER BY (review_status = 'confirmed') DESC, version DESC LIMIT 1
+                ORDER BY version DESC LIMIT 1
             ) latest ON true
             WHERE ci.owner_id = %s AND ci.deleted_at IS NULL
             ORDER BY priority DESC, ci.created_at
@@ -233,7 +236,7 @@ async def review_detail(item_id: UUID, request: Request, user: AuthenticatedUser
         item = dict(item_row)
         version_result = await connection.execute(
             """SELECT * FROM card_identity_version WHERE collection_item_id = %s
-               ORDER BY (review_status = 'confirmed') DESC, version DESC LIMIT 1""",
+               ORDER BY version DESC LIMIT 1""",
             (item_id,),
         )
         version = await version_result.fetchone()
@@ -318,6 +321,11 @@ async def publish_shadow_valuation(item_id: UUID, request: Request,
                FROM valuation_shadow_result s
                JOIN card_identity_version v ON v.id = s.identity_version_id
                WHERE s.collection_item_id = %s AND v.review_status = 'confirmed'
+                 AND NOT EXISTS (
+                     SELECT 1 FROM card_identity_version revocation
+                     WHERE revocation.supersedes_id = v.id
+                       AND revocation.review_status = 'rejected'
+                 )
                  AND s.fair_value IS NOT NULL
                ORDER BY s.created_at DESC LIMIT 1 FOR UPDATE OF s""",
             (item_id,),
@@ -473,6 +481,30 @@ async def confirm_identity(item_id: UUID, payload: ConfirmIdentityRequest, reque
              latest["id"] if latest else None, market_identity.fingerprint),
         )
         version = await inserted.fetchone()
+        prior_valuations_marked_incompatible = 0
+        if old_fingerprint and old_fingerprint != market_identity.fingerprint:
+            # Identity confirmation preserves immutable valuation history, but a
+            # price calculated for the superseded card identity must not remain
+            # the item's current usable value.  Keep the old snapshots for audit
+            # and mark their compatibility explicitly while the queued job
+            # calculates a replacement for the confirmed identity.
+            invalidated = await connection.execute(
+                """UPDATE valuation_snapshot
+                   SET identity_compatibility = 'incompatible',
+                       identity_compatibility_reasons = %s
+                   WHERE collection_item_id = %s
+                     AND identity_compatibility <> 'incompatible'""",
+                (
+                    Jsonb(
+                        [
+                            "superseded_by_confirmed_identity",
+                            f"confirmed_identity_version:{version['id']}",
+                        ]
+                    ),
+                    item_id,
+                ),
+            )
+            prior_valuations_marked_incompatible = invalidated.rowcount
         await connection.execute(
             """UPDATE identity_research_case SET status = %s, updated_at = now()
                WHERE collection_item_id = %s AND status IN
@@ -484,6 +516,16 @@ async def confirm_identity(item_id: UUID, payload: ConfirmIdentityRequest, reque
                (collection_item_id, identity_version_id, actor_id, reason, before_state, after_state)
                VALUES (%s, %s, %s, %s, %s, %s)""",
             (item_id, version["id"], user.id, payload.reason, Jsonb(_identity(item)), Jsonb(identity)),
+        )
+        # A confirmed front/back identity supersedes every still-open automated
+        # market-title suggestion. Leaving those drafts open can later revert a
+        # reviewed card from a weaker analog (for example an insert name parsed
+        # as a card number).
+        await connection.execute(
+            """UPDATE card_identity_correction
+               SET status = 'superseded', updated_at = now()
+               WHERE collection_item_id = %s AND status = 'open'""",
+            (item_id,),
         )
         rebind_payload = CollectionItemCreate(
             owner_id=user.id,
@@ -579,6 +621,9 @@ async def confirm_identity(item_id: UUID, payload: ConfirmIdentityRequest, reque
                     "UPDATE market_evidence SET identity_fingerprint = %s WHERE id = %s",
                     (market_identity.fingerprint, sale["id"]),
                 )
+        await MarketDataRepository().adopt_reviewed_evidence(
+            connection, market_identity.fingerprint, version["id"]
+        )
         await connection.execute(
             """INSERT INTO market_identity_rebind_audit
                (collection_item_id, identity_version_id, old_fingerprint, new_fingerprint,
@@ -645,4 +690,5 @@ async def confirm_identity(item_id: UUID, payload: ConfirmIdentityRequest, reque
         return {"identity_version_id": version["id"], "version": version["version"],
                 "identity_fingerprint": market_identity.fingerprint, "accepted_count": accepted,
                 "rejected_count": rejected, "valuation_job_id": valuation_job_id,
-                "published_valuation_unchanged": True}
+                "published_valuation_unchanged": True,
+                "prior_valuations_marked_incompatible": prior_valuations_marked_incompatible}

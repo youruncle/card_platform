@@ -26,14 +26,25 @@ MAX_TIER = VisionTier("max", "qwen3.8-max", Decimal("12"), Decimal("36"))
 
 def recognition_quality_issues(result: CardRecognitionResult) -> list[str]:
     issues: list[str] = []
-    for field in ("player_name", "season_start", "product_name", "card_number"):
+    for field in (
+        "player_name", "season_start", "season_end", "brand_name",
+        "product_name", "card_number",
+    ):
         if getattr(result, field) in (None, ""):
             issues.append(f"missing_{field}")
     if (result.serial_number is None) != (result.serial_total is None):
         issues.append("partial_serial_fraction")
     if result.serial_number and result.serial_total and result.serial_number > result.serial_total:
         issues.append("invalid_serial_fraction")
-    if str(result.parallel_name or "").strip().casefold() in GENERIC_PARALLELS:
+    generic_parallel = str(result.parallel_name or "").strip().casefold()
+    product_context = str(result.product_name or "").strip().casefold()
+    official_chrome_refractor = bool(
+        generic_parallel == "refractor"
+        and "chrome" in product_context
+        and result.card_number
+        and result.insert_name
+    )
+    if generic_parallel in GENERIC_PARALLELS and not official_chrome_refractor:
         issues.append("generic_parallel_name")
     parallel = str(result.parallel_name or "").strip().casefold()
     product = str(result.product_name or "").strip().casefold()
