@@ -1,5 +1,10 @@
 "use client";
 
+import { PurchaseCostPanel, PurchaseCostAudit, PurchaseCostEvidenceModal } from "../components/purchase-cost-panel";
+import { usePurchaseCostLookup } from "../lib/use-purchase-cost-lookup";
+import { CollectionSearch } from "../components/collection-search";
+import type { SearchFilters } from "../lib/portfolio-search";
+
 import {
   Activity,
   ArrowDownRight,
@@ -16,7 +21,6 @@ import {
   Plus,
   RotateCcw,
   RotateCw,
-  Search,
   ScanSearch,
   ShieldAlert,
   ShieldCheck,
@@ -28,6 +32,10 @@ import { FormEvent, MouseEvent as ReactMouseEvent, useCallback, useEffect, useMe
 
 import { GlobalImageViewer, OpenableImage } from "@/components/image-viewer";
 import { FlatbedBatchPanel } from "@/components/flatbed-batch-panel";
+import {
+  acceptedEvidenceComparableIds,
+  selectUsedComparableRows,
+} from "@/lib/valuation-evidence";
 
 import {
   addTransaction,
@@ -261,6 +269,12 @@ function money(value: string | number, currency = "CNY") {
   }).format(Number(value));
 }
 
+function purchaseMoney(value: string, currency = "CNY") {
+  const [whole, fraction = ""] = value.split(".");
+  const amount = `${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}.${fraction.replace(/0+$/, "").padEnd(2, "0")}`;
+  return `${currency === "CNY" ? "¥" : `${currency} `}${amount}`;
+}
+
 function season(item: PortfolioItem) {
   if (!item.season_end || item.season_end === item.season_start)
     return String(item.season_start);
@@ -276,18 +290,44 @@ export default function Dashboard() {
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [summary, setSummary] = useState(emptySummary);
   const [items, setItems] = useState<PortfolioItem[]>([]);
+  const [portfolioPage, setPortfolioPage] = useState(1);
+  const [portfolioTotal, setPortfolioTotal] = useState(0);
+  const [portfolioTotalPages, setPortfolioTotalPages] = useState(1);
+  const portfolioPageRef = useRef(1);
+  const portfolioRequestRef = useRef(0);
+  const portfolioBusyRef = useRef(false);
+  const importedScannerItemsRef = useRef(new Set<string>());
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [trashItems, setTrashItems] = useState<PortfolioItem[]>([]);
   const [showTrash, setShowTrash] = useState(false);
   const [emptyingTrash, setEmptyingTrash] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [portfolioError, setPortfolioError] = useState("");
   const [error, setError] = useState("");
-  const [search, setSearch] = useState("");
+  const [searchFilters, setSearchFilters] = useState<SearchFilters>({});
+  const searchFiltersRef = useRef<SearchFilters>({});
+  const search = Object.keys(searchFilters).length > 0;
   const [showSetup, setShowSetup] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
   const [authSessions, setAuthSessions] = useState<AuthSession[]>([]);
   const [showAddCard, setShowAddCard] = useState(false);
+  const [costPanel, setCostPanel] = useState<{itemId?: string} | null>(null);
+  const [costEvidenceItemId, setCostEvidenceItemId] = useState<string | null>(null);
+  useEffect(()=>setCostEvidenceItemId(null),[ownerId]);
+  const [costRefreshVersion, setCostRefreshVersion] = useState(0);
+  const { lookups: costLookups, start: startCostLookup, clear: clearCostLookup } = usePurchaseCostLookup(
+    ownerId,
+    () => setCostRefreshVersion(version => version + 1),
+  );
+  const promptedCostLogins = useRef(new WeakSet<object>());
+  useEffect(() => {
+    // Prompt once per failure, without reopening a dismissed form on list refresh.
+    const failures = Object.entries(costLookups).filter(([,value]) => value.status === "login_required" && !promptedCostLogins.current.has(value));
+    if (!failures.length) return;
+    failures.forEach(([,value]) => promptedCostLogins.current.add(value));
+    if (!costPanel) setCostPanel({itemId:failures[0][0]});
+  }, [costLookups, costPanel]);
   const [showCardHobbyImport, setShowCardHobbyImport] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [analysisItem, setAnalysisItem] = useState<PortfolioItem | null>(null);
@@ -349,42 +389,135 @@ export default function Dashboard() {
     serialTotal: string;
   } | null>(null);
 
-  const refresh = useCallback(async (id: string) => {
-    setLoading(true);
-    setError("");
+  const refresh = useCallback(async (
+    id: string,
+    requestedPage = portfolioPageRef.current,
+    background = false,
+  ): Promise<boolean> => {
+    // Polls must not overlap a pending load or change the visible loading state.
+    if (background && portfolioBusyRef.current) return false;
+    const requestId = ++portfolioRequestRef.current;
+    const previousPage = portfolioPageRef.current;
+    portfolioPageRef.current = requestedPage;
+    portfolioBusyRef.current = true;
+    if (!background) {
+      setLoading(true);
+      setError("");
+      setPortfolioError("");
+    }
     try {
-      const [[nextSummary, nextItems], nextIssueCounts] = await Promise.all([
-        getPortfolio(id),
+      const [[nextSummary, nextPage], nextIssueCounts] = await Promise.all([
+        getPortfolio(id, requestedPage, searchFiltersRef.current),
         getIdentityCorrectionCounts(id),
       ]);
+      // A page change or session change supersedes any earlier response.
+      if (requestId !== portfolioRequestRef.current) return false;
       setSummary(nextSummary);
-      setItems(nextItems);
+      setItems(nextPage.items);
+      setPortfolioPage(nextPage.page);
+      setPortfolioTotal(nextPage.total);
+      setPortfolioTotalPages(nextPage.total_pages);
+      portfolioPageRef.current = nextPage.page;
       setIdentityIssueCounts(nextIssueCounts);
+      setPortfolioError("");
+      return true;
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "暂时无法读取卡库");
+      if (requestId === portfolioRequestRef.current) {
+        portfolioPageRef.current = previousPage;
+        if (!background) {
+          const message = reason instanceof Error ? reason.message : "暂时无法读取卡库";
+          setError(message);
+          setPortfolioError(message);
+        }
+      }
+      return false;
     } finally {
-      setLoading(false);
+      if (requestId === portfolioRequestRef.current) {
+        portfolioBusyRef.current = false;
+        if (!background) setLoading(false);
+      }
     }
   }, []);
 
+  function applyCollectionSearch(filters: SearchFilters) {
+    searchFiltersRef.current = filters;
+    setSearchFilters(filters);
+    setSelectedItemIds(new Set());
+    setItems([]);
+    setPortfolioPage(1);
+    portfolioPageRef.current = 1;
+    setPortfolioTotal(0);
+    setPortfolioTotalPages(1);
+    if (ownerId) void refresh(ownerId, 1);
+  }
+
   useEffect(() => {
+    searchFiltersRef.current = {};
+    setSearchFilters({});
+    setSelectedItemIds(new Set());
+  }, [ownerId]);
+
+  useEffect(() => {
+    setCostPanel(null);
+    setCostRefreshVersion(0);
+  }, [ownerId]);
+
+  useEffect(() => {
+    if (!ownerId || !costRefreshVersion) return;
+    let alive = true;
+    let timer: number | undefined;
+    const updateCosts = async () => {
+      // A completed lookup must not interrupt navigation or hide loaded prices.
+      // Retry if a page request is already running, or the refresh fails.
+      if (!await refresh(ownerId, portfolioPageRef.current, true) && alive) {
+        timer = window.setTimeout(() => void updateCosts(), 2000);
+      }
+    };
+    void updateCosts();
+    return () => { alive = false; window.clearTimeout(timer); };
+  }, [ownerId, costRefreshVersion, refresh]);
+
+  function fetchCostInBackground(itemId: string) {
+    setCostPanel(null);
+    setEditingPurchase(current => current?.id === itemId ? null : current);
+    startCostLookup(itemId);
+  }
+
+  useEffect(() => {
+    let active = true;
     void getCurrentUser()
-      .then((user) => {
+      .then(async (user) => {
+        if (!active) return;
         setCurrentUser(user);
         setOwnerId(user.id);
         setShowSetup(false);
-        return refresh(user.id);
+        const [, jobs] = await Promise.all([
+          refresh(user.id),
+          getScannerRecognitionJobs().catch(() => []),
+        ]);
+        if (active) setScannerJobs(jobs);
       })
       .catch(() => {
+        if (!active) return;
         setCurrentUser(null);
         setOwnerId(null);
         setLoading(false);
         setShowSetup(true);
       });
+    return () => {
+      active = false;
+      ++portfolioRequestRef.current;
+      portfolioBusyRef.current = false;
+    };
   }, [refresh]);
 
   useEffect(() => {
     const expireSession = () => {
+      ++portfolioRequestRef.current;
+      portfolioBusyRef.current = false;
+      setLoading(false);
+      setScannerJobs([]);
+      importedScannerItemsRef.current.clear();
       setCurrentUser(null);
       setOwnerId(null);
       setShowSetup(true);
@@ -404,24 +537,51 @@ export default function Dashboard() {
   useEffect(() => {
     if (!ownerId || (!showRecognition && !scannerJobsActive)) return;
     let active = true;
-    const refreshJobs = () =>
-      getScannerRecognitionJobs()
-        .then((jobs) => {
-          if (active) {
-            setScannerJobs(jobs);
-            if (jobs.some((job) => job.collection_item_id && !items.some((item) => item.id === job.collection_item_id))) {
-              void refresh(ownerId);
-            }
-          }
-        })
-        .catch(() => undefined);
+    let polling = false;
+    const refreshJobs = async () => {
+      if (polling) return;
+      polling = true;
+      try {
+        const jobs = await getScannerRecognitionJobs();
+        if (active) setScannerJobs(jobs);
+      } catch {
+        // A transient scanner error can be retried on the next poll.
+      } finally {
+        polling = false;
+      }
+    };
     void refreshJobs();
     const timer = window.setInterval(refreshJobs, 2000);
     return () => {
       active = false;
       window.clearInterval(timer);
     };
-  }, [showRecognition, ownerId, items, refresh, scannerJobsActive]);
+  }, [showRecognition, ownerId, scannerJobsActive]);
+
+  useEffect(() => {
+    if (!ownerId) return;
+    // Imported cards may be on another page. Track receipts across the whole
+    // collection instead of treating absence from this page as a new import.
+    const receipts = scannerJobs.flatMap((job) => job.collection_item_id
+      ? [`${ownerId}:${job.collection_item_id}`] : []);
+    if (receipts.every((id) => importedScannerItemsRef.current.has(id))) return;
+    let active = true;
+    let retryTimer: number | undefined;
+    const refreshImports = async () => {
+      if (receipts.every((id) => importedScannerItemsRef.current.has(id))) return;
+      if (await refresh(ownerId, portfolioPageRef.current, true)) {
+        receipts.forEach((id) => importedScannerItemsRef.current.add(id));
+      } else if (active) {
+        // Keep the final completed import pending even when scanner polling stops.
+        retryTimer = window.setTimeout(() => void refreshImports(), 2000);
+      }
+    };
+    void refreshImports();
+    return () => {
+      active = false;
+      window.clearTimeout(retryTimer);
+    };
+  }, [ownerId, scannerJobs, refresh]);
 
   async function savePurchasePrice(item: PortfolioItem) {
     if (!editingPurchase || editingPurchase.id !== item.id) return;
@@ -436,6 +596,7 @@ export default function Dashboard() {
         purchase_currency: item.purchase_currency ?? summary.base_currency,
       });
       setEditingPurchase(null);
+      clearCostLookup(item.id);
       if (ownerId) await refresh(ownerId);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "买入价保存失败");
@@ -490,36 +651,16 @@ export default function Dashboard() {
     }
   }
 
+  const valuationActive = items.some((item) => isValuationRunning(item.valuation_status));
   useEffect(() => {
-    if (!ownerId) return;
-    const active = items.some((item) =>
-      ["queued", "identifying", "searching", "calculating"].includes(
-        item.valuation_status ?? "",
-      ),
-    );
-    if (!active) return;
+    if (!ownerId || !valuationActive) return;
     const timer = window.setInterval(() => {
-      void Promise.all([
-        getPortfolio(ownerId),
-        getIdentityCorrectionCounts(ownerId),
-      ]).then(([[nextSummary, nextItems], nextIssueCounts]) => {
-        setSummary(nextSummary);
-        setItems(nextItems);
-        setIdentityIssueCounts(nextIssueCounts);
-      });
+      void refresh(ownerId, portfolioPageRef.current, true);
     }, 3000);
     return () => window.clearInterval(timer);
-  }, [items, ownerId]);
+  }, [valuationActive, ownerId, refresh]);
 
-  const filteredItems = useMemo(() => {
-    const keyword = search.trim().toLocaleLowerCase();
-    if (!keyword) return items;
-    return items.filter((item) =>
-      [item.player_name, item.brand_name, item.product_name, item.insert_name]
-        .filter(Boolean)
-        .some((value) => value?.toLocaleLowerCase().includes(keyword)),
-    );
-  }, [items, search]);
+  const filteredItems = items;
 
   useEffect(() => {
     const activeIds = new Set(items.map((item) => item.id));
@@ -534,6 +675,12 @@ export default function Dashboard() {
   ).length;
   const allVisibleSelected =
     filteredItems.length > 0 && selectedVisibleCount === filteredItems.length;
+  const selectedCostItems = items.filter((item) =>
+    selectedItemIds.has(item.id)
+    && item.purchase_price == null
+    && item.purchase_total_cost == null
+    && !["loading", "recorded", "needs_confirmation"].includes(costLookups[item.id]?.status ?? ""),
+  );
 
   const unrealized = Number(summary.unrealized_profit);
   const returnRate = Number(summary.total_cost)
@@ -571,9 +718,18 @@ export default function Dashboard() {
     try {
       await logoutUser();
     } finally {
+      ++portfolioRequestRef.current;
+      portfolioBusyRef.current = false;
+      importedScannerItemsRef.current.clear();
+      setScannerJobs([]);
+      setLoading(false);
       setCurrentUser(null);
       setOwnerId(null);
       setItems([]);
+      setPortfolioPage(1);
+      setPortfolioTotal(0);
+      setPortfolioTotalPages(1);
+      portfolioPageRef.current = 1;
       setSummary(emptySummary);
       setShowSetup(true);
     }
@@ -1393,6 +1549,16 @@ export default function Dashboard() {
     });
   }
 
+  function handleSelectedCostLookup() {
+    if (!ownerId || bulkDeleting || selectedCostItems.length === 0) return;
+    // Capture the checked cards once; later selection or page changes must not
+    // change the background queue that the user has already started.
+    const itemIds = selectedCostItems.map(item => item.id);
+    setCostPanel(null);
+    setEditingPurchase(current => current && itemIds.includes(current.id) ? null : current);
+    itemIds.forEach(startCostLookup);
+  }
+
   async function handleBulkDelete() {
     if (!ownerId || selectedItemIds.size === 0 || bulkDeleting) return;
     const itemIds = [...selectedItemIds];
@@ -1504,6 +1670,7 @@ export default function Dashboard() {
               </a>
             </>
           )}
+          <button className="nav-item" type="button" onClick={() => setCostPanel({})}>批量获取成本</button>
           <button className="nav-item" type="button" onClick={() => void openTrash()}>
             <Trash2 size={18} /> 回收站
           </button>
@@ -1542,16 +1709,6 @@ export default function Dashboard() {
           >
             <Menu size={20} />
           </button>
-          <div className="search-box">
-            <Search size={17} />
-            <input
-              aria-label="搜索球员或卡片"
-              placeholder="搜索球员、品牌或卡种"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-            <kbd>⌘ K</kbd>
-          </div>
           <div className="top-actions">
             <button
               className="ghost-button"
@@ -1612,7 +1769,7 @@ export default function Dashboard() {
             <article className="metric-card hero-metric">
               <p>当前总市值</p>
               <strong>
-                {loading
+                {loading && !summary.owner_id
                   ? "—"
                   : money(summary.total_market_value, summary.base_currency)}
               </strong>
@@ -1664,6 +1821,20 @@ export default function Dashboard() {
               <div className="collection-actions">
                 {selectedItemIds.size > 0 && (
                   <button
+                    className="primary-button bulk-cost-button"
+                    type="button"
+                    disabled={bulkDeleting || selectedCostItems.length === 0}
+                    title={selectedCostItems.length > 0
+                      ? `自动获取选中卡片中的 ${selectedCostItems.length} 张成本，已有成本会保留`
+                      : "选中卡片已有成本、正在获取或等待选择对应订单"}
+                    onClick={handleSelectedCostLookup}
+                  >
+                    <CircleDollarSign size={14} />
+                    {`批量录入卡淘成本价 (${selectedItemIds.size})`}
+                  </button>
+                )}
+                {selectedItemIds.size > 0 && (
+                  <button
                     className="danger-button bulk-delete-button"
                     type="button"
                     disabled={bulkDeleting}
@@ -1678,6 +1849,7 @@ export default function Dashboard() {
                 </button>
               </div>
             </div>
+            <CollectionSearch filters={searchFilters} total={portfolioTotal} busy={loading} onApply={applyCollectionSearch} currency={summary.base_currency} requestError={portfolioError} onRetry={() => { if (ownerId) void refresh(ownerId); }}/>
             <div className="table-wrap">
               <table>
                 <thead>
@@ -1693,14 +1865,14 @@ export default function Dashboard() {
                     </th>
                     <th>卡片资产</th>
                     <th>属性</th>
-                    <th>买入价 / 持仓成本</th>
+                    <th>买入价 / 购入总成本</th>
                     <th>当前估值</th>
                     <th>未实现盈亏</th>
                     <th>分析</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {!search.trim() && pendingScannerJobs.map((job, index) => (
+                  {!search && pendingScannerJobs.map((job, index) => (
                     <tr key={`scanner-pending-${job.id}`} className="scanner-pending-row" aria-busy="true">
                       <td className="selection-column"><span className="valuation-spinner" /></td>
                       <td>
@@ -1715,6 +1887,21 @@ export default function Dashboard() {
                     </tr>
                   ))}
                   {filteredItems.map((item) => {
+                    const costLookup = costLookups[item.id];
+                    const costLoading = costLookup?.status === "loading";
+                    const recordedCost = costLookup?.status === "recorded" ? costLookup.result?.recorded : undefined;
+                    const purchasePrice = recordedCost?.card_price ?? item.purchase_price ?? null;
+                    const purchaseTotal = recordedCost?.total_cost ?? item.purchase_total_cost ?? null;
+                    const purchaseCurrency = recordedCost?.currency ?? item.purchase_currency ?? summary.base_currency;
+                    const costStatus = costLookup?.status;
+                    const costStatusLabel = costStatus === "needs_confirmation" ? "发现多笔同款购买记录"
+                      : costStatus === "connection_required" ? "需要连接卡淘"
+                      : costStatus === "login_required" ? "需要登录卡淘"
+                      : costStatus === "error" ? "成本获取失败"
+                      : costStatus === "incomplete" ? "成本获取未完成"
+                      : costStatus === "not_found" ? "未找到购买记录"
+                      : costStatus === "unmatched" ? "未识别到同款"
+                      : costStatus === "skipped" ? "已跳过成本获取" : "";
                     const profit = Number(item.unrealized_profit ?? 0);
                     const displayedFairValue = item.fair_value ?? item.shadow_fair_value;
                     const displayedCurrency =
@@ -1777,6 +1964,25 @@ export default function Dashboard() {
                                 >
                                   {item.player_name}
                                 </button>
+                                {item.recognition_confidence !== null && (
+                                  <span
+                                    className={`recognition-badge${
+                                      Number(item.recognition_confidence) < 0.75
+                                        ? " low"
+                                        : Number(item.recognition_confidence) < 0.9
+                                          ? " medium"
+                                          : ""
+                                    }`}
+                                    title={
+                                      item.recognition_quality_issues.length
+                                        ? `待核对：${item.recognition_quality_issues.join("；")}`
+                                        : "扫描识别结果"
+                                    }
+                                  >
+                                    识别 {Math.round(Number(item.recognition_confidence) * 100)}%
+                                    {item.recognition_quality_issues.length > 0 ? " · 待核对" : ""}
+                                  </span>
+                                )}
                               </div>
                               <small>
                                 {season(item)} · {item.product_name}
@@ -1852,10 +2058,16 @@ export default function Dashboard() {
                         </td>
                         <td
                           className="purchase-price-cell"
-                          title="双击修改或初始化买入价"
-                          onDoubleClick={() => setEditingPurchase({ id: item.id, value: item.purchase_price ?? "" })}
+                          aria-busy={costLoading}
+                          title={costLoading ? "正在自动搜索卡淘订单" : "双击修改或初始化买入价"}
+                          onDoubleClick={() => { if (!costLoading) setEditingPurchase({ id: item.id, value: purchasePrice ?? "" }); }}
                         >
-                          {editingPurchase?.id === item.id ? (
+                          {costLoading ? (
+                            <div className="cost-lookup-pending" role="status" aria-live="polite">
+                              <strong>成本获取中</strong>
+                              <small className="cost-secondary">正在查询卡淘订单</small>
+                            </div>
+                          ) : editingPurchase?.id === item.id ? (
                             <input
                               autoFocus
                               className="inline-price-input"
@@ -1872,10 +2084,30 @@ export default function Dashboard() {
                             />
                           ) : (
                             <>
-                              <strong>{item.purchase_price === null ? "双击填写" : money(item.purchase_price, item.purchase_currency ?? summary.base_currency)}</strong>
-                              <small className="cost-secondary">成本 {money(item.remaining_cost, summary.base_currency)}</small>
+                              <strong>{purchasePrice === null ? "双击填写" : purchaseMoney(purchasePrice, purchaseCurrency)}</strong>
+                              <small className="cost-secondary">购入总成本 {purchaseTotal == null ? "未录入" : purchaseMoney(purchaseTotal, purchaseCurrency)}</small>
+                              {costStatusLabel && <div className="cost-lookup-result" title={costLookup?.message}>
+                                <small role="status">{costStatusLabel}</small>
+                                {costLookup?.message && <small className="cost-lookup-detail">{costLookup.message}</small>}
+                                {costStatus === "login_required" && <button className="cost-inline-action text-button" onClick={()=>setCostPanel({itemId:item.id})} onDoubleClick={event => event.stopPropagation()}>登录卡淘</button>}
+                                {costStatus === "needs_confirmation" || costStatus === "connection_required" ? (
+                                  <button type="button" className="cost-inline-action" onDoubleClick={event => event.stopPropagation()} onClick={() => setCostPanel({itemId: item.id})}>
+                                    {costStatus === "needs_confirmation" ? "选择对应订单" : "连接卡淘"}
+                                  </button>
+                                ) : null}
+                              </div>}
                             </>
                           )}
+                          <button
+                            type="button"
+                            className="cost-inline-action"
+                            disabled={costLoading || editingPurchase?.id === item.id}
+                            title="从卡淘购买订单获取，匹配成功后自动填入买入价和购入总成本"
+                            onDoubleClick={event => event.stopPropagation()}
+                            onClick={() => fetchCostInBackground(item.id)}
+                          >获取成本</button>
+                          {purchasePrice !== null && <button type="button" className="cost-inline-action" onDoubleClick={event=>event.stopPropagation()} onClick={()=>setCostEvidenceItemId(item.id)}>查看订单快照</button>}
+                          {recordedCost?.match_method === "inferred" && <small className="cost-secondary">推测匹配 · 请核对快照</small>}
                         </td>
                         <td>
                           {displayedFairValue && item.valuation_status === "succeeded" ? (
@@ -1910,10 +2142,12 @@ export default function Dashboard() {
                               className="valuation-status insufficient"
                               onClick={() => void openValuationDetail(item)}
                             >
-                              {item.valuation_result_summary?.research_status ===
-                                "awaiting_confirmation" ||
-                              item.valuation_result_summary?.identity_review_status === "pending"
-                                ? "待确认身份"
+                              {item.valuation_result_summary?.identity_resolution_status ===
+                                "unresolved" ||
+                              ["identity_research_required", "awaiting_confirmation"].includes(
+                                String(item.valuation_result_summary?.research_status ?? ""),
+                              )
+                                ? "无法识别"
                                 : "证据不足"}
                             </button>
                           ) : item.valuation_status === "failed" ? (
@@ -1985,7 +2219,7 @@ export default function Dashboard() {
                       </tr>
                     );
                   })}
-                  {!loading && filteredItems.length === 0 && (
+                  {!loading && !portfolioError && filteredItems.length === 0 && (
                     <tr>
                       <td colSpan={7}>
                         <div className="empty-state">
@@ -2019,6 +2253,26 @@ export default function Dashboard() {
                   )}
                 </tbody>
               </table>
+            </div>
+            <div className="portfolio-pagination" aria-label="卡牌列表分页">
+              <span>共 {portfolioTotal} 张 · 每页最多 30 张</span>
+              <div>
+                <button
+                  type="button"
+                  disabled={loading || portfolioPage <= 1}
+                  onClick={() => ownerId && void refresh(ownerId, portfolioPage - 1)}
+                >
+                  上一页
+                </button>
+                <strong>第 {portfolioPage} / {portfolioTotalPages} 页</strong>
+                <button
+                  type="button"
+                  disabled={loading || portfolioPage >= portfolioTotalPages}
+                  onClick={() => ownerId && void refresh(ownerId, portfolioPage + 1)}
+                >
+                  下一页
+                </button>
+              </div>
             </div>
           </section>
 
@@ -2145,15 +2399,6 @@ export default function Dashboard() {
             setValuationDetail(null);
           }}
           onRetry={handleValuationRetry}
-          onIdentityReview={async () => {
-            const itemId = valuationDetailItem.id;
-            const opened = await openItemDetail(itemId);
-            if (opened) {
-              setValuationDetailItem(null);
-              setValuationDetail(null);
-            }
-            return opened;
-          }}
         />
       )}
       {potentialItem && (
@@ -2206,6 +2451,27 @@ export default function Dashboard() {
           }}
         />
       )}
+      {costEvidenceItemId && <PurchaseCostEvidenceModal key={costEvidenceItemId} itemId={costEvidenceItemId} onClose={()=>setCostEvidenceItemId(null)}/>}
+      {costPanel && <PurchaseCostPanel
+        key={costPanel.itemId ?? "batch"}
+        itemId={costPanel.itemId}
+        initialResult={costPanel.itemId ? costLookups[costPanel.itemId]?.result : undefined}
+        initialNeedsConnection={costPanel.itemId ? costLookups[costPanel.itemId]?.status === "connection_required" : undefined}
+        initialNeedsLogin={costPanel.itemId ? costLookups[costPanel.itemId]?.status === "login_required" : undefined}
+        initialLoginCode={costPanel.itemId ? costLookups[costPanel.itemId]?.loginCode : undefined}
+        initialLabel={costPanel.itemId ? costLookups[costPanel.itemId]?.label : undefined}
+        onRetry={costPanel.itemId ? (itemId => {
+          const loginFailures = Object.entries(costLookups).filter(([,value])=>value.status === "login_required");
+          fetchCostInBackground(itemId);
+          // Binding this owner once also releases other selected cards that awaited login.
+          if (costLookups[itemId]?.status === "login_required") loginFailures.forEach(([id])=>{if(id!==itemId)startCostLookup(id);});
+        }) : undefined}
+        onClose={() => setCostPanel(null)}
+        onRecorded={() => {
+          if (costPanel.itemId) clearCostLookup(costPanel.itemId);
+          setCostRefreshVersion(version => version + 1);
+        }}
+      />}
       {showCardHobbyImport && ownerId && (
         <CardHobbyImportDialog
           ownerId={ownerId}
@@ -3411,6 +3677,7 @@ function ItemDetailDialog({
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>("manual");
   const confirmationFormRef = useRef<HTMLDivElement | null>(null);
   const [reviewReason, setReviewReason] = useState("人工核对正反面图片及成交证据");
+  const showLegacyIdentityReview: boolean = false;
   const item = detail.item;
   const catalogFields = [
     ["球员", catalog?.player_name ?? item.player_name],
@@ -3473,6 +3740,8 @@ function ItemDetailDialog({
           </button>
         </div>
 
+        <p>购入总成本：{item.purchase_total_cost == null ? "未录入" : purchaseMoney(item.purchase_total_cost, item.purchase_currency ?? "CNY")}</p>
+        <PurchaseCostAudit itemId={item.id} />
         <div className="dossier-hero">
           <section className="dossier-gallery">
             <div className="dossier-card-images">
@@ -3528,6 +3797,7 @@ function ItemDetailDialog({
 
           <section className="dossier-overview">
             <div className="tag-row">
+              {item.is_redemption && <span className="tag lime">交换板</span>}
               {item.is_rookie && <span className="tag lime">RC</span>}
               {item.is_autograph && <span className="tag">AUTO</span>}
               {item.is_patch && <span className="tag">PATCH</span>}
@@ -3536,6 +3806,9 @@ function ItemDetailDialog({
                 <span className="tag">{item.grade_company} {item.grade_value}</span>
               )}
             </div>
+            {item.is_redemption && <p className="muted">
+              按交换板成交估值 · {{ unknown: "兑换状态待确认", unredeemed: "未兑换", redeemed: "已兑换", expired: "已过期" }[item.redemption_status ?? "unknown"]}
+            </p>}
             <div className="dossier-value-grid">
               <div>
                 <span>当前估值</span>
@@ -3574,7 +3847,78 @@ function ItemDetailDialog({
           </section>
         </div>
 
-        {identityReview && reviewDraft && (
+        {identityReview && (() => {
+          const candidate = identityReview.candidates.find((item) => item.is_valid)
+            ?? identityReview.candidates[0];
+          const resolved = identityReview.latest_version?.review_status === "confirmed";
+          const sourceLinks = candidate
+            ? Array.from(new Map([
+                ...candidate.checklist_evidence
+                  .filter((source) => Boolean(source.source_url))
+                  .map((source) => [source.source_url, source.source_version || "身份图鉴"] as const),
+                ...candidate.market_evidence
+                  .filter((source) => Boolean(source.source_url))
+                  .map((source) => [source.source_url as string, source.raw_title || "同卡例证"] as const),
+              ]).entries())
+            : [];
+          return (
+            <section className="dossier-section identity-review-workbench">
+              <div className="dossier-section-heading">
+                <div>
+                  <p className="eyebrow">AUTOMATIC IDENTITY / 自动身份判定</p>
+                  <h3>{resolved ? "身份已自动判定" : "无法识别"}</h3>
+                </div>
+                <span className={`tag ${resolved ? "lime" : "muted"}`}>
+                  {resolved ? "已通过身份门禁" : "未通过身份门禁"}
+                </span>
+              </div>
+              {!resolved && (
+                <p className="identity-review-warning">
+                  后台已记录失败阶段、缺失/冲突字段、模型路线、候选及拒绝原因；无需人工确认。
+                </p>
+              )}
+              <div className="identity-candidate-list">
+                {candidate ? (
+                  <article className="identity-candidate selected">
+                    <div className="identity-candidate-heading">
+                      <div>
+                        <span>{resolved ? "自动采用的身份" : "被质量门禁拒绝的最佳候选"}</span>
+                        <strong>
+                          {candidate.identity.player_name} · {candidate.identity.product_name}
+                          {candidate.identity.card_number ? ` #${candidate.identity.card_number}` : ""}
+                        </strong>
+                      </div>
+                      <b>{Math.round(Number(candidate.confidence) * 100)}%</b>
+                    </div>
+                    <ul>
+                      {candidate.visual_reasons.slice(0, 12).map((reason) => (
+                        <li key={reason}>{reason}</li>
+                      ))}
+                      {!candidate.is_valid && candidate.validation_reasons.map((reason) => (
+                        <li className="candidate-conflict" key={reason}>拒绝：{reason}</li>
+                      ))}
+                    </ul>
+                    <div className="identity-candidate-sources">
+                      <strong>例图 / 证据链接</strong>
+                      {sourceLinks.map(([url, label]) => (
+                        <a key={url} href={externalSourceUrl(url)} target="_blank" rel="noreferrer">
+                          {label} ↗
+                        </a>
+                      ))}
+                      {sourceLinks.length === 0 && <small>暂无可访问的公开例图链接</small>}
+                    </div>
+                  </article>
+                ) : (
+                  <p className="muted-copy">
+                    没有生成达到最小身份锚点的候选；根因已写入后台诊断。
+                  </p>
+                )}
+              </div>
+            </section>
+          );
+        })()}
+
+        {identityReview && reviewDraft && showLegacyIdentityReview && (
           <section className="dossier-section identity-review-workbench">
             <div className="dossier-section-heading">
               <div>
@@ -4030,58 +4374,151 @@ const valuationStatusLabels: Record<string, string> = {
   failed: "估值失败",
 };
 
+const valuationRiskLabels: Record<string, string> = {
+  relative_candidate_tier_T1: "T1 高可比成交（尚非精确同版）",
+  relative_candidate_tier_T2: "T2 同类型代理成交",
+  relative_candidate_tier_T3: "T3 宽泛市场参考",
+  cardhobby_same_type_proxy_range: "卡淘同类型代理区间",
+  single_cardhobby_proxy_sale: "仅一条卡淘代理成交",
+  single_provider_concentration: "证据集中于单一来源",
+  identity_inferred_automatically: "卡片身份由系统自动识别",
+  fewer_than_two_exact_sales: "精确同版成交少于两条",
+  stale_exact_evidence: "精确成交样本较旧",
+  interval_wider_than_center: "估值区间较宽",
+  ultra_rare_numbered_card: "超低编卡片，市场样本稀疏",
+  ungraded_same_card_no_grade_premium: "同版裸卡基准，未加入评级溢价",
+};
+
+const comparableFieldLabels: Record<string, string> = {
+  player: "球员",
+  player_name: "球员",
+  season: "年份",
+  product: "系列",
+  set_name: "子系列",
+  insert: "特卡",
+  parallel: "平行版本",
+  card_number: "卡号",
+  serial_total: "限编总量",
+  autograph: "签字属性",
+  memorabilia: "球衣属性",
+  grade: "评级/品相",
+};
+
+type ValuationComparable = NonNullable<
+  NonNullable<AutomatedValuationDetail["valuation"]>["evidence"]["comparables"]
+>[number];
+
 function AutomatedValuationDialog({
   item,
   detail,
   onClose,
   onRetry,
-  onIdentityReview,
 }: {
   item: PortfolioItem;
   detail: AutomatedValuationDetail;
   onClose: () => void;
   onRetry: () => Promise<void>;
-  onIdentityReview: () => Promise<boolean>;
 }) {
   const [retrying, setRetrying] = useState(false);
-  const [openingIdentityReview, setOpeningIdentityReview] = useState(false);
-  const [identityReviewError, setIdentityReviewError] = useState("");
   const valuation = detail.valuation;
   const shadow = detail.shadow_valuation;
   const evidence = valuation?.evidence;
-  const comps = evidence?.comparables ?? [];
-  const savedAcceptedEvidence = detail.comparables.filter(
-    (comp) => comp.source_url && comp.comparable_tier !== "rejected",
+  const embeddedComps = evidence?.comparables ?? [];
+  const usedComparableSnapshots = evidence?.used_comparables ?? [];
+  const usedComparableById = new Map(
+    usedComparableSnapshots.map((comp) => [comp.market_comp_id, comp]),
+  );
+  const usedComparableIds = usedComparableSnapshots.map(
+    (comp) => comp.market_comp_id,
+  );
+  const linkedUsedComps: ValuationComparable[] = selectUsedComparableRows(
+    detail.comparables,
+    usedComparableIds,
+  ).map((comp) => ({
+    id: comp.id,
+    title: usedComparableById.get(comp.id)?.title ?? comp.listing_title,
+    source_url: usedComparableById.get(comp.id)?.source_url ?? comp.source_url,
+    occurred_at: comp.occurred_at,
+    sale_price: comp.sale_price,
+    shipping_price: comp.shipping_price,
+    currency: comp.currency,
+    fx_rate_to_base: comp.fx_rate_to_base ?? "1",
+    match_confidence: comp.match_confidence ?? undefined,
+    similarity: comp.similarity ?? undefined,
+    source_reliability: comp.source_reliability ?? undefined,
+    tier:
+      usedComparableById.get(comp.id)?.tier ?? comp.comparable_tier ?? undefined,
+    hard_conflicts: comp.classification?.hard_conflicts,
+    field_matches: comp.classification?.field_matches,
+    source:
+      comp.classification?.origin_source_code ?? comp.classification?.source_code,
+    condition_type: comp.grade_company ? "graded" : "raw",
+    grade_company: comp.grade_company,
+    grade_value: comp.grade_value,
+  }));
+  const comps: ValuationComparable[] =
+    embeddedComps.length > 0 ? embeddedComps : linkedUsedComps;
+  const shadowUsedComparableIds = new Set([
+    ...(shadow?.evidence.used_ids ?? []),
+    ...(shadow?.evidence.used_comparables?.map((comp) => comp.market_comp_id) ?? []),
+  ]);
+  const shadowUsedComps = detail.comparables.filter((comp) =>
+    shadowUsedComparableIds.has(comp.id),
+  );
+  const acceptedComparableIds = acceptedEvidenceComparableIds(
+    embeddedComps.map((comp) => comp.id),
+    usedComparableIds,
+    [...shadowUsedComparableIds],
   );
   const rejectedEvidence = detail.comparables.filter(
-    (comp) => comp.source_url && comp.comparable_tier === "rejected",
+    (comp) => comp.source_url && !acceptedComparableIds.has(comp.id),
   );
   const evidenceSources = [
     ...comps.map((comp) => ({
       title: comp.title || "估值采用的可比成交",
       sourceUrl: comp.source_url,
-      detail: comp.source ?? comp.evidence_level ?? "已采用成交",
+      detail: usedComparableById.get(comp.id)?.tier
+        ? `${usedComparableById.get(comp.id)?.tier} · 当前估值实际采用`
+        : comp.source ?? comp.evidence_level ?? "已采用成交",
     })),
-    ...(shadow?.evidence.references ?? []).map((reference) => ({
-      title: reference.title || "影子估值参考",
-      sourceUrl: reference.source_url ?? null,
-      detail: reference.evidence_type ?? "仅供人工复核的参考",
-    })),
-    ...savedAcceptedEvidence.map((comp) => ({
-      title: comp.listing_title || "已保存的市场证据",
+    ...usedComparableSnapshots.map((comp) => ({
+      title: comp.title || "估值采用的代理成交",
       sourceUrl: comp.source_url,
-      detail: comp.comparable_tier
-        ? `${comp.comparable_tier} · 已通过身份门禁`
-        : "已保存市场证据",
+      detail: `${comp.tier ?? "代理"} · 当前估值实际采用`,
+    })),
+    ...shadowUsedComps.map((comp) => ({
+      title: comp.listing_title || "影子估值采用的参考成交",
+      sourceUrl: comp.source_url,
+      detail: `${comp.comparable_tier ?? "参考"} · 影子估值实际采用`,
     })),
   ].filter(
     (source, index, all) =>
       source.sourceUrl &&
       all.findIndex((candidate) => candidate.sourceUrl === source.sourceUrl) === index,
   );
+  const evidenceRiskFlags = evidence?.risk_flags ?? [];
+  const proxyEvidence =
+    evidence?.exact_version_verified === false
+    || evidence?.pricing_basis === "same_type_proxy"
+    || evidenceRiskFlags.some((flag) => flag.includes("proxy") || flag.includes("tier_T2"));
+  const shadowRiskFlags = [
+    ...(shadow?.review_reasons ?? []),
+    ...(shadow?.evidence.risk_flags ?? []),
+  ];
+  const shadowUsesProxy =
+    shadow?.evidence.exact_version_verified === false
+    || shadow?.evidence.pricing_basis === "same_type_proxy"
+    || shadowRiskFlags.some((flag) => flag.includes("proxy") || flag.includes("tier_T2"));
+  const shadowEvidenceCount =
+    shadow?.evidence.used_comparables?.length
+    ?? shadow?.evidence.used_ids?.length
+    ?? shadow?.evidence_count
+    ?? 0;
   const running = isValuationRunning(detail.status);
   const researchStatus = String(detail.result_summary.research_status ?? "");
-  const awaitingIdentityConfirmation = researchStatus === "awaiting_confirmation";
+  const identityUnresolved =
+    detail.result_summary.identity_resolution_status === "unresolved"
+    || ["identity_research_required", "awaiting_confirmation"].includes(researchStatus);
   return (
     <div className="modal-backdrop">
       <div className="modal valuation-detail-modal">
@@ -4119,12 +4556,26 @@ function AutomatedValuationDialog({
               <p>证据不足，未生成价格。</p>
             )}
             <small>
-              {shadow.model_version} · {shadow.evidence_count} 条精确证据 · 置信度 {" "}
+              {shadow.model_version} · {shadowEvidenceCount} 条实际采用成交证据
+              {shadow.evidence.exact_version_verified === true
+                ? "（已核实精确同版）"
+                : shadowUsesProxy
+                  ? "（代理参考，非精确同版）"
+                  : ""}
+              {" · "}置信度 {" "}
               {Math.round(Number(shadow.confidence) * 100)}% · 不影响当前展示估值
             </small>
             {shadow.review_reasons.length > 0 && (
-              <small>需复核：{shadow.review_reasons.join("、")}</small>
+              <small>
+                需复核：
+                {shadow.review_reasons
+                  .map((reason) => valuationRiskLabels[reason] ?? reason)
+                  .join("、")}
+              </small>
             )}
+            {shadow.evidence.notes?.map((note, index) => (
+              <small key={`${note}-${index}`}>{note}</small>
+            ))}
           </section>
         )}
         {valuation && (
@@ -4167,6 +4618,33 @@ function AutomatedValuationDialog({
                 </small>
               )}
             </section>
+            {(proxyEvidence
+              || (evidence?.notes?.length ?? 0) > 0
+              || evidenceRiskFlags.length > 0) && (
+              <section className="valuation-method">
+                <h3>证据说明与调整</h3>
+                {proxyEvidence && (
+                  <p>
+                    当前为低置信代理估值：采用的是可核验的同类型成交，并非已核实的精确同版成交；
+                    未经证据支持的限编、平行或评级溢价不会自动加入价格。
+                  </p>
+                )}
+                {evidence?.pricing_basis && (
+                  <small>定价基准：{evidence.pricing_basis}</small>
+                )}
+                {evidence?.notes?.map((note, index) => (
+                  <small key={`${note}-${index}`}>{note}</small>
+                ))}
+                {evidenceRiskFlags.length > 0 && (
+                  <small>
+                    风险标记：
+                    {evidenceRiskFlags
+                      .map((flag) => valuationRiskLabels[flag] ?? flag)
+                      .join("、")}
+                  </small>
+                )}
+              </section>
+            )}
             {evidence?.search_queries && evidence.search_queries.length > 0 && (
               <section className="valuation-queries">
                 <h3>检索关键词</h3>
@@ -4210,78 +4688,119 @@ function AutomatedValuationDialog({
               </section>
             )}
             <section>
-              <h3>参考成交 · {comps.length}</h3>
+              <h3>
+                {proxyEvidence ? "实际采用的代理成交" : "参考成交"} ·{" "}
+                {Math.max(comps.length, usedComparableSnapshots.length)}
+              </h3>
               <div className="valuation-comp-list">
-                {comps.map((comp) => (
-                  <article key={comp.id}>
-                    <div>
-                      <strong>
-                        {money(
-                          comp.normalized_card_price ?? comp.normalized_price ?? 0,
-                          valuation.currency,
-                        )}
-                      </strong>
-                      <span>
-                        {comp.tier ? `${comp.tier} · ` : ""}
-                        匹配度{" "}
-                        {Math.round(Number(comp.similarity ?? comp.match_confidence ?? 0) * 100)}%
-                        {comp.source_reliability
-                          ? ` · 来源 ${Math.round(Number(comp.source_reliability) * 100)}%`
-                          : ""}
-                      </span>
-                    </div>
-                    <p>{comp.title || "未命名成交"}</p>
-                    <small>
-                      {new Date(comp.occurred_at).toLocaleDateString("zh-CN")} · 原价{" "}
-                      {money(comp.sale_price ?? comp.original_price ?? 0, comp.currency)}
-                      {comp.shipping_price ? ` + 运费 ${money(comp.shipping_price, comp.currency)}` : ""}
-                      {comp.age_days !== undefined ? ` · ${comp.age_days} 天前` : ""}
-                    </small>
-                    {comp.final_weight !== undefined && (
+                {comps.map((comp) => {
+                  const normalizedPrice =
+                    comp.normalized_card_price ?? comp.normalized_price;
+                  const displayedPrice =
+                    normalizedPrice ?? comp.sale_price ?? comp.original_price;
+                  const displayedCurrency = normalizedPrice
+                    ? valuation.currency
+                    : comp.currency;
+                  const snapshot = usedComparableById.get(comp.id);
+                  const mismatchedFields = Object.entries(
+                    snapshot?.classification?.field_matches ?? comp.field_matches ?? {},
+                  )
+                    .filter(([, matches]) => matches === false)
+                    .map(([field]) => comparableFieldLabels[field] ?? field);
+                  return (
+                    <article key={comp.id}>
+                      <div>
+                        <strong>
+                          {displayedPrice !== undefined
+                            ? money(displayedPrice, displayedCurrency)
+                            : "价格明细未关联"}
+                        </strong>
+                        <span>
+                          {comp.tier ? `${comp.tier} · ` : ""}
+                          匹配度{" "}
+                          {Math.round(Number(comp.similarity ?? comp.match_confidence ?? 0) * 100)}%
+                          {comp.source_reliability
+                            ? ` · 来源 ${Math.round(Number(comp.source_reliability) * 100)}%`
+                            : ""}
+                        </span>
+                      </div>
+                      <p>{comp.title || "未命名成交"}</p>
                       <small>
-                        原始权重 {Number(comp.raw_weight ?? 0).toFixed(4)} · 最终权重{" "}
-                        {(Number(comp.final_weight) * 100).toFixed(1)}%
-                        {comp.used_for_center ? " · 参与中心估值" : " · 仅区间/异常检查"}
+                        {new Date(comp.occurred_at).toLocaleDateString("zh-CN")} · 原价{" "}
+                        {money(comp.sale_price ?? comp.original_price ?? 0, comp.currency)}
+                        {comp.shipping_price ? ` + 运费 ${money(comp.shipping_price, comp.currency)}` : ""}
+                        {comp.age_days !== undefined ? ` · ${comp.age_days} 天前` : ""}
                       </small>
-                    )}
-                    {comp.adjustment_basis && (
+                      {comp.final_weight !== undefined && (
+                        <small>
+                          原始权重 {Number(comp.raw_weight ?? 0).toFixed(4)} · 最终权重{" "}
+                          {(Number(comp.final_weight) * 100).toFixed(1)}%
+                          {comp.used_for_center ? " · 参与中心估值" : " · 仅区间/异常检查"}
+                        </small>
+                      )}
+                      {comp.adjustment_basis && (
+                        <small>
+                          调整：{comp.adjustment_basis}（×{comp.adjustment_factor ?? "1"}）
+                        </small>
+                      )}
+                      {comp.source === "cardhobby" && (
+                        <small>
+                          卡淘 · {comp.evidence_level === "confirmed_transaction"
+                            ? "交易评价确认成交"
+                            : comp.evidence_level === "ended_auction"
+                              ? "有出价的结束拍卖（未确认付款）"
+                              : "市场记录（成交状态以原始来源为准）"}
+                        </small>
+                      )}
+                      {comp.adjustment && (
+                        <small>
+                          {comp.evidence_type ? `${comp.evidence_type} · ` : ""}
+                          {comp.adjustment}
+                        </small>
+                      )}
+                      {comp.player_coefficient && comp.player_coefficient !== "1" && (
+                        <small>
+                          {comp.player_name} 原始参考价 × 球员系数{" "}
+                          {Math.round(Number(comp.player_coefficient) * 100)}%
+                        </small>
+                      )}
+                      {snapshot && (
+                        <small>
+                          采用理由：{snapshot.tier ?? "代理层级"}
+                          {snapshot.classification?.cardhobby_provider_tier
+                            ? ` · ${snapshot.classification.cardhobby_provider_tier}`
+                            : ""}
+                          {snapshot.visual_verdict
+                            ? ` · 图像核验 ${snapshot.visual_verdict}`
+                            : ""}
+                          {snapshot.visual_confidence
+                            ? ` ${Math.round(Number(snapshot.visual_confidence) * 100)}%`
+                            : ""}
+                        </small>
+                      )}
+                      {mismatchedFields.length > 0 && (
+                        <small>非同版或未匹配字段：{mismatchedFields.join("、")}</small>
+                      )}
                       <small>
-                        调整：{comp.adjustment_basis}（×{comp.adjustment_factor ?? "1"}）
+                        状态：
+                        {comp.condition_type === "graded"
+                          ? `${comp.grade_company ?? "评级"} ${comp.grade_value ?? ""}`
+                          : "裸卡"}
                       </small>
-                    )}
-                    {comp.source === "cardhobby" && (
-                      <small>
-                        卡淘 · {comp.evidence_level === "confirmed_transaction"
-                          ? "交易评价确认成交"
-                          : "有出价的结束拍卖（未确认付款）"}
-                      </small>
-                    )}
-                    {comp.adjustment && (
-                      <small>
-                        {comp.evidence_type ? `${comp.evidence_type} · ` : ""}
-                        {comp.adjustment}
-                      </small>
-                    )}
-                    {comp.player_coefficient && comp.player_coefficient !== "1" && (
-                      <small>
-                        {comp.player_name} 原始参考价 × 球员系数{" "}
-                        {Math.round(Number(comp.player_coefficient) * 100)}%
-                      </small>
-                    )}
-                    <small>
-                      状态：
-                      {comp.condition_type === "graded"
-                        ? `${comp.grade_company ?? "评级"} ${comp.grade_value ?? ""}`
-                        : "裸卡"}
-                    </small>
-                    {comp.source_url && (
-                      <a href={externalSourceUrl(comp.source_url)} target="_blank" rel="noreferrer">
-                        查看原始成交来源
-                      </a>
-                    )}
-                  </article>
-                ))}
-                {comps.length === 0 && <p>暂无满足匹配要求的成交证据。</p>}
+                      {comp.source_url && (
+                        <a href={externalSourceUrl(comp.source_url)} target="_blank" rel="noreferrer">
+                          查看原始成交来源
+                        </a>
+                      )}
+                    </article>
+                  );
+                })}
+                {comps.length === 0 && usedComparableSnapshots.length > 0 && (
+                  <p>估值已保存采用记录，但当前市场明细未关联；可通过下方原始链接核验。</p>
+                )}
+                {comps.length === 0 && usedComparableSnapshots.length === 0 && (
+                  <p>暂无满足匹配要求的成交证据。</p>
+                )}
               </div>
             </section>
           </>
@@ -4290,7 +4809,8 @@ function AutomatedValuationDialog({
           <section className="valuation-evidence-links">
             <h3>可查验证据链接 · {evidenceSources.length}</h3>
             <p>
-              链接保留卡淘单品页、eBay 单品页及第三方来源。来源仅用于核验；页面状态以本系统标注的成交状态和证据等级为准。
+              此处只展示当前估值或影子估值实际采用的市场记录；精确同版与代理层级按上方说明区分。
+              未采用的宽检索和被拒绝候选单独列在下方。
             </p>
             <div>
               {evidenceSources.map((source) => (
@@ -4339,36 +4859,28 @@ function AutomatedValuationDialog({
             </p>
           </div>
         )}
-        {awaitingIdentityConfirmation && (
+        {identityUnresolved && (
           <div className="valuation-running-panel">
             <ShieldAlert size={20} />
             <div>
-              <strong>已找到候选身份，等待你确认</strong>
+              <strong>无法识别</strong>
               <p>
-                系统已生成 {String(detail.result_summary.candidate_count ?? 0)} 个候选；
-                确认前不会产生或覆盖价格。
+                自动身份门禁未通过，未生成或覆盖价格。后台已记录完整身份、查询词、
+                候选、拒绝原因与缺失字段，无需你确认。
               </p>
-              <button
-                className="primary-button"
-                disabled={openingIdentityReview}
-                onClick={async () => {
-                  setOpeningIdentityReview(true);
-                  setIdentityReviewError("");
-                  try {
-                    const opened = await onIdentityReview();
-                    if (!opened) setIdentityReviewError("身份复核加载失败，请重试");
-                  } finally {
-                    setOpeningIdentityReview(false);
-                  }
-                }}
-              >
-                {openingIdentityReview ? "正在打开身份复核…" : "打开身份复核并确认候选"}
-              </button>
-              {identityReviewError && <small className="candidate-conflict">{identityReviewError}</small>}
+              <small>
+                根因：{Array.isArray(
+                  (detail.result_summary.identity_failure_diagnostics as { root_cause_codes?: unknown[] } | undefined)
+                    ?.root_cause_codes,
+                )
+                  ? ((detail.result_summary.identity_failure_diagnostics as { root_cause_codes: unknown[] })
+                    .root_cause_codes.map(String).join("、"))
+                  : String(detail.result_summary.reason ?? "身份锚点不足")}
+              </small>
             </div>
           </div>
         )}
-        {!running && !awaitingIdentityConfirmation && (
+        {!running && (
           <button
             className="secondary-button full"
             disabled={retrying}
@@ -4769,7 +5281,7 @@ function RecognitionDialog({
   onFlatbedCompleted: (jobIds: string[]) => void | Promise<void>;
 }) {
   const [batchFileCount, setBatchFileCount] = useState(0);
-  const [showFlatbed, setShowFlatbed] = useState(false);
+  const [showFlatbed, setShowFlatbed] = useState(true);
 
   return (
     <div className="modal-backdrop" onMouseDown={(event) => closeOnBackdrop(event, onClose, loading)}>
@@ -4814,7 +5326,10 @@ function RecognitionDialog({
             type="button"
             disabled={loading}
             className={showFlatbed ? "active" : ""}
-            onClick={() => setShowFlatbed((current) => !current)}
+            onClick={() => {
+              setShowFlatbed(true);
+              setBatchFileCount(0);
+            }}
           >
             Canon 扫描仪
             <small>LiDE 400 整版批量录入</small>
@@ -4956,7 +5471,9 @@ function RecognitionDialog({
                   <strong>
                     {job.status === "queued" && "等待识别"}
                     {job.status === "running" && "AI 识别中"}
-                    {job.status === "succeeded" && `${job.result?.player_name || "识别完成"}${job.collection_item_id ? " · 已自动入库" : ""}`}
+                    {job.status === "succeeded" && (
+                      `${job.result?.player_name || "识别完成"}${job.collection_item_id ? " · 已自动入库" : ""}`
+                    )}
                     {job.status === "failed" && "识别失败"}
                     {job.status === "cancelled" && "已取消"}
                   </strong>
@@ -5022,7 +5539,7 @@ function RecognitionDialog({
                   <strong>
                     {draft.error
                       ? `失败：${draft.error}`
-                      : draft.result?.player_name || "待人工确认"}
+                      : draft.result?.player_name || "无法识别"}
                   </strong>
                   <small>{draft.result ? "校正并录入" : "无法录入"}</small>
                   {draft.acquisition?.purchase_price && (
@@ -5060,8 +5577,8 @@ function RecognitionDialog({
             <div className="recognition-confidence">
               <span>
                 {result.recognition_status === "research_required"
-                  ? "需要清单研究，当前结果不会自动确认"
-                  : "身份质量门禁已通过"}
+                  ? "识别结果需核对；仍可入库、编辑和估值"
+                  : "识别结果可信度较高"}
               </span>
               <strong>
                 {result.recognition_model ?? "本地/兼容模型"}
@@ -5072,7 +5589,7 @@ function RecognitionDialog({
             </div>
             {result.recognition_quality_issues && result.recognition_quality_issues.length > 0 && (
               <div className="recognition-caveats">
-                <strong>身份门禁</strong>
+                <strong>待核对项</strong>
                 <span>{result.recognition_quality_issues.join("；")}</span>
               </div>
             )}

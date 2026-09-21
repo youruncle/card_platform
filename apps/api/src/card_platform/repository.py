@@ -6,8 +6,10 @@ from uuid import UUID
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
+from card_platform.domain.redemption import redemption_identity
 from card_platform.domain.portfolio import LedgerEntry, TransactionKind, calculate_position
 from card_platform.schemas import (
+    CardRecognitionResult,
     CollectionItemCreate,
     PortfolioItem,
     PortfolioItemQuickUpdate,
@@ -214,14 +216,35 @@ class PortfolioRepository:
         card = payload.card
         result = await connection.execute(
             """
-            SELECT id FROM card_set
+            SELECT id, season_end FROM card_set
             WHERE brand_id = %s AND season_start = %s AND product_name = %s
               AND set_name IS NOT DISTINCT FROM %s
+            ORDER BY (season_end IS NOT DISTINCT FROM %s) DESC, created_at DESC
+            LIMIT 1
             """,
-            (brand_id, card.season_start, card.product_name, card.set_name),
+            (
+                brand_id,
+                card.season_start,
+                card.product_name,
+                card.set_name,
+                card.season_end,
+            ),
         )
         row = await result.fetchone()
         if row:
+            if (
+                card.season_end == card.season_start + 1
+                and row["season_end"] in {None, card.season_start}
+            ):
+                # Scanner imports may initially know only the copyright/start
+                # year. When later physical/checklist evidence establishes a
+                # normal cross-year season, upgrade the shared product row so
+                # the collection projection does not keep showing 2025/2025
+                # beside a confirmed 2025/26 identity.
+                await connection.execute(
+                    "UPDATE card_set SET season_end = %s WHERE id = %s",
+                    (card.season_end, row["id"]),
+                )
             return row["id"]
         result = await connection.execute(
             """
@@ -412,8 +435,20 @@ class PortfolioRepository:
         owner_id: UUID,
         *,
         deleted_only: bool = False,
+        limit: int | None = None,
+        offset: int = 0,
+        item_ids: list[UUID] | None = None,
     ) -> list[PortfolioItem]:
         deleted_filter = "ci.deleted_at IS NOT NULL" if deleted_only else "ci.deleted_at IS NULL"
+        pagination = ""
+        parameters: tuple[object, ...] = (owner_id,)
+        item_filter = ""
+        if item_ids is not None:
+            item_filter = "AND ci.id = ANY(%s::uuid[])"
+            parameters += (item_ids,)
+        if limit is not None:
+            pagination = "LIMIT %s OFFSET %s"
+            parameters += (limit, offset)
         result = await connection.execute(
             f"""
             SELECT
@@ -429,8 +464,17 @@ class PortfolioRepository:
                 ci.serial_number, ci.serial_total, ci.grade_company, ci.grade_value,
                 ci.strategy_tags, ci.image_front_url, ci.image_back_url, u.base_currency,
                 purchase.unit_price AS purchase_price,
+                purchase.unit_price * purchase.quantity + purchase.fee_amount AS purchase_total_cost,
                 purchase.currency AS purchase_currency,
                 ci.deleted_at, ci.deleted_reason,
+                ci.notes AS redemption_notes,
+                scanner_recognition.redemption_recognition,
+                scanner_recognition.recognition_confidence,
+                scanner_recognition.recognition_status,
+                COALESCE(
+                    scanner_recognition.recognition_quality_issues,
+                    '[]'::jsonb
+                ) AS recognition_quality_issues,
                 CASE WHEN vj.created_at > lv.valued_at AND vj.status <> 'succeeded'
                      THEN NULL ELSE lv.currency END AS valuation_currency,
                 CASE WHEN vj.created_at > lv.valued_at AND vj.status <> 'succeeded'
@@ -464,7 +508,7 @@ class PortfolioRepository:
             JOIN brand b ON b.id = cs.brand_id
             LEFT JOIN latest_item_valuation lv ON lv.collection_item_id = ci.id
             LEFT JOIN LATERAL (
-                SELECT unit_price, currency
+                SELECT unit_price, currency, quantity, fee_amount
                 FROM card_transaction
                 WHERE collection_item_id = ci.id AND transaction_type = 'buy'
                 ORDER BY transacted_at, created_at, id
@@ -481,9 +525,16 @@ class PortfolioRepository:
                       ORDER BY created_at DESC LIMIT 1
                   )
                   AND identity_version_id = (
-                      SELECT id FROM card_identity_version
-                      WHERE collection_item_id = ci.id AND review_status = 'confirmed'
-                      ORDER BY version DESC LIMIT 1
+                      SELECT confirmed_version.id
+                      FROM card_identity_version confirmed_version
+                      WHERE confirmed_version.collection_item_id = ci.id
+                        AND confirmed_version.review_status = 'confirmed'
+                        AND NOT EXISTS (
+                            SELECT 1 FROM card_identity_version revocation
+                            WHERE revocation.supersedes_id = confirmed_version.id
+                              AND revocation.review_status = 'rejected'
+                        )
+                      ORDER BY confirmed_version.version DESC LIMIT 1
                   )
                 ORDER BY created_at DESC LIMIT 1
             ) sv ON true
@@ -493,15 +544,41 @@ class PortfolioRepository:
                 WHERE collection_item_id = ci.id
                 ORDER BY created_at DESC LIMIT 1
             ) vj ON true
-            WHERE ci.owner_id = %s AND {deleted_filter}
-            ORDER BY ci.created_at DESC
+            LEFT JOIN LATERAL (
+                SELECT
+                    CASE
+                        WHEN result->>'confidence' ~ '^[0-9]+([.][0-9]+)?$'
+                        THEN (result->>'confidence')::numeric
+                        ELSE NULL
+                    END AS recognition_confidence,
+                    result AS redemption_recognition,
+                    result->>'recognition_status' AS recognition_status,
+                    COALESCE(result->'recognition_quality_issues', '[]'::jsonb)
+                        AS recognition_quality_issues
+                FROM scanner_recognition_job
+                WHERE collection_item_id = ci.id AND result IS NOT NULL
+                ORDER BY imported_at DESC NULLS LAST, created_at DESC
+                LIMIT 1
+            ) scanner_recognition ON true
+            WHERE ci.owner_id = %s AND {deleted_filter} {item_filter}
+            ORDER BY ci.created_at DESC, ci.id DESC
+            {pagination}
             """,
-            (owner_id,),
+            parameters,
         )
         rows = await result.fetchall()
         entries_by_item = await self._owner_ledger_entries(connection, owner_id)
         items: list[PortfolioItem] = []
         for row in rows:
+            recognition = row.pop("redemption_recognition", None) or {}
+            voucher, status = redemption_identity({"notes": row.pop("redemption_notes", None)})
+            if recognition:
+                physical = CardRecognitionResult.model_validate(recognition)
+                if physical.is_redemption:
+                    voucher = True
+                    if status == "unknown":
+                        status = physical.redemption_status
+            row.update(is_redemption=voucher, redemption_status=status)
             position = calculate_position(entries_by_item[row["id"]])
             valuation_compatible = (
                 row["fair_value"] is not None and row["valuation_currency"] == row["base_currency"]
@@ -534,6 +611,25 @@ class PortfolioRepository:
                 )
             )
         return items
+
+    async def count_items(
+        self,
+        connection: AsyncConnection,
+        owner_id: UUID,
+        *,
+        deleted_only: bool = False,
+    ) -> int:
+        deleted_filter = "deleted_at IS NOT NULL" if deleted_only else "deleted_at IS NULL"
+        result = await connection.execute(
+            f"""
+            SELECT COUNT(*) AS total
+            FROM collection_item
+            WHERE owner_id = %s AND {deleted_filter}
+            """,
+            (owner_id,),
+        )
+        row = await result.fetchone()
+        return int(row["total"])
 
     async def quick_update_item(
         self,

@@ -10,6 +10,14 @@ export type PortfolioSummary = {
   realized_profit: string;
 };
 
+export type PortfolioPage = {
+  items: PortfolioItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+};
+
 export type AuthUser = {
   id: string;
   email: string;
@@ -70,10 +78,28 @@ export type ScannerCameraControls = {
   gain: ScannerCameraProperty | null;
 };
 
-export type FlatbedRegion = { id: string; ordinal: number; bounds: { x: number; y: number; width: number; height: number; angle?: number; points?: Array<{ x: number; y: number }> }; confidence: number; failure_reason: string | null };
+export type FlatbedCropQuality = {
+  presence_score: number;
+  isolation_score: number;
+  boundary_score: number;
+  usability_score: number;
+  usable: boolean;
+  needs_review: boolean;
+  violations: Array<{ code: string; severity: "warning" | "error"; message: string }>;
+};
+export type FlatbedRegion = {
+  id: string;
+  ordinal: number;
+  bounds: { x: number; y: number; width: number; height: number; angle?: number; points?: Array<{ x: number; y: number }> };
+  confidence: number;
+  failure_reason: string | null;
+  crop_quality?: FlatbedCropQuality;
+  signals?: { crop_quality?: FlatbedCropQuality; [key: string]: unknown };
+};
 export type FlatbedPair = { front_id: string; back_id: string; confidence: number; confidence_level: "high" | "medium" | "low"; conflicts: string[]; signals: Record<string, number>; requires_review: boolean };
 export type FlatbedSheet = { id: string; side: "front" | "back"; revision: number; content_type?: string; created_at?: string; detector_version?: string; layout_hypothesis?: Record<string, unknown>; requires_review?: boolean };
 export type FlatbedSession = { id: string; status: string; dpi: 300 | 600; pairing_requires_review: boolean; pairing_transform: string | null; submitted_at: string | null; pairs?: Array<Record<string, unknown>>; regions?: Array<FlatbedRegion & { side: "front" | "back" }>; sheets?: FlatbedSheet[] };
+export type FlatbedCaptureProgress = { capture_id: string; session_id: string; side: "front" | "back"; phase: "scanning" | "processing" | "completed" | "failed"; detail: string | null; updated_at: string };
 
 export type RecognitionBenchmarkMetrics = {
   sample_count: number;
@@ -247,6 +273,8 @@ export type RecognitionSamplingAudit = {
 };
 
 export type PortfolioItem = {
+  is_redemption?: boolean;
+  redemption_status?: "unknown" | "unredeemed" | "redeemed" | "expired";
   id: string;
   display_id: number;
   player_id: string;
@@ -287,6 +315,7 @@ export type PortfolioItem = {
   quantity_held: string;
   remaining_cost: string;
   purchase_price: string | null;
+  purchase_total_cost?: string | null;
   purchase_currency: string | null;
   realized_profit: string;
   valuation_currency: string | null;
@@ -306,6 +335,9 @@ export type PortfolioItem = {
   valuation_result_summary: Record<string, unknown>;
   valuation_job_id: string | null;
   valuation_error: string | null;
+  recognition_confidence: string | null;
+  recognition_status: "resolved" | "research_required" | null;
+  recognition_quality_issues: string[];
   deleted_at: string | null;
   deleted_reason: string | null;
 };
@@ -394,6 +426,13 @@ export type AutomatedValuationDetail = {
       formula?: string;
       search_queries?: string[];
       notes?: string[];
+      risk_flags?: string[];
+      selection_policy?: string;
+      pricing_basis?: string;
+      exact_version_verified?: boolean;
+      numbered_premium_applied?: boolean;
+      grade_premium_applied?: boolean;
+      automatic_publication?: boolean;
       card_price?: { low: string; fair: string; high: string };
       landed_price?: { low: string; fair: string; high: string };
       player_adjustments?: Array<{
@@ -449,6 +488,19 @@ export type AutomatedValuationDetail = {
         player_name?: string;
         player_coefficient?: string;
       }>;
+      used_comparables?: Array<{
+        market_comp_id: string;
+        title?: string | null;
+        source_url?: string | null;
+        tier?: "T0" | "T1" | "T2" | "T3" | "rejected" | null;
+        classification?: {
+          hard_conflicts?: string[];
+          field_matches?: Record<string, boolean | null>;
+          cardhobby_provider_tier?: string;
+        };
+        visual_verdict?: string | null;
+        visual_confidence?: string | null;
+      }>;
     };
     model_version: string | null;
   };
@@ -465,8 +517,13 @@ export type AutomatedValuationDetail = {
     review_reasons: string[];
     evidence: {
       used_ids?: string[];
+      used_comparables?: Array<{ market_comp_id: string; tier?: string | null }>;
       rejected?: Array<{ id: string; reasons: string[] }>;
       published_value_unchanged?: boolean;
+      risk_flags?: string[];
+      notes?: string[];
+      pricing_basis?: string;
+      exact_version_verified?: boolean;
       references?: Array<{
         title?: string;
         source_url?: string;
@@ -607,6 +664,7 @@ export type SheetCardRecognitionItem = {
   product_number: string | null;
   purchased_at: string | null;
   purchase_price: string | null;
+  purchase_total_cost?: string | null;
   shipping_price: string | null;
   currency: string | null;
   quantity: number;
@@ -846,9 +904,14 @@ function multipartApiUrl(): string {
   if (process.env.NEXT_PUBLIC_UPLOAD_API_URL) {
     return process.env.NEXT_PUBLIC_UPLOAD_API_URL;
   }
-  if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
+  if (
+    typeof window !== "undefined"
+    && (process.env.NODE_ENV === "development" || window.location.port === "3000")
+  ) {
     // Keep the exact browser hostname so host-scoped Session cookies work for
-    // both localhost and 127.0.0.1, while bypassing Next's large-body proxy.
+    // both localhost and 127.0.0.1, while bypassing Next's long-request proxy.
+    // The local launchd stack serves a production build on port 3000, so the
+    // direct API route must not be limited to NODE_ENV=development.
     return `${window.location.protocol}//${window.location.hostname}:8000`;
   }
   return API_URL;
@@ -874,6 +937,18 @@ export function externalSourceUrl(sourceUrl: string): string {
   }
 }
 
+export class ApiError extends Error {
+  constructor(message: string, public code?: string) { super(message); }
+}
+
+export type CardHobbyAccountStatus = {saved: boolean; state: "unbound" | "connected" | "login_required" | "verification_required"};
+const cardHobbyAccountPath = "/v1/purchase-cost/cardhobby";
+export const getCardHobbyAccountStatus = (signal?: AbortSignal) => request<CardHobbyAccountStatus>(`${cardHobbyAccountPath}/status`, {signal});
+export const loginCardHobbyAccount = (username: string, password: string, signal?: AbortSignal) => request<CardHobbyAccountStatus>(`${cardHobbyAccountPath}/login`, {method:"POST", body:JSON.stringify({username,password}), signal});
+export const verifyCardHobbyAccount = (code: string, signal?: AbortSignal) => request<CardHobbyAccountStatus>(`${cardHobbyAccountPath}/verify`, {method:"POST", body:JSON.stringify({code}), signal});
+export const forgetCardHobbyAccount = (signal?: AbortSignal) => request<void>(`${cardHobbyAccountPath}/account`, {method:"DELETE",signal});
+export const searchSavedCardHobbyOrders = (keywords: string[], signal?: AbortSignal) => request<{orders:unknown[];complete:boolean}>(`${cardHobbyAccountPath}/search`, {method:"POST",body:JSON.stringify({keywords}),signal});
+
 async function request<T>(path: string, init?: RequestInit, baseUrl = API_URL): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
@@ -888,7 +963,8 @@ async function request<T>(path: string, init?: RequestInit, baseUrl = API_URL): 
     if (response.status === 500 && !body.detail) {
       throw new Error("API 服务不可用，请确认后端 8000 端口已启动");
     }
-    throw new Error(body.detail ?? `请求失败 (${response.status})`);
+    const detail = body.detail;
+    throw new ApiError(typeof detail === "string" ? detail : detail?.message ?? `请求失败 (${response.status})`, detail?.code);
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
@@ -1304,12 +1380,18 @@ export function changePassword(payload: {
   });
 }
 
+import { SearchFilters, searchQuery } from './portfolio-search';
+
 export function getPortfolio(
   ownerId: string,
-): Promise<[PortfolioSummary, PortfolioItem[]]> {
+  page = 1,
+  filters: SearchFilters = {},
+): Promise<[PortfolioSummary, PortfolioPage]> {
   return Promise.all([
     request<PortfolioSummary>(`/v1/portfolio/summary?owner_id=${ownerId}`),
-    request<PortfolioItem[]>(`/v1/portfolio/items?owner_id=${ownerId}`),
+    request<PortfolioPage>(
+      `/v1/portfolio/items/page?owner_id=${ownerId}&page=${page}&page_size=30${searchQuery(filters)}`,
+    ),
   ]);
 }
 
@@ -1728,24 +1810,28 @@ export async function uploadFlatbedSheet(sessionId: string, side: "front" | "bac
   return response.json();
 }
 
-export function captureFlatbedSheet(sessionId: string, side: "front" | "back", preview = false): Promise<{ id: string; regions: FlatbedRegion[]; failures: string[] }> {
+export function captureFlatbedSheet(sessionId: string, side: "front" | "back", preview = false, captureId?: string): Promise<{ id: string; regions: FlatbedRegion[]; failures: string[] }> {
   // A full-bed scan regularly takes longer than Next's development rewrite
   // proxy is willing to keep the upstream response open. The API may finish
   // and persist the sheet after that proxy has already returned a misleading
   // 500, which encourages duplicate scans. Use the same direct local API
   // origin as large uploads so the browser waits for the real scan result.
   return request(
-    `/v1/flatbed/sessions/${sessionId}/capture/${side}?preview=${preview}`,
+    `/v1/flatbed/sessions/${sessionId}/capture/${side}?preview=${preview}${captureId ? `&capture_id=${encodeURIComponent(captureId)}` : ""}`,
     { method: "POST" },
     multipartApiUrl(),
   );
+}
+
+export function getFlatbedCaptureProgress(captureId: string): Promise<FlatbedCaptureProgress> {
+  return request(`/v1/flatbed/captures/${captureId}/status`, {}, multipartApiUrl());
 }
 
 export function proposeFlatbedPairs(sessionId: string): Promise<{ pairs: FlatbedPair[]; missing_front: string[]; missing_back: string[]; transform: string; requires_review: boolean }> {
   return request(`/v1/flatbed/sessions/${sessionId}/pair`, { method: "POST" });
 }
 
-export function confirmFlatbedPairs(sessionId: string, pairs: Array<{ front_region_id: string; back_region_id: string }>): Promise<{ status: string; count: number }> {
+export function confirmFlatbedPairs(sessionId: string, pairs: Array<{ front_region_id: string; back_region_id: string }>): Promise<{ status: string; count: number; skipped: { front: number; back: number } }> {
   return request(`/v1/flatbed/sessions/${sessionId}/pairs`, { method: "PUT", body: JSON.stringify({ pairs }) });
 }
 
@@ -1828,3 +1914,31 @@ export function confirmCardHobbyDesktop(
     items,
   });
 }
+
+
+export type CostCandidate = {
+  unit_id: string; evidence_hash: string; order_id: string; ordered_at: string;
+  seller: string; status: string; item_id: string; unit_index: number; title: string;
+  image_urls: string[]; source_url: string; card_price: string; shipping: string;
+  total_cost: string; currency: string; confidence: string; reasons: string[];
+  missing: string[]; automatic: boolean;
+  item_url?: string; match_method?: "exact" | "inferred"; inference_warnings?: string[];
+  visual_inference?: {verdict: string; confidence: string; reasons: string[]};
+};
+export type CostPreview = { candidates: CostCandidate[]; rejected: {item_id: string; reasons: string[]}[]; reason: string };
+export type CostJob = { source_mode?: "synced" | "browser_search"; item_ids?: string[]; id: string; status: string; target: number; scan_limit: number; scanned: number; succeeded: number; error?: string; results: {item_id: string; status: string; reason?: string}[] };
+export type CostAudit = { card_price: string; shipping: string; confirmation: string; source_changed: boolean; manual_override: boolean; evidence: CostCandidate; current_price: string; current_shipping: string; current_currency: string };
+export const getCostCandidates = (id: string): Promise<CostPreview> => request(`/v1/purchase-cost/items/${id}/candidates`);
+export const confirmCost = (id: string, candidate: CostCandidate) => request(`/v1/purchase-cost/items/${id}/confirm`, {method: "POST", body: JSON.stringify({unit_id: candidate.unit_id, evidence_hash: candidate.evidence_hash, refresh:true})});
+export const getCostAudit = (id: string): Promise<CostAudit | null> => request(`/v1/purchase-cost/items/${id}/audit`);
+export const syncCostOrders = (orders: unknown[]): Promise<{orders: {status: string; errors: string[]}[]}> => request("/v1/purchase-cost/sync", {method: "POST", body: JSON.stringify({orders})});
+export const createCostJob = (target: number, requestKey: string, sourceMode: "synced" | "browser_search" = "synced"): Promise<CostJob> => request("/v1/purchase-cost/jobs", {method: "POST", body: JSON.stringify({target, scan_limit: Math.min(2000, Math.max(100, target * 20)), request_key: requestKey, source_mode: sourceMode})});
+export const getCostJob = (id: string): Promise<CostJob> => request(`/v1/purchase-cost/jobs/${id}`);
+export const listCostJobs = (): Promise<CostJob[]> => request("/v1/purchase-cost/jobs");
+export const actCostJob = (id: string, action: "cancel" | "retry" | "search-failed"): Promise<CostJob> => request(`/v1/purchase-cost/jobs/${id}/${action}`, {method: "POST"});
+
+export type CostSearchPlan = {item_id: string; label: string; keywords: string[]; status: "ready" | "skipped"; reason: string};
+export type CostSearchResult = CostPreview & {status: string; recorded?: CostCandidate};
+export const getCostSearchPlan = (id: string, signal?: AbortSignal): Promise<CostSearchPlan> => request(`/v1/purchase-cost/items/${id}/search-plan`, {signal});
+export const resolveCostSearch = (id: string, capture: {orders: unknown[]; complete: boolean}, signal?: AbortSignal): Promise<CostSearchResult> => request(`/v1/purchase-cost/items/${id}/search-result`, {method:"POST", body:JSON.stringify({...capture, refresh:true}), signal});
+export const finishCostSearchStep = (jobId: string, itemId: string, capture: {orders: unknown[]; complete: boolean}): Promise<CostJob> => request(`/v1/purchase-cost/jobs/${jobId}/search-step`, {method:"POST", body:JSON.stringify({...capture, item_id:itemId})});

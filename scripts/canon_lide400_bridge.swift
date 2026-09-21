@@ -114,7 +114,22 @@ final class Bridge: NSObject, ICDeviceBrowserDelegate, ICScannerDeviceDelegate {
             if self.command == "preview" { scanner.requestOverviewScan() } else { scanner.requestScan() }
         }
     }
-    func scannerDevice(_ scanner: ICScannerDevice, didScanTo url: URL) { scanning = false; emit(["event":"scan_complete", "path":url.path]); close(scanner, 0) }
+    func scannerDevice(_ scanner: ICScannerDevice, didScanTo url: URL) {
+        scanning = false
+        var event: [String:Any] = ["event":"scan_complete", "path":url.path, "preview":false]
+        if let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+           let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String:Any],
+           let width = properties[kCGImagePropertyPixelWidth as String] as? Int,
+           let height = properties[kCGImagePropertyPixelHeight as String] as? Int {
+            event["source_resolution"] = [
+                "capture_kind":"scan", "pixel_width":width, "pixel_height":height,
+                "actual_dpi":scanner.selectedFunctionalUnit.resolution,
+                "source":"image_capture_core_resolution"
+            ]
+        }
+        emit(event)
+        close(scanner, 0)
+    }
     func scannerDevice(_ scanner: ICScannerDevice, didCompleteOverviewScanWithError error: Error?) {
         scanning = false
         if cancelling { return }
@@ -123,9 +138,18 @@ final class Bridge: NSObject, ICDeviceBrowserDelegate, ICScannerDeviceDelegate {
               let image = unit.overviewImage,
               let destination = CGImageDestinationCreateWithURL(output! as CFURL, UTType.png.identifier as CFString, 1, nil)
         else { fail("overview_image_missing", 70); return }
-        CGImageDestinationAddImage(destination, image, nil)
+        let properties: [CFString:Any] = [
+            kCGImagePropertyDPIWidth:unit.overviewResolution,
+            kCGImagePropertyDPIHeight:unit.overviewResolution
+        ]
+        CGImageDestinationAddImage(destination, image, properties as CFDictionary)
         guard CGImageDestinationFinalize(destination) else { fail("overview_write_failed", 74); return }
-        emit(["event":"scan_complete", "path":output!.path, "preview":true])
+        emit(["event":"scan_complete", "path":output!.path, "preview":true,
+              "source_resolution":[
+                "capture_kind":"preview", "pixel_width":image.width, "pixel_height":image.height,
+                "actual_dpi":unit.overviewResolution,
+                "source":"image_capture_core_overview_resolution"
+              ]])
         close(scanner, 0)
     }
     func scannerDevice(_ scanner: ICScannerDevice, didCompleteScanWithError error: Error?) { scanning = false; if cancelling { return }; if let error { fail(error.localizedDescription, 70) } }

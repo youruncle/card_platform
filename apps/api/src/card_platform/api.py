@@ -1,9 +1,12 @@
 from collections.abc import AsyncIterator
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
+from pydantic import ValidationError
+
+from card_platform.portfolio_search import SearchFilters, search_item_ids
 
 from card_platform.analysis_repository import AnalysisRepository
 from card_platform.expert_analysis_repository import ExpertAnalysisRepository
@@ -40,6 +43,7 @@ from card_platform.schemas import (
     CollectionItemOwnerAction,
     CreatedResource,
     PortfolioItem,
+    PortfolioPage,
     PortfolioItemQuickUpdate,
     PortfolioItemDetail,
     PortfolioSummary,
@@ -158,6 +162,53 @@ async def list_items(
     connection: AsyncConnection = Depends(get_connection),
 ) -> list[PortfolioItem]:
     return await repository.list_items(connection, user.id)
+
+
+@router.get("/portfolio/items/page", response_model=PortfolioPage)
+async def list_items_page(
+    owner_id: UUID | None = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=30, ge=1, le=30),
+    user: AuthenticatedUser = Depends(current_user),
+    connection: AsyncConnection = Depends(get_connection),
+    search: str | None = None,
+) -> PortfolioPage:
+    if search is not None:
+        if len(search) > 12000:
+            raise HTTPException(422, "搜索条件过长")
+        try:
+            filters = SearchFilters.model_validate_json(search)
+        except ValidationError:
+            raise HTTPException(422, "搜索条件无效，请检查字段、数字范围和格式") from None
+        if filters.model_dump(exclude_defaults=True):
+            ids = await search_item_ids(connection, user.id, filters)
+            total_pages = max(1, (len(ids) + page_size - 1) // page_size)
+            current_page = min(page, total_pages)
+            selected = ids[(current_page - 1) * page_size : current_page * page_size]
+            items = (
+                await repository.list_items(connection, user.id, item_ids=selected)
+                if selected else []
+            )
+            return PortfolioPage(
+                items=items, total=len(ids), page=current_page,
+                page_size=page_size, total_pages=total_pages,
+            )
+    total = await repository.count_items(connection, user.id)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    current_page = min(page, total_pages)
+    items = await repository.list_items(
+        connection,
+        user.id,
+        limit=page_size,
+        offset=(current_page - 1) * page_size,
+    )
+    return PortfolioPage(
+        items=items,
+        total=total,
+        page=current_page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
 
 
 @router.patch("/portfolio/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -92,6 +92,11 @@ def test_partial_serial_fraction_is_a_hard_quality_issue() -> None:
     )
 
 
+def test_missing_brand_or_season_end_cannot_auto_resolve() -> None:
+    assert "missing_brand_name" in recognition_quality_issues(result(brand_name=None))
+    assert "missing_season_end" in recognition_quality_issues(result(season_end=None))
+
+
 def test_cross_product_prizm_name_is_a_hard_quality_issue() -> None:
     assert "parallel_product_technology_conflict" in recognition_quality_issues(
         result(product_name="Flagship", parallel_name="Gold Prizm")
@@ -126,6 +131,33 @@ def test_independently_evidenced_serial_is_preserved() -> None:
         field_evidence={"serial_number": ["Front foil stamp: 024/199"]},
     ))
     assert (cleaned.serial_number, cleaned.serial_total, cleaned.is_numbered) == (24, 199, True)
+
+
+def test_independent_visible_stamp_survives_same_card_birthdate_text() -> None:
+    cleaned = sanitize_birthdate_serial_false_positive(result(
+        serial_number=3,
+        serial_total=6,
+        is_numbered=True,
+        field_evidence={
+            "serial_number": [
+                "Back biography: BORN: 3/6/73, MELROSE PARK",
+                "Front foil serial stamp: 03/06",
+            ]
+        },
+    ))
+
+    assert (cleaned.serial_number, cleaned.serial_total, cleaned.is_numbered) == (3, 6, True)
+
+
+def test_twenty_of_twenty_cannot_be_removed_as_birthday_prefix() -> None:
+    cleaned = sanitize_birthdate_serial_false_positive(result(
+        serial_number=20,
+        serial_total=20,
+        is_numbered=True,
+        caveats=["OCR ambiguity: BORN: 20/20/80"],
+    ))
+
+    assert (cleaned.serial_number, cleaned.serial_total, cleaned.is_numbered) == (20, 20, True)
 
 
 def test_flash_provider_failure_falls_forward_to_plus() -> None:

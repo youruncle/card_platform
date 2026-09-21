@@ -1,3 +1,4 @@
+from card_platform.valuation_trace import traced_completion
 import base64
 import json
 import re
@@ -15,6 +16,8 @@ from psycopg import AsyncConnection
 
 from card_platform.config import Settings
 from card_platform.card_search_service import CardSearchService
+from card_platform.catalog_evidence import normalize_catalog_evidence
+from card_platform.domain.sketch_identity import SKETCH_RECOGNITION_INSTRUCTIONS
 from card_platform.card_orientation import (
     OrientationDecision,
     rotation_from_upright_index,
@@ -22,19 +25,86 @@ from card_platform.card_orientation import (
 )
 from card_platform.image_rectification import rectify_card_image
 from card_platform import local_ocr
+from card_platform import serial_ocr
 from card_platform.repository import NotFoundError
 from card_platform.schemas import (
     CardRecognitionResult,
     ImageUploadResult,
     SheetCardRecognitionResult,
 )
-from card_platform.vision_routing import TieredVisionRouter, finalize_recognition_status
+from card_platform.vision_routing import (
+    TieredVisionRouter, finalize_recognition_status, sanitize_local_ocr_conflicts,
+)
 
 ALLOWED_IMAGE_TYPES = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
     "image/webp": ".webp",
 }
+
+
+def sanitize_identity_field_roles(result: CardRecognitionResult) -> CardRecognitionResult:
+    """Reject explicit role confusion; never infer replacement catalog fields."""
+    changes, issues = {}, []
+    number = str(result.card_number or '').strip()
+    def positive_claims(text):
+        return re.sub(r'(?:不是|并非|並非|并不是|\bnot\b)[^，。；;,.]*', '', text, flags=re.I)
+    number_evidence = positive_claims(' '.join(result.field_evidence.get('card_number', [])))
+    # Catalog identifiers with letters (GR-5, FAN-12) are not numeric roster ranges.
+    if re.fullmatch(r'\d+\s*/\s*\d+', number):
+        changes['card_number'] = None
+        issues.append('card_number_is_fraction_not_catalog_identifier')
+    elif re.fullmatch(r'\d+(?:\s*[-–—]\s*\d+)?', number) and re.search(
+        r'(?:名单|名單|清单|清單).{0,8}(?:行号|行號|序号|序號|编号|編號)|(?:checklist|roster).{0,20}(?:row number|entry number)|球衣号|球衣號|jersey number', number_evidence, re.I
+    ):
+        changes['card_number'] = None
+        issues.append('card_number_evidence_has_non_catalog_role')
+    for field in ('season_start','season_end'):
+        claims = [positive_claims(text) for text in result.field_evidence.get(field, [])]
+        evidence = ' '.join(claims)
+        # A quoted biography season or draft date is not a product release label.
+        # Keep independently explicit product-line evidence when both are present.
+        release_line = False
+        for text in claims:
+            if re.search(
+                r'\bno\b|未印|未显示|未顯示|没有|沒有|不确定|不確定|未知|'
+                r'推断|推斷|推测|推測|猜测|猜測|\binfer(?:red|ence)?\b|unknown|uncertain',
+                text, re.I
+            ):
+                continue
+            match = re.search(
+                r'(?:产品行|產品行|发行产品|發行產品|release(?: year| season)?|product line)'
+                r'[^\d;；。\n]{0,16}((?:19|20)\d{2})(?:\s*[-/–]\s*(\d{2,4}))?',
+                text, re.I)
+            if match:
+                year = int(match.group(1))
+                if field == 'season_end' and match.group(2):
+                    end = int(match.group(2))
+                    year = end if end >= 100 else year // 100 * 100 + end
+                    if year < int(match.group(1)):
+                        year += 100
+                release_line |= year == getattr(result, field)
+        wrong_role = re.search(
+            r'推断|推斷|推测|推測|猜测|猜測|统计|統計|生涯|\binfer(?:red|ence)?\b|'
+            r'\bstatistic|career|\bdrafted\b|\bin\s+(?:19|20)\d{2}\s*[/–-]\s*\d{2,4}\b|选秀|選秀',
+            evidence, re.I)
+        if getattr(result, field) is not None and wrong_role and not release_line:
+            changes[field] = None
+            issues.append(field+'_not_direct_release_evidence')
+    copyright_evidence = result.field_evidence.get('copyright_year', [])
+    if result.copyright_year is not None and copyright_evidence and not any(
+        re.search(rf'(?<!\d){result.copyright_year}(?!\d)', text)
+        for text in copyright_evidence
+    ):
+        changes['copyright_year'] = None
+        issues.append('copyright_year_not_in_quoted_evidence')
+    if not issues:
+        return result
+    return result.model_copy(update={**changes,
+        'confidence':min(result.confidence,Decimal('0.79')),
+        'recognition_status':'research_required',
+        'recognition_quality_issues':list(dict.fromkeys([*result.recognition_quality_issues,*issues])),
+        'caveats':list(dict.fromkeys([*result.caveats,*issues]))})
 
 
 def apply_local_ocr_anchors(
@@ -55,7 +125,8 @@ def apply_local_ocr_anchors(
     evidence_map = {
         "season_start": "season_evidence", "season_end": "season_evidence",
         "card_number": "card_number_evidence", "serial_number": "serial_evidence",
-        "serial_total": "serial_evidence", "is_rookie": "rookie_evidence",
+        "serial_total": "serial_evidence", "is_numbered": "serial_evidence",
+        "is_rookie": "rookie_evidence",
         "is_autograph": "autograph_evidence", "is_memorabilia": "material_evidence",
         "memorabilia_usage": "material_evidence",
     }
@@ -67,9 +138,11 @@ def apply_local_ocr_anchors(
         "tier": "local_ocr", "model": "apple_vision", "reason": "free_local_anchor_pass",
         "status": "succeeded", "latency_ms": latency_ms, "estimated_cost_cny": "0",
         "anchored_fields": sorted(updates),
+        "anchor_evidence": dict(anchors),
     }, *result.recognition_route]
-    return result.model_copy(update={**updates, "field_evidence": evidence,
-                                     "recognition_route": trace})
+    return sanitize_local_ocr_conflicts(result.model_copy(update={
+        **updates, "field_evidence": evidence, "recognition_route": trace,
+    }))
 
 
 def has_valid_signature(content: bytes, content_type: str) -> bool:
@@ -418,7 +491,7 @@ class QwenVisionProvider:
                     "image_url": {"url": f"data:image/jpeg;base64,{encoded}"},
                 }
             )
-        response = await self.client.chat.completions.create(
+        response = await traced_completion(self.client.chat.completions.create, stage='image_recognition',
             model=self.model,
             messages=[
                 {
@@ -484,18 +557,21 @@ class QwenVisionProvider:
                     "image_url": {"url": f"data:{content_type};base64,{encoded}"},
                 }
             )
-        response = await self.client.chat.completions.create(
+        response = await traced_completion(self.client.chat.completions.create, stage='image_recognition',
             model=self.model,
             messages=[
                 {
                     "role": "system",
                     "content": (
                         "识别篮球球星卡的可见信息。只填写能从卡面可靠判断的字段；"
-                        "无法确认时返回 null 并在 caveats 说明。不要根据球员生涯年份猜测"
+                        "无法确认时返回 null 并在 caveats 说明。field_evidence逐项记录图片位置、原文和字段角色。"
+                        "名单/清单的行号不是本卡卡号；球队合照不能把名单球员拼成一个球员身份。"
+                        "限编35/50这类分数不是card_number；应继续找背面独立卡号。"
+                        "赛季必须有产品发行行直接证据，版权或统计赛季只能分别记录原文，不能推成发行年份。不要根据球员生涯年份猜测"
                         "卡片年份，不要把印刷签名误判为亲笔签名。confidence 是整体识别"
                         "置信度。image_role 只能是 front、back、ad、unknown；多图联合"
                         "识别时填 unknown。只输出一个精简 JSON 对象，允许的键只有："
-                        "image_role、player_name、"
+                        "image_role、player_name、is_redemption、redemption_status、"
                         "season_start、season_end、copyright_year、brand_name、"
                         "product_name、insert_name、"
                         "parallel_name、card_number、serial_number、serial_total、is_rookie、"
@@ -504,33 +580,64 @@ class QwenVisionProvider:
                         "is_memorabilia、memorabilia_types、"
                         "memorabilia_usage、memorabilia_player、is_patch、confidence、"
                         "caveats、field_evidence。"
+                        "出现 REDEMPTION CARD、You are due to receive、交换板或兑换卡时，"
+                        "is_redemption=true；球员、产品、卡种、签字和物料属性描述承诺兑换的卡。"
+                        "redemption_status 为 unknown/unredeemed/redeemed/expired；没有明确依据填 unknown，"
+                        "不能仅凭看不见兑换码就判定未兑换。不要输出兑换码。"
                         "无法从图片确认的布尔字段必须为 null，确认后才填 true/false；"
                         "confidence 为 0 到 1；caveats 为字符串"
                         "数组；field_evidence 为字段名到可见依据字符串数组的映射。不得输出"
                         "候选列表、搜索词、参考图或额外解释。"
+                        "逐面读取明确标注 No./Nº/# 的卡号，优先于球衣上的数字；"
+                        "不能把球衣号码作为 card_number。只有确为共同主体的多人卡才逐个读取球员姓名，"
+                        "player_name 用 / 分隔，不得只保留第一个人。杂志封面设计中的文章预告、"
+                        "边栏和背景提及的球员不属于卡片主体，不能拼入 player_name；"
+                        "应结合主肖像、主标题和卡背独立姓名/传记确定主体。卡背 BIOGRAPHY、"
+                        "INSIDER、REWIND、SKILLS 等履历栏目标题或正文句子，不能直接当成"
+                        "insert_name；特卡名称需要正面独立标题或可验证目录证据。"
+                        f"{SKETCH_RECOGNITION_INSTRUCTIONS}"
                         "字段分类必须严格：brand_name 是厂商（如 Panini、Topps）；"
                         "product_name 是产品线（如 Select、Donruss、National Treasures）；"
                         "insert_name 是产品内特卡/子集（如 Lodestar、Night Moves）；"
                         "parallel_name 是颜色或折射版本（如 Red、Gold、X-Fractor）。"
-                        "Mosaic 基础卡背面的 PRIZM 只表示折射版本，不是 insert；除非卡面或"
-                        "卡背另有明确子集名称，否则 insert_name=null。Mosaic 限编卡应结合"
+                        "卡背 X/Instagram/@TOPPS 是社交媒体标志，不是 X 平行；单独卡号"
+                        "不能复制成同值 x/y 限编，只有看见完整分数印章才能报告限编。"
+                        "卡套上的手写字迹不能当作卡片签字。黑白照片需记录视觉依据，"
+                        "不能未经核验混同 Flagship 与 Chrome Negative 等不同产品版本。"
+                        "若 insert_name 的印刷词被球员、圆形图案、Logo 或卡号徽章遮挡，"
+                        "必须对照正反面逐字补全；不能把可见字母残片臆造为带连字符的新词。"
+                        "无法可靠补全时返回 null，并在 field_evidence 原样记录可见字母。"
+                        "Mosaic、Optic 卡背面的 PRIZM 是工艺标识，不能仅凭该 Logo 设置"
+                        "parallel_name；必须有具体颜色、纹理或限编证据。Mosaic 限编卡应结合"
                         "正面颜色、x/y 限编和 checklist 识别具体 parallel（例如 /88 的"
                         "Fusion Red and Yellow），不能把 insert_name 和 parallel_name 都写成"
-                        "泛化的 Prizm。"
+                        "泛化的 Prizm。正面为完整彩色教堂窗/彩绘玻璃构图的 Mosaic 卡，应"
+                        "核验 Stained Glass 特卡，即使卡面没有印出英文特卡名。"
                         "Prizm、Select、Obsidian、National Treasures、Immaculate、"
                         "Flawless、Donruss、Optic、Mosaic、Noir、Recon、Threads、"
                         "Hoops 均是 Panini"
                         "产品线，不是厂商；Chrome、Finest、Inception 是 Topps 产品线。"
                         "NBA Hoops 的 SLAM 特卡会故意模仿 SLAM 杂志封面，必须结合"
                         "卡背 Panini、HOOPS、赛季和 No. 卡号识别，不能当成真实杂志。"
+                        "SLAM 封面上的杂志发行日期、卡背大号纪念年份和传记正文的历史赛季"
+                        "都不是卡片发行赛季。season_start/season_end 优先读取卡背底部"
+                        "厂商产品发行行：例如 2021-22 PANINI - HOOPS BASKETBALL 必须填"
+                        "2021/2022，即使正文写 In 2010-11 或大字写 2011。"
+                        "卡背若写 No. SLAM #145，"
+                        "card_number 必须保留完整 SLAM #145，不能只写 SLAM 或误作限编。"
                         "Threads 的球衣形状 Team Threads 模切不等于物料卡；只有真实"
                         "物料切片或卡背 enclosed material 声明才算 memorabilia。"
                         "copyright_year 只读取卡背版权行中的 © 年份。赛季必须来自产品标题、"
                         "评级标签或 checklist；球员统计表、履历、选秀年份、DRAFTED 字样"
-                        "绝不能作为 season_start/season_end。"
+                        "绝不能作为 season_start/season_end。年份证据必须同时记录所在位置和"
+                        "周边标签：卡背底部 ©/copyright 细则属于版权年；统计表的 YR/SEASON、"
+                        "正文里的比赛日期、Rookie of the Year/年度最佳新秀、效力赛季数量都"
+                        "属于球员经历，不能作为发行年份。多个年份冲突时优先产品标题或评级"
+                        "标签，其次 checklist，再其次卡背底部版权行；不得选取正文中更早的年份。"
                         "RC 只能体现在 is_rookie，不能写入 insert_name 或 parallel_name；"
                         "rookie_evidence 是字符串数组，记录可见的 RC 标志、评级标签或"
-                        "可靠背面文字；没有可靠依据时返回空数组。"
+                        "可靠背面文字；没有可靠依据时返回空数组。Rookie of the Year/年度"
+                        "最佳新秀是生涯奖项，不是 RC 标志，不能据此设置 is_rookie=true。"
                         "03/10、1/1 等是限编，不是卡号或平行名称。看到 x/y 时"
                         "is_numbered=true、serial_number=x、serial_total=y；明确无编号时"
                         "is_numbered=false，不能确认时为 null。Panini One and One 是"
@@ -565,7 +672,7 @@ class QwenVisionProvider:
         result = response.choices[0].message.content
         if not result:
             raise RuntimeError("vision response did not contain structured card data")
-        parsed = CardRecognitionResult.model_validate_json(result)
+        parsed = sanitize_identity_field_roles(CardRecognitionResult.model_validate_json(result))
         usage = response.usage
         return parsed, {
             "prompt_tokens": getattr(usage, "prompt_tokens", None),
@@ -577,7 +684,7 @@ class QwenVisionProvider:
     ) -> SheetCardRecognitionResult:
         schema = json.dumps(SheetCardRecognitionResult.model_json_schema(), ensure_ascii=False)
         encoded = base64.b64encode(content).decode("ascii")
-        response = await self.client.chat.completions.create(
+        response = await traced_completion(self.client.chat.completions.create, stage='image_recognition',
             model=self.model,
             messages=[
                 {
@@ -598,6 +705,7 @@ class QwenVisionProvider:
                         "词直接当作事实，也不要把商品编号或订单号当成卡号。"
                         "中文译名要尽量还原为英文球员名。无法可靠确认的字段返回 null，不能把"
                         "卖家名、订单号或商品编号当作卡号。detected_count 必须等于 cards 数量。"
+                        f"{SKETCH_RECOGNITION_INSTRUCTIONS}"
                         f"只输出符合以下 JSON Schema 的 JSON：{schema}"
                     ),
                 },
@@ -658,7 +766,19 @@ class CardVisionService:
             )
         content = await read_validated_image(upload, self.max_bytes)
         visual = await self.provider.recognize(content, upload.content_type or "image/jpeg")
-        return finalize_recognition_status(await self.search.enrich(visual))
+        visual = await self._recover_serial(visual, [(content, upload.content_type or "image/jpeg")])
+        return finalize_recognition_status(normalize_catalog_evidence(
+            await self.search.enrich(normalize_catalog_evidence(visual))
+        ))
+
+    async def _recover_serial(
+        self, visual: CardRecognitionResult, images: list[tuple[bytes, str]]
+    ) -> CardRecognitionResult:
+        started = time.monotonic()
+        payload = await serial_ocr.recognize_serial_images(images)
+        return serial_ocr.apply_serial_ocr(
+            visual, payload, round((time.monotonic() - started) * 1000)
+        )
 
     async def recognize_pair(
         self, front: UploadFile, back: UploadFile
@@ -728,7 +848,11 @@ class CardVisionService:
         else:
             visual = await self.provider.recognize_images(images, prompt)
         visual = apply_local_ocr_anchors(visual, ocr_anchors, ocr_latency_ms)
-        return finalize_recognition_status(await self.search.enrich(visual))
+        if not ocr_anchors.get("serial_number") or not ocr_anchors.get("serial_total"):
+            visual = await self._recover_serial(visual, images)
+        return finalize_recognition_status(normalize_catalog_evidence(
+            await self.search.enrich(normalize_catalog_evidence(visual))
+        ))
 
     async def recognize_sheet(self, upload: UploadFile) -> SheetCardRecognitionResult:
         if self.provider is None:
@@ -756,5 +880,7 @@ class CardVisionService:
                         }
                     }
                 )
-            card.result = await self.search.enrich(card.result, context=context or None)
+            card.result = normalize_catalog_evidence(await self.search.enrich(
+                normalize_catalog_evidence(card.result), context=context or None
+            ))
         return sheet

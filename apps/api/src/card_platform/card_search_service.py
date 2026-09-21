@@ -9,6 +9,10 @@ import httpx
 from openai import AsyncOpenAI
 
 from card_platform.config import Settings
+from card_platform.domain.serial_evidence import (
+    serial_field_evidence,
+    visible_serial_evidence,
+)
 from card_platform.ingestion.cardhobby import CardHobbyProvider
 from card_platform.schemas import CardRecognitionResult, CardSearchEnrichment, CardWebCandidate
 
@@ -49,6 +53,34 @@ STRONG_IDENTITY_SITES = {
     "psacard.com",
 }
 
+GENERIC_CARD_TOKENS = {
+    "base",
+    "basketball",
+    "card",
+    "cards",
+    "insert",
+    "parallel",
+    "set",
+    "the",
+    "trading",
+}
+GENERIC_INSERT_TOKENS = {
+    *GENERIC_CARD_TOKENS,
+    "autograph",
+    "autographs",
+    "black",
+    "blue",
+    "gold",
+    "green",
+    "orange",
+    "prizm",
+    "purple",
+    "red",
+    "rookie",
+    "silver",
+    "white",
+}
+
 STRING_FIELDS = {
     "player_name",
     "brand_name",
@@ -86,8 +118,58 @@ def extract_page_image(html: str, page_url: str) -> str | None:
 
 
 def is_trusted_catalog_url(url: str) -> bool:
+    return _url_belongs_to_domains(url, TRUSTED_SITES)
+
+
+def _url_belongs_to_domains(url: str, domains) -> bool:
     hostname = (urlparse(url).hostname or "").lower().removeprefix("www.")
-    return any(hostname == site or hostname.endswith(f".{site}") for site in TRUSTED_SITES)
+    return any(hostname == site or hostname.endswith(f".{site}") for site in domains)
+
+
+def _identity_tokens(value: object, *, ignored: set[str] | None = None) -> list[str]:
+    ignored = ignored or set()
+    return [
+        token
+        for token in re.findall(r"[a-z0-9]+", str(value or "").casefold())
+        if token not in ignored
+    ]
+
+
+def _page_contains_tokens(page_tokens: set[str], value: object, *, ignored: set[str]) -> bool:
+    expected = _identity_tokens(value, ignored=ignored)
+    return bool(expected) and all(token in page_tokens for token in expected)
+
+
+def _distinctive_insert_tokens(candidate: CardWebCandidate) -> list[str]:
+    return _identity_tokens(candidate.identity.insert_name, ignored=GENERIC_INSERT_TOKENS)
+
+
+def _candidate_has_joint_anchor(candidate: CardWebCandidate) -> bool:
+    identity = candidate.identity
+    matched = set(candidate.matching_fields)
+    if not identity.player_name or "player_name" not in matched:
+        return False
+    if identity.card_number and "card_number" in matched:
+        return True
+    return bool(
+        identity.insert_name and "insert_name" in matched and _distinctive_insert_tokens(candidate)
+    )
+
+
+def _page_supports_season(page_text: str, start: int | None, end: int | None) -> bool:
+    if start is None and end is None:
+        return True
+    if start is None:
+        return bool(re.search(rf"(?<!\d){end}(?!\d)", page_text))
+    if end is None:
+        return bool(re.search(rf"(?<!\d){start}(?!\d)", page_text))
+    short_end = str(end)[-2:]
+    return bool(
+        re.search(
+            rf"(?<!\d){start}\s*(?:-|/|\u2013|\u2014)\s*(?:{end}|{short_end})(?!\d)",
+            page_text,
+        )
+    )
 
 
 def candidate_is_exact_image_match(
@@ -119,7 +201,8 @@ def candidate_is_exact_image_match(
 def normalize_resolved_field(key: str, value: str | int | bool) -> str | int | bool | None:
     try:
         if key in STRING_FIELDS:
-            return str(value)
+            normalized = str(value).strip()
+            return normalized or None
         if key in INTEGER_FIELDS and not isinstance(value, bool):
             return int(value)
         if key in BOOLEAN_FIELDS:
@@ -140,6 +223,25 @@ def resolved_update_is_safe(
     key: str,
     value: str | int | bool,
 ) -> bool:
+    if key == "card_number" and visual.card_number:
+        explicit_local_number = any(
+            text.startswith("Apple Vision OCR：")
+            and re.search(r"(?:\bNo\.?\s|N[º°]\s*|#\s*)[A-Z0-9-]+", text, re.I)
+            for text in visual.field_evidence.get("card_number", [])
+        )
+        if explicit_local_number:
+            return str(value).strip().upper() == visual.card_number.strip().upper()
+    if key == "serial_total":
+        # A catalog describes editions, not the stamp on this owned copy.
+        if visual.serial_number is not None and visual.serial_total is not None:
+            return value == visual.serial_total
+        candidates = visible_serial_evidence(serial_field_evidence(visual.field_evidence))
+        physical_pairs = {(candidate.number, candidate.total) for candidate in candidates}
+        if physical_pairs:
+            return len(physical_pairs) == 1 and value == next(iter(physical_pairs))[1]
+        # A catalogue print run may be retained as an editable candidate, but it
+        # is not evidence for the stamp on this particular owned copy.
+        return False
     if key in {
         "is_rookie",
         "is_autograph",
@@ -150,16 +252,37 @@ def resolved_update_is_safe(
     return True
 
 
+def merge_search_evidence(
+    visual: CardRecognitionResult,
+    enrichment: CardSearchEnrichment,
+    applied_fields: dict,
+) -> dict[str, list[str]]:
+    """Append explicitly attributed catalog evidence; never replace pixels/OCR."""
+    merged = {field: list(texts) for field, texts in visual.field_evidence.items()}
+    for field, texts in enrichment.field_evidence.items():
+        prefix = "目录核验" if field in applied_fields else "联网候选"
+        merged[field] = list(
+            dict.fromkeys(
+                [
+                    *merged.get(field, []),
+                    *(f"{prefix}：{text}" for text in texts),
+                ]
+            )
+        )
+    return merged
+
+
 def candidate_supports_resolved_field(
     candidate: CardWebCandidate, key: str, value: str | int | bool
 ) -> bool:
     if candidate.match_confidence < Decimal("0.85") or candidate.conflicts:
         return False
+    if not _candidate_has_joint_anchor(candidate):
+        return False
     if key not in candidate.matching_fields:
         return False
     if not any(
-        (urlparse(url).hostname or "").removeprefix("www.") in STRONG_IDENTITY_SITES
-        for url in candidate.source_urls
+        _url_belongs_to_domains(url, STRONG_IDENTITY_SITES) for url in candidate.source_urls
     ):
         return False
     candidate_value = getattr(candidate.identity, key, None)
@@ -172,26 +295,41 @@ def candidate_supports_resolved_field(
 
 def source_page_supports_candidate(page_text: str, candidate: CardWebCandidate) -> bool:
     text = re.sub(r"[^a-z0-9]+", " ", page_text.casefold())
+    page_tokens = set(text.split())
     identity = candidate.identity
-    player_tokens = re.findall(r"[a-z0-9]+", str(identity.player_name or "").casefold())
-    if player_tokens and not all(token in text for token in player_tokens[-2:]):
+    if not _candidate_has_joint_anchor(candidate):
+        return False
+    player_tokens = _identity_tokens(identity.player_name)
+    if not player_tokens or not all(token in page_tokens for token in player_tokens):
         return False
     card_number = str(identity.card_number or "").strip().casefold()
-    if card_number and not re.search(
-        rf"(?:^|[^a-z0-9]){re.escape(card_number)}(?:[^a-z0-9]|$)",
-        page_text.casefold(),
+    card_number_supported = bool(
+        card_number
+        and re.search(
+            rf"(?:^|[^a-z0-9]){re.escape(card_number)}(?:[^a-z0-9]|$)",
+            page_text.casefold(),
+        )
+    )
+    insert_tokens = _distinctive_insert_tokens(candidate)
+    insert_supported = bool(insert_tokens) and all(token in page_tokens for token in insert_tokens)
+    if card_number and not card_number_supported:
+        return False
+    if insert_tokens and not insert_supported:
+        return False
+    if not card_number_supported and not insert_supported:
+        return False
+    if identity.brand_name and not _page_contains_tokens(
+        page_tokens, identity.brand_name, ignored=GENERIC_CARD_TOKENS
     ):
         return False
-    distinctive = [
-        token for token in re.findall(
-            r"[a-z0-9]+", " ".join(
-                str(value or "") for value in (identity.insert_name, identity.parallel_name)
-            ).casefold()
-        )
-        if token not in {"gold", "silver", "red", "blue", "green", "orange",
-                         "purple", "black", "white", "base", "parallel", "prizm"}
-    ]
-    return not distinctive or all(token in text for token in distinctive)
+    if identity.product_name and not _page_contains_tokens(
+        page_tokens, identity.product_name, ignored=GENERIC_CARD_TOKENS
+    ):
+        return False
+    if not _page_supports_season(page_text.casefold(), identity.season_start, identity.season_end):
+        return False
+    parallel_tokens = _identity_tokens(identity.parallel_name, ignored=GENERIC_CARD_TOKENS)
+    return not parallel_tokens or all(token in page_tokens for token in parallel_tokens)
 
 
 def build_card_search_queries(
@@ -214,9 +352,13 @@ def build_card_search_queries(
     queries = [f"{identity} basketball card checklist"]
     if result.card_number:
         queries.append(f'"{result.player_name or ""}" "{result.card_number}" card checklist')
+    if result.player_name and result.insert_name:
+        # Product subseries and OCR card numbers can both be incomplete. Keep
+        # one catalogue route anchored in the independent player/insert pair.
+        queries.append(f'"{result.player_name}" "{result.insert_name}" card checklist')
     if result.serial_total or result.parallel_name:
         queries.append(f"{identity} parallel print run")
-    return queries[:3]
+    return list(dict.fromkeys(queries))[:4]
 
 
 class CardSearchService:
@@ -260,6 +402,10 @@ class CardSearchService:
                             "listing_or_order_context 是截图 OCR 的商品标题和描述，可用于生成更精确"
                             "的搜索词和候选匹配，但它本身仍是销售方描述，必须经过强来源核验后才能"
                             "修正字段。若视觉字段为空，应主动尝试用该文字定位具体 checklist 条目。"
+                            "视觉产品名可能只读出母系列，卡号也可能误读；必须交叉核对独立的"
+                            "球员+卡号、球员+特卡名查询。若官方目录将这些实卡锚点唯一对应到"
+                            "更具体的子系列，可补全产品和赛季，并说明原识别缺失部分；不能将"
+                            "母系列与所有子系列全局视为同款，也不能仅凭版权年认定赛季。"
                             "仅当搜索结果明确给出该精确图鉴条目的原始高清图片直链时，才填写候选"
                             "image_url；不得填写搜索结果缩略图、站点 Logo、占位图、相似卡或同球员"
                             "其他卡片图片。无法确认精确图片时必须返回 null。"
@@ -324,9 +470,7 @@ class CardSearchService:
                 for url in candidate.source_urls
                 if urlparse(url).scheme in {"http", "https"} and is_trusted_catalog_url(url)
             ]
-            candidates.append(
-                candidate.model_copy(update={"source_urls": valid_urls})
-            )
+            candidates.append(candidate.model_copy(update={"source_urls": valid_urls}))
         verified_url_groups = await asyncio.gather(
             *(self._verified_source_urls(candidate) for candidate in candidates)
         )
@@ -381,16 +525,7 @@ class CardSearchService:
                 **updates,
                 **reference_updates,
                 "search_queries": queries,
-                "field_evidence": {
-                    **visual.field_evidence,
-                    **{
-                        key: [
-                            f"{'目录核验' if key in updates else '联网候选'}：{text}"
-                            for text in evidence
-                        ]
-                        for key, evidence in enrichment.field_evidence.items()
-                    },
-                },
+                "field_evidence": merge_search_evidence(visual, enrichment, updates),
                 "web_candidates": candidates,
                 "caveats": [*visual.caveats, *enrichment.caveats],
             }
@@ -416,9 +551,8 @@ class CardSearchService:
             for url in urls[:3]:
                 try:
                     response = await client.get(url)
-                    if (
-                        response.status_code < 400
-                        and source_page_supports_candidate(response.text[:2_000_000], candidate)
+                    if response.status_code < 400 and source_page_supports_candidate(
+                        response.text[:2_000_000], candidate
                     ):
                         verified.append(str(response.url))
                 except httpx.HTTPError:

@@ -22,6 +22,8 @@ class ConfirmedIdentity(BaseModel):
     serial_number: int | None = Field(default=None, gt=0)
     serial_total: int | None = Field(default=None, gt=0)
     is_rookie: bool
+    is_redemption: bool = False
+    redemption_status: str = "unknown"
     is_autograph: bool
     autograph_type: str = "none"
     is_memorabilia: bool
@@ -57,7 +59,11 @@ class ConfirmedIdentity(BaseModel):
         return self
 
 
-def structured_evidence_decision(classification: dict[str, Any], evidence_level: str) -> tuple[str, list[str]]:
+def structured_evidence_decision(
+    classification: dict[str, Any], evidence_level: str, *, identity_changed: bool = False,
+) -> tuple[str, list[str]]:
+    if identity_changed:
+        return "rejected", ["identity_changed_requires_evidence_revalidation"]
     reasons = list(classification.get("hard_conflicts") or [])
     tier = classification.get("comparable_tier") or classification.get("tier")
     if tier != "T0":

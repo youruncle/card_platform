@@ -43,10 +43,30 @@ def test_search_queries_can_use_listing_context_when_visual_identity_is_sparse()
     assert "LeBron James" in queries[0]
 
 
+def test_catalog_queries_keep_independent_insert_when_product_and_number_are_uncertain() -> None:
+    recognition = CardRecognitionResult(
+        player_name="Fixture Player",
+        product_name="Uncertain Parent Product",
+        insert_name="Distinctive Insert",
+        card_number="OCR-77",
+        season_start=2025,
+        serial_total=150,
+        confidence="0.5",
+    )
+    queries = build_card_search_queries(recognition)
+    assert len(queries) == 4
+    independent = '"Fixture Player" "Distinctive Insert" card checklist'
+    assert independent in queries
+    assert "Uncertain" not in independent
+    assert "OCR-77" not in independent
+    assert any("parallel print run" in query for query in queries)
+
+
 def test_search_field_values_are_normalized_to_card_schema_types() -> None:
     assert normalize_resolved_field("card_number", 2745) == "2745"
     assert normalize_resolved_field("serial_total", "99") == 99
     assert normalize_resolved_field("is_patch", "yes") is True
+    assert normalize_resolved_field("product_name", "   ") is None
 
 
 def test_web_resolution_cannot_negate_visual_positive_autograph() -> None:
@@ -59,6 +79,40 @@ def test_web_resolution_cannot_negate_visual_positive_autograph() -> None:
     assert not resolved_update_is_safe(visual, "is_autograph", False)
     assert resolved_update_is_safe(visual, "is_autograph", True)
     assert resolved_update_is_safe(visual, "is_rookie", False)
+
+
+def test_catalog_cannot_invent_or_replace_owned_copy_serial() -> None:
+    no_stamp = CardRecognitionResult(confidence="0.8")
+    assert not resolved_update_is_safe(no_stamp, "serial_total", 99)
+
+    structured_stamp = CardRecognitionResult(
+        serial_number=194,
+        serial_total=249,
+        is_numbered=True,
+        confidence="0.8",
+    )
+    assert resolved_update_is_safe(structured_stamp, "serial_total", 249)
+    assert not resolved_update_is_safe(structured_stamp, "serial_total", 99)
+    disagreeing_evidence = structured_stamp.model_copy(
+        update={"field_evidence": {"serial_total": ["Apple Vision OCR：20/20"]}}
+    )
+    assert resolved_update_is_safe(disagreeing_evidence, "serial_total", 249)
+    assert not resolved_update_is_safe(disagreeing_evidence, "serial_total", 20)
+
+
+def test_conflicting_physical_serial_evidence_fails_closed() -> None:
+    visual = CardRecognitionResult(
+        confidence="0.8",
+        field_evidence={
+            "serial_total": [
+                "Apple Vision OCR：20/20",
+                "Apple Vision OCR：20/28",
+            ]
+        },
+    )
+    assert not resolved_update_is_safe(visual, "serial_total", 20)
+    assert not resolved_update_is_safe(visual, "serial_total", 28)
+    assert not resolved_update_is_safe(visual, "serial_total", 99)
 
 
 def test_catalog_page_image_prefers_public_social_metadata() -> None:
@@ -78,33 +132,125 @@ def test_catalog_fetch_only_accepts_trusted_sources() -> None:
 def test_resolved_field_requires_same_strong_candidate_to_support_value() -> None:
     candidate = CardWebCandidate(
         title="Scottie Barnes checklist candidate",
-        identity={"season_start": 2025, "parallel_name": "Gold Diamante"},
+        identity={
+            "player_name": "Scottie Barnes",
+            "card_number": "31",
+            "season_start": 2025,
+            "parallel_name": "Gold Diamante",
+        },
         source_urls=["https://www.beckett.com/card/123"],
-        matching_fields=["season_start", "parallel_name"],
+        matching_fields=[
+            "player_name",
+            "card_number",
+            "season_start",
+            "parallel_name",
+        ],
         match_confidence="0.92",
     )
     assert candidate_supports_resolved_field(candidate, "season_start", 2025)
     assert not candidate_supports_resolved_field(candidate, "season_start", 2024)
     assert not candidate_supports_resolved_field(
         candidate.model_copy(update={"source_urls": ["https://ebay.com/item/1"]}),
-        "parallel_name", "Gold Diamante",
+        "parallel_name",
+        "Gold Diamante",
+    )
+
+
+def test_resolved_field_requires_joint_player_and_card_or_insert_anchor() -> None:
+    candidate = CardWebCandidate(
+        title="Kobe Bryant product candidate",
+        identity={
+            "player_name": "Kobe Bryant",
+            "product_name": "Wrong Child",
+            "season_start": 2020,
+        },
+        source_urls=["https://www.tcdb.com/card/123"],
+        matching_fields=["player_name", "product_name", "season_start"],
+        match_confidence="0.95",
+    )
+    assert not candidate_supports_resolved_field(candidate, "product_name", "Wrong Child")
+
+
+def test_strong_identity_sources_accept_only_same_domain_or_safe_subdomain() -> None:
+    candidate = CardWebCandidate(
+        title="Kobe Bryant All Heart",
+        identity={
+            "player_name": "Kobe Bryant",
+            "insert_name": "All Heart",
+            "product_name": "Donruss",
+        },
+        source_urls=["https://checklists.paniniamerica.net/card/123"],
+        matching_fields=["player_name", "insert_name", "product_name"],
+        match_confidence="0.95",
+    )
+    assert candidate_supports_resolved_field(candidate, "product_name", "Donruss")
+    assert not candidate_supports_resolved_field(
+        candidate.model_copy(
+            update={"source_urls": ["https://example.paniniamerica.net.evil.test/card"]}
+        ),
+        "product_name",
+        "Donruss",
     )
 
 
 def test_source_page_must_contain_exact_candidate_anchors() -> None:
     candidate = CardWebCandidate(
         title="Scottie Barnes Gold Diamante",
-        identity={"player_name": "Scottie Barnes", "card_number": "31",
-                  "parallel_name": "Gold Diamante"},
+        identity={
+            "player_name": "Scottie Barnes",
+            "card_number": "31",
+            "brand_name": "Panini",
+            "product_name": "Donruss Elite",
+            "season_start": 2025,
+            "season_end": 2026,
+            "parallel_name": "Gold Diamante",
+        },
         source_urls=["https://www.beckett.com/checklist"],
-        matching_fields=["player_name", "card_number", "parallel_name"],
+        matching_fields=[
+            "player_name",
+            "card_number",
+            "brand_name",
+            "product_name",
+            "season_start",
+            "season_end",
+            "parallel_name",
+        ],
         match_confidence="0.95",
     )
     assert source_page_supports_candidate(
-        "Checklist: #31 Scottie Barnes — Gold Diamante /50", candidate
+        "2025-26 Panini Donruss Elite checklist: #31 Scottie Barnes — Gold Diamante /50",
+        candidate,
     )
     assert not source_page_supports_candidate(
         "Generic Topps Basketball product page with Gold parallels", candidate
+    )
+
+
+def test_source_page_cannot_validate_model_invented_child_product_or_season() -> None:
+    candidate = CardWebCandidate(
+        title="Kobe Bryant All Heart Wrong Child",
+        identity={
+            "player_name": "Kobe Bryant",
+            "brand_name": "Panini",
+            "product_name": "Wrong Child",
+            "insert_name": "All Heart",
+            "season_start": 2020,
+        },
+        source_urls=["https://www.tcdb.com/card/123"],
+        matching_fields=[
+            "player_name",
+            "brand_name",
+            "product_name",
+            "insert_name",
+            "season_start",
+        ],
+        match_confidence="0.95",
+    )
+    assert not source_page_supports_candidate(
+        "Panini checklist: Kobe Bryant — All Heart", candidate
+    )
+    assert source_page_supports_candidate(
+        "2020 Panini Wrong Child checklist: Kobe Bryant — All Heart", candidate
     )
 
 

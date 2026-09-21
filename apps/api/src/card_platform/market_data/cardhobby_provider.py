@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from card_platform.ingestion.cardhobby import (
     CardHobbyProvider as LegacyCardHobbyClient,
+    CardHobbySearchResult,
     cardhobby_external_id,
 )
 from card_platform.market_data.models import (
@@ -27,6 +28,11 @@ class CardHobbyMarketDataProvider(MarketDataProvider):
         since: datetime | None = None,
     ) -> ProviderFetchResult:
         result = await self.client.search(identity.model_dump(mode="python"))
+        return self.normalize_result(result)
+
+    @classmethod
+    def normalize_result(cls, result: CardHobbySearchResult) -> ProviderFetchResult:
+        """Keep direct and background retrieval on the same evidence contract."""
         fetched_at = datetime.now(timezone.utc)
         evidence = []
         for sale in result.sales:
@@ -41,7 +47,7 @@ class CardHobbyMarketDataProvider(MarketDataProvider):
                 continue
             evidence.append(
                 EvidenceRecord(
-                    provider_code=self.code,
+                    provider_code=cls.code,
                     external_sale_id=external_id,
                     raw_title=sale.title,
                     sale_price=sale.sale_price,
@@ -63,7 +69,13 @@ class CardHobbyMarketDataProvider(MarketDataProvider):
                 )
             )
         return ProviderFetchResult(
-            provider_code=self.code,
+            provider_code=cls.code,
             evidence=evidence,
             notes=result.notes,
+            query_diagnostics=[item.model_dump(mode="json") for item in result.query_diagnostics],
+            source_error="; ".join(
+                f"{item.query}: {item.error or 'query failed'}"
+                for item in result.query_diagnostics
+                if item.outcome == "error"
+            )[:500] or None,
         )

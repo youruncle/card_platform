@@ -1,0 +1,353 @@
+[
+  {
+    "display_id": 249,
+    "item_id": "9b4732b8-0603-4285-8b66-3c0bbeecef76",
+    "previous_job_id": "962c7e4a-3e61-49ce-9bd3-b173bee38233",
+    "previous_status": "insufficient_evidence",
+    "previous_summary": {
+      "notes": [
+        "来源诊断 cardhobby: succeeded, 抓取候选 20",
+        "数据来自卡淘公开 SearchCommodity 接口，Status=-2；有出价的结束拍卖作为卡淘结束价参考，未宣称已付款。",
+        "查询反馈：杰伦布朗 cg-10 → 原始1、可解析1、通过1、拒绝0；结论=accepted",
+        "查询反馈：杰伦布朗 clutch gene → 原始21、可解析21、通过2、拒绝19；结论=accepted；主要拒绝=标题疑似多卡、套卡或未拆产品×13、明确限编与目标卡不一致×5、标题明确卡号与目标卡号不一致×1",
+        "查询反馈：jaylen brown cg-10 → 原始1、可解析1、通过1、拒绝0；结论=accepted",
+        "查询反馈：jaylen brown clutch gene → 原始23、可解析23、通过8、拒绝15；结论=accepted；主要拒绝=明确限编与目标卡不一致×10、标题疑似多卡、套卡或未拆产品×3、标题明确卡号与目标卡号不一致×2",
+        "查询反馈：杰伦布朗 2025-26 clutch gene → 原始8、可解析8、通过0、拒绝8；结论=identity_gate_rejected；主要拒绝=标题疑似多卡、套卡或未拆产品×6、明确限编与目标卡不一致×1、标题明确卡号与目标卡号不一致×1",
+        "查询反馈：杰伦布朗 Topps Chrome Update → 原始60、可解析60、通过1、拒绝59；结论=accepted；主要拒绝=标题疑似多卡、套卡或未拆产品×46、明确限编与目标卡不一致×8、标题未命中目标卡种，需图像确认×5",
+        "查询反馈：杰伦布朗 TCU → 原始60、可解析60、通过1、拒绝59；结论=accepted；主要拒绝=标题疑似多卡、套卡或未拆产品×39、目标为限编卡，但标题未命中目标总限编×11、标题未命中目标卡种，需图像确认×10",
+        "查询反馈：杰伦布朗 Topps Chrome Update cg-10 → 原始1、可解析1、通过1、拒绝0；结论=accepted",
+        "查询反馈：jaylen brown Topps Chrome Update 150编 → 原始23、可解析23、通过13、拒绝10；结论=accepted；主要拒绝=标题疑似多卡、套卡或未拆产品×5、标题未命中目标卡号或卡种×3、标题明确为其他命名卡种，与目标卡种不一致×2",
+        "查询反馈：杰伦布朗 2025 → 原始60、可解析60、通过0、拒绝60；结论=too_broad_refine；主要拒绝=标题疑似多卡、套卡或未拆产品×41、明确限编与目标卡不一致×10、标题明确命中其他卡种，与目标卡种不一致×7",
+        "查询反馈：jaylen brown topps chrome update clutch gene 150编 → 原始1、可解析1、通过0、拒绝1；结论=identity_gate_rejected；主要拒绝=标题明确卡号与目标卡号不一致×1",
+        "查询反馈：jaylen brown clutch gene 150编 → 原始1、可解析1、通过0、拒绝1；结论=identity_gate_rejected；主要拒绝=标题明确卡号与目标卡号不一致×1",
+        "市场数据新鲜度：cached",
+        "成交证据截至：2026-09-06T21:33:19+08:00",
+        "卡淘入口与估值解析器存在 12 条字段判断差异；已按卡淘身份契约保留并降低可比层级",
+        "DeepSeek 证据复核未发现可执行的高置信度硬冲突"
+      ],
+      "reason": "检索到的成交均与当前卡片身份存在硬冲突",
+      "audit_reason": "2026-09-09 final evidence-integrity and identity replay",
+      "search_queries": [
+        "卡淘已售接口[strong_anchor]：杰伦布朗 cg-10 (召回1/通过1;accepted)",
+        "卡淘已售接口[strong_anchor]：杰伦布朗 clutch gene (召回21/通过2;accepted)",
+        "卡淘已售接口[strong_anchor]：jaylen brown cg-10 (召回1/通过1;accepted)",
+        "卡淘已售接口[strong_anchor]：jaylen brown clutch gene (召回23/通过8;accepted)",
+        "卡淘已售接口[season_insert]：杰伦布朗 2025-26 clutch gene (召回8/通过0;identity_gate_rejected)",
+        "卡淘已售接口[relax_product]：杰伦布朗 Topps Chrome Update (召回60/通过1;accepted)",
+        "卡淘已售接口[product_spelling_rotation]：杰伦布朗 TCU (召回60/通过1;accepted)",
+        "卡淘已售接口[refine_product]：杰伦布朗 Topps Chrome Update cg-10 (召回1/通过1;accepted)",
+        "卡淘已售接口[refine_print_run]：jaylen brown Topps Chrome Update 150编 (召回23/通过13;accepted)",
+        "卡淘已售接口[player_release_recovery]：杰伦布朗 2025 (召回60/通过0;too_broad_refine)",
+        "卡淘已售接口[knowledge_alias]：jaylen brown topps chrome update clutch gene 150编 (召回1/通过0;identity_gate_rejected)",
+        "卡淘已售接口[knowledge_alias]：jaylen brown clutch gene 150编 (召回1/通过0;identity_gate_rejected)"
+      ],
+      "previous_job_id": "efd231fe-907f-4865-97d7-690417401fe5",
+      "finite_query_replay": false,
+      "rejected_comparables": [
+        {
+          "id": "cdae0ae1-f478-4361-b0b3-18d9c8d53fa5",
+          "tier": "rejected",
+          "title": "【战斧代卖】2025-26 Topps Chrome Update Jaylen Brown 杰伦 布朗  凯尔特人 150编 蓝折 收藏必备 瑕疵如图｜战斧鹿久D18",
+          "raw_weight": "0",
+          "final_weight": "0",
+          "field_matches": {},
+          "hard_conflicts": [
+            "visual_identity_conflict"
+          ]
+        },
+        {
+          "id": "2449b2e1-dd7c-47f7-96fb-0e9f5a580e0d",
+          "tier": "rejected",
+          "title": "2026 Topps Chrome Update Jaylen Brown TCU 波士顿凯尔特人 杰伦 布朗 正蓝折 112/150编（LI总）",
+          "raw_weight": "0",
+          "final_weight": "0",
+          "field_matches": {},
+          "hard_conflicts": [
+            "visual_identity_conflict"
+          ]
+        },
+        {
+          "id": "aa00a12d-21be-4cea-8706-292445b75060",
+          "tier": "rejected",
+          "title": "2026 Topps Chrome Update Jaylen Brown TCU 凯尔特人 杰伦布朗 150编 蓝变形虫折 折射 瑕疵如图【A-妙趣挡不住】9【超新星代卖】A",
+          "raw_weight": "0",
+          "final_weight": "0",
+          "field_matches": {},
+          "hard_conflicts": [
+            "visual_identity_conflict"
+          ]
+        },
+        {
+          "id": "08e837b7-5591-4864-9791-d8ac226bc9d0",
+          "tier": "rejected",
+          "title": "2026 Topps Chrome Update Jaylen Brown 【肥猫代卖】K09A TCU 凯尔特人 杰伦 布朗 蓝变形虫折 折射 150编 收藏必备",
+          "raw_weight": "0",
+          "final_weight": "0",
+          "field_matches": {},
+          "hard_conflicts": [
+            "visual_identity_conflict"
+          ]
+        },
+        {
+          "id": "3fedb5a9-acf2-4015-92bc-00bd6455c998",
+          "tier": "rejected",
+          "title": "2026 【欧小橙急速拍】 Topps Chrome Update Jaylen Brown 篮球TCU 凯尔特人 76人 杰伦 布朗 蓝波纹折 50/150编 宁-WW182",
+          "raw_weight": "0",
+          "final_weight": "0",
+          "field_matches": {},
+          "hard_conflicts": [
+            "visual_identity_conflict"
+          ]
+        },
+        {
+          "id": "7010a40d-4af0-414b-aae8-1cbb5180a84f",
+          "tier": "rejected",
+          "title": "2026 Topps Chrome Update Jaylen Brown 【云猫代卖】杰伦布朗 凯尔特人 150编 折射 球皮折 篮球折 蓝折 轻印见图 贝雷B72",
+          "raw_weight": "0",
+          "final_weight": "0",
+          "field_matches": {},
+          "hard_conflicts": [
+            "visual_identity_conflict"
+          ]
+        },
+        {
+          "id": "5a23657b-96c1-4781-85a6-06504bbca674",
+          "tier": "rejected",
+          "title": "2025-26 Topps Chrome Update Jaylen Brown 凯尔特人 杰伦布朗 150编 蓝变形虫折 蓝熔岩折 折射【A-c77】1【超新星代卖】D",
+          "raw_weight": "0",
+          "final_weight": "0",
+          "field_matches": {},
+          "hard_conflicts": [
+            "visual_identity_conflict"
+          ]
+        },
+        {
+          "id": "0903f8cc-a195-4676-bbfa-ce188bda68b7",
+          "tier": "rejected",
+          "title": "2026 Topps Chrome Update Jaylen Brown 【大彪代拍】TCU 凯尔特人 杰伦 布朗 150编 蓝熔岩折 变形虫 折射 瑕疵如图 B (财6688)",
+          "raw_weight": "0",
+          "final_weight": "0",
+          "field_matches": {},
+          "hard_conflicts": [
+            "visual_identity_conflict"
+          ]
+        },
+        {
+          "id": "a1e248a4-b2bf-48e7-bb3e-59832a7334ce",
+          "tier": "rejected",
+          "title": "【战斧代卖】2025-26 Topps Chrome Update TCU Jaylen Brown 杰伦 布朗 凯尔特人 /150编 蓝折 折射 收藏必备 瑕疵如图｜战斧阿祖M35",
+          "raw_weight": "0",
+          "final_weight": "0",
+          "field_matches": {},
+          "hard_conflicts": [
+            "visual_identity_conflict"
+          ]
+        },
+        {
+          "id": "23b4a75d-e462-464a-a64a-13a92b95cfb1",
+          "tier": "rejected",
+          "title": "2025-26 Topps Chrome Update Jaylen Brown NBA TC 杰伦 布朗 007/150编 同背 蓝波纹折 牛爷爷 凯尔特人 76人 瑕疵如图收藏必备 t WG642",
+          "raw_weight": "0",
+          "final_weight": "0",
+          "field_matches": {},
+          "hard_conflicts": [
+            "visual_identity_conflict"
+          ]
+        },
+        {
+          "id": "779db094-8e6f-4cb8-8cd1-cbbf380c5c99",
+          "tier": "rejected",
+          "title": "2026 【欧小橙急速拍】 Topps Chrome Update Jaylen Brown RC TCU  凯尔特人 76人 杰伦 布朗 蓝波纹折 122/150编 瑕疵如图宁-REXF",
+          "raw_weight": "0",
+          "final_weight": "0",
+          "field_matches": {},
+          "hard_conflicts": [
+            "visual_identity_conflict"
+          ]
+        },
+        {
+          "id": "eb06961a-329f-4ed8-9e60-7aa2f48627d6",
+          "tier": "rejected",
+          "title": "【UD代卖最高预付80%-屋顶苏哥】2025-26 Topps Chrome Update 篮球TCU Jaylen Brown 杰伦 布朗 凯尔特人 072/150编 蓝波纹折 收藏必备 微瑕",
+          "raw_weight": "0",
+          "final_weight": "0",
+          "field_matches": {},
+          "hard_conflicts": [
+            "visual_identity_conflict"
+          ]
+        }
+      ],
+      "requested_refresh_job_id": null,
+      "waiting_for_market_refresh": "92281802-a8d9-440d-8ce1-88ac10b4e3a6",
+      "valuation_failure_diagnostics": {
+        "stage": "exact_identity_hard_gate",
+        "identity": {
+          "set_name": null,
+          "is_rookie": false,
+          "brand_name": "Topps",
+          "season_end": 2026,
+          "card_number": "CG-10",
+          "grade_value": null,
+          "insert_name": "Clutch Gene",
+          "player_name": "Jaylen Brown",
+          "is_autograph": false,
+          "product_name": "Topps Chrome Update",
+          "season_start": 2025,
+          "serial_total": 150,
+          "grade_company": null,
+          "parallel_name": null,
+          "serial_number": 82,
+          "is_memorabilia": false,
+          "collection_item_id": "9b4732b8-0603-4285-8b66-3c0bbeecef76"
+        },
+        "query_count": 12,
+        "root_cause_codes": [
+          "visual_identity_conflict"
+        ],
+        "recalled_candidate_count": 12,
+        "rejected_candidate_count": 12
+      }
+    },
+    "previous_valuation": null,
+    "identity": {
+      "collection_item_id": "9b4732b8-0603-4285-8b66-3c0bbeecef76",
+      "card_definition_id": "7d990a8e-2b2d-4186-acd2-31767e5d49c8",
+      "base_currency": "CNY",
+      "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+      "player_name": "Jaylen Brown",
+      "player_name_aliases": [
+        "Jaylen Brown"
+      ],
+      "brand_name": "Topps",
+      "season_start": 2025,
+      "season_end": 2026,
+      "product_name": "Topps Chrome Update",
+      "set_name": null,
+      "card_number": "CG-10",
+      "insert_name": "Clutch Gene",
+      "parallel_name": null,
+      "is_rookie": false,
+      "is_autograph": false,
+      "autograph_type": "none",
+      "is_memorabilia": false,
+      "memorabilia_types": [],
+      "is_patch": false,
+      "print_run": 150,
+      "serial_number": 12,
+      "serial_total": 150,
+      "grade_company": null,
+      "grade_value": null,
+      "image_front_url": "/uploads/9b4732b8-0603-4285-8b66-3c0bbeecef76-front-9be5f0a973e6443f9a82cef819ae0887.jpg",
+      "image_back_url": "/uploads/9b4732b8-0603-4285-8b66-3c0bbeecef76-back-d63d88ecb35e46c4b8a7769f6b5a596c.jpg",
+      "notes": "后台扫描自动录入；识别置信度 83%；待核对：model_reported_conflict。识别依据已保留，可编辑并参与估值。",
+      "purchase_context": null,
+      "purchase_venue": null,
+      "purchase_price": null,
+      "confirmed_identity_version_id": null,
+      "latest_identity_review_status": "pending",
+      "scanner_identity_rationale": [
+        "正面卡号为 ALIa1，背面编号为 CG-10；两者不一致，但背面编号更可能为产品序列号（因包含 'CG-10' 且与插画风格匹配），正面 ALIa1 更可能是插画/系列代号；未确认是否为同一张卡的前后面编号冲突。",
+        "正面 OCR 识别的 'ALIA1' 与背面 'CG-10' 冲突；经 Topps 官网及 Beckett、TCDB 多源交叉验证，'CG-10' 是该 Clutch Gene Chrome 插卡唯一有效卡号，'ALIA1' 为 OCR 误识（疑似将 'CG' 误读为 'ALI'，'10' 误读为 'a1'），已弃用。",
+        "版权年份为 2026，但赛季标识为 2025–26（如 'OCTOBER 31, 2025' 开赛），属常规跨年赛季命名惯例；resolved_fields 中 season_end 采用行业通用表述 2026，但视觉字段中 season_end=2025 已按官方产品线统一修正为 2026。",
+        "未检索到该卡的高清官方图鉴直链（reference_image_front_url / back_url），所有候选均基于权威 checklist 文本核验，暂无图像级确认。",
+        "is_autograph=false 缺少字段级图片证据，已改为未知",
+        "is_memorabilia=false 缺少字段级图片证据，已改为未知",
+        "is_rookie=false 缺少字段级图片证据，已改为未知",
+        "2026-09-09 原图身份审计；仅修正逐项可见字段，历史识别原值保存于不可变审计。",
+        "纠正本轮回填中的复核错误：低置信OCR两次读为082/150，先前人工复核也误采纳；再次查看原始正面局部及当前卡图，两名审计者均确认实际为012/150。正反面均为Jaylen Brown / Clutch Gene，球衣为7，不是正背错配。旧82及原始OCR完整保留审计，仅修正本人实卡编号分子。",
+        "发行赛季仅有推断性证据，已清空并等待卡背或目录核验"
+      ],
+      "scanner_identity_example_links": [],
+      "insert": "Clutch Gene",
+      "parallel": null,
+      "evidence": {
+        "player_name": [
+          {
+            "source": "database",
+            "value": "Jaylen Brown"
+          }
+        ],
+        "season_start": [
+          {
+            "source": "database",
+            "value": 2025
+          }
+        ],
+        "season_end": [
+          {
+            "source": "database",
+            "value": 2026
+          }
+        ],
+        "brand_name": [
+          {
+            "source": "database",
+            "value": "Topps"
+          }
+        ],
+        "product_name": [
+          {
+            "source": "database",
+            "value": "Topps Chrome Update"
+          }
+        ],
+        "card_number": [
+          {
+            "source": "database",
+            "value": "CG-10"
+          }
+        ],
+        "serial_number": [
+          {
+            "source": "database",
+            "value": 12
+          }
+        ],
+        "serial_total": [
+          {
+            "source": "database",
+            "value": 150
+          }
+        ],
+        "insert": [
+          {
+            "source": "database",
+            "value": "Clutch Gene"
+          }
+        ],
+        "is_rookie": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_autograph": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_memorabilia": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_patch": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ]
+      },
+      "conflicts": []
+    },
+    "fingerprint": "v2:daa3edbb5e3c99b31b4ebd161f05bc9609ae8c0f5f2e67f732d4d06685494b10",
+    "refresh_job_id": null,
+    "new_refresh": false,
+    "valuation_job_id": "5ec4d83f-9201-4bf3-9201-f07cafebaab3",
+    "cached_candidates": 20,
+    "historical_candidate_rows": 0,
+    "queued_at": "2026-09-09T02:01:32.471901+00:00"
+  }
+]

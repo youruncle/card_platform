@@ -806,6 +806,92 @@ def test_partial_serial_without_visible_denominator_is_cleared() -> None:
     assert normalized.serial_total is None
 
 
+@pytest.mark.parametrize(
+    ("serial_number", "serial_total", "evidence"),
+    [
+        (10, 22, "No printed serial visible; 10/22/25 is the NBA debut date."),
+        (3, 11, "联网候选：Born 3/11/79 was interpreted as a limited edition"),
+        (5, 24, "联网候选：5/24 编码格式为典型限编标识"),
+        (8, 23, "手写套袋标记 8/23，并非卡面印刷限编"),
+    ],
+)
+def test_dates_remote_claims_and_sleeve_notes_cannot_create_serials(
+    serial_number: int,
+    serial_total: int,
+    evidence: str,
+) -> None:
+    normalized = canonicalize_identity(
+        CardRecognitionResult(
+            serial_number=serial_number,
+            serial_total=serial_total,
+            is_numbered=True,
+            confidence=Decimal("0.9"),
+            field_evidence={"is_numbered": [evidence]},
+        )
+    )
+
+    assert normalized.is_numbered is None
+    assert normalized.serial_number is None
+    assert normalized.serial_total is None
+
+
+def test_clear_physical_fraction_remains_valid_serial_evidence() -> None:
+    normalized = canonicalize_identity(
+        CardRecognitionResult(
+            serial_number=37,
+            serial_total=100,
+            is_numbered=True,
+            confidence=Decimal("0.9"),
+            field_evidence={"is_numbered": ["正面左侧竖排 37/100 清晰可见"]},
+        )
+    )
+
+    assert normalized.is_numbered is True
+    assert normalized.serial_number == 37
+    assert normalized.serial_total == 100
+
+
+def test_serial_evidence_on_numeric_fields_is_not_discarded() -> None:
+    normalized = canonicalize_identity(
+        CardRecognitionResult(
+            serial_number=20,
+            serial_total=20,
+            is_numbered=True,
+            confidence=Decimal("0.9"),
+            field_evidence={
+                "serial_number": ["Apple Vision OCR：20/20"],
+                "serial_total": ["Apple Vision OCR：20/20"],
+            },
+        )
+    )
+
+    assert normalized.is_numbered is True
+    assert normalized.serial_number == 20
+    assert normalized.serial_total == 20
+
+
+def test_prefixed_card_number_cannot_be_invented_as_serial_fraction() -> None:
+    normalized = canonicalize_identity(
+        CardRecognitionResult(
+            player_name="Victor Wembanyama",
+            card_number="VW-6",
+            serial_number=5,
+            serial_total=6,
+            is_numbered=True,
+            confidence=Decimal("0.9"),
+            field_evidence={
+                "card_number": ["卡背右上角可见 VW-6"],
+                "is_numbered": ["根据 VW-6 推测为 5/6"],
+            },
+        )
+    )
+
+    assert normalized.card_number == "VW-6"
+    assert normalized.is_numbered is None
+    assert normalized.serial_number is None
+    assert normalized.serial_total is None
+
+
 def test_parallel_name_cannot_duplicate_card_number() -> None:
     normalized = canonicalize_identity(
         CardRecognitionResult(
@@ -1028,7 +1114,7 @@ def test_serial_detail_crops_include_lower_left_fraction() -> None:
     success, encoded = cv2.imencode(".jpg", image)
     assert success
     crops = make_serial_detail_crops((encoded.tobytes(), "image/jpeg"))
-    assert len(crops) == 3
+    assert len(crops) == 4
     lower_left = cv2.imdecode(
         np.frombuffer(crops[1][0], dtype=np.uint8), cv2.IMREAD_COLOR
     )
@@ -1057,6 +1143,30 @@ def test_serial_detail_crops_include_lower_right_fraction() -> None:
     assert int(lower_right.max()) > 200
 
 
+def test_serial_detail_crops_include_left_middle_fraction() -> None:
+    image = np.zeros((1000, 700, 3), dtype=np.uint8)
+    cv2.putText(
+        image,
+        "20/20",
+        (40, 500),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1.4,
+        (255, 255, 255),
+        3,
+    )
+    success, encoded = cv2.imencode(".jpg", image)
+    assert success
+
+    crops = make_serial_detail_crops((encoded.tobytes(), "image/jpeg"))
+    upper_left = cv2.imdecode(
+        np.frombuffer(crops[3][0], dtype=np.uint8), cv2.IMREAD_COLOR
+    )
+
+    assert len(crops) == 4
+    assert upper_left is not None
+    assert int(upper_left.max()) > 200
+
+
 def test_serial_detail_reader_can_only_override_supported_serial_fields() -> None:
     base = CardRecognitionResult(
         player_name="NOLAN TRAORE",
@@ -1083,6 +1193,22 @@ def test_serial_detail_reader_can_only_override_supported_serial_fields() -> Non
     assert merged.serial_number == 49
     assert merged.serial_total == 50
     assert merged.is_memorabilia is False
+
+
+def test_serial_detail_accepts_evidence_under_numeric_fields() -> None:
+    base = CardRecognitionResult(player_name="JASON CROWE JR.", confidence=0.8)
+    detail = CardRecognitionResult(
+        is_numbered=True,
+        serial_number=20,
+        serial_total=20,
+        confidence=0.9,
+        field_evidence={"serial_total": ["背面左侧竖排 20／20 清晰可见"]},
+    )
+
+    merged = merge_serial_detail(base, detail)
+
+    assert (merged.serial_number, merged.serial_total) == (20, 20)
+    assert "20／20" in merged.field_evidence["is_numbered"][-1]
 
 
 def test_serial_detail_cannot_override_existing_visible_fraction() -> None:
@@ -1484,6 +1610,53 @@ def test_stats_year_cannot_override_copyright_release_year() -> None:
         )
     )
     assert normalized.season_start == 2025
+    assert normalized.season_end is None
+
+
+def test_historical_game_date_cannot_override_black_diamond_copyright_year() -> None:
+    normalized = canonicalize_identity(
+        CardRecognitionResult(
+            player_name="MICHAEL JORDAN",
+            season_start=1996,
+            season_end=1997,
+            copyright_year=1999,
+            brand_name="Upper Deck",
+            product_name="Black Diamond",
+            card_number="12",
+            confidence=Decimal("0.95"),
+            field_evidence={
+                "season_start": ["96-97 BULLS statistics"],
+                "season_end": ["GAME-HIGH 38 POINTS IN GAME 5 NBA FINALS WIN 6-11-97"],
+                "copyright_year": ["©1999 Upper Deck Company"],
+            },
+        )
+    )
+
+    assert normalized.season_start == 1999
+    assert normalized.season_end is None
+
+
+def test_rookie_award_biography_cannot_override_starquest_copyright_year() -> None:
+    normalized = canonicalize_identity(
+        CardRecognitionResult(
+            player_name="Allen Iverson",
+            season_start=1996,
+            season_end=1997,
+            copyright_year=1998,
+            brand_name="Upper Deck",
+            product_name="UD Choice",
+            insert_name="Starquest",
+            card_number="SQ20",
+            confidence=Decimal("0.95"),
+            field_evidence={
+                "season_start": ["biography: Rookie of the Year Award"],
+                "season_end": ["biography: each of his two professional seasons"],
+                "copyright_year": ["card back bottom fine print: ©1998 Upper Deck"],
+            },
+        )
+    )
+
+    assert normalized.season_start == 1998
     assert normalized.season_end is None
 
 
@@ -1960,6 +2133,121 @@ def test_fractional_card_number_is_cleared_when_serial_is_already_present() -> N
     assert normalized.serial_total == 10
 
 
+def test_topps_manufacturing_code_is_replaced_by_subset_checklist_number() -> None:
+    normalized = canonicalize_identity(
+        CardRecognitionResult(
+            player_name="Paolo Banchero",
+            brand_name="Topps",
+            product_name="NBA Hoops",
+            card_number="CMP132931",
+            confidence=Decimal("0.96"),
+            field_evidence={
+                "card_number": [
+                    "背面左上角 O-17 为 Oasis 系列清单编号；底部 CODE#CMP132931 为厂内编码"
+                ]
+            },
+        )
+    )
+
+    assert normalized.card_number == "O-17"
+    assert any("厂内 CODE/CMP" in caveat for caveat in normalized.caveats)
+
+
+def test_letter_suffix_topps_autograph_code_replaces_jersey_number() -> None:
+    normalized = canonicalize_identity(
+        CardRecognitionResult(
+            player_name="Alex Sarr",
+            brand_name="Topps",
+            product_name="Topps Chrome",
+            card_number="20",
+            insert_name="Autograph Card",
+            is_autograph=True,
+            confidence=Decimal("0.96"),
+            field_evidence={
+                "card_number": ["背面右上黑框真实卡号 TCA-AS，20 是球衣号码"],
+                "is_autograph": [
+                    "TOPPS CERTIFIED AUTOGRAPH ISSUE; guarantees authenticity"
+                ],
+            },
+        )
+    )
+
+    assert normalized.card_number == "TCA-AS"
+    assert normalized.is_autograph is True
+
+
+def test_prefixed_code_in_insert_field_moves_to_card_number() -> None:
+    normalized = canonicalize_identity(
+        CardRecognitionResult(
+            player_name="Joel Embiid",
+            brand_name="Topps",
+            product_name="Topps Chrome",
+            card_number="CMP144337",
+            insert_name="SE-8",
+            confidence=Decimal("0.96"),
+        )
+    )
+
+    assert normalized.card_number == "SE-8"
+    assert normalized.insert_name is None
+
+
+def test_non_player_signature_is_not_an_autograph_card() -> None:
+    normalized = canonicalize_identity(
+        CardRecognitionResult(
+            player_name="Jason Terry",
+            product_name="Hardcourt",
+            insert_name="UD Game Floor",
+            is_autograph=True,
+            autograph_type="on_card",
+            confidence=Decimal("0.9"),
+            field_evidence={
+                "is_autograph": [
+                    "signature is the company president, not a player autograph"
+                ]
+            },
+        )
+    )
+
+    assert normalized.is_autograph is False
+    assert normalized.autograph_type == "none"
+
+
+def test_long_numeric_topps_code_is_replaced_by_visible_prefixed_number() -> None:
+    normalized = canonicalize_identity(
+        CardRecognitionResult(
+            player_name="Jayson Tatum",
+            brand_name="Topps",
+            product_name="NBA Hoops",
+            card_number="132874",
+            confidence=Decimal("0.96"),
+            field_evidence={
+                "card_number": ["背面顶部编号 BH-10；底部 CODE#132874 不是清单卡号"]
+            },
+        )
+    )
+
+    assert normalized.card_number == "BH-10"
+
+
+def test_topps_nba_product_season_uses_copyright_end_year() -> None:
+    normalized = canonicalize_identity(
+        CardRecognitionResult(
+            player_name="Trae Young",
+            brand_name="Topps",
+            product_name="NBA Hoops",
+            season_start=2024,
+            season_end=2025,
+            copyright_year=2026,
+            card_number="BH-8",
+            confidence=Decimal("0.96"),
+        )
+    )
+
+    assert (normalized.season_start, normalized.season_end) == (2025, 2026)
+    assert any("版权结束年" in caveat for caveat in normalized.caveats)
+
+
 def test_prepare_vision_image_bounds_large_payload() -> None:
     image = np.full((2200, 3200, 3), 127, dtype=np.uint8)
     success, encoded = cv2.imencode(".jpg", image)
@@ -1972,3 +2260,60 @@ def test_prepare_vision_image_bounds_large_payload() -> None:
 
 def test_benchmark_remote_limit_accepts_normal_twelve_megapixel_jpeg() -> None:
     assert BENCHMARK_REMOTE_MAX_BYTES > 12_873_056
+
+
+@pytest.mark.parametrize("product", ["Contenders Optic", "Mosaic Basketball"])
+def test_bare_prizm_logo_on_unnumbered_panini_insert_is_not_a_parallel(
+    product: str,
+) -> None:
+    normalized = canonicalize_identity(
+        CardRecognitionResult(
+            player_name="Jayson Tatum",
+            season_start=2019,
+            season_end=2020,
+            brand_name="Panini",
+            product_name=product,
+            insert_name="Superstar",
+            card_number="8",
+            parallel_name="Prizm",
+            is_numbered=False,
+            confidence=Decimal("0.98"),
+            field_evidence={"parallel_name": ["背面右下角印有 PRIZM logo"]},
+        )
+    )
+
+    assert normalized.parallel_name is None
+    assert any(
+        "generic_panini_prizm_logo_removed" in caveat
+        for caveat in normalized.caveats
+    )
+
+
+def test_specific_numbered_optic_parallel_is_preserved() -> None:
+    normalized = canonicalize_identity(
+        CardRecognitionResult(
+            product_name="Contenders Optic",
+            insert_name="Superstar",
+            parallel_name="Gold",
+            serial_number=3,
+            serial_total=10,
+            confidence=Decimal("0.95"),
+        )
+    )
+
+    assert normalized.parallel_name == "Gold"
+
+
+def test_canonicalize_obscured_insert_transcription() -> None:
+    normalized = canonicalize_identity(
+        CardRecognitionResult(
+            player_name="Luka Dončić",
+            product_name="NBA Hoops",
+            insert_name="Hoop-Itic",
+            card_number="HN-10",
+            confidence="0.83",
+        )
+    )
+
+    assert normalized.insert_name == "Hoopnotic"
+    assert any("遮挡转写别名" in caveat for caveat in normalized.caveats)

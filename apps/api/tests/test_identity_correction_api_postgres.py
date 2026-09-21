@@ -21,9 +21,10 @@ def test_suggestion_badge_api_and_one_click_apply(tmp_path) -> None:
     get_settings.cache_clear()
     with TestClient(app) as client:
         owner_id = client.post(
-            "/v1/users",
+            "/v1/auth/register",
             json={
                 "email": f"identity-fix-{uuid4()}@example.com",
+                "password": "A-safe-integration-password-2026!",
                 "display_name": "Identity Fix",
                 "base_currency": "CNY",
             },

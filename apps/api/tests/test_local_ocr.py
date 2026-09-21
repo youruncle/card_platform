@@ -56,3 +56,59 @@ def test_extract_anchors_does_not_treat_november_or_stats_as_identity() -> None:
     ])
     assert "season_start" not in anchors
     assert anchors["card_number"] == "31"
+
+
+def test_extract_anchors_prefers_unique_stamp_over_birthdate_prefix() -> None:
+    anchors = extract_anchors(
+        [
+            "BORN: 3/6/73",
+            "20/20",
+        ]
+    )
+
+    assert anchors["serial_number"] == 20
+    assert anchors["serial_total"] == 20
+
+
+def test_extract_anchors_rejects_multiple_physical_serial_candidates() -> None:
+    anchors = extract_anchors(["20/20", "03/10"])
+
+    assert "serial_number" not in anchors
+    assert "serial_total" not in anchors
+
+
+def test_extract_anchors_reads_fragmented_vertical_unicode_fraction() -> None:
+    anchors = extract_anchors(["20", "／", "20"])
+
+    assert anchors["serial_number"] == 20
+    assert anchors["serial_total"] == 20
+
+
+def test_explicit_card_number_wins_over_earlier_contextual_digit() -> None:
+    anchors = extract_anchors(
+        [
+            "PANINI",
+            "3",
+            "PLAYER BIOGRAPHY",
+            "No. 5",
+        ]
+    )
+
+    assert anchors["card_number"] == "5"
+    assert anchors["card_number_evidence"] == "No. 5"
+    assert anchors["card_number_evidence_strength"] == "explicit_label"
+
+
+def test_conflicting_explicit_card_numbers_remain_unknown() -> None:
+    anchors = extract_anchors(["No. 5", "#12", "PANINI"])
+
+    assert "card_number" not in anchors
+    assert "card_number_evidence" not in anchors
+
+
+def test_fraction_after_number_label_is_not_a_card_number() -> None:
+    anchors = extract_anchors(["No. 20/20", "PRIZM"])
+
+    assert "card_number" not in anchors
+    assert anchors["serial_number"] == 20
+    assert anchors["serial_total"] == 20

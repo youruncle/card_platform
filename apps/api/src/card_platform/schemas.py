@@ -275,6 +275,8 @@ class AuthSessionView(ApiModel):
 
 
 class PortfolioItem(ApiModel):
+    is_redemption: bool = False
+    redemption_status: Literal["unknown", "unredeemed", "redeemed", "expired"] = "unknown"
     id: UUID
     display_id: int
     owner_id: UUID
@@ -309,6 +311,7 @@ class PortfolioItem(ApiModel):
     quantity_held: Decimal
     remaining_cost: Decimal
     purchase_price: Decimal | None
+    purchase_total_cost: Decimal | None = None
     purchase_currency: str | None
     realized_profit: Decimal
     valuation_currency: str | None
@@ -328,8 +331,19 @@ class PortfolioItem(ApiModel):
     valuation_result_summary: dict = Field(default_factory=dict)
     valuation_job_id: UUID | None = None
     valuation_error: str | None = None
+    recognition_confidence: Decimal | None = None
+    recognition_status: Literal["resolved", "research_required"] | None = None
+    recognition_quality_issues: list[str] = Field(default_factory=list)
     deleted_at: datetime | None = None
     deleted_reason: str | None = None
+
+
+class PortfolioPage(ApiModel):
+    items: list[PortfolioItem]
+    total: int = Field(ge=0)
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=1, le=30)
+    total_pages: int = Field(ge=1)
 
 
 class CollectionItemDelete(ApiModel):
@@ -760,6 +774,8 @@ class CardWebCandidate(ApiModel):
 
 
 class CardRecognitionResult(ApiModel):
+    is_redemption: bool | None = None
+    redemption_status: Literal["unknown", "unredeemed", "redeemed", "expired"] = "unknown"
     image_role: Literal["front", "back", "ad", "unknown"] = "unknown"
     player_name: str | None = None
     season_start: int | None = Field(default=None, ge=1940, le=2200)
@@ -860,6 +876,21 @@ class CardRecognitionResult(ApiModel):
 
     @model_validator(mode="after")
     def normalize_card_attributes(self):
+        from card_platform.domain.redemption import redemption_identity
+
+        if self.is_redemption is None:
+            visible = " ".join([
+                *self.caveats, *self.field_evidence.get("is_redemption", []),
+            ])
+            if redemption_identity({"notes": visible})[0]:
+                self.is_redemption = True
+        if self.is_redemption:
+            # These describe the promised card, not visible fabric on the voucher.
+            description = self.insert_name or ""
+            if re.search(r"\b(?:relic|jersey|patch|memorabilia)\b", description, re.I):
+                self.is_memorabilia = True
+            if re.search(r"\bautograph\b", description, re.I):
+                self.is_autograph = True
         if self.serial_number is not None or self.serial_total is not None:
             self.is_numbered = True
         if self.inscription_text:
@@ -909,10 +940,24 @@ class ScannerRecognitionJob(ApiModel):
     front_orientation_confidence: Decimal = Decimal("0")
     back_orientation_confidence: Decimal = Decimal("0")
     front_orientation_method: Literal[
-        "pending", "apple_vision", "vision_model", "manual", "unresolved"
+        "pending",
+        "apple_vision",
+        "apple_vision_text",
+        "apple_vision_face_text",
+        "apple_vision_face_override",
+        "vision_model",
+        "manual",
+        "unresolved",
     ] = "pending"
     back_orientation_method: Literal[
-        "pending", "apple_vision", "vision_model", "manual", "unresolved"
+        "pending",
+        "apple_vision",
+        "apple_vision_text",
+        "apple_vision_face_text",
+        "apple_vision_face_override",
+        "vision_model",
+        "manual",
+        "unresolved",
     ] = "pending"
     result: CardRecognitionResult | None = None
     collection_item_id: UUID | None = None

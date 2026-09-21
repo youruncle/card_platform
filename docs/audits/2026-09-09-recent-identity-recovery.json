@@ -1,0 +1,2027 @@
+{
+  "prepared": [
+    {
+      "display_id": 430,
+      "source_hash": "bd8c204b31be2262f852b52accac23d9686d7df22a7584a91a99d168cd818a2c",
+      "patch": {
+        "expected_id": "4409dcfe-d93a-4b1e-b459-62dc2960d13a",
+        "fields": {
+          "product_name": "Bowman",
+          "insert_name": null
+        },
+        "evidence": "原图正面 Bowman 品牌标志；背面 BOWMAN INSIDER 为履历栏标题，REWIND/SKILLS/NEXT LEVEL 是正文小标题，不是特卡名。保留现有季年，不根据版权年另猜。"
+      },
+      "before": {
+        "item": {
+          "id": "4409dcfe-d93a-4b1e-b459-62dc2960d13a",
+          "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+          "card_definition_id": "c52c57a9-c535-446d-ba12-60fbad3fb73a",
+          "serial_number": null,
+          "serial_total": null,
+          "grade_company": null,
+          "grade_value": null,
+          "grade_cert_number": null,
+          "condition_note": null,
+          "image_front_url": "/uploads/4409dcfe-d93a-4b1e-b459-62dc2960d13a-front-608ad83d9e364153a80accdf52154c0e.jpg",
+          "image_back_url": "/uploads/4409dcfe-d93a-4b1e-b459-62dc2960d13a-back-8d9ed98df9a44d83acb7dab1fef5858e.jpg",
+          "strategy_tags": [],
+          "acquired_at": null,
+          "disposed_at": null,
+          "notes": "后台扫描自动录入；识别置信度 83%；待核对：missing_season_end。识别依据已保留，可编辑并参与估值。",
+          "created_at": "2026-09-09 07:53:50.136199+08:00",
+          "updated_at": "2026-09-09 07:53:50.136199+08:00",
+          "deleted_at": null,
+          "deleted_reason": null,
+          "deleted_by": null,
+          "is_numbered": false,
+          "display_id": 430
+        },
+        "definition": {
+          "id": "c52c57a9-c535-446d-ba12-60fbad3fb73a",
+          "card_set_id": "cb8001f2-5475-4fde-9cb2-617681dec4f6",
+          "player_id": "1a99cf89-0617-4cc4-81c5-e66d8d94f837",
+          "card_number": "21",
+          "insert_name": "Rewind: Landslide 2003-04 NBA MVP...NBA All-Defensive First Teamer",
+          "parallel_name": null,
+          "is_rookie": false,
+          "is_autograph": false,
+          "is_patch": false,
+          "is_case_hit": false,
+          "print_run": null,
+          "checklist_url": null,
+          "metadata": {},
+          "created_at": "2026-09-09 07:53:50.136199+08:00",
+          "updated_at": "2026-09-09 07:53:50.136199+08:00",
+          "autograph_type": "none",
+          "is_memorabilia": false,
+          "memorabilia_types": [],
+          "memorabilia_usage": "none",
+          "memorabilia_player": null,
+          "has_inscription": false,
+          "inscription_text": null
+        },
+        "set": {
+          "id": "cb8001f2-5475-4fde-9cb2-617681dec4f6",
+          "brand_id": "1e5e72da-abe8-4785-b25e-2d0b584f8942",
+          "sport": "basketball",
+          "season_start": 2004,
+          "season_end": null,
+          "product_name": "Bowman Insider",
+          "set_name": null,
+          "release_date": null,
+          "manufacturer_code": null,
+          "metadata": {},
+          "created_at": "2026-09-09 07:53:50.136199+08:00"
+        },
+        "player": {
+          "id": "1a99cf89-0617-4cc4-81c5-e66d8d94f837",
+          "full_name": "Kevin Garnett",
+          "normalized_name": "kevin garnett",
+          "birth_date": null,
+          "nba_person_id": null,
+          "primary_position": null,
+          "active": true,
+          "hall_of_fame": false,
+          "metadata": {},
+          "created_at": "2026-08-20 00:14:39.525123+08:00",
+          "updated_at": "2026-08-20 00:14:39.525123+08:00"
+        },
+        "brand": {
+          "name": "Bowman"
+        },
+        "scanner": {
+          "id": "71908771-a2c3-407d-98f3-ce88f226493d",
+          "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+          "status": "succeeded",
+          "front_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/71908771-a2c3-407d-98f3-ce88f226493d/front.jpg",
+          "back_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/71908771-a2c3-407d-98f3-ce88f226493d/back.jpg",
+          "front_content_type": "image/jpeg",
+          "back_content_type": "image/jpeg",
+          "front_crop_confidence": "0.9400",
+          "back_crop_confidence": "0.9439",
+          "front_transformed": false,
+          "back_transformed": false,
+          "result": {
+            "caveats": [
+              "正面姓名为 'Kevin Garnett'，背面为 'Kevin Garnett'，一致；但正面文字镜像（'Garnett Kevin'），属印刷排版导致，非识别错误。",
+              "背面统计表明确标注 '2003-04*' 及 '* Played with Timberwolves.'，确认赛季为 2003–04；正面未显示年份，仅通过背面确定。",
+              "背面版权行 '© 2004 NBA PROPERTIES, INC. CREATED BY THE TOPPS COMPANY, INC.'，确认 copyright_year = 2004；正面版权信息为 '2004 NBA PROPERTIES, INC. CREATED BY THE TOPPS COMPANY, INC.'，一致。",
+              "背面左上角有 'F' 标识，正面无对应标识，可能为背面分面/编号前缀，但未在正面体现，暂不纳入字段。",
+              "卡号 '21' 在背面右上角清晰可见，正面无卡号；该卡为 Bowman Insider 系列，非限量编号卡，故 is_numbered = false。",
+              "No evidence of serial numbering, autograph, memorabilia, or patch — all fields consistent with base insert card per official checklist.",
+              "TCDB URL provides canonical high-res image; Beckett entry confirms set placement but lacks full insert name in title (description verifies it).",
+              "No parallel version (e.g., Refractor, Gold) identified in search results — this is the standard base insert card.",
+              "发行赛季仅有推断性证据，已清空并等待卡背或目录核验",
+              "发行赛季证据来自统计/履历/选秀文字，已弃用；仅保留独立版权年份",
+              "is_autograph=false 缺少字段级图片证据，已改为未知",
+              "is_memorabilia=false 缺少字段级图片证据，已改为未知",
+              "is_rookie=false 缺少字段级图片证据，已改为未知",
+              "is_numbered=false 缺少字段级图片证据，已改为未知"
+            ],
+            "is_patch": null,
+            "is_rookie": null,
+            "brand_name": "Bowman",
+            "confidence": "0.83",
+            "image_role": "unknown",
+            "season_end": null,
+            "card_number": "21",
+            "grade_value": null,
+            "insert_name": "Rewind: Landslide 2003-04 NBA MVP...NBA All-Defensive First Teamer",
+            "is_numbered": null,
+            "player_name": "Kevin Garnett",
+            "is_autograph": null,
+            "product_name": "Bowman Insider",
+            "season_start": 2004,
+            "serial_total": null,
+            "grade_company": null,
+            "parallel_name": null,
+            "serial_number": null,
+            "autograph_type": null,
+            "copyright_year": 2004,
+            "field_evidence": {
+              "brand_name": [
+                "联网候选：正面左边缘竖排 'Bowman' 标识；背面顶部居中 'BOWMAN INSIDER' + Bowman 商标"
+              ],
+              "season_end": [
+                "联网候选：同上，'2003-04*' 明确标识跨年赛季"
+              ],
+              "card_number": [
+                "联网候选：背面右上角清晰印有 '21'，无前缀或后缀"
+              ],
+              "insert_name": [
+                "联网候选：背面主文区完整标题：'REWIND: Landslide 2003-04 NBA MVP...NBA All-Defensive First Teamer'"
+              ],
+              "player_name": [
+                "联网候选：正面与背面均明确显示 'Kevin Garnett'（正面为镜像排版，属印刷设计）"
+              ],
+              "product_name": [
+                "联网候选：背面顶部显著 'BOWMAN INSIDER' 标题"
+              ],
+              "season_start": [
+                "联网候选：背面统计表标题 '2003-04*' 及插入标题中 '2003-04 NBA MVP...'"
+              ],
+              "copyright_year": [
+                "联网候选：正面与背面版权行均含 '© 2004 NBA PROPERTIES, INC.'"
+              ]
+            },
+            "is_memorabilia": null,
+            "search_queries": [
+              "Kevin Garnett 2003 Bowman Bowman Insider Rewind: Landslide 2003-04 NBA MVP...NBA All-Defensive First Teamer #21 basketball card checklist",
+              "\"Kevin Garnett\" \"21\" card checklist"
+            ],
+            "web_candidates": [
+              {
+                "title": "2003 Bowman Insider #21 Kevin Garnett - Rewind: Landslide 2003-04 NBA MVP...NBA All-Defensive First Teamer",
+                "identity": {
+                  "is_patch": false,
+                  "is_rookie": false,
+                  "brand_name": "Bowman",
+                  "season_end": 2004,
+                  "card_number": "21",
+                  "grade_value": null,
+                  "insert_name": "Rewind: Landslide 2003-04 NBA MVP...NBA All-Defensive First Teamer",
+                  "is_numbered": false,
+                  "player_name": "Kevin Garnett",
+                  "is_autograph": false,
+                  "product_name": "Bowman Insider",
+                  "season_start": 2003,
+                  "serial_total": null,
+                  "grade_company": null,
+                  "parallel_name": null,
+                  "serial_number": null,
+                  "autograph_type": "none",
+                  "is_memorabilia": false,
+                  "has_inscription": false,
+                  "rookie_evidence": [],
+                  "inscription_text": null,
+                  "memorabilia_types": [],
+                  "memorabilia_usage": "none",
+                  "memorabilia_player": null
+                },
+                "conflicts": [],
+                "image_url": null,
+                "source_urls": [],
+                "matching_fields": [
+                  "player_name",
+                  "season_start",
+                  "season_end",
+                  "brand_name",
+                  "product_name",
+                  "insert_name",
+                  "card_number"
+                ],
+                "match_confidence": "0.98"
+              },
+              {
+                "title": "2003 Bowman Insider #21 Kevin Garnett (Rewind Insert) - Base Set Card",
+                "identity": {
+                  "is_patch": false,
+                  "is_rookie": false,
+                  "brand_name": "Bowman",
+                  "season_end": 2004,
+                  "card_number": "21",
+                  "grade_value": null,
+                  "insert_name": "Rewind: Landslide 2003-04 NBA MVP...NBA All-Defensive First Teamer",
+                  "is_numbered": false,
+                  "player_name": "Kevin Garnett",
+                  "is_autograph": false,
+                  "product_name": "Bowman Insider",
+                  "season_start": 2003,
+                  "serial_total": null,
+                  "grade_company": null,
+                  "parallel_name": null,
+                  "serial_number": null,
+                  "autograph_type": "none",
+                  "is_memorabilia": false,
+                  "has_inscription": false,
+                  "rookie_evidence": [],
+                  "inscription_text": null,
+                  "memorabilia_types": [],
+                  "memorabilia_usage": "none",
+                  "memorabilia_player": null
+                },
+                "conflicts": [
+                  "insert_name not explicitly labeled in Beckett title but confirmed via card description and TCDB match"
+                ],
+                "image_url": null,
+                "source_urls": [],
+                "matching_fields": [
+                  "player_name",
+                  "season_start",
+                  "season_end",
+                  "brand_name",
+                  "product_name",
+                  "card_number"
+                ],
+                "match_confidence": "0.94"
+              }
+            ],
+            "has_inscription": null,
+            "rookie_evidence": [],
+            "inscription_text": null,
+            "memorabilia_types": [],
+            "memorabilia_usage": null,
+            "recognition_model": "qwen3-vl-flash",
+            "recognition_route": [
+              {
+                "tier": "flash",
+                "model": "qwen3-vl-flash",
+                "reason": "default_low_cost_route",
+                "status": "succeeded",
+                "confidence": "0.95",
+                "latency_ms": 11265,
+                "prompt_tokens": 4104,
+                "quality_issues": [],
+                "completion_tokens": 813,
+                "estimated_cost_cny": "0.001835"
+              }
+            ],
+            "memorabilia_player": null,
+            "recognition_status": "research_required",
+            "reference_image_back_url": null,
+            "reference_image_provider": null,
+            "reference_image_front_url": null,
+            "recognition_quality_issues": [
+              "missing_season_end"
+            ],
+            "reference_image_source_url": null,
+            "recognition_estimated_cost_cny": "0.001835",
+            "reference_image_match_confidence": null
+          },
+          "error_message": null,
+          "attempt_count": 1,
+          "started_at": "2026-09-09 07:53:50.131599+08:00",
+          "finished_at": "2026-09-09 07:53:50.136199+08:00",
+          "created_at": "2026-09-09 07:53:50.061829+08:00",
+          "updated_at": "2026-09-09 07:53:50.136199+08:00",
+          "front_original_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/71908771-a2c3-407d-98f3-ce88f226493d/front-original.jpg",
+          "back_original_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/71908771-a2c3-407d-98f3-ce88f226493d/back-original.jpg",
+          "front_rotation_degrees": 0,
+          "back_rotation_degrees": 0,
+          "front_orientation_confidence": "0.7632",
+          "back_orientation_confidence": "0.9700",
+          "front_orientation_method": "apple_vision_text",
+          "back_orientation_method": "apple_vision_text",
+          "front_orientation_corrected_at": "2026-09-09 07:53:50.136199+08:00",
+          "back_orientation_corrected_at": "2026-09-09 07:53:50.136199+08:00",
+          "front_raw_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/71908771-a2c3-407d-98f3-ce88f226493d/front-raw.jpg",
+          "back_raw_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/71908771-a2c3-407d-98f3-ce88f226493d/back-raw.jpg",
+          "collection_item_id": "4409dcfe-d93a-4b1e-b459-62dc2960d13a",
+          "imported_at": "2026-09-09 07:53:50.136199+08:00"
+        },
+        "images": {
+          "front": {
+            "url": "/uploads/4409dcfe-d93a-4b1e-b459-62dc2960d13a-front-608ad83d9e364153a80accdf52154c0e.jpg",
+            "sha256": "4b9676997bd414698f90c2adeab1198ac2621e7c45cfe17502f249f928851dd3"
+          },
+          "back": {
+            "url": "/uploads/4409dcfe-d93a-4b1e-b459-62dc2960d13a-back-8d9ed98df9a44d83acb7dab1fef5858e.jpg",
+            "sha256": "fc6c765a30bec1839523e956d9a789548820b087b8e8612be6369c437668ae34"
+          }
+        }
+      }
+    },
+    {
+      "display_id": 431,
+      "source_hash": "8a60ab9f593687500baaad0bdddd3a7d12ae293feb0c621cb7f14bac0a7840dc",
+      "patch": {
+        "expected_id": "ee8c3da1-5ee5-4c8c-a3b2-2abcea35cdd6",
+        "fields": {
+          "card_number": "5",
+          "insert_name": "Magic Numbers"
+        },
+        "evidence": "原图背面顶端明确 No. 5；正面 MAGIC NUMBERS 可读。正面大号 3 为球衣号，不是卡号。"
+      },
+      "before": {
+        "item": {
+          "id": "ee8c3da1-5ee5-4c8c-a3b2-2abcea35cdd6",
+          "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+          "card_definition_id": "c419be57-d99a-424f-af75-a0c5a5907b8e",
+          "serial_number": null,
+          "serial_total": null,
+          "grade_company": null,
+          "grade_value": null,
+          "grade_cert_number": null,
+          "condition_note": null,
+          "image_front_url": "/uploads/ee8c3da1-5ee5-4c8c-a3b2-2abcea35cdd6-front-e863ab348da347188f5f160669b591b4.jpg",
+          "image_back_url": "/uploads/ee8c3da1-5ee5-4c8c-a3b2-2abcea35cdd6-back-c94466fc7c2b4fc381bc1d229f8d257d.jpg",
+          "strategy_tags": [],
+          "acquired_at": null,
+          "disposed_at": null,
+          "notes": "后台扫描自动录入；识别置信度 83%。识别依据已保留，可编辑并参与估值。",
+          "created_at": "2026-09-09 07:53:50.136428+08:00",
+          "updated_at": "2026-09-09 07:53:50.136428+08:00",
+          "deleted_at": null,
+          "deleted_reason": null,
+          "deleted_by": null,
+          "is_numbered": false,
+          "display_id": 431
+        },
+        "definition": {
+          "id": "c419be57-d99a-424f-af75-a0c5a5907b8e",
+          "card_set_id": "abfa7bea-e223-49a2-8789-8d82a5644feb",
+          "player_id": "0da4c479-b02d-4870-bff0-ebcf731ecd04",
+          "card_number": "3",
+          "insert_name": null,
+          "parallel_name": null,
+          "is_rookie": false,
+          "is_autograph": false,
+          "is_patch": false,
+          "is_case_hit": false,
+          "print_run": null,
+          "checklist_url": null,
+          "metadata": {},
+          "created_at": "2026-09-09 07:53:50.136428+08:00",
+          "updated_at": "2026-09-09 07:53:50.136428+08:00",
+          "autograph_type": "none",
+          "is_memorabilia": false,
+          "memorabilia_types": [],
+          "memorabilia_usage": "none",
+          "memorabilia_player": null,
+          "has_inscription": false,
+          "inscription_text": null
+        },
+        "set": {
+          "id": "abfa7bea-e223-49a2-8789-8d82a5644feb",
+          "brand_id": "046ef2e6-0f6d-4522-8bed-c63aabc77ae1",
+          "sport": "basketball",
+          "season_start": 2012,
+          "season_end": 2013,
+          "product_name": "Brilliance Basketball",
+          "set_name": null,
+          "release_date": null,
+          "manufacturer_code": null,
+          "metadata": {},
+          "created_at": "2026-09-09 07:53:50.136428+08:00"
+        },
+        "player": {
+          "id": "0da4c479-b02d-4870-bff0-ebcf731ecd04",
+          "full_name": "TY LAWSON",
+          "normalized_name": "ty lawson",
+          "birth_date": null,
+          "nba_person_id": null,
+          "primary_position": null,
+          "active": true,
+          "hall_of_fame": false,
+          "metadata": {},
+          "created_at": "2026-09-09 07:53:50.136428+08:00",
+          "updated_at": "2026-09-09 07:53:50.136428+08:00"
+        },
+        "brand": {
+          "name": "Panini"
+        },
+        "scanner": {
+          "id": "1021a2b9-9ddc-4a9a-842a-1dda4a010576",
+          "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+          "status": "succeeded",
+          "front_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/1021a2b9-9ddc-4a9a-842a-1dda4a010576/front.jpg",
+          "back_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/1021a2b9-9ddc-4a9a-842a-1dda4a010576/back.jpg",
+          "front_content_type": "image/jpeg",
+          "back_content_type": "image/jpeg",
+          "front_crop_confidence": "0.9369",
+          "back_crop_confidence": "0.9521",
+          "front_transformed": false,
+          "back_transformed": false,
+          "result": {
+            "caveats": [
+              "正面显示球员球衣号码为3，背面卡号标注为No. 5；但OCR与背面文字一致确认卡号为3，限编5/5应为编号而非卡号，故以背面编号和正面卡面数字为准，卡号3与编号5并存属正常设计（如主卡+编号副卡组合），无矛盾",
+              "TCDB、Beckett 和 Cardboard Connection 均将该卡列为 Base（基础卡）而非Insert或Parallel；'Brilliance'在此系列中为产品主名称，非插入子系列，故 insert_name 字段保留为 'Brilliance' 符合官方归类",
+              "所有权威来源均未标注此卡为RC（Rookie Card）——Ty Lawson's rookie year was 2009–10 (2009 Panini Prizm, etc.)，本卡为生涯第4赛季，confirmed non-rookie",
+              "无证据支持存在Autograph或Memorabilia版本：TCDB/Beckett/CardboardConnection 页面均未列出任何带签或带布版本，且本卡图像中无签名栏、无布料嵌入、无‘Patch’/‘Swatch’字样",
+              "限编缺少图片中可见的 x/y 分数证据，已清空",
+              "特卡名与产品名重复，缺少独立卡面证据，已留空",
+              "is_rookie=false 缺少字段级图片证据，已改为未知"
+            ],
+            "is_patch": false,
+            "is_rookie": null,
+            "brand_name": "Panini",
+            "confidence": "0.83",
+            "image_role": "unknown",
+            "season_end": 2013,
+            "card_number": "3",
+            "grade_value": null,
+            "insert_name": null,
+            "is_numbered": null,
+            "player_name": "TY LAWSON",
+            "is_autograph": false,
+            "product_name": "Brilliance Basketball",
+            "season_start": 2012,
+            "serial_total": null,
+            "grade_company": null,
+            "parallel_name": null,
+            "serial_number": null,
+            "autograph_type": "none",
+            "copyright_year": 2013,
+            "field_evidence": {
+              "brand_name": [
+                "联网候选：背面中央显著 'PANINI' logo；产品名中含 'Panini' 品牌标识"
+              ],
+              "season_end": [
+                "联网候选：正面与背面均明确印有 '2012-13 BRILLIANCE BASKETBALL'"
+              ],
+              "card_number": [
+                "联网候选：正面左上角独立数字 '3'；Apple Vision OCR确认为 '3'；背面 'No. 5' 明确为编号（serial），非卡号"
+              ],
+              "insert_name": [
+                "联网候选：正面主视觉区标有 'BRILLIANCE'；背面同位置重复标注，符合Panini插入卡命名惯例"
+              ],
+              "is_numbered": [
+                "联网候选：'No. 5' 标注+总量唯一性，符合Panini官方编号卡定义"
+              ],
+              "player_name": [
+                "联网候选：正面竖排 'TY LAWSON'；背面全大写 'TY LAWSON'"
+              ],
+              "is_autograph": [
+                "联网候选：正/背面无签名区域、无‘Auto’/‘Authentic Autograph’字样；OCR未识别任何签名特征"
+              ],
+              "product_name": [
+                "联网候选：正面顶部 'BRILLIANCE' + 底部 'BASKETBALL'；背面完整标题 '2012-13 BRILLIANCE BASKETBALL'"
+              ],
+              "season_start": [
+                "联网候选：正面与背面均明确印有 '2012-13 BRILLIANCE BASKETBALL'"
+              ],
+              "serial_total": [
+                "联网候选：背面 'No. 5' 表示总量为5，即5/5"
+              ],
+              "serial_number": [
+                "联网候选：背面 'No. 5' 格式符合Panini限编卡标准编号标记"
+              ],
+              "copyright_year": [
+                "联网候选：背面底部清晰印有 '© 2013 Panini America, Inc.' 及 '© 2013 NBA Properties, Inc.'"
+              ],
+              "is_memorabilia": [
+                "联网候选：无布料/球衣/补丁图示；无‘Memorabilia’、‘Patch’、‘Swatch’等字样；OCR未检测到材质描述"
+              ]
+            },
+            "is_memorabilia": false,
+            "search_queries": [
+              "TY LAWSON 2012 Panini Brilliance Basketball Brilliance #3 basketball card checklist",
+              "\"TY LAWSON\" \"3\" card checklist",
+              "TY LAWSON 2012 Panini Brilliance Basketball Brilliance #3 parallel print run"
+            ],
+            "web_candidates": [
+              {
+                "title": "2012-13 Panini Brilliance Basketball Base Card #3 TY Lawson (5/5)",
+                "identity": {
+                  "is_patch": false,
+                  "is_rookie": false,
+                  "brand_name": "Panini",
+                  "season_end": 2013,
+                  "card_number": "3",
+                  "grade_value": null,
+                  "insert_name": "Brilliance",
+                  "is_numbered": true,
+                  "player_name": "TY LAWSON",
+                  "is_autograph": false,
+                  "product_name": "Brilliance Basketball",
+                  "season_start": 2012,
+                  "serial_total": 5,
+                  "grade_company": null,
+                  "parallel_name": null,
+                  "serial_number": 5,
+                  "autograph_type": "none",
+                  "is_memorabilia": false,
+                  "has_inscription": false,
+                  "rookie_evidence": [],
+                  "inscription_text": null,
+                  "memorabilia_types": [],
+                  "memorabilia_usage": "none",
+                  "memorabilia_player": null
+                },
+                "conflicts": [],
+                "image_url": null,
+                "source_urls": [],
+                "matching_fields": [
+                  "player_name",
+                  "season_start",
+                  "season_end",
+                  "brand_name",
+                  "product_name",
+                  "insert_name",
+                  "card_number",
+                  "serial_number",
+                  "serial_total"
+                ],
+                "match_confidence": "0.98"
+              },
+              {
+                "title": "2012-13 Panini Brilliance Basketball Base #3 TY Lawson (Numbered 5/5) - No Autograph",
+                "identity": {
+                  "is_patch": null,
+                  "is_rookie": null,
+                  "brand_name": "Panini",
+                  "season_end": 2013,
+                  "card_number": "3",
+                  "grade_value": null,
+                  "insert_name": null,
+                  "is_numbered": true,
+                  "player_name": "TY LAWSON",
+                  "is_autograph": false,
+                  "product_name": "Brilliance Basketball",
+                  "season_start": 2012,
+                  "serial_total": 5,
+                  "grade_company": null,
+                  "parallel_name": null,
+                  "serial_number": 5,
+                  "autograph_type": "none",
+                  "is_memorabilia": null,
+                  "has_inscription": false,
+                  "rookie_evidence": [],
+                  "inscription_text": null,
+                  "memorabilia_types": [],
+                  "memorabilia_usage": null,
+                  "memorabilia_player": null
+                },
+                "conflicts": [],
+                "image_url": null,
+                "source_urls": [],
+                "matching_fields": [
+                  "player_name",
+                  "season_start",
+                  "season_end",
+                  "brand_name",
+                  "product_name",
+                  "card_number",
+                  "serial_number",
+                  "serial_total"
+                ],
+                "match_confidence": "0.96"
+              },
+              {
+                "title": "Panini 2012-13 Brilliance Basketball TY Lawson #3 Base Card (5/5) — Non-Rookie, Non-Auto",
+                "identity": {
+                  "is_patch": null,
+                  "is_rookie": false,
+                  "brand_name": "Panini",
+                  "season_end": 2013,
+                  "card_number": "3",
+                  "grade_value": null,
+                  "insert_name": null,
+                  "is_numbered": true,
+                  "player_name": "TY LAWSON",
+                  "is_autograph": false,
+                  "product_name": "Brilliance Basketball",
+                  "season_start": 2012,
+                  "serial_total": 5,
+                  "grade_company": null,
+                  "parallel_name": null,
+                  "serial_number": 5,
+                  "autograph_type": "none",
+                  "is_memorabilia": null,
+                  "has_inscription": false,
+                  "rookie_evidence": [],
+                  "inscription_text": null,
+                  "memorabilia_types": [],
+                  "memorabilia_usage": null,
+                  "memorabilia_player": null
+                },
+                "conflicts": [],
+                "image_url": null,
+                "source_urls": [],
+                "matching_fields": [
+                  "player_name",
+                  "season_start",
+                  "season_end",
+                  "brand_name",
+                  "product_name",
+                  "card_number",
+                  "serial_number",
+                  "serial_total"
+                ],
+                "match_confidence": "0.95"
+              }
+            ],
+            "has_inscription": false,
+            "rookie_evidence": [],
+            "inscription_text": null,
+            "memorabilia_types": [],
+            "memorabilia_usage": "none",
+            "recognition_model": "qwen3-vl-flash",
+            "recognition_route": [
+              {
+                "tier": "local_ocr",
+                "model": "apple_vision",
+                "reason": "free_local_anchor_pass",
+                "status": "succeeded",
+                "latency_ms": 1172,
+                "anchored_fields": [
+                  "card_number",
+                  "season_end",
+                  "season_start"
+                ],
+                "estimated_cost_cny": "0"
+              },
+              {
+                "tier": "flash",
+                "model": "qwen3-vl-flash",
+                "reason": "default_low_cost_route",
+                "status": "succeeded",
+                "confidence": "0.95",
+                "latency_ms": 10184,
+                "prompt_tokens": 3849,
+                "quality_issues": [],
+                "completion_tokens": 711,
+                "estimated_cost_cny": "0.001644"
+              }
+            ],
+            "memorabilia_player": null,
+            "recognition_status": "resolved",
+            "reference_image_back_url": null,
+            "reference_image_provider": null,
+            "reference_image_front_url": null,
+            "recognition_quality_issues": [],
+            "reference_image_source_url": null,
+            "recognition_estimated_cost_cny": "0.001644",
+            "reference_image_match_confidence": null
+          },
+          "error_message": null,
+          "attempt_count": 1,
+          "started_at": "2026-09-09 07:53:50.131783+08:00",
+          "finished_at": "2026-09-09 07:53:50.136428+08:00",
+          "created_at": "2026-09-09 07:53:50.061829+08:00",
+          "updated_at": "2026-09-09 07:53:50.136428+08:00",
+          "front_original_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/1021a2b9-9ddc-4a9a-842a-1dda4a010576/front-original.jpg",
+          "back_original_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/1021a2b9-9ddc-4a9a-842a-1dda4a010576/back-original.jpg",
+          "front_rotation_degrees": 0,
+          "back_rotation_degrees": 0,
+          "front_orientation_confidence": "0.8736",
+          "back_orientation_confidence": "0.9700",
+          "front_orientation_method": "apple_vision_face_text",
+          "back_orientation_method": "apple_vision_text",
+          "front_orientation_corrected_at": "2026-09-09 07:53:50.136428+08:00",
+          "back_orientation_corrected_at": "2026-09-09 07:53:50.136428+08:00",
+          "front_raw_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/1021a2b9-9ddc-4a9a-842a-1dda4a010576/front-raw.jpg",
+          "back_raw_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/1021a2b9-9ddc-4a9a-842a-1dda4a010576/back-raw.jpg",
+          "collection_item_id": "ee8c3da1-5ee5-4c8c-a3b2-2abcea35cdd6",
+          "imported_at": "2026-09-09 07:53:50.136428+08:00"
+        },
+        "images": {
+          "front": {
+            "url": "/uploads/ee8c3da1-5ee5-4c8c-a3b2-2abcea35cdd6-front-e863ab348da347188f5f160669b591b4.jpg",
+            "sha256": "cbe7dfb8f323e180d82916314712e66b5753958404728f21459205a28093973b"
+          },
+          "back": {
+            "url": "/uploads/ee8c3da1-5ee5-4c8c-a3b2-2abcea35cdd6-back-c94466fc7c2b4fc381bc1d229f8d257d.jpg",
+            "sha256": "74bd2c46fb3899f079cce47d4f75a1ac60955da216a6fbbfe9e8fe15f09d9434"
+          }
+        }
+      }
+    },
+    {
+      "display_id": 441,
+      "source_hash": "b213748e5cc173064e0a6ed391d57cc64e2281d937681b5808eca1906a587d3b",
+      "patch": {
+        "expected_id": "1cf25dd7-5508-445c-a32c-5e2a8799509b",
+        "fields": {
+          "player_name": "Eddie Jones, Paul Pierce, Darrell Armstrong",
+          "product_name": "Topps",
+          "season_end": 2001
+        },
+        "evidence": "原图正面三名人物分别 Eddie Jones / Paul Pierce / Darrell Armstrong，侧栏明确 2000-2001 TOPPS。背面顶端 153，并列前三名，与正面对应。不是从背面十人榜单推断十人卡。"
+      },
+      "before": {
+        "item": {
+          "id": "1cf25dd7-5508-445c-a32c-5e2a8799509b",
+          "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+          "card_definition_id": "ba0ad4ed-5242-4ef9-92a8-dde8d96250ed",
+          "serial_number": null,
+          "serial_total": null,
+          "grade_company": null,
+          "grade_value": null,
+          "grade_cert_number": null,
+          "condition_note": null,
+          "image_front_url": "/uploads/1cf25dd7-5508-445c-a32c-5e2a8799509b-front-d7b7a5baca4a476b9ba27b644babb217.jpg",
+          "image_back_url": "/uploads/1cf25dd7-5508-445c-a32c-5e2a8799509b-back-5236e557e3604bb7947680458813fd2f.jpg",
+          "strategy_tags": [],
+          "acquired_at": null,
+          "disposed_at": null,
+          "notes": "后台扫描自动录入；识别置信度 86%；待核对：missing_season_start, missing_season_end。识别依据已保留，可编辑并参与估值。",
+          "created_at": "2026-09-09 08:14:31.935170+08:00",
+          "updated_at": "2026-09-09 08:14:31.935170+08:00",
+          "deleted_at": null,
+          "deleted_reason": null,
+          "deleted_by": null,
+          "is_numbered": false,
+          "display_id": 441
+        },
+        "definition": {
+          "id": "ba0ad4ed-5242-4ef9-92a8-dde8d96250ed",
+          "card_set_id": "0c50f6ae-eaca-474b-8a98-dc1c05bec757",
+          "player_id": "40f11e0b-6057-419a-807e-309cc73b16e4",
+          "card_number": "153",
+          "insert_name": "Season Leaders",
+          "parallel_name": null,
+          "is_rookie": false,
+          "is_autograph": false,
+          "is_patch": false,
+          "is_case_hit": false,
+          "print_run": null,
+          "checklist_url": null,
+          "metadata": {},
+          "created_at": "2026-09-09 08:14:31.935170+08:00",
+          "updated_at": "2026-09-09 08:14:31.935170+08:00",
+          "autograph_type": "none",
+          "is_memorabilia": false,
+          "memorabilia_types": [],
+          "memorabilia_usage": "none",
+          "memorabilia_player": null,
+          "has_inscription": false,
+          "inscription_text": null
+        },
+        "set": {
+          "id": "0c50f6ae-eaca-474b-8a98-dc1c05bec757",
+          "brand_id": "8aedc827-0e2f-4eb8-bdb5-e4241c036b1f",
+          "sport": "basketball",
+          "season_start": 2000,
+          "season_end": null,
+          "product_name": "2000-2001 Topps",
+          "set_name": null,
+          "release_date": null,
+          "manufacturer_code": null,
+          "metadata": {},
+          "created_at": "2026-09-09 08:14:31.935170+08:00"
+        },
+        "player": {
+          "id": "40f11e0b-6057-419a-807e-309cc73b16e4",
+          "full_name": "Eddie Jones",
+          "normalized_name": "eddie jones",
+          "birth_date": null,
+          "nba_person_id": null,
+          "primary_position": null,
+          "active": true,
+          "hall_of_fame": false,
+          "metadata": {},
+          "created_at": "2026-09-09 08:14:31.935170+08:00",
+          "updated_at": "2026-09-09 08:14:31.935170+08:00"
+        },
+        "brand": {
+          "name": "Topps"
+        },
+        "scanner": {
+          "id": "ad349c4e-e487-4aae-ab91-885b7aaa8994",
+          "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+          "status": "succeeded",
+          "front_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/ad349c4e-e487-4aae-ab91-885b7aaa8994/front.jpg",
+          "back_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/ad349c4e-e487-4aae-ab91-885b7aaa8994/back.jpg",
+          "front_content_type": "image/jpeg",
+          "back_content_type": "image/jpeg",
+          "front_crop_confidence": "0.9551",
+          "back_crop_confidence": "0.9506",
+          "front_transformed": false,
+          "back_transformed": false,
+          "result": {
+            "caveats": [
+              "正面顶部标题为 'SEASON LEADERS STEALS'，未标赛季；背面左侧竖排明确为 '1999-2000 NBA SEASON STEALS LEADERS'，且正文统计基于72场常规赛（1999–2000赛季实际场次），故 season_start=1999、season_end=2000。正面右上角竖排 '2000-2001 TOPPS' 为产品发行年份标识，非数据赛季。",
+              "OCR 中 '2000 -2005' 为背面模糊区域误识，实际应为重复印刷的 '2000-2001 TOPPS'，已依据清晰区域校正。",
+              "卡面无任何 RC 标志或新秀声明，Eddie Jones 为1994年选秀，非新秀，故 is_rookie=false。",
+              "OCR误识的'2000-2005'已校正为产品年份标识'2000-2001'，数据赛季严格依据背面明确标注的'1999-2000 NBA SEASON'及72场统计确认。",
+              "TCDB提供原始高清图直链（/Photos/1162/153.jpg），与视觉提取完全一致：正面SEASON LEADERS横幅、右上角2000-2001 TOPPS、右竖排153；背面左侧1999-2000 NBA SEASON STEALS LEADERS、左上角153、底部©2000。",
+              "该卡属常规基础插入卡（non-parallel, non-autograph, non-memorabilia），无序列号、无RC、无签名区，所有强证据源均未报告任何平行版本或特卡变体。",
+              "赛季跨度不是单一发行赛季，疑似误读为球员生涯年份，已清空",
+              "is_numbered=false 缺少字段级图片证据，已改为未知"
+            ],
+            "is_patch": false,
+            "is_rookie": false,
+            "brand_name": "Topps",
+            "confidence": "0.86",
+            "image_role": "unknown",
+            "season_end": null,
+            "card_number": "153",
+            "grade_value": null,
+            "insert_name": "Season Leaders",
+            "is_numbered": null,
+            "player_name": "Eddie Jones",
+            "is_autograph": false,
+            "product_name": "2000-2001 Topps",
+            "season_start": null,
+            "serial_total": null,
+            "grade_company": null,
+            "parallel_name": null,
+            "serial_number": null,
+            "autograph_type": "none",
+            "copyright_year": 2000,
+            "field_evidence": {
+              "is_rookie": [
+                "联网候选：卡面无 RC/Rookie 标识；Eddie Jones 为1994年选秀，非新秀"
+              ],
+              "brand_name": [
+                "联网候选：正面左上角 Logo：Topps",
+                "联网候选：背面右下角 Logo：Topps"
+              ],
+              "season_end": [
+                "联网候选：背面左侧竖排文字：1999-2000 NBA SEASON"
+              ],
+              "card_number": [
+                "联网候选：正面右侧竖排数字：153",
+                "联网候选：背面左上角大号数字：153"
+              ],
+              "insert_name": [
+                "联网候选：正面顶部横幅：SEASON LEADERS",
+                "联网候选：背面左侧竖排：SEASON LEADERS"
+              ],
+              "player_name": [
+                "联网候选：正面左栏底部：EDDIE JONES",
+                "联网候选：背面排名表第1行：Eddie Jones"
+              ],
+              "is_autograph": [
+                "联网候选：autograph_type=none；卡面无签名区、签名墨迹或‘Authentic Autograph’字样"
+              ],
+              "product_name": [
+                "联网候选：背面左侧竖排：TOPPS 2000-2001",
+                "联网候选：背面右侧竖排重复：TOPPS 2000-2001"
+              ],
+              "season_start": [
+                "联网候选：背面左侧竖排文字：1999-2000 NBA SEASON",
+                "联网候选：背面正文统计基于72场常规赛（1999–2000赛季实际场次）"
+              ],
+              "copyright_year": [
+                "联网候选：背面底部版权行：©2000 NBA PROPERTIES, INC."
+              ],
+              "is_memorabilia": [
+                "联网候选：memorabilia_usage=none；卡面无布料、球衣剪片、球鞋材质等嵌入物或标识"
+              ]
+            },
+            "is_memorabilia": false,
+            "search_queries": [
+              "Eddie Jones 2000 Topps 2000-2001 Topps Season Leaders #153 basketball card checklist",
+              "\"Eddie Jones\" \"153\" card checklist"
+            ],
+            "web_candidates": [
+              {
+                "title": "2000-2001 Topps Season Leaders #153 Eddie Jones (1999-2000 Steals Leader)",
+                "identity": {
+                  "is_patch": false,
+                  "is_rookie": false,
+                  "brand_name": "Topps",
+                  "season_end": 2000,
+                  "card_number": "153",
+                  "grade_value": null,
+                  "insert_name": "Season Leaders",
+                  "is_numbered": null,
+                  "player_name": "Eddie Jones",
+                  "is_autograph": false,
+                  "product_name": "2000-2001 Topps",
+                  "season_start": 1999,
+                  "serial_total": null,
+                  "grade_company": null,
+                  "parallel_name": null,
+                  "serial_number": null,
+                  "autograph_type": "none",
+                  "is_memorabilia": false,
+                  "has_inscription": false,
+                  "rookie_evidence": [],
+                  "inscription_text": null,
+                  "memorabilia_types": [],
+                  "memorabilia_usage": "none",
+                  "memorabilia_player": null
+                },
+                "conflicts": [],
+                "image_url": null,
+                "source_urls": [],
+                "matching_fields": [
+                  "player_name",
+                  "season_start",
+                  "season_end",
+                  "brand_name",
+                  "product_name",
+                  "insert_name",
+                  "card_number"
+                ],
+                "match_confidence": "0.99"
+              },
+              {
+                "title": "2000-2001 Topps Season Leaders #153 Eddie Jones - 1999-2000 NBA Steals Leader",
+                "identity": {
+                  "is_patch": false,
+                  "is_rookie": false,
+                  "brand_name": "Topps",
+                  "season_end": 2000,
+                  "card_number": "153",
+                  "grade_value": null,
+                  "insert_name": "Season Leaders",
+                  "is_numbered": null,
+                  "player_name": "Eddie Jones",
+                  "is_autograph": false,
+                  "product_name": "2000-2001 Topps",
+                  "season_start": 1999,
+                  "serial_total": null,
+                  "grade_company": null,
+                  "parallel_name": null,
+                  "serial_number": null,
+                  "autograph_type": "none",
+                  "is_memorabilia": false,
+                  "has_inscription": false,
+                  "rookie_evidence": [],
+                  "inscription_text": null,
+                  "memorabilia_types": [],
+                  "memorabilia_usage": "none",
+                  "memorabilia_player": null
+                },
+                "conflicts": [],
+                "image_url": null,
+                "source_urls": [],
+                "matching_fields": [
+                  "player_name",
+                  "season_start",
+                  "season_end",
+                  "brand_name",
+                  "product_name",
+                  "insert_name",
+                  "card_number"
+                ],
+                "match_confidence": "0.98"
+              },
+              {
+                "title": "Topps 2000-2001 Season Leaders Basketball #153 Eddie Jones (Steals Leader 1999-2000)",
+                "identity": {
+                  "is_patch": false,
+                  "is_rookie": false,
+                  "brand_name": "Topps",
+                  "season_end": 2000,
+                  "card_number": "153",
+                  "grade_value": null,
+                  "insert_name": "Season Leaders",
+                  "is_numbered": null,
+                  "player_name": "Eddie Jones",
+                  "is_autograph": false,
+                  "product_name": "2000-2001 Topps",
+                  "season_start": 1999,
+                  "serial_total": null,
+                  "grade_company": null,
+                  "parallel_name": null,
+                  "serial_number": null,
+                  "autograph_type": "none",
+                  "is_memorabilia": false,
+                  "has_inscription": false,
+                  "rookie_evidence": [],
+                  "inscription_text": null,
+                  "memorabilia_types": [],
+                  "memorabilia_usage": "none",
+                  "memorabilia_player": null
+                },
+                "conflicts": [],
+                "image_url": null,
+                "source_urls": [],
+                "matching_fields": [
+                  "player_name",
+                  "season_start",
+                  "season_end",
+                  "brand_name",
+                  "product_name",
+                  "insert_name",
+                  "card_number"
+                ],
+                "match_confidence": "0.97"
+              }
+            ],
+            "has_inscription": false,
+            "rookie_evidence": [],
+            "inscription_text": null,
+            "memorabilia_types": [],
+            "memorabilia_usage": "none",
+            "recognition_model": "qwen3-vl-plus",
+            "recognition_route": [
+              {
+                "tier": "local_ocr",
+                "model": "apple_vision",
+                "reason": "free_local_anchor_pass",
+                "status": "succeeded",
+                "latency_ms": 1179,
+                "anchored_fields": [
+                  "card_number",
+                  "season_end",
+                  "season_start"
+                ],
+                "estimated_cost_cny": "0"
+              },
+              {
+                "tier": "flash",
+                "model": "qwen3-vl-flash",
+                "reason": "default_low_cost_route",
+                "status": "succeeded",
+                "confidence": "0.95",
+                "latency_ms": 14212,
+                "prompt_tokens": 3612,
+                "quality_issues": [
+                  "model_reported_conflict"
+                ],
+                "completion_tokens": 862,
+                "estimated_cost_cny": "0.001835"
+              },
+              {
+                "tier": "plus",
+                "model": "qwen3-vl-plus",
+                "reason": "flash_quality_gate_failed",
+                "status": "succeeded",
+                "confidence": "0.98",
+                "latency_ms": 17889,
+                "prompt_tokens": 4430,
+                "quality_issues": [],
+                "completion_tokens": 813,
+                "estimated_cost_cny": "0.012560"
+              }
+            ],
+            "memorabilia_player": null,
+            "recognition_status": "research_required",
+            "reference_image_back_url": null,
+            "reference_image_provider": null,
+            "reference_image_front_url": null,
+            "recognition_quality_issues": [
+              "missing_season_start",
+              "missing_season_end"
+            ],
+            "reference_image_source_url": null,
+            "recognition_estimated_cost_cny": "0.014395",
+            "reference_image_match_confidence": null
+          },
+          "error_message": null,
+          "attempt_count": 1,
+          "started_at": "2026-09-09 08:14:31.917676+08:00",
+          "finished_at": "2026-09-09 08:14:31.935170+08:00",
+          "created_at": "2026-09-09 08:14:31.029347+08:00",
+          "updated_at": "2026-09-09 08:14:31.935170+08:00",
+          "front_original_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/ad349c4e-e487-4aae-ab91-885b7aaa8994/front-original.jpg",
+          "back_original_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/ad349c4e-e487-4aae-ab91-885b7aaa8994/back-original.jpg",
+          "front_rotation_degrees": 0,
+          "back_rotation_degrees": 0,
+          "front_orientation_confidence": "0.8362",
+          "back_orientation_confidence": "0.8656",
+          "front_orientation_method": "apple_vision_face_text",
+          "back_orientation_method": "apple_vision_text",
+          "front_orientation_corrected_at": "2026-09-09 08:14:31.935170+08:00",
+          "back_orientation_corrected_at": "2026-09-09 08:14:31.935170+08:00",
+          "front_raw_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/ad349c4e-e487-4aae-ab91-885b7aaa8994/front-raw.jpg",
+          "back_raw_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/ad349c4e-e487-4aae-ab91-885b7aaa8994/back-raw.jpg",
+          "collection_item_id": "1cf25dd7-5508-445c-a32c-5e2a8799509b",
+          "imported_at": "2026-09-09 08:14:31.935170+08:00"
+        },
+        "images": {
+          "front": {
+            "url": "/uploads/1cf25dd7-5508-445c-a32c-5e2a8799509b-front-d7b7a5baca4a476b9ba27b644babb217.jpg",
+            "sha256": "35c7b798d822e600ff9539e7813672939fb813ad1f13b36424b8e90613f57895"
+          },
+          "back": {
+            "url": "/uploads/1cf25dd7-5508-445c-a32c-5e2a8799509b-back-5236e557e3604bb7947680458813fd2f.jpg",
+            "sha256": "8e3ed40c3e9250ee3a213ad469297a4f238c726f1c235ad38a4393f8099880cc"
+          }
+        }
+      }
+    },
+    {
+      "display_id": 442,
+      "source_hash": "2845c8bd8f032a56a43b269a7c9cb53053db2710b140ba50268189bf045cee67",
+      "patch": {
+        "expected_id": "f7a0d2bf-7786-4dad-a933-59be1b450050",
+        "fields": {
+          "card_number": "5"
+        },
+        "evidence": "原图背面左上明确 No. 5；队徽旁 45 与 12 是球衣号码，不是目录卡号。"
+      },
+      "before": {
+        "item": {
+          "id": "f7a0d2bf-7786-4dad-a933-59be1b450050",
+          "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+          "card_definition_id": "55a5f48b-49f1-4e61-8009-9821109c0663",
+          "serial_number": null,
+          "serial_total": null,
+          "grade_company": null,
+          "grade_value": null,
+          "grade_cert_number": null,
+          "condition_note": null,
+          "image_front_url": "/uploads/f7a0d2bf-7786-4dad-a933-59be1b450050-front-33757521a1674802a23c551825002873.jpg",
+          "image_back_url": "/uploads/f7a0d2bf-7786-4dad-a933-59be1b450050-back-77fdd2600e2c4284bec8f89f3ec577aa.jpg",
+          "strategy_tags": [],
+          "acquired_at": null,
+          "disposed_at": null,
+          "notes": "后台扫描自动录入；识别置信度 86%。识别依据已保留，可编辑并参与估值。",
+          "created_at": "2026-09-09 08:14:31.935538+08:00",
+          "updated_at": "2026-09-09 08:14:31.935538+08:00",
+          "deleted_at": null,
+          "deleted_reason": null,
+          "deleted_by": null,
+          "is_numbered": false,
+          "display_id": 442
+        },
+        "definition": {
+          "id": "55a5f48b-49f1-4e61-8009-9821109c0663",
+          "card_set_id": "c7828235-3093-4451-9a6c-c8759c4cd5ec",
+          "player_id": "ab1c2af6-51cc-420d-b603-00e543de9b12",
+          "card_number": "12",
+          "insert_name": "Duos",
+          "parallel_name": null,
+          "is_rookie": false,
+          "is_autograph": false,
+          "is_patch": false,
+          "is_case_hit": false,
+          "print_run": null,
+          "checklist_url": null,
+          "metadata": {},
+          "created_at": "2026-09-09 08:14:31.935538+08:00",
+          "updated_at": "2026-09-09 08:14:31.935538+08:00",
+          "autograph_type": "none",
+          "is_memorabilia": false,
+          "memorabilia_types": [],
+          "memorabilia_usage": "none",
+          "memorabilia_player": null,
+          "has_inscription": false,
+          "inscription_text": null
+        },
+        "set": {
+          "id": "c7828235-3093-4451-9a6c-c8759c4cd5ec",
+          "brand_id": "046ef2e6-0f6d-4522-8bed-c63aabc77ae1",
+          "sport": "basketball",
+          "season_start": 2021,
+          "season_end": 2022,
+          "product_name": "Donruss",
+          "set_name": null,
+          "release_date": null,
+          "manufacturer_code": null,
+          "metadata": {},
+          "created_at": "2026-09-09 08:14:31.935538+08:00"
+        },
+        "player": {
+          "id": "ab1c2af6-51cc-420d-b603-00e543de9b12",
+          "full_name": "Donovan Mitchell, Ja Morant",
+          "normalized_name": "donovan mitchell, ja morant",
+          "birth_date": null,
+          "nba_person_id": null,
+          "primary_position": null,
+          "active": true,
+          "hall_of_fame": false,
+          "metadata": {},
+          "created_at": "2026-09-09 08:14:31.935538+08:00",
+          "updated_at": "2026-09-09 08:14:31.935538+08:00"
+        },
+        "brand": {
+          "name": "Panini"
+        },
+        "scanner": {
+          "id": "695fcaf3-b3a2-4dec-ac55-4364dfafcdf6",
+          "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+          "status": "succeeded",
+          "front_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/695fcaf3-b3a2-4dec-ac55-4364dfafcdf6/front.jpg",
+          "back_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/695fcaf3-b3a2-4dec-ac55-4364dfafcdf6/back.jpg",
+          "front_content_type": "image/jpeg",
+          "back_content_type": "image/jpeg",
+          "front_crop_confidence": "0.9648",
+          "back_crop_confidence": "0.9895",
+          "front_transformed": false,
+          "back_transformed": false,
+          "result": {
+            "caveats": [
+              "正面右侧Ja Morant球衣号码'12'与背面左上角卡号'No. 5'在视觉上易混淆；依据背面明确标注'No. 5'及行业惯例，确认卡号为5，'12'和'45'分别为球员球衣号码。",
+              "正面左侧竖排'DUOS'字样确认为特卡系列名（Insert Name），非平行版本名；卡面无折射或颜色平行标识，故parallel_name为null。",
+              "OCR misread card number as '12' due to proximity of Ja Morant’s jersey number; definitive confirmation from physical card back: 'No. 5'",
+              "Duos is an insert subset (not parallel), confirmed by official Panini checklist structure and TCDB/Beckett categorization",
+              "No autograph, memorabilia, or numbering present — consistent across all authoritative sources",
+              "is_autograph=false 缺少字段级图片证据，已改为未知",
+              "is_memorabilia=false 缺少字段级图片证据，已改为未知",
+              "is_rookie=false 缺少字段级图片证据，已改为未知"
+            ],
+            "is_patch": null,
+            "is_rookie": null,
+            "brand_name": "Panini",
+            "confidence": "0.86",
+            "image_role": "unknown",
+            "season_end": 2022,
+            "card_number": "12",
+            "grade_value": null,
+            "insert_name": "Duos",
+            "is_numbered": false,
+            "player_name": "Donovan Mitchell, Ja Morant",
+            "is_autograph": null,
+            "product_name": "Donruss",
+            "season_start": 2021,
+            "serial_total": null,
+            "grade_company": null,
+            "parallel_name": null,
+            "serial_number": null,
+            "autograph_type": null,
+            "copyright_year": 2021,
+            "field_evidence": {
+              "brand_name": [
+                "联网候选：背面右上角黄色Logo：PANINI"
+              ],
+              "season_end": [
+                "联网候选：背面底部标题：2021-22 PANINI - DONRUSS BASKETBALL"
+              ],
+              "card_number": [
+                "联网候选：背面左上角：No. 5 — 明确标注；Apple Vision OCR误识为'12'系因Ja Morant球衣号干扰，但卡号位置与格式（No. X）符合Donruss标准编排"
+              ],
+              "insert_name": [
+                "联网候选：正面左侧竖排金属光泽大字：DUOS"
+              ],
+              "is_numbered": [
+                "联网候选：背面无 x/y 限编标识；'No. 5'为固定基础卡号，非序列号"
+              ],
+              "player_name": [
+                "联网候选：正面底部：DONOVAN MITCHELL / JAZZ，JA MORANT / GRIZZLIES",
+                "联网候选：背面中部：DONOVAN MITCHELL，JA MORANT"
+              ],
+              "product_name": [
+                "联网候选：背面底部标题：2021-22 PANINI - DONRUSS BASKETBALL"
+              ],
+              "season_start": [
+                "联网候选：背面底部标题：2021-22 PANINI - DONRUSS BASKETBALL"
+              ],
+              "copyright_year": [
+                "联网候选：背面底部版权行：© 2021 Panini America, Inc."
+              ]
+            },
+            "is_memorabilia": null,
+            "search_queries": [
+              "Donovan Mitchell, Ja Morant 2021 Panini Donruss Duos #12 basketball card checklist",
+              "\"Donovan Mitchell, Ja Morant\" \"12\" card checklist"
+            ],
+            "web_candidates": [
+              {
+                "title": "2021-22 Panini Donruss Basketball Duos #5 Donovan Mitchell & Ja Morant",
+                "identity": {
+                  "is_patch": false,
+                  "is_rookie": false,
+                  "brand_name": "Panini",
+                  "season_end": 2022,
+                  "card_number": "5",
+                  "grade_value": null,
+                  "insert_name": "Duos",
+                  "is_numbered": false,
+                  "player_name": "Donovan Mitchell, Ja Morant",
+                  "is_autograph": false,
+                  "product_name": "Donruss",
+                  "season_start": 2021,
+                  "serial_total": null,
+                  "grade_company": null,
+                  "parallel_name": null,
+                  "serial_number": null,
+                  "autograph_type": "none",
+                  "is_memorabilia": false,
+                  "has_inscription": false,
+                  "rookie_evidence": [],
+                  "inscription_text": null,
+                  "memorabilia_types": [],
+                  "memorabilia_usage": "none",
+                  "memorabilia_player": null
+                },
+                "conflicts": [],
+                "image_url": null,
+                "source_urls": [],
+                "matching_fields": [
+                  "player_name",
+                  "season_start",
+                  "season_end",
+                  "brand_name",
+                  "product_name",
+                  "insert_name",
+                  "card_number"
+                ],
+                "match_confidence": "0.99"
+              },
+              {
+                "title": "2021-22 Panini Donruss Basketball Base Set #5 Donovan Mitchell & Ja Morant",
+                "identity": {
+                  "is_patch": false,
+                  "is_rookie": false,
+                  "brand_name": "Panini",
+                  "season_end": 2022,
+                  "card_number": "5",
+                  "grade_value": null,
+                  "insert_name": null,
+                  "is_numbered": false,
+                  "player_name": "Donovan Mitchell, Ja Morant",
+                  "is_autograph": false,
+                  "product_name": "Donruss",
+                  "season_start": 2021,
+                  "serial_total": null,
+                  "grade_company": null,
+                  "parallel_name": null,
+                  "serial_number": null,
+                  "autograph_type": "none",
+                  "is_memorabilia": false,
+                  "has_inscription": false,
+                  "rookie_evidence": [],
+                  "inscription_text": null,
+                  "memorabilia_types": [],
+                  "memorabilia_usage": "none",
+                  "memorabilia_player": null
+                },
+                "conflicts": [
+                  "insert_name: expected 'Duos', but base set lacks insert branding"
+                ],
+                "image_url": null,
+                "source_urls": [],
+                "matching_fields": [
+                  "player_name",
+                  "season_start",
+                  "season_end",
+                  "brand_name",
+                  "product_name",
+                  "card_number"
+                ],
+                "match_confidence": "0.85"
+              },
+              {
+                "title": "2021-22 Panini Donruss Basketball Duos #12 Donovan Mitchell & Ja Morant",
+                "identity": {
+                  "is_patch": false,
+                  "is_rookie": false,
+                  "brand_name": "Panini",
+                  "season_end": 2022,
+                  "card_number": "12",
+                  "grade_value": null,
+                  "insert_name": "Duos",
+                  "is_numbered": false,
+                  "player_name": "Donovan Mitchell, Ja Morant",
+                  "is_autograph": false,
+                  "product_name": "Donruss",
+                  "season_start": 2021,
+                  "serial_total": null,
+                  "grade_company": null,
+                  "parallel_name": null,
+                  "serial_number": null,
+                  "autograph_type": "none",
+                  "is_memorabilia": false,
+                  "has_inscription": false,
+                  "rookie_evidence": [],
+                  "inscription_text": null,
+                  "memorabilia_types": [],
+                  "memorabilia_usage": "none",
+                  "memorabilia_player": null
+                },
+                "conflicts": [
+                  "card_number: visual evidence shows 'No. 5' on back; '12' is Ja Morant's jersey number, not card number"
+                ],
+                "image_url": null,
+                "source_urls": [],
+                "matching_fields": [
+                  "player_name",
+                  "season_start",
+                  "season_end",
+                  "brand_name",
+                  "product_name",
+                  "insert_name"
+                ],
+                "match_confidence": "0.65"
+              }
+            ],
+            "has_inscription": null,
+            "rookie_evidence": [],
+            "inscription_text": null,
+            "memorabilia_types": [],
+            "memorabilia_usage": null,
+            "recognition_model": "qwen3.8-max",
+            "recognition_route": [
+              {
+                "tier": "local_ocr",
+                "model": "apple_vision",
+                "reason": "free_local_anchor_pass",
+                "status": "succeeded",
+                "latency_ms": 1140,
+                "anchored_fields": [
+                  "card_number",
+                  "season_end",
+                  "season_start"
+                ],
+                "estimated_cost_cny": "0"
+              },
+              {
+                "tier": "flash",
+                "model": "qwen3-vl-flash",
+                "reason": "default_low_cost_route",
+                "status": "succeeded",
+                "confidence": "0.95",
+                "latency_ms": 11505,
+                "prompt_tokens": 3444,
+                "quality_issues": [
+                  "model_reported_conflict"
+                ],
+                "completion_tokens": 732,
+                "estimated_cost_cny": "0.001615"
+              },
+              {
+                "tier": "plus",
+                "model": "qwen3-vl-plus",
+                "reason": "flash_quality_gate_failed",
+                "status": "succeeded",
+                "confidence": "0.98",
+                "latency_ms": 13989,
+                "prompt_tokens": 4137,
+                "quality_issues": [
+                  "model_reported_conflict"
+                ],
+                "completion_tokens": 718,
+                "estimated_cost_cny": "0.011317"
+              },
+              {
+                "tier": "max",
+                "model": "qwen3.8-max",
+                "reason": "plus_hard_identity_gate_failed",
+                "status": "succeeded",
+                "confidence": "0.98",
+                "latency_ms": 18552,
+                "prompt_tokens": 4024,
+                "quality_issues": [],
+                "completion_tokens": 727,
+                "estimated_cost_cny": "0.074460"
+              }
+            ],
+            "memorabilia_player": null,
+            "recognition_status": "resolved",
+            "reference_image_back_url": null,
+            "reference_image_provider": null,
+            "reference_image_front_url": null,
+            "recognition_quality_issues": [],
+            "reference_image_source_url": null,
+            "recognition_estimated_cost_cny": "0.087392",
+            "reference_image_match_confidence": null
+          },
+          "error_message": null,
+          "attempt_count": 1,
+          "started_at": "2026-09-09 08:14:31.915474+08:00",
+          "finished_at": "2026-09-09 08:14:31.935538+08:00",
+          "created_at": "2026-09-09 08:14:31.029347+08:00",
+          "updated_at": "2026-09-09 08:14:31.935538+08:00",
+          "front_original_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/695fcaf3-b3a2-4dec-ac55-4364dfafcdf6/front-original.jpg",
+          "back_original_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/695fcaf3-b3a2-4dec-ac55-4364dfafcdf6/back-original.jpg",
+          "front_rotation_degrees": 0,
+          "back_rotation_degrees": 0,
+          "front_orientation_confidence": "0.8234",
+          "back_orientation_confidence": "0.9700",
+          "front_orientation_method": "apple_vision_face_text",
+          "back_orientation_method": "apple_vision_text",
+          "front_orientation_corrected_at": "2026-09-09 08:14:31.935538+08:00",
+          "back_orientation_corrected_at": "2026-09-09 08:14:31.935538+08:00",
+          "front_raw_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/695fcaf3-b3a2-4dec-ac55-4364dfafcdf6/front-raw.jpg",
+          "back_raw_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/695fcaf3-b3a2-4dec-ac55-4364dfafcdf6/back-raw.jpg",
+          "collection_item_id": "f7a0d2bf-7786-4dad-a933-59be1b450050",
+          "imported_at": "2026-09-09 08:14:31.935538+08:00"
+        },
+        "images": {
+          "front": {
+            "url": "/uploads/f7a0d2bf-7786-4dad-a933-59be1b450050-front-33757521a1674802a23c551825002873.jpg",
+            "sha256": "e9155462bf0aa8a94e7c8df4ed959fd644e975d7c228d5b11544d652e1817609"
+          },
+          "back": {
+            "url": "/uploads/f7a0d2bf-7786-4dad-a933-59be1b450050-back-77fdd2600e2c4284bec8f89f3ec577aa.jpg",
+            "sha256": "b4c774b0033f2f0daf1caae7cf17ef1da12eef8f7f0fb143679a16c39407d811"
+          }
+        }
+      }
+    },
+    {
+      "display_id": 447,
+      "source_hash": "8381eeec34ed9a34800b541c460e51458b0a8a8a080df04bdbbdb2c4cee25a70",
+      "patch": {
+        "expected_id": "1c38e1ac-381c-4db2-aa32-f2c5a878a5c7",
+        "fields": {
+          "parallel_name": "Refractor",
+          "insert_name": null,
+          "set_name": "Draft Picks & Prospects"
+        },
+        "evidence": "原图背面右上明确 REFRACTOR；正面明确 2005-06、Bowman Chrome 和 DRAFT PICKS & PROSPECTS BASKETBALL。保留产品线为 set_name，不把整个发行产品线当成特卡。未据金属反光推断限编。"
+      },
+      "before": {
+        "item": {
+          "id": "1c38e1ac-381c-4db2-aa32-f2c5a878a5c7",
+          "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+          "card_definition_id": "d8818855-4852-48c1-b44b-ed9eb88f04db",
+          "serial_number": null,
+          "serial_total": null,
+          "grade_company": null,
+          "grade_value": null,
+          "grade_cert_number": null,
+          "condition_note": null,
+          "image_front_url": "/uploads/1c38e1ac-381c-4db2-aa32-f2c5a878a5c7-front-e3302b1761574f86912f2d071a1d6065.jpg",
+          "image_back_url": "/uploads/1c38e1ac-381c-4db2-aa32-f2c5a878a5c7-back-ca38da8f84ea405a831252ecd2629480.jpg",
+          "strategy_tags": [],
+          "acquired_at": null,
+          "disposed_at": null,
+          "notes": "后台扫描自动录入；识别置信度 86%。识别依据已保留，可编辑并参与估值。",
+          "created_at": "2026-09-09 08:16:01.739696+08:00",
+          "updated_at": "2026-09-09 08:16:01.739696+08:00",
+          "deleted_at": null,
+          "deleted_reason": null,
+          "deleted_by": null,
+          "is_numbered": false,
+          "display_id": 447
+        },
+        "definition": {
+          "id": "d8818855-4852-48c1-b44b-ed9eb88f04db",
+          "card_set_id": "fcd5ce4f-e407-46d3-a2cd-0a57233316d9",
+          "player_id": "16c633fc-9caf-4d28-a64a-e608f12376a5",
+          "card_number": "8",
+          "insert_name": "Draft Picks & Prospects",
+          "parallel_name": "Silver",
+          "is_rookie": true,
+          "is_autograph": false,
+          "is_patch": false,
+          "is_case_hit": false,
+          "print_run": null,
+          "checklist_url": null,
+          "metadata": {},
+          "created_at": "2026-09-09 08:16:01.739696+08:00",
+          "updated_at": "2026-09-09 08:16:01.739696+08:00",
+          "autograph_type": "none",
+          "is_memorabilia": false,
+          "memorabilia_types": [],
+          "memorabilia_usage": "none",
+          "memorabilia_player": null,
+          "has_inscription": false,
+          "inscription_text": null
+        },
+        "set": {
+          "id": "fcd5ce4f-e407-46d3-a2cd-0a57233316d9",
+          "brand_id": "8aedc827-0e2f-4eb8-bdb5-e4241c036b1f",
+          "sport": "basketball",
+          "season_start": 2005,
+          "season_end": 2006,
+          "product_name": "Bowman Chrome",
+          "set_name": null,
+          "release_date": null,
+          "manufacturer_code": null,
+          "metadata": {},
+          "created_at": "2026-09-09 08:16:01.739696+08:00"
+        },
+        "player": {
+          "id": "16c633fc-9caf-4d28-a64a-e608f12376a5",
+          "full_name": "Ben Gordon",
+          "normalized_name": "ben gordon",
+          "birth_date": null,
+          "nba_person_id": null,
+          "primary_position": null,
+          "active": true,
+          "hall_of_fame": false,
+          "metadata": {},
+          "created_at": "2026-09-09 08:16:01.739696+08:00",
+          "updated_at": "2026-09-09 08:16:01.739696+08:00"
+        },
+        "brand": {
+          "name": "Topps"
+        },
+        "scanner": {
+          "id": "ead5f733-4269-4c52-8bb0-cc08e0d2fbee",
+          "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+          "status": "succeeded",
+          "front_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/ead5f733-4269-4c52-8bb0-cc08e0d2fbee/front.jpg",
+          "back_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/ead5f733-4269-4c52-8bb0-cc08e0d2fbee/back.jpg",
+          "front_content_type": "image/jpeg",
+          "back_content_type": "image/jpeg",
+          "front_crop_confidence": "0.9412",
+          "back_crop_confidence": "0.9510",
+          "front_transformed": false,
+          "back_transformed": false,
+          "result": {
+            "caveats": [
+              "正面底部印有 '2005-06 CHICAGO BULLS'，确认为 2005-06 赛季产品；背面统计表 '2004-05' 为球员新秀赛季数据，不作为卡片发行年份。",
+              "OCR 误将正文中的比赛日期 'Charlotte, 3/30.' 识别为限编信息；实际限编位于卡背右下角红色徽章内，清晰显示为 '136/300'。",
+              "Insert name 依据正面底部横幅 'DRAFT PICKS & PROSPECTS BASKETBALL' 提取，去除通用的 'BASKETBALL' 后缀以符合标准命名习惯。",
+              "OCR initially misread '136/300' as 'Charlotte, 3/30.' — corrected via visual verification of red holographic serial badge on back.",
+              "The card is definitively a 2005–06 Bowman Chrome release (per front '2005-06 CHICAGO BULLS' and ©2005 copyright), not a 2004–05 issue; rookie status derives from player’s 2004–05 debut season, not card year.",
+              "No official checklist or authoritative source confirms the exact serial run '136/300' for this specific Refractor parallel — Beckett and TCDB list only base and Refractor parallels without sub-limited numbering; however, multiple verified eBay listings (e.g., sold 2023–2025) consistently report '136/300' for this card, and the physical badge matches Topps’ 2005 Bowman Chrome Refractor limited-print conventions.",
+              "Image URLs could not be retrieved from official sources (TCDB/Beckett/PSA) with stable direct links to *this exact serial*; placeholder URL points to TCDB generic listing page.",
+              "限编缺少图片中可见的 x/y 分数证据，已清空",
+              "Topps 基础 Refractor 已按统一口径归一为 Silver"
+            ],
+            "is_patch": false,
+            "is_rookie": true,
+            "brand_name": "Topps",
+            "confidence": "0.86",
+            "image_role": "unknown",
+            "season_end": 2006,
+            "card_number": "8",
+            "grade_value": null,
+            "insert_name": "Draft Picks & Prospects",
+            "is_numbered": null,
+            "player_name": "Ben Gordon",
+            "is_autograph": false,
+            "product_name": "Bowman Chrome",
+            "season_start": 2005,
+            "serial_total": null,
+            "grade_company": null,
+            "parallel_name": "Silver",
+            "serial_number": null,
+            "autograph_type": "none",
+            "copyright_year": 2005,
+            "field_evidence": {
+              "is_patch": [
+                "联网候选：同上，无补丁标识或材质特征"
+              ],
+              "is_rookie": [
+                "联网候选：背面 REWIND 段落：'First rookie to win NBA Sixth Man Award...'",
+                "联网候选：背面统计表标题 '2004-05*' 及注释 '* Played with Bulls'",
+                "联网候选：背面选秀信息 'Drafted: Bulls 1st Round 2004'"
+              ],
+              "brand_name": [
+                "联网候选：背面左下角 Logo 'Topps'",
+                "联网候选：背面版权行 'CREATED BY THE TOPPS COMPANY, INC.'"
+              ],
+              "season_end": [
+                "联网候选：正面底部横幅 '2005-06 CHICAGO BULLS'"
+              ],
+              "card_number": [
+                "联网候选：正面左下角数字 '8'",
+                "联网候选：背面左上角方框内数字 '8'"
+              ],
+              "insert_name": [
+                "联网候选：正面底部横幅 'DRAFT PICKS & PROSPECTS BASKETBALL'（标准命名去'BASKETBALL'后缀）"
+              ],
+              "is_numbered": [
+                "联网候选：背面右下角红色徽章内明确印有 '136/300'"
+              ],
+              "player_name": [
+                "联网候选：正面左侧竖排文字 'BENGORDON'",
+                "联网候选：背面顶部居中 'Ben Gordon'"
+              ],
+              "is_autograph": [
+                "联网候选：背面无签名区、无签名图示、无‘AUTO’字样，且 autograph_type = 'none'"
+              ],
+              "product_name": [
+                "联网候选：正面左下角 Logo 'Bowman Chrome'",
+                "联网候选：背面右下角 Logo 'Bowman Chrome'"
+              ],
+              "season_start": [
+                "联网候选：正面底部横幅 '2005-06 CHICAGO BULLS'"
+              ],
+              "serial_total": [
+                "联网候选：背面右下角红色徽章内 '136/300' 的分母 '300'"
+              ],
+              "parallel_name": [
+                "联网候选：正面右侧边缘竖排 'REFRACTOR'",
+                "联网候选：背面右上角方框内 'REFRACTOR'"
+              ],
+              "serial_number": [
+                "联网候选：背面右下角红色徽章内 '136/300' 的分子 '136'"
+              ],
+              "copyright_year": [
+                "联网候选：背面底部版权行 '© 2005 NBA PROPERTIES, INC.'"
+              ],
+              "is_memorabilia": [
+                "联网候选：背面无布料/球衣/球鞋等实物嵌入标识，无‘MEMORABILIA’或‘PATCH’字样"
+              ]
+            },
+            "is_memorabilia": false,
+            "search_queries": [
+              "Ben Gordon 2005 Topps Bowman Chrome Draft Picks & Prospects Refractor #8 basketball card checklist",
+              "\"Ben Gordon\" \"8\" card checklist",
+              "Ben Gordon 2005 Topps Bowman Chrome Draft Picks & Prospects Refractor #8 parallel print run"
+            ],
+            "web_candidates": [
+              {
+                "title": "2005 Topps Bowman Chrome Draft Picks & Prospects Refractor #8 Ben Gordon (136/300)",
+                "identity": {
+                  "is_patch": false,
+                  "is_rookie": true,
+                  "brand_name": "Topps",
+                  "season_end": 2006,
+                  "card_number": "8",
+                  "grade_value": null,
+                  "insert_name": "Draft Picks & Prospects",
+                  "is_numbered": true,
+                  "player_name": "Ben Gordon",
+                  "is_autograph": false,
+                  "product_name": "Bowman Chrome",
+                  "season_start": 2005,
+                  "serial_total": 300,
+                  "grade_company": null,
+                  "parallel_name": "Refractor",
+                  "serial_number": 136,
+                  "autograph_type": "none",
+                  "is_memorabilia": false,
+                  "has_inscription": false,
+                  "rookie_evidence": [],
+                  "inscription_text": null,
+                  "memorabilia_types": [],
+                  "memorabilia_usage": "none",
+                  "memorabilia_player": null
+                },
+                "conflicts": [],
+                "image_url": null,
+                "source_urls": [],
+                "matching_fields": [
+                  "player_name",
+                  "season_start",
+                  "season_end",
+                  "brand_name",
+                  "product_name",
+                  "insert_name",
+                  "parallel_name",
+                  "card_number",
+                  "serial_number",
+                  "serial_total",
+                  "is_numbered",
+                  "is_rookie"
+                ],
+                "match_confidence": "0.99"
+              },
+              {
+                "title": "2005 Topps Bowman Chrome Draft Picks & Prospects Base #8 Ben Gordon (Rookie Card)",
+                "identity": {
+                  "is_patch": false,
+                  "is_rookie": true,
+                  "brand_name": "Topps",
+                  "season_end": 2006,
+                  "card_number": "8",
+                  "grade_value": null,
+                  "insert_name": "Draft Picks & Prospects",
+                  "is_numbered": null,
+                  "player_name": "Ben Gordon",
+                  "is_autograph": false,
+                  "product_name": "Bowman Chrome",
+                  "season_start": 2005,
+                  "serial_total": null,
+                  "grade_company": null,
+                  "parallel_name": null,
+                  "serial_number": null,
+                  "autograph_type": "none",
+                  "is_memorabilia": false,
+                  "has_inscription": false,
+                  "rookie_evidence": [],
+                  "inscription_text": null,
+                  "memorabilia_types": [],
+                  "memorabilia_usage": "none",
+                  "memorabilia_player": null
+                },
+                "conflicts": [
+                  "parallel_name",
+                  "serial_number",
+                  "serial_total",
+                  "is_numbered"
+                ],
+                "image_url": null,
+                "source_urls": [],
+                "matching_fields": [
+                  "player_name",
+                  "season_start",
+                  "season_end",
+                  "brand_name",
+                  "product_name",
+                  "insert_name",
+                  "card_number",
+                  "is_rookie"
+                ],
+                "match_confidence": "0.82"
+              },
+              {
+                "title": "2005 Topps Bowman Chrome Draft Picks & Prospects Refractor #8 Ben Gordon (RC) - PSA Graded",
+                "identity": {
+                  "is_patch": false,
+                  "is_rookie": true,
+                  "brand_name": "Topps",
+                  "season_end": 2006,
+                  "card_number": "8",
+                  "grade_value": null,
+                  "insert_name": "Draft Picks & Prospects",
+                  "is_numbered": null,
+                  "player_name": "Ben Gordon",
+                  "is_autograph": false,
+                  "product_name": "Bowman Chrome",
+                  "season_start": 2005,
+                  "serial_total": null,
+                  "grade_company": "PSA",
+                  "parallel_name": "Refractor",
+                  "serial_number": null,
+                  "autograph_type": "none",
+                  "is_memorabilia": false,
+                  "has_inscription": false,
+                  "rookie_evidence": [],
+                  "inscription_text": null,
+                  "memorabilia_types": [],
+                  "memorabilia_usage": "none",
+                  "memorabilia_player": null
+                },
+                "conflicts": [
+                  "serial_number",
+                  "serial_total",
+                  "is_numbered",
+                  "grade_value"
+                ],
+                "image_url": null,
+                "source_urls": [],
+                "matching_fields": [
+                  "player_name",
+                  "season_start",
+                  "season_end",
+                  "brand_name",
+                  "product_name",
+                  "insert_name",
+                  "parallel_name",
+                  "card_number",
+                  "is_rookie"
+                ],
+                "match_confidence": "0.87"
+              }
+            ],
+            "has_inscription": false,
+            "rookie_evidence": [
+              "背面 REWIND 段落明确提及 'First rookie to win NBA Sixth Man Award'",
+              "背面统计表仅列出 '2004-05*' 赛季数据，且标注 '* Played with Bulls'",
+              "背面选秀信息 'Drafted: Bulls 1st Round 2004'"
+            ],
+            "inscription_text": null,
+            "memorabilia_types": [],
+            "memorabilia_usage": "none",
+            "recognition_model": "qwen3.8-max",
+            "recognition_route": [
+              {
+                "tier": "local_ocr",
+                "model": "apple_vision",
+                "reason": "free_local_anchor_pass",
+                "status": "succeeded",
+                "latency_ms": 1872,
+                "anchored_fields": [
+                  "card_number",
+                  "is_numbered",
+                  "is_rookie",
+                  "serial_number",
+                  "serial_total"
+                ],
+                "estimated_cost_cny": "0"
+              },
+              {
+                "tier": "flash",
+                "model": "qwen3-vl-flash",
+                "reason": "default_low_cost_route",
+                "status": "succeeded",
+                "confidence": "0.95",
+                "latency_ms": 10706,
+                "prompt_tokens": 4227,
+                "quality_issues": [
+                  "model_reported_conflict"
+                ],
+                "completion_tokens": 788,
+                "estimated_cost_cny": "0.001816"
+              },
+              {
+                "tier": "plus",
+                "model": "qwen3-vl-plus",
+                "reason": "flash_quality_gate_failed",
+                "status": "succeeded",
+                "confidence": "0.98",
+                "latency_ms": 21765,
+                "prompt_tokens": 4931,
+                "quality_issues": [
+                  "model_reported_conflict"
+                ],
+                "completion_tokens": 904,
+                "estimated_cost_cny": "0.013971"
+              },
+              {
+                "tier": "max",
+                "model": "qwen3.8-max",
+                "reason": "plus_hard_identity_gate_failed",
+                "status": "succeeded",
+                "confidence": "0.98",
+                "latency_ms": 21963,
+                "prompt_tokens": 4997,
+                "quality_issues": [],
+                "completion_tokens": 1003,
+                "estimated_cost_cny": "0.096072"
+              }
+            ],
+            "memorabilia_player": null,
+            "recognition_status": "resolved",
+            "reference_image_back_url": null,
+            "reference_image_provider": null,
+            "reference_image_front_url": null,
+            "recognition_quality_issues": [],
+            "reference_image_source_url": null,
+            "recognition_estimated_cost_cny": "0.111859",
+            "reference_image_match_confidence": null
+          },
+          "error_message": null,
+          "attempt_count": 1,
+          "started_at": "2026-09-09 08:16:01.736384+08:00",
+          "finished_at": "2026-09-09 08:16:01.739696+08:00",
+          "created_at": "2026-09-09 08:14:31.029347+08:00",
+          "updated_at": "2026-09-09 08:16:01.739696+08:00",
+          "front_original_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/ead5f733-4269-4c52-8bb0-cc08e0d2fbee/front-original.jpg",
+          "back_original_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/ead5f733-4269-4c52-8bb0-cc08e0d2fbee/back-original.jpg",
+          "front_rotation_degrees": 0,
+          "back_rotation_degrees": 0,
+          "front_orientation_confidence": "0.4075",
+          "back_orientation_confidence": "0.9700",
+          "front_orientation_method": "apple_vision_text",
+          "back_orientation_method": "apple_vision_face_text",
+          "front_orientation_corrected_at": "2026-09-09 08:16:01.739696+08:00",
+          "back_orientation_corrected_at": "2026-09-09 08:16:01.739696+08:00",
+          "front_raw_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/ead5f733-4269-4c52-8bb0-cc08e0d2fbee/front-raw.jpg",
+          "back_raw_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/ead5f733-4269-4c52-8bb0-cc08e0d2fbee/back-raw.jpg",
+          "collection_item_id": "1c38e1ac-381c-4db2-aa32-f2c5a878a5c7",
+          "imported_at": "2026-09-09 08:16:01.739696+08:00"
+        },
+        "images": {
+          "front": {
+            "url": "/uploads/1c38e1ac-381c-4db2-aa32-f2c5a878a5c7-front-e3302b1761574f86912f2d071a1d6065.jpg",
+            "sha256": "a47e55a59f8ad12f8bf4a4a6a465aaa29d7f2858af1d5b919f8d6d1bc05aa726"
+          },
+          "back": {
+            "url": "/uploads/1c38e1ac-381c-4db2-aa32-f2c5a878a5c7-back-ca38da8f84ea405a831252ecd2629480.jpg",
+            "sha256": "c664d97c9d30e72bd048b8ef6dd9397eef9d2a1245199f9051875e671f6e1ad7"
+          }
+        }
+      }
+    }
+  ],
+  "applied": [
+    {
+      "display_id": 430,
+      "item_id": "4409dcfe-d93a-4b1e-b459-62dc2960d13a",
+      "old_definition_id": "c52c57a9-c535-446d-ba12-60fbad3fb73a",
+      "new_definition_id": "2aa6bcf1-d41f-486c-92c8-1f372246f3c8",
+      "version_id": "eead93ab-1725-43c9-bdfd-2f38a5db8603",
+      "changed_fields": {
+        "product_name": "Bowman",
+        "insert_name": null
+      },
+      "evidence": "原图正面 Bowman 品牌标志；背面 BOWMAN INSIDER 为履历栏标题，REWIND/SKILLS/NEXT LEVEL 是正文小标题，不是特卡名。保留现有季年，不根据版权年另猜。"
+    },
+    {
+      "display_id": 431,
+      "item_id": "ee8c3da1-5ee5-4c8c-a3b2-2abcea35cdd6",
+      "old_definition_id": "c419be57-d99a-424f-af75-a0c5a5907b8e",
+      "new_definition_id": "331332b7-e155-413f-a7a2-1be2165e4090",
+      "version_id": "7e4410a5-812d-44fd-98d5-55a2f16124b1",
+      "changed_fields": {
+        "card_number": "5",
+        "insert_name": "Magic Numbers"
+      },
+      "evidence": "原图背面顶端明确 No. 5；正面 MAGIC NUMBERS 可读。正面大号 3 为球衣号，不是卡号。"
+    },
+    {
+      "display_id": 441,
+      "item_id": "1cf25dd7-5508-445c-a32c-5e2a8799509b",
+      "old_definition_id": "ba0ad4ed-5242-4ef9-92a8-dde8d96250ed",
+      "new_definition_id": "1093286e-868e-4556-961b-e24db72e794b",
+      "version_id": "ff25a41b-483a-489b-b021-fbf09d173a76",
+      "changed_fields": {
+        "player_name": "Eddie Jones, Paul Pierce, Darrell Armstrong",
+        "product_name": "Topps",
+        "season_end": 2001
+      },
+      "evidence": "原图正面三名人物分别 Eddie Jones / Paul Pierce / Darrell Armstrong，侧栏明确 2000-2001 TOPPS。背面顶端 153，并列前三名，与正面对应。不是从背面十人榜单推断十人卡。"
+    },
+    {
+      "display_id": 442,
+      "item_id": "f7a0d2bf-7786-4dad-a933-59be1b450050",
+      "old_definition_id": "55a5f48b-49f1-4e61-8009-9821109c0663",
+      "new_definition_id": "c50ceb54-73da-4d5b-b97b-c124a5c37151",
+      "version_id": "86fbfcfb-db9c-48c2-afff-3e8d58eedc91",
+      "changed_fields": {
+        "card_number": "5"
+      },
+      "evidence": "原图背面左上明确 No. 5；队徽旁 45 与 12 是球衣号码，不是目录卡号。"
+    },
+    {
+      "display_id": 447,
+      "item_id": "1c38e1ac-381c-4db2-aa32-f2c5a878a5c7",
+      "old_definition_id": "d8818855-4852-48c1-b44b-ed9eb88f04db",
+      "new_definition_id": "f8e31f27-284b-42d5-b022-79d3b5884959",
+      "version_id": "b7475a13-5ec5-40cc-b1fd-3f4d159f2bc0",
+      "changed_fields": {
+        "parallel_name": "Refractor",
+        "insert_name": null,
+        "set_name": "Draft Picks & Prospects"
+      },
+      "evidence": "原图背面右上明确 REFRACTOR；正面明确 2005-06、Bowman Chrome 和 DRAFT PICKS & PROSPECTS BASKETBALL。保留产品线为 set_name，不把整个发行产品线当成特卡。未据金属反光推断限编。"
+    }
+  ]
+}

@@ -1,0 +1,3418 @@
+Warning: truncated output (original token count: 56155)
+Total output lines: 4940
+
+[
+  {
+    "display_id": 428,
+    "identity": {
+      "collection_item_id": "56b22b1e-0201-4ede-815c-e5e64ccd83ee",
+      "card_definition_id": "37417a19-03a6-40e2-8237-ba09a18392dc",
+      "base_currency": "CNY",
+      "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+      "player_name": "Steve Nash",
+      "player_name_aliases": [
+        "Steve Nash"
+      ],
+      "brand_name": "SkyBox",
+      "season_start": 1997,
+      "season_end": null,
+      "product_name": "Premium",
+      "set_name": null,
+      "card_number": "25",
+      "insert_name": null,
+      "parallel_name": null,
+      "is_rookie": true,
+      "is_autograph": false,
+      "autograph_type": "none",
+      "is_memorabilia": false,
+      "memorabilia_types": [],
+      "is_patch": false,
+      "print_run": null,
+      "serial_number": null,
+      "serial_total": null,
+      "grade_company": null,
+      "grade_value": null,
+      "image_front_url": "/uploads/56b22b1e-0201-4ede-815c-e5e64ccd83ee-front-48ca4ee9538d42a88868c1af3f50d599.jpg",
+      "image_back_url": "/uploads/56b22b1e-0201-4ede-815c-e5e64ccd83ee-back-378af339e1db4ddfa04bc78fea7dd173.jpg",
+      "notes": "后台扫描自动录入；识别置信度 83%；待核对：missing_season_end, birthdate_serial_false_positive。识别依据已保留，可编辑并参与估值。",
+      "purchase_context": "从卡片列表初始化买入价",
+      "purchase_venue": null,
+      "purchase_price": "2.00",
+      "confirmed_identity_version_id": null,
+      "latest_identity_review_status": "pending",
+      "scanner_identity_rationale": [
+        "OCR误将'Height'识别为'Heigft'、'Weight'为'Weigit'、'Johannesburg'为'Johanneshurg'，但卡背文字清晰可辨为Height: 6'3\", Weight: 195, Born: 2/7/74, Johannesburg, S. Africa；该错误不影响关键字段判断",
+        "正面左上角金色标签为'PREMIUM'（产品名），非insert或parallel；背面底部'PREMIUM/1/97-98'中'1/97-98'应为发行批次标识，非卡号或限编；serial_number/serial_total来自OCR锚点'2/7'，但卡面无显式x/y标注，仅靠锚点推断，故置信度略降",
+        "birthday_serial_fraction_removed: ignored 2/7 because it is the month/day prefix of a printed player birth date; verify any serial stamp separately",
+        "OCR误将'Height'识别为'Heigft'、'Weight'为'Weigit'、'Johannesburg'为'Johanneshurg'，但卡背文字清晰可辨为Height: 6'3\", Weight: 195, Born: 2/7/74, Johannesburg, S. Africa；该错误不影响关键字段判断",
+        "正面左上角金色标签为'PREMIUM'（产品名），非insert或parallel；背面底部'PREMIUM/1/97-98'中'1/97-98'为发行批次标识，非卡号或限编",
+        "serial_number/serial_total来自OCR锚点'2/7'，但卡面无显式x/y标注；经TCDB与Beckett交叉验证，该系列#25存在编号版（2/7）及非编号版，且'2/7'印刷位置独立于 birthday 字段，确认为真实序列",
+        "未发现官方高清图源直链；TCDB条目确认该卡存在，但未提供原始图片；Beckett仅列价格数据；Cardboard Connection 提供系列概览但未细分至#25编号版",
+        "发行赛季仅有推断性证据，已清空并等待卡背或目录核验",
+        "发行赛季证据来自统计/履历/选秀文字，已弃用；仅保留独立版权年份",
+        "is_autograph=false 缺少字段级图片证据，已改为未知",
+        "is_memorabilia=false 缺少字段级图片证据，已改为未知",
+        "发行赛季仅有推断性证据，已清空并等待卡背或目录核验",
+        "发行赛季证据来自统计/履历/选秀文字，已弃用；仅保留独立版权年份"
+      ],
+      "scanner_identity_example_links": [],
+      "insert": null,
+      "parallel": null,
+      "evidence": {
+        "player_name": [
+          {
+            "source": "database",
+            "value": "Steve Nash"
+          }
+        ],
+        "season_start": [
+          {
+            "source": "database",
+            "value": 1997
+          }
+        ],
+        "brand_name": [
+          {
+            "source": "database",
+            "value": "SkyBox"
+          }
+        ],
+        "product_name": [
+          {
+            "source": "database",
+            "value": "Premium"
+          }
+        ],
+        "card_number": [
+          {
+            "source": "database",
+            "value": "25"
+          }
+        ],
+        "is_rookie": [
+          {
+            "source": "database",
+            "value": true
+          }
+        ],
+        "is_autograph": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_memorabilia": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_patch": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ]
+      },
+      "conflicts": []
+    },
+    "valuation": {
+      "id": "9467941d-8650-4b89-a5e8-914df710a2a6",
+      "collection_item_id": "56b22b1e-0201-4ede-815c-e5e64ccd83ee",
+      "valued_at": "2026-09-09T08:57:29.720895+08:00",
+      "method": "ai_estimate",
+      "currency": "CNY",
+      "low_value": 9.0,
+      "fair_value": 20.01,
+      "high_value": 33.02,
+      "confidence": 0.18,
+      "evidence": {
+        "notes": [
+          "来源诊断 cardhobby: succeeded, 抓取候选 8",
+          "数据来自卡淘公开 SearchCommodity 接口，Status=-2；有出价的结束拍卖作为卡淘结束价参考，未宣称已付款。",
+          "查询反馈：steve nash 25 → 原始60、可解析60、通过0、拒绝60；结论=too_broad_refine；主要拒绝=标题未命中目标产品系列×29、签字属性与目标卡不一致×23、目标为裸卡，但卡淘成交疑似评级卡×4",
+          "查询反馈：Steve Nash 25 → 原始60、可解析60、通过0、拒绝60；结论=too_broad_refine；主要拒绝=标题未命中目标产品系列×29、签字属性与目标卡不一致×23、目标为裸卡，但卡淘成交疑似评级卡×4",
+          "查询反馈：steve nash premium base → 原始2、可解析2、通过0、拒绝2；结论=identity_gate_rejected；主要拒绝=标题明确卡号与目标卡号不一致×1、目标为裸卡，但卡淘成交疑似评级卡×1",
+          "查询反馈：steve nash premium 25 → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：Steve Nash premium 25 → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：steve nash premium → 原始19、可解析19、通过8、拒绝11；结论=accepted；主要拒绝=签字属性与目标卡不一致×8、目标为裸卡，但卡淘成交疑似评级卡×2、标题明确卡号与目标卡号不一致×1",
+          "查询反馈：Steve Nash premium → 原始19、可解析19、通过8、拒绝11；结论=accepted；主要拒绝=签字属性与目标卡不一致×8、目标为裸卡，但卡淘成交疑似评级卡×2、标题明确卡号与目标卡号不一致×1",
+          "查询反馈：steve nash 1997 premium → 原始2、可解析2、通过2、拒绝0；结论=accepted",
+          "查询反馈：Steve Nash 1997 premium → 原始2、可解析2、通过2、拒绝0；结论=accepted",
+          "查询反馈：steve nash → 原始60、可解析60、通过0、拒绝60；结论=too_broad_refine；主要拒绝=标题未命中目标产品系列×29、签字属性与目标卡不一致×15、目标为裸卡，但卡淘成交疑似评级卡×8",
+          "查询反馈：steve nash premium RC → 原始6、可解析6、通过3、拒绝3；结论=accepted；主要拒绝=签字属性与目标卡不一致×2、目标为裸卡，但卡淘成交疑似评级卡×1",
+          "查询反馈：steve nash 1997 premium 25 → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "按当前身份重新校验 2 条同卡定义历史成交",
+          "市场数据新鲜度：cached",
+          "成交证据截至：2026-06-07T21:20:10+08:00",
+          "已在估值前剔除 4 条身份冲突缓存成交",
+          "DeepSeek 证据复核未发现可执行的高置信度硬冲突"
+        ],
+        "risk_flags": [
+          "relative_candidate_tier_T2",
+          "cardhobby_same_type_proxy_range",
+          "single_cardhobby_proxy_sale",
+          "interval_wider_than_center"
+        ],
+        "search_queries": [
+          "卡淘已售接口[strong_anchor]：steve nash 25 (召回60/通过0;too_broad_refine)",
+          "卡淘已售接口[strong_anchor]：Steve Nash 25 (召回60/通过0;too_broad_refine)",
+          "卡淘已售接口[explicit_base]：steve nash premium base (召回2/通过0;identity_gate_rejected)",
+          "卡淘已售接口[refine_product]：steve nash premium 25 (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[refine_product]：Steve Nash premium 25 (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[relax_product]：steve nash premium (召回19/通过8;accepted)",
+          "卡淘已售接口[relax_product]：Steve Nash premium (召回19/通过8;accepted)",
+          "卡淘已售接口[release_year]：steve nash 1997 premium (召回2/通过2;accepted)",
+          "卡淘已售接口[release_year]：Steve Nash 1997 premium (召回2/通过2;accepted)",
+          "卡淘已售接口[broad_player]：steve nash (召回60/通过0;too_broad_refine)",
+          "卡淘已售接口[legacy_recovery]：steve nash premium RC (召回6/通过3;accepted)",
+          "卡淘已售接口[legacy_recovery]：steve nash 1997 premium 25 (召回0/通过0;zero_results_relax)"
+        ],
+        "selection_policy": "strongest_non_conflicting_relative_tier",
+        "used_comparables": [
+          {
+            "tier": "T2",
+            "title": "1997-98 SkyBox Premium Steve Nash 太阳 史蒂夫 纳什 风之子 经典老特 老卡 收藏必备 （新安洲）",
+            "source_url": "https://cardhobby.com.cn/Market/Item/115951487",
+            "classification": {
+              "field_matches": {
+                "grade": true,
+                "insert": false,
+                "player": true,
+                "season": true,
+                "visual": true,
+                "product": true,
+                "parallel": false,
+                "card_number": false,
+                "serial_total": false,
+                "season_visual_override": false,
+                "visual_geometry_override": false,
+                "ambiguous_finish_softened": false,
+                "cardhobby_identity_contract": true,
+                "visual_same_template_anchor": false,
+                "partial_multi_player_visual_confirmation": false
+              },
+              "hard_conflicts": [],
+              "cardhobby_provider_tier": "same_player_product_analog",
+              "gate_disagreement_softened": true,
+              "cardhobby_provider_rejection_reasons": []
+            },
+            "market_comp_id": "3ccbe638-4681-4bd8-b16e-099a9a299eb8",
+            "visual_verdict": "same",
+            "visual_confidence": "0.95"
+          }
+        ],
+        "rejected_comparables": [
+          {
+            "id": "555f62dd-6a63-47b8-9c56-11449cf71625",
+            "reasons": [
+              "identity_conflict"
+            ]
+          }
+        ],
+        "automatic_publication": true
+      },
+      "model_version": "relative-multimodal-comps-1.0",
+      "created_at": "2026-09-09T08:57:29.720895+08:00",
+      "identity_compatibility": "unknown",
+      "identity_compatibility_reasons": []
+    },
+    "rejected_sources": [],
+    "sources": [
+      {
+        "id": "3ccbe638-4681-4bd8-b16e-099a9a299eb8",
+        "source_url": "https://cardhobby.com.cn/Market/Item/115951487",
+        "listing_title": "1997-98 SkyBox Premium Steve Nash 太阳 史蒂夫 纳什 风之子 经典老特 老卡 收藏必备 （新安洲）",
+        "sale_price": "20.01",
+        "shipping_price": "14.00",
+        "currency": "CNY",
+        "occurred_at": "2026-06-07 21:20:10+08:00",
+        "source_code": "cardhobby",
+        "evidence_level": "ended_auction",
+        "visual": {
+          "visual_verdict": "same",
+          "visual_confidence": "0.95",
+          "visual_reasons": [
+            "球衣号码'13'位于球衣正中央偏右，与目标卡位置一致；号码整体倾斜角度相同（约-5度），无明显透视拉伸；人物头肩及双手姿态、在卡面左右位置完全一致；Logo、卡名'STEVE NASH'及下方'PHOENIX SUNS • G'文字位置、字体、大小均一致；左上角'PREMIUM'金箔标样式、颜色、位置与目标卡一致；仅背景色略深（可能为拍摄环境或卡片批次差异），但核心视觉元素完全匹配。",
+            "geometry_same_template:matches=476,inliers=441,ratio=0.926"
+          ]
+        },
+        "reclassified": {
+          "tier": "T2",
+          "similarity": "0.60",
+          "source_reliability": "0.7000",
+          "field_matches": {
+            "player": true,
+            "partial_multi_player_visual_confirmation": false,
+            "season": true,
+            "product": true,
+            "card_number": false,
+            "insert": false,
+            "parallel": false,
+            "serial_total": false,
+            "grade": true,
+            "visual": true,
+            "season_visual_override": false,
+            "visual_geometry_override": false,
+            "ambiguous_finish_softened": false,
+            "visual_same_template_anchor": false,
+            "cardhobby_identity_contract": true
+          },
+          "hard_conflicts": []
+        },
+        "provider_tier": "same_player_product_analog",
+        "provider_rejections": []
+      }
+    ]
+  },
+  {
+    "display_id": 431,
+    "identity": {
+      "collection_item_id": "ee8c3da1-5ee5-4c8c-a3b2-2abcea35cdd6",
+      "card_definition_id": "331332b7-e155-413f-a7a2-1be2165e4090",
+      "base_currency": "CNY",
+      "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+      "player_name": "TY LAWSON",
+      "player_name_aliases": [
+        "TY LAWSON"
+      ],
+      "brand_name": "Panini",
+      "season_start": 2012,
+      "season_end": 2013,
+      "product_name": "Brilliance Basketball",
+      "set_name": null,
+      "card_number": "5",
+      "insert_name": "Magic Numbers",
+      "parallel_name": null,
+      "is_rookie": false,
+      "is_autograph": false,
+      "autograph_type": "none",
+      "is_memorabilia": false,
+      "memorabilia_types": [],
+      "is_patch": false,
+      "print_run": null,
+      "serial_number": null,
+      "serial_total": null,
+      "grade_company": null,
+      "grade_value": null,
+      "image_front_url": "/uploads/ee8c3da1-5ee5-4c8c-a3b2-2abcea35cdd6-front-e863ab348da347188f5f160669b591b4.jpg",
+      "image_back_url": "/uploads/ee8c3da1-5ee5-4c8c-a3b2-2abcea35cdd6-back-c94466fc7c2b4fc381bc1d229f8d257d.jpg",
+      "notes": "后台扫描自动录入；识别置信度 83%。识别依据已保留，可编辑并参与估值。",
+      "purchase_context": "从卡片列表初始化买入价",
+      "purchase_venue": null,
+      "purchase_price": "1.00",
+      "confirmed_identity_version_id": null,
+      "latest_identity_review_status": "pending",
+      "scanner_identity_rationale": [
+        "正面显示球员球衣号码为3，背面卡号标注为No. 5；但OCR与背面文字一致确认卡号为3，限编5/5应为编号而非卡号，故以背面编号和正面卡面数字为准，卡号3与编号5并存属正常设计（如主卡+编号副卡组合），无矛盾",
+        "TCDB、Beckett 和 Cardboard Connection 均将该卡列为 Base（基础卡）而非Insert或Parallel；'Brilliance'在此系列中为产品主名称，非插入子系列，故 insert_name 字段保留为 'Brilliance' 符合官方归类",
+        "所有权威来源均未标注此卡为RC（Rookie Card）——Ty Lawson's rookie year was 2009–10 (2009 Panini Prizm, etc.)，本卡为生涯第4赛季，confirmed non-rookie",
+        "无证据支持存在Autograph或Memorabilia版本：TCDB/Beckett/CardboardConnection 页面均未列出任何带签或带布版本，且本卡图像中无签名栏、无布料嵌入、无‘Patch’/‘Swatch’字样",
+        "限编缺少图片中可见的 x/y 分数证据，已清空",
+        "特卡名与产品名重复，缺少独立卡面证据，已留空",
+        "is_rookie=false 缺少字段级图片证据，已改为未知",
+        "2026-09-09 原图身份审计；仅修正逐项可见字段，历史识别原值保存于不可变审计。"
+      ],
+      "scanner_identity_example_links": [],
+      "insert": "Magic Numbers",
+      "parallel": null,
+      "evidence": {
+        "player_name": [
+          {
+            "source": "database",
+            "value": "TY LAWSON"
+          }
+        ],
+        "season_start": [
+          {
+            "source": "database",
+            "value": 2012
+          }
+        ],
+        "season_end": [
+          {
+            "source": "database",
+            "value": 2013
+          }
+        ],
+        "brand_name": [
+          {
+            "source": "database",
+            "value": "Panini"
+          }
+        ],
+        "product_name": [
+          {
+            "source": "database",
+            "value": "Brilliance Basketball"
+          }
+        ],
+        "card_number": [
+          {
+            "source": "database",
+            "value": "5"
+          }
+        ],
+        "insert": [
+          {
+            "source": "database",
+            "value": "Magic Numbers"
+          }
+        ],
+        "is_rookie": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_autograph": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_memorabilia": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_patch": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ]
+      },
+      "conflicts": []
+    },
+    "valuation": {
+      "id": "462303c6-c8f0-451c-841f-8492b9667208",
+      "collection_item_id": "ee8c3da1-5ee5-4c8c-a3b2-2abcea35cdd6",
+      "valued_at": "2026-09-09T09:07:22.869742+08:00",
+      "method": "ai_estimate",
+      "currency": "CNY",
+      "low_value": 1.3,
+      "fair_value": 2.0,
+      "high_value": 2.7,
+      "confidence": 0.45,
+      "evidence": {
+        "notes": [
+          "来源诊断 cardhobby: succeeded, 抓取候选 2",
+          "数据来自卡淘公开 SearchCommodity 接口，Status=-2；有出价的结束拍卖作为卡淘结束价参考，未宣称已付款。",
+          "查询反馈：ty lawson 5 → 原始7、可解析7、通过0、拒绝7；结论=identity_gate_rejected；主要拒绝=签字属性与目标卡不一致×3、产品赛季与目标卡不一致或无法确认×2、标题未命中目标产品系列×1",
+          "查询反馈：ty lawson magic numbers → 原始1、可解析1、通过1、拒绝0；结论=accepted",
+          "查询反馈：ty lawson 2012-13 magic numbers → 原始1、可解析1、通过1、拒绝0；结论=accepted",
+          "查询反馈：ty lawson brilliance → 原始5、可解析5、通过2、拒绝3；结论=accepted；主要拒绝=物料/球衣属性与目标卡不一致×3",
+          "查询反馈：ty lawson brilliance basketball → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：magic numbers brilliance → 原始41、可解析41、通过1、拒绝40；结论=accepted；主要拒绝=标题未命中目标球员×33、物料/球衣属性与目标卡不一致×5、标题疑似多卡、套卡或未拆产品×1",
+          "查询反馈：TL magic numbers brilliance → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：lawson magic numbers brilliance → 原始1、可解析1、通过1、拒绝0；结论=accepted",
+          "查询反馈：ty lawson brilliance 5 → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：ty lawson brilliance magic numbers → 原始1、可解析1、通过1、拒绝0；结论=accepted",
+          "查询反馈：ty lawson brilliance basketball magic numbers → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：ty lawson 2012-13 brilliance basketball 5 → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "市场数据新鲜度：cached",
+          "成交证据截至：2026-08-22T20:44:04+08:00",
+          "已在估值前剔除 1 条身份冲突缓存成交",
+          "DeepSeek 证据复核未发现可执行的高置信度硬冲突"
+        ],
+        "risk_flags": [
+          "fewer_than_two_exact_sales"
+        ],
+        "search_queries": [
+          "卡淘已售接口[strong_anchor]：ty lawson 5 (召回7/通过0;identity_gate_rejected)",
+          "卡淘已售接口[strong_anchor]：ty lawson magic numbers (召回1/通过1;accepted)",
+          "卡淘已售接口[season_insert]：ty lawson 2012-13 magic numbers (召回1/通过1;accepted)",
+          "卡淘已售接口[relax_product]：ty lawson brilliance (召回5/通过2;accepted)",
+          "卡淘已售接口[product_spelling_rotation]：ty lawson brilliance basketball (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[insert_product_no_player]：magic numbers brilliance (召回41/通过1;accepted)",
+          "卡淘已售接口[player_discovery_alias]：TL magic numbers brilliance (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[player_discovery_alias]：lawson magic numbers brilliance (召回1/通过1;accepted)",
+          "卡淘已售接口[refine_product]：ty lawson brilliance 5 (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[refine_product]：ty lawson brilliance magic numbers (召回1/通过1;accepted)",
+          "卡淘已售接口[knowledge_alias]：ty lawson brilliance basketball magic numbers (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[knowledge_alias]：ty lawson 2012-13 brilliance basketball 5 (召回0/通过0;zero_results_relax)"
+        ],
+        "selection_policy": "strongest_non_conflicting_relative_tier",
+        "used_comparables": [
+          {
+            "tier": "T0",
+            "title": "2012-13 Panini Brilliance TY LAWSON 【比糖拍卖】‌泰 劳森 银版SP Magic Numbers 背号特卡 投资首选轻印（老利利利",
+            "source_url": "https://cardhobby.com.cn/Market/Item/129070468",
+            "classification": {
+              "field_matches": {
+                "grade": true,
+                "insert": true,
+                "player": true,
+                "season": true,
+                "visual": true,
+                "product": true,
+                "parallel": false,
+                "card_number": false,
+                "serial_total": false,
+                "season_visual_override": false,
+                "visual_geometry_override": false,
+                "ambiguous_finish_softened": false,
+                "visual_same_template_anchor": true,
+                "partial_multi_player_visual_confirmation": false
+              },
+              "hard_conflicts": [],
+              "cardhobby_provider_tier": "exact_or_near_exact",
+              "gate_disagreement_softened": false,
+              "cardhobby_provider_rejection_reasons": []
+            },
+            "market_comp_id": "39f5d076-f43e-4211-a2f5-52fce87f66fd",
+            "visual_verdict": "same",
+            "visual_confidence": "0.95"
+          }
+        ],
+        "rejected_comparables": [],
+        "automatic_publication": true
+      },
+      "model_version": "relative-multimodal-comps-1.0",
+      "created_at": "2026-09-09T09:07:22.869742+08:00",
+      "identity_compatibility": "unknown",
+      "identity_compatibility_reasons": []
+    },
+    "rejected_sources": [],
+    "sources": [
+      {
+        "id": "39f5d076-f43e-4211-a2f5-52fce87f66fd",
+        "source_url": "https://cardhobby.com.cn/Market/Item/129070468",
+        "listing_title": "2012-13 Panini Brilliance TY LAWSON 【比糖拍卖】‌泰 劳森 银版SP Magic Numbers 背号特卡 投资首选轻印（老利利利",
+        "sale_price": "2.00",
+        "shipping_price": "16.00",
+        "currency": "CNY",
+        "occurred_at": "2026-08-22 20:44:04+08:00",
+        "source_code": "cardhobby",
+        "evidence_level": "ended_auction",
+        "visual": {
+          "visual_verdict": "same",
+          "visual_confidence": "0.95",
+          "visual_reasons": [
+            "球员姓名 'T.Y. LAWSON' 在左侧竖排位置与目标卡完全一致，字体、大小、间距相同。",
+            "主图球员球衣号码 '3' 的位置（位于胸前中央偏左）、颜色、字体风格、倾斜角度与目标卡一致；右侧小图中投篮球员的号码 '3' 位置、字体、透视关系与目标卡一致。",
+            "主图球员姿态：持球运球，头部微侧，左手自然下垂，右手持球于腰侧，与目标卡完全一致；右侧小图球员为跳投姿态，双手举球过头，与目标卡一致。",
+            "人物在卡面左右分布比例一致：主图占左约2/3，右侧小图占右约1/3，布局无变化。",
+            "Logo与文字区域：顶部 'PANINI BRILLIANCE BASKETBALL' 字体、位置、金色浮雕效果与目标卡一致；底部 'DENVER NUGGETS MAGIC NUMBERS' 文字位置、字体、大小一致。",
+            "物料窗特征：右侧大号数字 '3' 为凹刻/浮雕窗，边缘轮廓、内部阴影与目标卡一致，非普通印刷或贴纸。",
+            "边框与整体模板：整张卡背景色系（深蓝-金渐变）、分隔线位置、金属光泽质感与目标卡一致。",
+            "geometry_same_template:matches=222,inliers=190,ratio=0.856"
+          ]
+        },
+        "reclassified": {
+          "tier": "T0",
+          "similarity": "1.00",
+          "source_reliability": "0.7000",
+          "field_matches": {
+            "player": true,
+            "partial_multi_player_visual_confirmation": false,
+            "season": true,
+            "product": true,
+            "card_number": false,
+            "insert": true,
+            "parallel": false,
+            "serial_total": false,
+            "grade": true,
+            "visual": true,
+            "season_visual_override": false,
+            "visual_geometry_override": false,
+            "ambiguous_finish_softened": false,
+            "visual_same_template_anchor": true
+          },
+          "hard_conflicts": []
+        },
+        "provider_tier": "exact_or_near_exact",
+        "provider_rejections": []
+      }
+    ]
+  },
+  {
+    "display_id": 437,
+    "identity": {
+      "collection_item_id": "384ed08b-562b-4c36-80b4-c88103f09674",
+      "card_definition_id": "4c1e42d8-4746-4017-839d-4585323e34b9",
+      "base_currency": "CNY",
+      "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+      "player_name": "DERIK QUEEN",
+      "player_name_aliases": [
+        "DERIK QUEEN"
+      ],
+      "brand_name": "Panini",
+      "season_start": 2025,
+      "season_end": 2026,
+      "product_name": "Prizm",
+      "set_name": null,
+      "card_number": "12",
+      "insert_name": "Brilliance",
+      "parallel_name": null,
+      "is_rookie": true,
+      "is_autograph": false,
+      "autograph_type": "none",
+      "is_memorabilia": false,
+      "memorabilia_types": [],
+      "is_patch": false,
+      "print_run": 249,
+      "serial_number": 194,
+      "serial_total": 249,
+      "grade_company": null,
+      "grade_value": null,
+      "image_front_url": "/uploads/384ed08b-562b-4c36-80b4-c88103f09674-front-6173a809313c4167a72d730bd777b9cf.jpg",
+      "image_back_url": "/uploads/384ed08b-562b-4c36-80b4-c88103f09674-back-5bb2c65007004b9d993a3f8eed2975b0.jpg",
+      "notes": "后台扫描自动录入；识别置信度 86%。识别依据已保留，可编辑并参与估值。",
+      "purchase_context": "从卡片列表初始化买入价",
+      "purchase_venue": null,
+      "purchase_price": "2.00",
+      "confirmed_identity_version_id": null,
+      "latest_identity_review_status": "pending",
+      "scanner_identity_rationale": [
+        "正面顶部印刷为 'BRILLIANCE'（OCR误为 BRILLANOE），背面无该词；依据 Panini Prizm 2025-26 产品结构及视觉设计（蓝紫折射+几何星芒+银箔标题）确认为 Brilliance insert，非泛化平行名",
+        "背面右下角 '斯坦李就星卡' 为 Stanley Cards 的中文音译/本地化标注，非独立品牌；Stanley Cards 是经销商/渠道标识，不影响 brand_name=Panini",
+        "正面与背面均无颜色/纹理专属平行标识（如 Red、Gold、X-Fractor），仅含通用 PRIZM 工艺 Logo，故 parallel_name=null；不能将工艺名 PRIZM 误作平行名",
+        "Brilliance 是 2025–26 Panini Prizm 的标准 insert（非平行），TCDB 和 Beckett 均将其归类于 Base Set 下的 insert 分支，而非独立平行线；故 parallel_name 保持 null 符合官方分类",
+        "TCDB 条目明确列出该卡为 '194/249' 编号版，且标注 'Rookie Card'，与视觉字段完全一致；Beckett 和 Cardboard Connection 页面虽未显示限编数据，但确认其为 Brilliance insert #12 RC",
+        "所有权威来源均未将此卡列为 Autograph 或 Memorabilia —— 无签名区、无布料图示、无 'MEM', 'RELIC', 'JERSEY' 字样，排除误判可能"
+      ],
+      "scanner_identity_example_links": [],
+      "insert": "Brilliance",
+      "parallel": null,
+      "evidence": {
+        "player_name": [
+          {
+            "source": "database",
+            "value": "DERIK QUEEN"
+          }
+        ],
+        "season_start": [
+          {
+            "source": "database",
+            "value": 2025
+          }
+        ],
+        "season_end": [
+          {
+            "source": "database",
+            "value": 2026
+          }
+        ],
+        "brand_name": [
+          {
+            "source": "database",
+            "value": "Panini"
+          }
+        ],
+        "product_name": [
+          {
+            "source": "database",
+            "value": "Prizm"
+          }
+        ],
+        "card_number": [
+          {
+            "source": "database",
+            "value": "12"
+          }
+        ],
+        "serial_number": [
+          {
+            "source": "database",
+            "value": 194
+          }
+        ],
+        "serial_total": [
+          {
+            "source": "database",
+            "value": 249
+          }
+        ],
+        "insert": [
+          {
+            "source": "database",
+            "value": "Brilliance"
+          }
+        ],
+        "is_rookie": [
+          {
+            "source": "database",
+            "value": true
+          }
+        ],
+        "is_autograph": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_memorabilia": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_patch": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ]
+      },
+      "conflicts": []
+    },
+    "valuation": {
+      "id": "21768b44-e081-405a-a486-a688900469ca",
+      "collection_item_id": "384ed08b-562b-4c36-80b4-c88103f09674",
+      "valued_at": "2026-09-09T08:57:36.971411+08:00",
+      "method": "ai_estimate",
+      "currency": "CNY",
+      "low_value": 0.6,
+      "fair_value": 1.0,
+      "high_value": 1.4,
+      "confidence": 0.26,
+      "evidence": {
+        "notes": [
+          "按当前身份重新校验 3 条同卡定义历史成交",
+          "市场数据新鲜度：cached",
+          "成交证据截至：2026-09-06T14:49:00+08:00",
+          "DeepSeek 证据复核未发现可执行的高置信度硬冲突"
+        ],
+        "risk_flags": [
+          "relative_candidate_tier_T2",
+          "cardhobby_same_type_proxy_range",
+          "single_provider_concentration"
+        ],
+        "search_queries": [],
+        "selection_policy": "strongest_non_conflicting_relative_tier",
+        "used_comparables": [
+          {
+            "tier": "T2",
+            "title": "【小旋风拍卖】2025‑26 Panini Prizm Derik Queen RC 德里克 奎因 鹈鹕 新秀 Brilliance 光辉 特卡 银折 收藏必备72（汤姆）",
+            "source_url": "https://cardhobby.com.cn/Market/Item/133508985",
+            "classification": {
+              "field_matches": {
+                "grade": true,
+                "insert": true,
+                "player": true,
+                "season": true,
+                "visual": true,
+                "product": true,
+                "parallel": false,
+                "card_number": false,
+                "serial_total": false,
+                "season_visual_override": false,
+                "visual_geometry_override": false,
+                "ambiguous_finish_softened": false,
+                "visual_same_template_anchor": false,
+                "partial_multi_player_visual_confirmation": false
+              },
+              "hard_conflicts": [],
+              "cardhobby_provider_tier": "same_player_product_analog",
+              "gate_disagreement_softened": false,
+              "cardhobby_provider_rejection_reasons": []
+            },
+            "market_comp_id": "3ca09429-ccb6-40a2-bcfb-2300f419e66e",
+            "visual_verdict": "same",
+            "visual_confidence": "0.95"
+          },
+          {
+            "tier": "T2",
+            "title": "2025-26 Panini Prizm VJ Edgecombe RC 【梦云】PZ 新秀 埃奇库姆、奎因、特雷 约翰逊 三世 Fireworks、Brilliance 特卡 银折 不保卡品 情",
+            "source_url": "https://cardhobby.com.cn/Market/Item/128450823",
+            "classification": {
+              "field_matches": {
+                "grade": true,
+                "insert": true,
+                "player": true,
+                "season": true,
+                "visual": false,
+                "product": true,
+                "parallel": false,
+                "card_number": false,
+                "serial_total": false,
+                "season_visual_override": false,
+                "visual_geometry_override": true,
+                "ambiguous_finish_softened": false,
+                "visual_same_template_anchor": false,
+                "partial_multi_player_visual_confirmation": false
+              },
+              "hard_conflicts": [],
+              "cardhobby_provider_tier": "same_player_product_analog",
+              "gate_disagreement_softened": false,
+              "cardhobby_provider_rejection_reasons": []
+            },
+            "market_comp_id": "3ca72bf1-21bf-4414-9acb-2ec7d641c6f2",
+            "visual_verdict": "different",
+            "visual_confidence": "0.98"
+          },
+          {
+            "tier": "T2",
+            "title": "【UD代卖最高预付80%-Fox郭】2025-26 Panini Prizm 篮球PZ Derik Queen 德里克 奎因 鹈鹕 新秀 RC Brilliance 特卡 收藏必备 微瑕",
+            "source_url": "https://cardhobby.com.cn/Market/Item/127086100",
+            "classification": {
+              "field_matches": {
+                "grade": true,
+                "insert": true,
+                "player": true,
+                "season": true,
+                "visual": true,
+                "product": true,
+                "parallel": false,
+                "card_number": false,
+                "serial_total": false,
+                "season_visual_override": false,
+                "visual_geometry_override": false,
+                "ambiguous_finish_softened": false,
+                "visual_same_template_anchor": false,
+                "partial_multi_player_visual_confirmation": false
+              },
+              "hard_conflicts": [],
+              "cardhobby_provider_tier": "same_player_product_analog",
+              "gate_disagreement_softened": false,
+              "cardhobby_provider_rejection_reasons": []
+            },
+            "market_comp_id": "91a924c8-d4e0-43f9-8cbe-779bccac631c",
+            "visual_verdict": "same",
+            "visual_confidence": "0.97"
+          }
+        ],
+        "rejected_comparables": [],
+        "automatic_publication": true
+      },
+      "model_version": "relative-multimodal-comps-1.0",
+      "created_at": "2026-09-09T08:57:36.971411+08:00",
+      "identity_compatibility": "unknown",
+      "identity_compatibility_reasons": []
+    },
+    "rejected_sources": [
+      "https://cardhobby.com.cn/Market/Item/128450823"
+    ],
+    "sources": [
+      {
+        "id": "3ca09429-ccb6-40a2-bcfb-2300f419e66e",
+        "source_url": "https://cardhobby.com.cn/Market/Item/133508985",
+        "listing_title": "【小旋风拍卖】2025‑26 Panini Prizm Derik Queen RC 德里克 奎因 鹈鹕 新秀 Brilliance 光辉 特卡 银折 收藏必备72（汤姆）",
+        "sale_price": "1.00",
+        "shipping_price": "18.00",
+        "currency": "CNY",
+        "occurred_at": "2026-09-06 14:49:00+08:00",
+        "source_code": "cardhobby",
+        "evidence_level": "ended_auction",
+        "visual": {
+          "visual_verdict": "same",
+          "visual_confidence": "0.95",
+          "visual_reasons": [
+            "球员为Derik Queen，球衣号码22，队名NEW ORLEANS，Rookie RC Card标识一致；",
+            "卡面主视觉模板完全一致：顶部'BRILLIANCE'字体、V形几何边框结构、背景紫蓝渐变光效、底部PRIZM标志与姓名条布局完全相同；",
+            "号码'22'在球衣背部位置居中偏右（从球员视角），倾斜角度一致（微向右上倾斜），无透视拉伸；",
+            "人物姿态为侧后方回头望，左手抬至耳侧，头肩比例与双手位置与目标卡一致；",
+            "Logo（PRIZM）、卡名（DERIK QUEEN）、球队名（NEW ORLEANS）及右下角'Rookie RC Card'徽章位置、大小、字体均匹配；",
+            "材质差异（候选1为彩虹银折，目标为蓝色底纹银折）属于同一平行层级内不同折射效果，不影响同卡判定。",
+            "geometry_same_template:matches=84,inliers=65,ratio=0.774"
+          ]
+        },
+        "reclassified": {
+          "tier": "T2",
+          "similarity": "0.60",
+          "source_reliability": "0.7000",
+          "field_matches": {
+            "player": true,
+            "partial_multi_player_visual_confirmation": false,
+            "season": true,
+            "product": true,
+            "card_number": false,
+            "insert": true,
+            "parallel": false,
+            "serial_total": false,
+            "grade": true,
+            "visual": true,
+            "season_visual_override": false,
+            "visual_geometry_override": false,
+            "ambiguous_finish_softened": false,
+            "visual_same_template_anchor": false
+          },
+          "hard_conflicts": []
+        },
+        "provider_tier": "same_player_product_analog",
+        "provider_rejections": []
+      },
+      {
+        "id": "3ca72bf1-21bf-4414-9acb-2ec7d641c6f2",
+        "source_url": "https://cardhobby.com.cn/Market/Item/128450823",
+        "listing_title": "2025-26 Panini Prizm VJ Edgecombe RC 【梦云】PZ 新秀 埃奇库姆、奎因、特雷 约翰逊 三世 Fireworks、Brilliance 特卡 银折 不保卡品 情",
+        "sale_price": "1.00",
+        "shipping_price": "18.00",
+        "currency": "CNY",
+        "occurred_at": "2026-08-14 21:10:00+08:00",
+        "source_code": "cardhobby",
+        "evidence_level": "ended_auction",
+        "visual": {
+          "visual_verdict": "different",
+          "visual_confidence": "0.98",
+          "visual_reasons": [
+            "球员为VJ Edgecombe（右侧卡片）和Tre Johnson III（上方卡片），非Derik Queen；",
+            "尽管同属'Brilliance'系列，但卡面主题明显不同：候选2中出现'FIREWORKS'竖排文字、烟花背景、不同球衣配色（红/蓝白），而目标卡为纯紫蓝光效背景；",
+            "人物姿态显著不同：候选2中球员持球站立或运球，目标卡为侧后方回头姿态；",
+            "Logo与文字布局存在差异：候选2的'FIREWORKS'为独立竖条设计，占据左侧边框，而目标卡无此元素；",
+            "卡型明确标注为'Fireworks'而非'Brilliance'，属于不同Insert类别；",
+            "因此，不仅球员不同，卡型、Insert、视觉模板均不一致，verdict=different。",
+            "geometry_same_template:matches=31,inliers=17,ratio=0.548"
+          ]
+        },
+        "reclassified": {
+          "tier": "rejected",
+          "similarity": "0",
+          "source_reliability": "0.7000",
+          "field_matches": {},
+          "hard_conflicts": [
+            "lot_or_multi_card",
+            "visual_identity_conflict",
+            "cardhobby_provider_identity_conflict"
+          ]
+        },
+        "provider_tier": null,
+        "provider_rejections": [
+          "标题疑似多卡、套卡或未拆产品"
+        ]
+      },
+      {
+        "id": "91a924c8-d4e0-43f9-8cbe-779bccac631c",
+        "source_url": "https://cardhobby.com.cn/Market/Item/127086100",
+        "listing_title": "【UD代卖最高预付80%-Fox郭】2025-26 Panini Prizm 篮球PZ Derik Queen 德里克 奎因 鹈鹕 新秀 RC Brilliance 特卡 收藏必备 微瑕",
+        "sale_price": "1.00",
+        "shipping_price": "18.00",
+        "currency": "CNY",
+        "occurred_at": "2026-08-07 21:49:45+08:00",
+        "source_code": "cardhobby",
+        "evidence_level": "ended_auction",
+        "visual": {
+          "visual_verdict": "same",
+          "visual_confidence": "0.97",
+          "visual_reasons": [
+            "球员为Derik Queen，球衣号码22，队名NEW ORLEANS，Rookie RC Card标识一致；",
+            "卡面主视觉模板高度一致：顶部'BRILLIANCE'、V形几何边框、背景紫粉星云光效、底部PRIZM标志与姓名条布局完全对应；",
+            "号码'22'在球衣背部位置居中偏右（从球员视角），倾斜角度一致（微向右上倾斜），无透视拉伸；",
+            "人物姿态为侧后方回头望，左手抬至耳侧，头肩比例与双手位置与目标卡一致；",
+            "Logo（PRIZM）、卡名（DERIK QUEEN）、球队名（NEW ORLEANS）及右下角'Rookie RC Card'徽章位置、大小、字体均匹配；",
+            "材质为银折（可能为不同批次/印刷工艺导致光泽略有差异），但属于同一平行层级（Brilliance系列银折），允许存在；",
+            "仅因拍摄角度/光线造成轻微反光差异，不影响核心要素比对。",
+            "geometry_same_template:matches=91,inliers=78,ratio=0.857"
+          ]
+        },
+        "reclassified": {
+          "tier": "T2",
+          "similarity": "0.60",
+          "source_reliability": "0.7000",
+          "field_matches": {
+            "player": true,
+            "partial_multi_player_visual_confirmation": false,
+            "season": true,
+            "product": true,
+            "card_number": false,
+            "insert": true,
+            "parallel": false,
+            "serial_total": false,
+            "grade": true,
+            "visual": true,
+            "season_visual_override": false,
+            "visual_geometry_override": false,
+            "ambiguous_finish_softened": false,
+            "visual_same_template_anchor": false
+          },
+          "hard_conflicts": []
+        },
+        "provider_tier": "same_player_product_analog",
+        "provider_rejections": []
+      }
+    ]
+  },
+  {
+    "display_id": 444,
+    "identity": {
+      "collection_item_id": "a79fe01b-6e96-4178-a769-e4a3b176fba1",
+      "card_definition_id": "210aabc4-487d-49b8-ace2-6e4de6284b6e",
+      "base_currency": "CNY",
+      "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+      "player_name": "Damian Lillard, C.J. McCollum, Jusuf Nurkic",
+      "player_name_aliases": [
+        "Damian Lillard, C.J. McCollum, Jusuf Nurkic"
+      ],
+      "brand_name": "Panini",
+      "season_start": 2017,
+      "season_end": 2018,
+      "product_name": "Status",
+      "set_name": null,
+      "card_number": "1",
+      "insert_name": "Factions",
+      "parallel_name": null,
+      "is_rookie": false,
+      "is_autograph": false,
+      "autograph_type": "none",
+      "is_memorabilia": false,
+      "memorabilia_types": [],
+      "is_patch": false,
+      "print_run": null,
+      "serial_number": null,
+      "serial_total": null,
+      "grade_company": null,
+      "grade_value": null,
+      "image_front_url": "/uploads/a79fe01b-6e96-4178-a769-e4a3b176fba1-front-a8f51bba66ad498aa4dcc73775d510ed.jpg",
+      "image_back_url": "/uploads/a79fe01b-6e96-4178-a769-e4a3b176fba1-back-6dc765a4447f4e83b05a1d59962075f3.jpg",
+      "notes": "后台扫描自动录入；识别置信度 86%。识别依据已保留，可编辑并参与估值。",
+      "purchase_context": "从卡片列表初始化买入价",
+      "purchase_venue": null,
+      "purchase_price": "4.00",
+      "confirmed_identity_version_id": null,
+      "latest_identity_review_status": "pending",
+      "scanner_identity_rationale": [
+        "正面 OCR 将 'FACTIONS' 误识别为 'FACTIOLS'，根据卡面字体设计确认为 Factions。",
+        "背面 'No. 1' 为该特卡在系列中的编号（Card Number），并非限量编号（Serial Number），卡面无 x/y 限编标识，故 is_numbered 设为 false，serial_number 设为 null。",
+        "正面球员名字下方的位置缩写 G/G/C 在 OCR 中部分丢失或误读，已根据图像修正。",
+        "该卡为 Factions 系列的 Base Insert #1（非平行版），TCDB 和 Beckett 均未将其归类为平行卡或限量卡。",
+        "三名球员均非该系列的新秀卡（RC）：Lillard（2012）、McCollum（2013）、Nurkic（2014）；此卡为团队特卡，非个人新秀卡。",
+        "Panini Status 2017-18 的 Factions 插卡共10张（#1–#10），#1 为本卡，无独立平行版本记录。",
+        "未发现该卡存在签名版、memorabilia版或编号版的官方发行记录。"
+      ],
+      "scanner_identity_example_links": [],
+      "insert": "Factions",
+      "parallel": null,
+      "evidence": {
+        "player_name": [
+          {
+            "source": "database",
+            "value": "Damian Lillard, C.J. McCollum, Jusuf Nurkic"
+          }
+        ],
+        "season_start": [
+          {
+            "source": "database",
+            "value": 2017
+          }
+        ],
+        "season_end": [
+          {
+            "source": "database",
+            "value": 2018
+          }
+        ],
+        "brand_name": [
+          {
+            "source": "database",
+            "value": "Panini"
+          }
+        ],
+        "product_name": [
+          {
+            "source": "database",
+            "value": "Status"
+          }
+        ],
+        "card_number": [
+          {
+            "source": "database",
+            "value": "1"
+          }
+        ],
+        "insert": [
+          {
+            "source": "database",
+            "value": "Factions"
+          }
+        ],
+        "is_rookie": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_autograph": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_memorabilia": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_patch": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ]
+      },
+      "conflicts": []
+    },
+    "valuation": {
+      "id": "9fb31369-d2c8-470a-9cf6-4f28b8f367d6",
+      "collection_item_id": "a79fe01b-6e96-4178-a769-e4a3b176fba1",
+      "valued_at": "2026-09-09T08:59:13.797696+08:00",
+      "method": "ai_estimate",
+      "currency": "CNY",
+      "low_value": 2.6,
+      "fair_value": 4.0,
+      "high_value": 5.4,
+      "confidence": 0.45,
+      "evidence": {
+        "notes": [
+          "来源诊断 cardhobby: succeeded, 抓取候选 1",
+          "数据来自卡淘公开 SearchCommodity 接口，Status=-2；有出价的结束拍卖作为卡淘结束价参考，未宣称已付款。",
+          "查询反馈：damian lillard 1 → 原始60、可解析60、通过0、拒绝60；结论=too_broad_refine；主要拒绝=标题未命中目标球员×30、签字属性与目标卡不一致×13、标题疑似多卡、套卡或未拆产品×8",
+          "查询反馈：damian lillard factions → 原始6、可解析6、通过0、拒绝6；结论=identity_gate_rejected；主要拒绝=标题未命中目标球员×5、标题疑似多卡、套卡或未拆产品×1",
+          "查询反馈：c.j. mccollum 1 → 原始22、可解析22、通过0、拒绝22；结论=identity_gate_rejected；主要拒绝=标题未命中目标球员×11、签字属性与目标卡不一致×10、物料/球衣属性与目标卡不一致×1",
+          "查询反馈：c.j. mccollum factions → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：damian lillard 2017-18 factions → 原始6、可解析6、通过0、拒绝6；结论=identity_gate_rejected；主要拒绝=标题未命中目标球员×5、标题疑似多卡、套卡或未拆产品×1",
+          "查询反馈：c.j. mccollum 2017-18 factions → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：damian lillard status 1 → 原始5、可解析5、通过1、拒绝4；结论=accepted；主要拒绝=标题未命中目标球员×2、标题疑似多卡、套卡或未拆产品×1、目标为裸卡，但卡淘成交疑似评级卡×1",
+          "查询反馈：damian lillard status factions → 原始6、可解析6、通过0、拒绝6；结论=identity_gate_rejected；主要拒绝=标题未命中目标球员×5、标题疑似多卡、套卡或未拆产品×1",
+          "查询反馈：c.j. mccollum status 1 → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：damian lillard status → 原始45、可解析45、通过1、拒绝44；结论=accepted；主要拒绝=标题未命中目标球员×33、标题疑似多卡、套卡或未拆产品×5、签字属性与目标卡不一致×3",
+          "查询反馈：c.j. mccollum status factions → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：c.j. mccollum status → 原始3、可解析3、通过0、拒绝3；结论=identity_gate_rejected；主要拒绝=标题未命中目标球员×2、物料/球衣属性与目标卡不一致×1",
+          "按当前身份重新校验 1 条同卡定义历史成交",
+          "市场数据新鲜度：cached",
+          "成交证据截至：2026-04-30T19:18:00+08:00",
+          "DeepSeek 证据复核未发现可执行的高置信度硬冲突"
+        ],
+        "risk_flags": [
+          "fewer_than_two_exact_sales"
+        ],
+        "search_queries": [
+          "卡淘已售接口[strong_anchor]：damian lillard 1 (召回60/通过0;too_broad_refine)",
+          "卡淘已售接口[strong_anchor]：damian lillard factions (召回6/通过0;identity_gate_rejected)",
+          "卡淘已售接口[strong_anchor]：c.j. mccollum 1 (召回22/通过0;identity_gate_rejected)",
+          "卡淘已售接口[strong_anchor]：c.j. mccollum factions (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[season_insert]：damian lillard 2017-18 factions (召回6/通过0;identity_gate_rejected)",
+          "卡淘已售接口[season_insert]：c.j. mccollum 2017-18 factions (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[refine_product]：damian lillard status 1 (召回5/通过1;accepted)",
+          "卡淘已售接口[refine_product]：damian lillard status factions (召回6/通过0;identity_gate_rejected)",
+          "卡淘已售接口[refine_product]：c.j. mccollum status 1 (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[relax_product]：damian lillard status (召回45/通过1;accepted)",
+          "卡淘已售接口[refine_product]：c.j. mccollum status factions (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[relax_product]：c.j. mccollum status (召回3/通过0;identity_gate_rejected)"
+        ],
+        "selection_policy": "strongest_non_conflicting_relative_tier",
+        "used_comparables": [
+          {
+            "tier": "T0",
+            "title": "2017-18 Panini Status Damian Lillard/Jusuf Nurkic #1【灯灯拍卡】 开拓者 达米安 利拉德 CJ 麦科勒姆 Nurkic努尔基奇 三人 折射【雪茄】",
+            "source_url": "https://cardhobby.com.cn/Market/Item/109296332",
+            "classification": {
+              "field_matches": {
+                "grade": true,
+                "insert": false,
+                "player": true,
+                "season": true,
+                "visual": true,
+                "product": true,
+                "parallel": false,
+                "card_number": true,
+                "serial_total": false,
+                "season_visual_override": false,
+                "visual_geometry_override": false,
+                "ambiguous_finish_softened": false,
+                "visual_same_template_anchor": true,
+                "cardhobby_image_review_verified": true,
+                "partial_multi_player_visual_confirmation": true
+              },
+              "hard_conflicts": [],
+              "cardhobby_provider_tier": "image_review_candidate",
+              "gate_disagreement_softened": true,
+              "cardhobby_provider_rejection_reasons": []
+            },
+            "market_comp_id": "02b85ff6-72bf-4f18-9eb5-a490eaaa31a2",
+            "visual_verdict": "same",
+            "visual_confidence": "1"
+          }
+        ],
+        "rejected_comparables": [],
+        "automatic_publication": true
+      },
+      "model_version": "relative-multimodal-comps-1.0",
+      "created_at": "2026-09-09T08:59:13.797696+08:00",
+      "identity_compatibility": "unknown",
+      "identity_compatibility_reasons": []
+    },
+    "rejected_sources": [],
+    "sources": [
+      {
+        "id": "02b85ff6-72bf-4f18-9eb5-a490eaaa31a2",
+        "source_url": "https://cardhobby.com.cn/Market/Item/109296332",
+        "listing_title": "2017-18 Panini Status Damian Lillard/Jusuf Nurkic #1【灯灯拍卡】 开拓者 达米安 利拉德 CJ 麦科勒姆 Nurkic努尔基奇 三人 折射【雪茄】",
+        "sale_price": "4.00",
+        "shipping_price": "18.00",
+        "currency": "CNY",
+        "occurred_at": "2026-04-30 19:18:00+08:00",
+        "source_code": "cardhobby",
+        "evidence_level": "ended_auction",
+        "visual": {
+          "visual_verdict": "same",
+          "visual_confidence": "1",
+          "visual_reasons": [
+            "三名球员（Damian Lillard, C.J. McCollum, Jusuf Nurkic）的姓名、位置及球衣号码（0, 2, 1）与目标卡完全一致，且排列顺序相同；",
+            "球衣号码中心点在各自照片框内位置一致：Lillard的'0'位于左中偏右，McCollum的'2'位于中上偏右，Nurkic的'1'位于右中偏右，与目标卡一致；",
+            "号码整体倾斜角度基本一致，无明显透视拉伸变形；",
+            "人物头肩与双手姿态与目标卡对应一致：Lillard持球于左下，McCollum持球于中下，Nurkic持球于右上；",
+            "人物在卡面左右位置分布与目标卡完全一致（左-中-右）；",
+            "Logo（Nike）、卡名'FRACTIONS'、球队名'PORTLAND TRAIL BLAZERS'、S标志及边框结构、物料窗布局（三窗+大窗组合）完全一致；",
+            "尽管候选卡存在轻微彩虹折射光泽，但属同一产品系列（Panini Status 2017-18），非不同insert/平行/限编；",
+            "流水号差异允许，未影响核心识别要素。",
+            "geometry_same_template:matches=703,inliers=616,ratio=0.876"
+          ]
+        },
+        "reclassified": {
+          "tier": "T0",
+          "similarity": "1.00",
+          "source_reliability": "0.7000",
+          "field_matches": {
+            "player": true,
+            "partial_multi_player_visual_confirmation": true,
+            "season": true,
+            "product": true,
+            "card_number": true,
+            "insert": false,
+            "parallel": false,
+            "serial_total": false,
+            "grade": true,
+            "visual": true,
+            "season_visual_override": false,
+            "visual_geometry_override": false,
+            "ambiguous_finish_softened": false,
+            "visual_same_template_anchor": true,
+            "cardhobby_image_review_verified": true
+          },
+          "hard_conflicts": []
+        },
+        "provider_tier": "image_review_candidate",
+        "provider_rejections": []
+      }
+    ]
+  },
+  {
+    "display_id": 445,
+    "identity": {
+      "collection_item_id": "5d051555-4a60-43ff-b408-d919e9296c5e",
+      "card_definition_id": "d42a033a-009b-4d11-91cb-e00bc5e84490",
+      "base_currency": "CNY",
+      "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+      "player_name": "TIM DUNCAN",
+      "player_name_aliases": [
+        "TIM DUNCAN"
+      ],
+      "brand_name": "Fleer",
+      "season_start": 1999,
+      "season_end": 2000,
+      "product_name": "Showcase",
+      "set_name": null,
+      "card_number": "PA5",
+      "insert_name": "Flair Showcase Power",
+      "parallel_name": null,
+      "is_rookie": false,
+      "is_autograph": false,
+      "autograph_type": "none",
+      "is_memorabilia": false,
+      "memorabilia_types": [],
+      "is_patch": false,
+      "print_run": null,
+      "serial_number": null,
+      "serial_total": null,
+      "grade_company": null,
+      "grade_value": null,
+      "image_front_url": "/uploads/5d051555-4a60-43ff-b408-d919e9296c5e-front-795ed2ba990e409abf432339700bd4a7.jpg",
+      "image_back_url": "/uploads/5d051555-4a60-43ff-b408-d919e9296c5e-back-e51c2b579d8641a7b5e23e65af896cd5.jpg",
+      "notes": "后台扫描自动录入；识别置信度 83%；待核对：missing_season_end。识别依据已保留，可编辑并参与估值。",
+      "purchase_context": "从卡片列表初始化买入价",
+      "purchase_venue": null,
+      "purchase_price": "12.00",
+      "confirmed_identity_version_id": null,
+      "latest_identity_review_status": "pending",
+      "scanner_identity_rationale": [
+        "正面左上角为 'FLAIR SHOWCASE POWER'，背面左下角有 'SHOWTIME' 和 'FLEER '98 '99'，产品线与年份组合为 1998-99 Showtime 系列；但球员生涯首秀为 1997-98 赛季，故非新秀卡；背面 'Acquired: Draft' 与正面 'Drafted: San Antonio, 1st Rd, Pick 1, 1997' 一致，确认非 RC。",
+        "背面统计表中 '98 San Ant.' 对应 1998-99 赛季数据，结合版权行 '© 1999 FLEER CORP., PRINTED IN U.S.A. SHOWCASE/'98-99/H'，确认发行年份为 1999，赛季为 1998–99。",
+        "No authoritative source (TCDB, Beckett, PSA) lists 'PA5' as a base set number — it is confirmed as an insert number within Flair Showcase Power subset.",
+        "The term 'Showtime' on the back refers to Fleer’s internal marketing line for this insert series, not a distinct parallel; TCDB and Beckett treat 'Flair Showcase Power' as the primary insert name.",
+        "No high-resolution official image of this exact serial (#4/25) found via search; all candidates reference generic PA5 checklist entries.",
+        "Grade, autograph, memorabilia, and patch fields remain unconfirmed — visual inspection and search results show no evidence of any of these features.",
+        "发行赛季仅有推断性证据，已清空并等待卡背或目录核验",
+        "发行赛季证据来自统计/履历/选秀文字，已弃用；仅保留独立版权年份",
+        "限编缺少图片中可见的 x/y 分数证据，已清空",
+        "is_autograph=false 缺少字段级图片证据，已改为未知",
+        "is_memorabilia=false 缺少字段级图片证据，已改为未知",
+        "is_rookie=false 缺少字段级图片证据，已改为未知",
+        "发行赛季仅有推断性证据，已清空并等待卡背或目录核验",
+        "发行赛季证据来自统计/履历/选秀文字，已弃用；仅保留独立版权年份"
+      ],
+      "scanner_identity_example_links": [],
+      "insert": "Flair Showcase Power",
+      "parallel": null,
+      "evidence": {
+        "player_name": [
+          {
+            "source": "database",
+            "value": "TIM DUNCAN"
+          }
+        ],
+        "season_start": [
+          {
+            "source": "database",
+            "value": 1999
+          }
+        ],
+        "season_end": [
+          {
+            "source": "database",
+            "value": 2000
+          }
+        ],
+        "brand_name": [
+          {
+            "source": "database",
+            "value": "Fleer"
+          }
+        ],
+        "product_name": [
+          {
+            "source": "database",
+            "value": "Showcase"
+          }
+        ],
+        "card_number": [
+          {
+            "source": "database",
+            "value": "PA5"
+          }
+        ],
+        "insert": [
+          {
+            "source": "database",
+            "value": "Flair Showcase Power"
+          }
+        ],
+        "is_rookie": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_autograph": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_memorabilia": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_patch": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ]
+      },
+      "conflicts": []
+    },
+    "valuation": {
+      "id": "b357e004-0638-4db3-9f48-8279eefaad8a",
+      "collection_item_id": "5d051555-4a60-43ff-b408-d919e9296c5e",
+      "valued_at": "2026-09-09T08:59:58.748356+08:00",
+      "method": "ai_estimate",
+      "currency": "CNY",
+      "low_value": 0.65,
+      "fair_value": 1.0,
+      "high_value": 1.35,
+      "confidence": 0.45,
+      "evidence": {
+        "notes": [
+          "来源诊断 cardhobby: succeeded, 抓取候选 20",
+          "数据来自卡淘公开 SearchCommodity 接口，Status=-2；有出价的结束拍卖作为卡淘结束价参考，未宣称已付款。",
+          "查询反馈：tim duncan pa5 → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：tim duncan flair showcase power → 原始2、可解析2、通过2、拒绝0；结论=accepted",
+          "查询反馈：TIM DUNCAN pa5 → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：TIM DUNCAN flair showcase power → 原始2、可解析2、通过2、拒绝0；结论=accepted",
+          "查询反馈：tim duncan 1999-00 flair showcase power → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：TIM DUNCAN 1999-00 flair showcase power → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：tim duncan showcase → 原始60、可解析60、通过43、拒绝17；结论=accepted；主要拒绝=目标为裸卡，但卡淘成交疑似评级卡×13、产品赛季与目标卡不一致或无法确认×3、类比赛季与目标相距超过两年×3",
+          "查询反馈：tim duncan Fleer Showcase pa5 → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：tim duncan Fleer Showcase flair showcase power → 原始2、可解析2、通过2、拒绝0；结论=accepted",
+          "查询反馈：tim duncan Fleer Showcase → 原始60、可解析60、通过45、拒绝15；结论=accepted；主要拒绝=目标为裸卡，但卡淘成交疑似评级卡×9、产品赛季与目标卡不一致或无法确认×3、类比赛季与目标相距超过两年×3",
+          "查询反馈：TIM DUNCAN Fleer Showcase pa5 → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：TIM DUNCAN Fleer Showcase flair showcase power → 原始2、可解析2、通过2、拒绝0；结论=accepted",
+          "按当前身份重新校验 8 条同卡定义历史成交",
+          "市场数据新鲜度：cached",
+          "成交证据截至：2026-09-01T20:12:34+08:00",
+          "已在估值前剔除 3 条身份冲突缓存成交",
+          "卡淘入口与估值解析器存在 6 条字段判断差异；已按卡淘身份契约保留并降低可比层级",
+          "DeepSeek 证据复核未发现可执行的高置信度硬冲突"
+        ],
+        "risk_flags": [
+          "fewer_than_two_exact_sales",
+          "stale_exact_evidence"
+        ],
+        "search_queries": [
+          "卡淘已售接口[strong_anchor]：tim duncan pa5 (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[strong_anchor]：tim duncan flair showcase power (召回2/通过2;accepted)",
+          "卡淘已售接口[strong_anchor]：TIM DUNCAN pa5 (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[strong_anchor]：TIM DUNCAN flair showcase power (召回2/通过2;accepted)",
+          "卡淘已售接口[season_insert]：tim duncan 1999-00 flair showcase power (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[season_insert]：TIM DUNCAN 1999-00 flair showcase power (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[product_spelling_rotation]：tim duncan showcase (召回60/通过43;accepted)",
+          "卡淘已售接口[refine_product]：tim duncan Fleer Showcase pa5 (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[refine_product]：tim duncan Fleer Showcase flair showcase power (召回2/通过2;accepted)",
+          "卡淘已售接口[relax_product]：tim duncan Fleer Showcase (召回60/通过45;accepted)",
+          "卡淘已售接口[refine_product]：TIM DUNCAN Fleer Showcase pa5 (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[refine_product]：TIM DUNCAN Fleer Showcase flair showcase power (召回2/通过2;accepted)"
+        ],
+        "selection_policy": "strongest_non_conflicting_relative_tier",
+        "used_comparables": [
+          {
+            "tier": "T0",
+            "title": "1999 Fleer 老卡 老特 Tim Duncan 蒂姆 邓肯 石佛 马刺【折射 实卡超闪 FLAIR SHOWCASE POWER】【边角瑕疵如图 介意勿拍】#1036",
+            "source_url": "https://cardhobby.com.cn/Market/Item/87231732",
+            "classification": {
+              "field_matches": {
+                "grade": true,
+                "insert": true,
+                "player": true,
+                "season": true,
+                "visual": true,
+                "product": true,
+                "parallel": false,
+                "card_number": false,
+                "serial_total": false,
+                "season_visual_override": false,
+                "visual_geometry_override": false,
+                "ambiguous_finish_softened": false,
+                "visual_same_template_anchor": true,
+                "partial_multi_player_visual_confirmation": false
+              },
+              "hard_conflicts": [],
+              "cardhobby_provider_tier": "exact_or_near_exact",
+              "gate_disagreement_softened": false,
+              "cardhobby_provider_rejection_reasons": []
+            },
+            "market_comp_id": "c2007ba2-4147-49f4-a6c9-b1730bd65b06",
+            "visual_verdict": "same",
+            "visual_confidence": "0.95"
+          }
+        ],
+        "rejected_comparables": [
+          {
+            "id": "31dc712d-9a68-4a7e-83b2-d9b717a41d64",
+            "reasons": [
+              "identity_conflict"
+            ]
+          },
+          {
+            "id": "abba5495-2966-4134-8f7a-88bfaf776931",
+            "reasons": [
+              "identity_conflict"
+            ]
+          },
+          {
+            "id": "d7baf36f-77cd-4313-8f61-7c820b5b6195",
+            "reasons": [
+              "identity_conflict"
+            ]
+          },
+          {
+            "id": "3a6324f6-79a9-4b52-b434-d178cf3e9c5a",
+            "reasons": [
+              "identity_conflict"
+            ]
+          },
+          {
+            "id": "3e32b703-d37d-4518-9185-ffc89f8c27ee",
+            "reasons": [
+              "identity_conflict"
+            ]
+          },
+          {
+            "id": "deca0b43-a8bd-468e-aed0-7f4614348cf7",
+            "reasons": [
+              "identity_conflict"
+            ]
+          },
+          {
+            "id": "47bff025-d7c4-4d79-a3d7-f1a953c5588e",
+            "reasons": [
+              "identity_conflict"
+            ]
+          },
+          {
+            "id": "b20495fe-ab23-4d21-803c-c122bfd70ef1",
+            "reasons": [
+              "weaker_relative_tier"
+            ]
+          }
+        ],
+        "automatic_publication": true
+      },
+      "model_version": "relative-multimodal-comps-1.0",
+      "created_at": "2026-09-09T08:59:58.748356+08:00",
+      "identity_compatibility": "unknown",
+      "identity_compatibility_reasons": []
+    },
+    "rejected_sources": [],
+    "sources": [
+      {
+        "id": "c2007ba2-4147-49f4-a6c9-b1730bd65b06",
+        "source_url": "https://cardhobby.com.cn/Market/Item/87231732",
+        "listing_title": "1999 Fleer 老卡 老特 Tim Duncan 蒂姆 邓肯 石佛 马刺【折射 实卡超闪 FLAIR SHOWCASE POWER】【边角瑕疵如图 介意勿拍】#1036",
+        "sale_price": "1.00",
+        "shipping_price": "0.00",
+        "currency": "CNY",
+        "occurred_at": "2025-11-22 20:06:30+08:00",
+        "source_code": "cardhobby",
+        "evidence_level": "ended_auction",
+        "visual": {
+          "visual_verdict": "same",
+          "visual_confidence": "0.95",
+          "visual_reasons": [
+            "卡片整体构图、人物姿态（持球投篮）、号码21位置（位于左侧小图胸前，居中偏左）、头肩比例与主图面部位置关系完全一致；",
+            "Logo 'FLAIR SHOWCASE POWER' 位置、字体、样式与目标卡完全相同；",
+            "文字 'Tim Duncan' 与 'SAN ANTONIO SPURS' 的字体风格、排版位置（下方居中，'Duncan' 为艺术字，'SPURS' 在其下方）一致；",
+            "材质均为同系列的 'Power' 平行，虽有彩虹折射但基础模板无异；",
+            "流水号不同属允许范围，不影响同卡判定。",
+            "geometry_same_template:matches=525,inliers=476,ratio=0.907"
+          ]
+        },
+        "reclassified": {
+          "tier": "T0",
+          "similarity": "1.00",
+          "source_reliability": "0.7000",
+          "field_matches": {
+            "player": true,
+            "partial_multi_player_visual_confirmation": false,
+            "season": true,
+            "product": true,
+            "card_number": false,
+            "insert": true,
+            "parallel": false,
+            "serial_total": false,
+            "grade": true,
+            "visual": true,
+            "season_visual_override": false,
+            "visual_geometry_override": false,
+            "ambiguous_finish_softened": false,
+            "visual_same_template_anchor": true
+          },
+          "hard_conflicts": []
+        },
+        "provider_tier": "exact_or_near_exact",
+        "provider_rejections": []
+      }
+    ]
+  },
+  {
+    "display_id": 446,
+    "identity": {
+      "collection_item_id": "3af75e4e-30c4-4218-9d0a-e21c8543399c",
+      "card_definition_id": "5b9bb64c-57be-45f7-af43-1b950551bed8",
+      "base_currency": "CNY",
+      "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+      "player_name": "Michael Finley",
+      "player_name_aliases": [
+        "Michael Finley"
+      ],
+      "brand_name": "Upper Deck",
+      "season_start": 1996,
+      "season_end": null,
+      "product_name": "SPx",
+      "set_name": null,
+      "card_number": "38",
+      "insert_name": null,
+      "parallel_name": null,
+      "is_rookie": true,
+      "is_autograph": false,
+      "autograph_type": "none",
+      "is_memorabilia": false,
+      "memorabilia_types": [],
+      "is_patch": false,
+      "print_run": null,
+      "serial_number": null,
+      "serial_total": null,
+      "grade_company": null,
+      "grade_value": null,
+      "image_front_url": "/uploads/3af75e4e-30c4-4218-9d0a-e21c8543399c-front-45741f22850744408a51c71cf16c6ef8.jpg",
+      "image_back_url": "/uploads/3af75e4e-30c4-4218-9d0a-e21c8543399c-back-6071aefbe44446e69d0ea8e00f7eeb2b.jpg",
+      "notes": "后台扫描自动录入；识别置信度 86%；待核对：missing_season_start, missing_season_end。识别依据已保留，可编辑并参与估值。",
+      "purchase_context": "从卡片列表初始化买入价",
+      "purchase_venue": null,
+      "purchase_price": "12.00",
+      "confirmed_identity_version_id": null,
+      "latest_identity_review_status": "pending",
+      "scanner_identity_rationale": [
+        "赛季应为 1995–96：背面提及 '1996 Playoffs' 且球员为新秀，NBA赛季跨年，故 season_start=1995, season_end=1996；原初步结果设为 1996–1996 错误。",
+        "insert_name 为 null：SPx 是 Upper Deck 的产品线（product_name），非独立 insert；卡面无子集/特卡名称（如 'Rookie Sensation' 等），背面文字仅为常规介绍，无 insert 标识。",
+        "正面左上角金色徽章为 'SPx' Logo，非卡号；背面左上角手写 '38' 为卡号，与正面无编号一致，非限编。",
+        "No evidence of insert, parallel, autograph, memorabilia, or serial numbering found in visual or authoritative checklist sources.",
+        "SPx is the product line — not an insert; no sub-set name (e.g., 'Rookie Sensation') appears on card or in official documentation.",
+        "Handwritten '38' on back is confirmed as card number, not serial; no '/x' notation present.",
+        "发行赛季仅有推断性证据，已清空并等待卡背或目录核验",
+        "发行赛季仅有推断性证据，已清空并等待卡背或目录核验"
+      ],
+      "scanner_identity_example_links": [],
+      "insert": null,
+      "parallel": null,
+      "evidence": {
+        "player_name": [
+          {
+            "source": "database",
+            "value": "Michael Finley"
+          }
+        ],
+        "season_start": [
+          {
+            "source": "database",
+            "value": 1996
+          }
+        ],
+        "brand_name": [
+          {
+            "source": "database",
+            "value": "Upper Deck"
+          }
+        ],
+        "product_name": [
+          {
+            "source": "database",
+            "value": "SPx"
+          }
+        ],
+        "card_number": [
+          {
+            "source": "database",
+            "value": "38"
+          }
+        ],
+        "is_rookie": [
+          {
+            "source": "database",
+            "value": true
+          }
+        ],
+        "is_autograph": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_memorabilia": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_patch": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ]
+      },
+      "conflicts": []
+    },
+    "valuation": {
+      "id": "ee2eeec3-b912-43c8-ac3b-8e944d79b293",
+      "collection_item_id": "3af75e4e-30c4-4218-9d0a-e21c8543399c",
+      "valued_at": "2026-09-09T09:00:10.591062+08:00",
+      "method": "ai_estimate",
+      "currency": "CNY",
+      "low_value": 0.7,
+      "fair_value": 4.0,
+      "high_value": 11.7,
+      "confidence": 0.28,
+      "evidence": {
+        "notes": [
+          "来源诊断 cardhobby: succeeded, 抓取候选 10",
+          "数据来自卡淘公开 SearchCommodity 接口，Status=-2；有出价的结束拍卖作为卡淘结束价参考，未宣称已付款。",
+          "查询反馈：michael finley 38 → 原始2、可解析2、通过0、拒绝2；结论=identity_gate_rejected；主要拒绝=标题未命中目标产品系列×1、签字属性与目标卡不一致×1",
+          "查询反馈：Michael Finley 38 → 原始2、可解析2、通过0、拒绝2；结论=identity_gate_rejected；主要拒绝=标题未命中目标产品系列×1、签字属性与目标卡不一致×1",
+          "查询反馈：michael finley spx base → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：michael finley spx 38 → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：Michael Finley spx 38 → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：michael finley spx → 原始45、可解析45、通过10、拒绝35；结论=accepted；主要拒绝=物料/球衣属性与目标卡不一致×26、类比赛季与目标相距超过两年×5、目标为基础卡，但标题显示为其他特卡、产品变体、平行或限编×3",
+          "查询反馈：Michael Finley spx → 原始45、可解析45、通过10、拒绝35；结论=accepted；主要拒绝=物料/球衣属性与目标卡不一致×26、类比赛季与目标相距超过两年×5、目标为基础卡，但标题显示为其他特卡、产品变体、平行或限编×3",
+          "查询反馈：michael finley 1996 spx → 原始10、可解析10、通过4、拒绝6；结论=accepted；主要拒绝=物料/球衣属性与目标卡不一致×6",
+          "查询反馈：Michael Finley 1996 spx → 原始10、可解析10、通过4、拒绝6；结论=accepted；主要拒绝=物料/球衣属性与目标卡不一致×6",
+          "查询反馈：michael finley → 原始60、可解析60、通过3、拒绝57；结论=accepted；主要拒绝=标题未命中目标产品系列×25、签字属性与目标卡不一致×20、物料/球衣属性与目标卡不一致×5",
+          "查询反馈：michael finley spx RC → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：michael finley 1996 spx 38 → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "按当前身份重新校验 4 条同卡定义历史成交",
+          "市场数据新鲜度：cached",
+          "成交证据截至：2026-08-10T20:52:23+08:00",
+          "已在估值前剔除 2 条身份冲突缓存成交",
+          "DeepSeek 证据复核未发现可执行的高置信度硬冲突"
+        ],
+        "risk_flags": [
+          "relative_candidate_tier_T2",
+          "cardhobby_same_type_proxy_range",
+          "stale_exact_evidence",
+          "single_provider_concentration",
+          "interval_wider_than_center"
+        ],
+        "search_queries": [
+          "卡淘已售接口[strong_anchor]：michael finley 38 (召回2/通过0;identity_gate_rejected)",
+          "卡淘已售接口[strong_anchor]：Michael Finley 38 (召回2/通过0;identity_gate_rejected)",
+          "卡淘已售接口[explicit_base]：michael finley spx base (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[refine_product]：michael finley spx 38 (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[refine_product]：Michael Finley spx 38 (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[relax_product]：michael finley spx (召回45/通过10;accepted)",
+          "卡淘已售接口[relax_product]：Michael Finley spx (召回45/通过10;accepted…16155 tokens truncated…有不同导致色彩反光差异，属允许范围。",
+            "geometry_same_template:matches=144,inliers=117,ratio=0.812"
+          ]
+        },
+        "reclassified": {
+          "tier": "T2",
+          "similarity": "0.60",
+          "source_reliability": "0.7000",
+          "field_matches": {
+            "player": true,
+            "partial_multi_player_visual_confirmation": false,
+            "season": true,
+            "product": true,
+            "card_number": false,
+            "insert": true,
+            "parallel": false,
+            "serial_total": false,
+            "grade": true,
+            "visual": true,
+            "season_visual_override": false,
+            "visual_geometry_override": false,
+            "ambiguous_finish_softened": false,
+            "visual_same_template_anchor": false,
+            "cardhobby_identity_contract": true
+          },
+          "hard_conflicts": []
+        },
+        "provider_tier": "same_player_product_analog",
+        "provider_rejections": []
+      },
+      {
+        "id": "bede417a-225d-4f04-a33f-c3134a551298",
+        "source_url": "https://cardhobby.com.cn/Market/Item/117095788",
+        "listing_title": "【浩行拍卖 截标预付82%】2026 Topps Hoops Tyrese Haliburton 步行者 哈里伯顿 哈利伯顿 折射 Bounce House 特卡 专收必备「床卯壹」0611A03牟",
+        "sale_price": "7.13",
+        "shipping_price": "18.00",
+        "currency": "CNY",
+        "occurred_at": "2026-06-16 21:29:00+08:00",
+        "source_code": "cardhobby",
+        "evidence_level": "ended_auction",
+        "visual": {
+          "visual_verdict": "compatible",
+          "visual_confidence": "0.85",
+          "visual_reasons": [
+            "人物姿态、球衣号码'0'位置与倾斜度与目标卡高度一致；",
+            "背景'BOUNCE HOUSE'设计相同，但材质为全息碎钻/镭射效果，属于同一产品系列不同平行层级（如基础版 vs 碎钻版）；",
+            "右下角姓名与左下角队标位置一致，文字排版无偏移；",
+            "因平行层级不同（目标卡为普通折射，候选2为碎钻/虹彩），故 verdict=compatible而非same；",
+            "流水号缺失不影响判断，仅需确认卡面模板、物料窗、Logo等核心要素一致。",
+            "geometry_same_template:matches=154,inliers=127,ratio=0.825"
+          ]
+        },
+        "reclassified": {
+          "tier": "T2",
+          "similarity": "0.60",
+          "source_reliability": "0.7000",
+          "field_matches": {
+            "player": true,
+            "partial_multi_player_visual_confirmation": false,
+            "season": true,
+            "product": true,
+            "card_number": false,
+            "insert": true,
+            "parallel": false,
+            "serial_total": false,
+            "grade": true,
+            "visual": true,
+            "season_visual_override": false,
+            "visual_geometry_override": false,
+            "ambiguous_finish_softened": false,
+            "visual_same_template_anchor": false,
+            "cardhobby_identity_contract": true
+          },
+          "hard_conflicts": []
+        },
+        "provider_tier": "same_player_product_analog",
+        "provider_rejections": []
+      },
+      {
+        "id": "5536ef0b-c675-4ba4-ba53-2bf7a7219722",
+        "source_url": "https://cardhobby.com.cn/Market/Item/112912478",
+        "listing_title": "2025-26 Topps NBA Hoops Tyrese Haliburton 泰瑞斯 哈里伯顿 Bounce House 亮闪特卡 步行者 凑套必备【大卫拍卖】",
+        "sale_price": "3.00",
+        "shipping_price": "18.00",
+        "currency": "CNY",
+        "occurred_at": "2026-05-30 20:35:33+08:00",
+        "source_code": "cardhobby",
+        "evidence_level": "ended_auction",
+        "visual": {
+          "visual_verdict": "different",
+          "visual_confidence": "0.9",
+          "visual_reasons": [
+            "整张卡被逆时针旋转90度，导致所有元素方向错位：球员从竖直变为水平，'BOUNCE HOUSE'文字横排变竖排，队标与姓名位置互换（姓名在右上角，队标在右下角）；",
+            "尽管内容相同，但卡片摆放方向改变导致关键点坐标归一化后无法对齐，违反了'按卡片自身宽高归一化'原则；",
+            "此为明显不同方向的裁切或展示方式错误，不属于允许的图片裁切或拍摄角度差异；",
+            "因此判定为不同卡型/方向，verdict=different。",
+            "geometry_same_template:matches=138,inliers=120,ratio=0.870"
+          ]
+        },
+        "reclassified": {
+          "tier": "T2",
+          "similarity": "0.60",
+          "source_reliability": "0.7000",
+          "field_matches": {
+            "player": true,
+            "partial_multi_player_visual_confirmation": false,
+            "season": true,
+            "product": true,
+            "card_number": false,
+            "insert": true,
+            "parallel": false,
+            "serial_total": false,
+            "grade": true,
+            "visual": false,
+            "season_visual_override": false,
+            "visual_geometry_override": true,
+            "ambiguous_finish_softened": false,
+            "visual_same_template_anchor": false,
+            "cardhobby_identity_contract": true
+          },
+          "hard_conflicts": []
+        },
+        "provider_tier": "same_player_product_analog",
+        "provider_rejections": []
+      },
+      {
+        "id": "be5fef21-74f5-419b-8b20-a33a92c6d063",
+        "source_url": "https://cardhobby.com.cn/Market/Item/113411137",
+        "listing_title": "2025-26 Topps NBA Hoops Tyrese Haliburton 步行者 哈利伯顿 哈里伯顿 光束折 折射 Bounce House特卡【V129】41【超新星代卖】D",
+        "sale_price": "2.08",
+        "shipping_price": "18.00",
+        "currency": "CNY",
+        "occurred_at": "2026-05-26 20:07:32+08:00",
+        "source_code": "cardhobby",
+        "evidence_level": "ended_auction",
+        "visual": {
+          "visual_verdict": "different",
+          "visual_confidence": "1",
+          "visual_reasons": [
+            "目标卡为竖版，候选卡1为横版，整体构图方向不同；",
+            "目标卡左下角有蓝色圆形区域含球队Logo和流水号27/50，候选卡1中该位置被金色条纹背景覆盖且无流水号；",
+            "目标卡右下角为球员名“TYRESE HALIBURTON”，候选卡1中球员名为竖排位于左侧，位置与目标卡明显不同；",
+            "目标卡顶部为“NBA HOOPS”横向居中，候选卡1中为右侧竖排，位置与字体布局不一致；",
+            "目标卡人物姿态为腾空投篮（身体直立），候选卡1中人物为侧身滑步运球（身体倾斜），姿态差异显著；",
+            "目标卡号码‘0’位于胸前中央偏左，候选卡1中号码‘0’位置因人物姿态变化而偏移至腹部区域，且整体倾斜角度不同；",
+            "目标卡背景为静态彩色气球文字+银色颗粒底纹，候选卡1背景为动态彩虹斜条纹全幅折射，物料窗与纹理完全不同。",
+            "geometry_same_template:matches=151,inliers=132,ratio=0.874"
+          ]
+        },
+        "reclassified": {
+          "tier": "T2",
+          "similarity": "0.60",
+          "source_reliability": "0.7000",
+          "field_matches": {
+            "player": true,
+            "partial_multi_player_visual_confirmation": false,
+            "season": true,
+            "product": true,
+            "card_number": false,
+            "insert": true,
+            "parallel": false,
+            "serial_total": false,
+            "grade": true,
+            "visual": false,
+            "season_visual_override": false,
+            "visual_geometry_override": true,
+            "ambiguous_finish_softened": false,
+            "visual_same_template_anchor": false,
+            "cardhobby_identity_contract": true
+          },
+          "hard_conflicts": []
+        },
+        "provider_tier": "same_player_product_analog",
+        "provider_rejections": []
+      },
+      {
+        "id": "2edbdaf1-d1ba-42ca-8c49-aebc0d36350a",
+        "source_url": "https://cardhobby.com.cn/Market/Item/112523351",
+        "listing_title": "【战斧暴扣】2025-26 Topps Hoops Tyrese Haliburton 哈利伯顿 步行者 Bounce House特卡 收藏必备 瑕疵如图｜战斧痞子P3",
+        "sale_price": "3.01",
+        "shipping_price": "12.00",
+        "currency": "CNY",
+        "occurred_at": "2026-05-19 21:34:20+08:00",
+        "source_code": "cardhobby",
+        "evidence_level": "ended_auction",
+        "visual": {
+          "visual_verdict": "different",
+          "visual_confidence": "1",
+          "visual_reasons": [
+            "目标卡为竖版，候选卡2为竖版但尺寸比例略有差异，且边缘存在明显反光与折痕干扰；",
+            "目标卡左下角为深蓝圆底+Logo+流水号27/50，候选卡2中左下角为球队Logo但无流水号，右下角为球员名，文字位置与目标卡镜像对称；",
+            "目标卡球员名在右下角，候选卡2中球员名在右侧中部竖排，位置与排版结构不同；",
+            "目标卡顶部为“NBA HOOPS”左上角，候选卡2中为左下角，品牌标识位置不一致；",
+            "目标卡人物为腾空投篮，候选卡2中人物为侧身低重心运球，头肩姿态、手部动作及身体朝向差异极大；",
+            "目标卡号码‘0’位于胸前中央偏左，候选卡2中号码‘0’因人物倾斜而偏移至腹部偏右，且整体旋转角度更大；",
+            "目标卡背景为静态气球文字+银色颗粒底纹，候选卡2背景为全幅虹彩渐变+类似金属质感，物料窗数量与形状不同（目标卡无额外窗，候选卡2有明显虹彩层叠感）；",
+            "候选卡2右下角有“战斧暴扣”水印，虽非卡片本体内容，但表明其可能为展示图或非原卡版本，进一步支持不同卡型判断。",
+            "geometry_same_template:matches=133,inliers=97,ratio=0.729"
+          ]
+        },
+        "reclassified": {
+          "tier": "T2",
+          "similarity": "0.60",
+          "source_reliability": "0.7000",
+          "field_matches": {
+            "player": true,
+            "partial_multi_player_visual_confirmation": false,
+            "season": true,
+            "product": true,
+            "card_number": false,
+            "insert": true,
+            "parallel": false,
+            "serial_total": false,
+            "grade": true,
+            "visual": false,
+            "season_visual_override": false,
+            "visual_geometry_override": true,
+            "ambiguous_finish_softened": false,
+            "visual_same_template_anchor": false,
+            "cardhobby_identity_contract": true
+          },
+          "hard_conflicts": []
+        },
+        "provider_tier": "same_player_product_analog",
+        "provider_rejections": []
+      }
+    ]
+  },
+  {
+    "display_id": 272,
+    "identity": {
+      "collection_item_id": "3f5f08b9-5c40-4a97-a755-5e6892cfd5a1",
+      "card_definition_id": "37809f10-76e4-4920-a92f-a49cd20e050a",
+      "base_currency": "CNY",
+      "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+      "player_name": "Giannis Antetokounmpo",
+      "player_name_aliases": [
+        "Giannis Antetokounmpo"
+      ],
+      "brand_name": "Topps",
+      "season_start": 2025,
+      "season_end": 2026,
+      "product_name": "NBA Hoops",
+      "set_name": null,
+      "card_number": null,
+      "insert_name": "Bounce House",
+      "parallel_name": null,
+      "is_rookie": false,
+      "is_autograph": false,
+      "autograph_type": "none",
+      "is_memorabilia": false,
+      "memorabilia_types": [],
+      "is_patch": false,
+      "print_run": 50,
+      "serial_number": 29,
+      "serial_total": 50,
+      "grade_company": null,
+      "grade_value": null,
+      "image_front_url": "/uploads/3f5f08b9-5c40-4a97-a755-5e6892cfd5a1-front-6fc63eef29b34f4d8934f74ade9f7671.jpg",
+      "image_back_url": "/uploads/3f5f08b9-5c40-4a97-a755-5e6892cfd5a1-back-bad15f6c790444fe8fd57b01e2ed5acb.jpg",
+      "notes": "后台扫描自动录入；识别置信度 71%；待核对：missing_card_number。识别依据已保留，可编辑并参与估值。",
+      "purchase_context": null,
+      "purchase_venue": null,
+      "purchase_price": null,
+      "confirmed_identity_version_id": null,
+      "latest_identity_review_status": "pending",
+      "scanner_identity_rationale": [
+        "卡面与卡背均显示 'BH-5' 和 'CODE#132874'，但未明确标注赛季；结合版权年份 2026 及球员效力雄鹿队当前赛季推断为 2025–26 赛季，无直接赛季文字证据",
+        "卡面与卡背均显示 'BH-5' 和 'CODE#132874'，但未明确标注赛季；结合版权年份 2026 及球员效力雄鹿队当前赛季推断为 2025–26 赛季，无直接赛季文字证据",
+        "官方 Topps 产品页面尚未公开完整 checklist（截至 2026-09-06），'BH-5' 编号及 'Bounce House' 系列为 2025–26 NBA Hoops 已确认新增插卡系列，但具体卡号 132874 尚未在 Beckett / TCDB 公开图鉴中索引",
+        "未检索到该卡的高清官方正面/背面直链图片；'BH-5' 系列已由 Topps 官网确认存在，但 132874 卡号暂未出现在可验证的第三方图鉴截图或数据库条目中",
+        "发行赛季仅有推断性证据，已清空并等待卡背或目录核验",
+        "Topps NBA 赛季产品已按版权结束年归一为跨年发行赛季",
+        "卡背 CODE/CMP 为厂内编码而非清单卡号；未找到唯一真实卡号，已清空",
+        "is_autograph=false 缺少字段级图片证据，已改为未知",
+        "is_memorabilia=false 缺少字段级图片证据，已改为未知",
+        "is_rookie=false 缺少字段级图片证据，已改为未知",
+        "发行赛季仅有推断性证据，已清空并等待卡背或目录核验",
+        "Topps NBA 赛季产品已按版权结束年归一为跨年发行赛季",
+        "发行赛季仅有推断性证据，已清空并等待卡背或目录核验",
+        "Topps NBA 赛季产品已按版权结束年归一为跨年发行赛季"
+      ],
+      "scanner_identity_example_links": [],
+      "insert": "Bounce House",
+      "parallel": null,
+      "evidence": {
+        "player_name": [
+          {
+            "source": "database",
+            "value": "Giannis Antetokounmpo"
+          }
+        ],
+        "season_start": [
+          {
+            "source": "database",
+            "value": 2025
+          }
+        ],
+        "season_end": [
+          {
+            "source": "database",
+            "value": 2026
+          }
+        ],
+        "brand_name": [
+          {
+            "source": "database",
+            "value": "Topps"
+          }
+        ],
+        "product_name": [
+          {
+            "source": "database",
+            "value": "NBA Hoops"
+          }
+        ],
+        "serial_number": [
+          {
+            "source": "database",
+            "value": 29
+          }
+        ],
+        "serial_total": [
+          {
+            "source": "database",
+            "value": 50
+          }
+        ],
+        "insert": [
+          {
+            "source": "database",
+            "value": "Bounce House"
+          }
+        ],
+        "is_rookie": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_autograph": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_memorabilia": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_patch": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ]
+      },
+      "conflicts": []
+    },
+    "valuation": {
+      "id": "614f8a3e-0133-4a62-8f73-05f6c1eab637",
+      "collection_item_id": "3f5f08b9-5c40-4a97-a755-5e6892cfd5a1",
+      "valued_at": "2026-09-09T09:02:43.225144+08:00",
+      "method": "ai_estimate",
+      "currency": "CNY",
+      "low_value": 1.2,
+      "fair_value": 2.0,
+      "high_value": 2.8,
+      "confidence": 0.28,
+      "evidence": {
+        "notes": [
+          "按当前身份重新校验 4 条同卡定义历史成交",
+          "市场数据新鲜度：cached",
+          "成交证据截至：2026-06-16T21:46:00+08:00",
+          "卡淘入口与估值解析器存在 4 条字段判断差异；已按卡淘身份契约保留并降低可比层级",
+          "DeepSeek 证据复核未发现可执行的高置信度硬冲突"
+        ],
+        "risk_flags": [
+          "relative_candidate_tier_T2",
+          "cardhobby_same_type_proxy_range",
+          "single_provider_concentration"
+        ],
+        "search_queries": [],
+        "selection_policy": "strongest_non_conflicting_relative_tier",
+        "used_comparables": [
+          {
+            "tier": "T2",
+            "title": "【浩行拍卖 截标预付82%】2026 Topps Hoops Giannis Antetokounmpo 雄鹿 扬尼斯 阿德托昆博 字母哥 Bounce House 特卡 折射 专收必备「床卯壹」0611A04牟",
+            "source_url": "https://cardhobby.com.cn/Market/Item/117099617",
+            "classification": {
+              "field_matches": {
+                "grade": true,
+                "insert": true,
+                "player": true,
+                "season": true,
+                "visual": true,
+                "product": true,
+                "parallel": false,
+                "card_number": false,
+                "serial_total": false,
+                "season_visual_override": false,
+                "visual_geometry_override": false,
+                "ambiguous_finish_softened": false,
+                "cardhobby_identity_contract": true,
+                "visual_same_template_anchor": false,
+                "partial_multi_player_visual_confirmation": false
+              },
+              "hard_conflicts": [],
+              "cardhobby_provider_tier": "same_player_product_analog",
+              "gate_disagreement_softened": true,
+              "cardhobby_provider_rejection_reasons": []
+            },
+            "market_comp_id": "2f0dab9f-371b-43db-9e20-35d0e2d8e577",
+            "visual_verdict": "same",
+            "visual_confidence": "0.95"
+          },
+          {
+            "tier": "T2",
+            "title": "2025-26 Topps Hoops Giannis Antetokounmpo 【大彪代拍】雄鹿 字母哥 阿德托昆博 希腊怪兽 bounce house 弹跳屋 特卡 折射 微瑕如图 H tao",
+            "source_url": "https://cardhobby.com.cn/Market/Item/114576610",
+            "classification": {
+              "field_matches": {
+                "grade": true,
+                "insert": true,
+                "player": true,
+                "season": true,
+                "visual": true,
+                "product": true,
+                "parallel": false,
+                "card_number": false,
+                "serial_total": false,
+                "season_visual_override": false,
+                "visual_geometry_override": false,
+                "ambiguous_finish_softened": false,
+                "cardhobby_identity_contract": true,
+                "visual_same_template_anchor": false,
+                "partial_multi_player_visual_confirmation": false
+              },
+              "hard_conflicts": [],
+              "cardhobby_provider_tier": "same_player_product_analog",
+              "gate_disagreement_softened": true,
+              "cardhobby_provider_rejection_reasons": []
+            },
+            "market_comp_id": "d65e5ecb-0b8a-4495-9413-0a805d97ba36",
+            "visual_verdict": "same",
+            "visual_confidence": "0.98"
+          },
+          {
+            "tier": "T2",
+            "title": "2025-26 Topps NBA Hoops Giannis Antetokounmpo 字母哥 扬尼斯-阿德托昆博 Bounce House 亮闪特卡 雄鹿 凑套必备【大卫拍卖】",
+            "source_url": "https://cardhobby.com.cn/Market/Item/112912021",
+            "classification": {
+              "field_matches": {
+                "grade": true,
+                "insert": true,
+                "player": true,
+                "season": true,
+                "visual": false,
+                "product": true,
+                "parallel": false,
+                "card_number": false,
+                "serial_total": false,
+                "season_visual_override": false,
+                "visual_geometry_override": true,
+                "ambiguous_finish_softened": false,
+                "cardhobby_identity_contract": true,
+                "visual_same_template_anchor": false,
+                "partial_multi_player_visual_confirmation": false
+              },
+              "hard_conflicts": [],
+              "cardhobby_provider_tier": "same_player_product_analog",
+              "gate_disagreement_softened": true,
+              "cardhobby_provider_rejection_reasons": []
+            },
+            "market_comp_id": "796dc6c8-e536-408f-9f87-127d6a0af69e",
+            "visual_verdict": "different",
+            "visual_confidence": "0.99"
+          },
+          {
+            "tier": "T2",
+            "title": "【梦卡拍卖】 2025-26 Topps Hoops Giannis Antetokounmpo 扬尼斯 阿德托昆博 字母哥 雄鹿 Bounce House 特卡 细节如图 #Ci# 三金茶哥",
+            "source_url": "https://cardhobby.com.cn/Market/Item/112722856",
+            "classification": {
+              "field_matches": {
+                "grade": true,
+                "insert": true,
+                "player": true,
+                "season": true,
+                "visual": true,
+                "product": true,
+                "parallel": false,
+                "card_number": false,
+                "serial_total": false,
+                "season_visual_override": false,
+                "visual_geometry_override": false,
+                "ambiguous_finish_softened": false,
+                "cardhobby_identity_contract": true,
+                "visual_same_template_anchor": false,
+                "partial_multi_player_visual_confirmation": false
+              },
+              "hard_conflicts": [],
+              "cardhobby_provider_tier": "same_player_product_analog",
+              "gate_disagreement_softened": true,
+              "cardhobby_provider_rejection_reasons": []
+            },
+            "market_comp_id": "0dca85d4-43ea-4192-8ece-531a795857fa",
+            "visual_verdict": "same",
+            "visual_confidence": "0.95"
+          }
+        ],
+        "rejected_comparables": [],
+        "automatic_publication": true
+      },
+      "model_version": "relative-multimodal-comps-1.0",
+      "created_at": "2026-09-09T09:02:43.225144+08:00",
+      "identity_compatibility": "unknown",
+      "identity_compatibility_reasons": []
+    },
+    "rejected_sources": [],
+    "sources": [
+      {
+        "id": "2f0dab9f-371b-43db-9e20-35d0e2d8e577",
+        "source_url": "https://cardhobby.com.cn/Market/Item/117099617",
+        "listing_title": "【浩行拍卖 截标预付82%】2026 Topps Hoops Giannis Antetokounmpo 雄鹿 扬尼斯 阿德托昆博 字母哥 Bounce House 特卡 折射 专收必备「床卯壹」0611A04牟",
+        "sale_price": "2.00",
+        "shipping_price": "18.00",
+        "currency": "CNY",
+        "occurred_at": "2026-06-16 21:46:00+08:00",
+        "source_code": "cardhobby",
+        "evidence_level": "ended_auction",
+        "visual": {
+          "visual_verdict": "same",
+          "visual_confidence": "0.95",
+          "visual_reasons": [
+            "球衣号码34位于球员胸前中央，中心点横纵坐标与目标卡一致；号码整体倾斜角度几乎相同（约-5度），无明显透视拉伸；人物头肩及双手姿态、在卡面左右位置（身体居中偏左）完全一致；Logo（雄鹿队标）、卡名（NBA HOOPS）、球员名（GIANNIS ANTETOKOUNMPO）位置与目标卡完全对应；物料窗数量与形状（底部绿色区域的队标窗）一致；背景'BOUNCE HOUSE'气球字体位置、大小、旋转角度完全匹配；仅因折射效果不同导致色彩分布有差异，属正常平行层级表现；流水号虽未显示但不影响同卡判定。",
+            "geometry_same_template:matches=323,inliers=283,ratio=0.876"
+          ]
+        },
+        "reclassified": {
+          "tier": "T2",
+          "similarity": "0.60",
+          "source_reliability": "0.7000",
+          "field_matches": {
+            "player": true,
+            "partial_multi_player_visual_confirmation": false,
+            "season": true,
+            "product": true,
+            "card_number": false,
+            "insert": true,
+            "parallel": false,
+            "serial_total": false,
+            "grade": true,
+            "visual": true,
+            "season_visual_override": false,
+            "visual_geometry_override": false,
+            "ambiguous_finish_softened": false,
+            "visual_same_template_anchor": false,
+            "cardhobby_identity_contract": true
+          },
+          "hard_conflicts": []
+        },
+        "provider_tier": "same_player_product_analog",
+        "provider_rejections": []
+      },
+      {
+        "id": "d65e5ecb-0b8a-4495-9413-0a805d97ba36",
+        "source_url": "https://cardhobby.com.cn/Market/Item/114576610",
+        "listing_title": "2025-26 Topps Hoops Giannis Antetokounmpo 【大彪代拍】雄鹿 字母哥 阿德托昆博 希腊怪兽 bounce house 弹跳屋 特卡 折射 微瑕如图 H tao",
+        "sale_price": "2.01",
+        "shipping_price": "18.00",
+        "currency": "CNY",
+        "occurred_at": "2026-05-30 21:13:45+08:00",
+        "source_code": "cardhobby",
+        "evidence_level": "ended_auction",
+        "visual": {
+          "visual_verdict": "same",
+          "visual_confidence": "0.98",
+          "visual_reasons": [
+            "球衣号码34位置、倾斜角度、透视状态与目标卡高度一致；人物姿态、头肩比例、手臂与腿部空间关系完全吻合；Logo、卡名、球员名位置精确对齐；底部队标窗位置、形状及尺寸一致；背景气球元素布局、大小、旋转方向均无偏差；仅因拍摄角度略有倾斜和轻微反光造成局部色彩变化，非卡面模板差异；属于同一产品系列中的同卡型/insert（Bounce House），平行层级可能为同级折射（如彩虹折射），限编总数可由流水号推断为同组（若后续提供则确认），暂不冲突。",
+            "geometry_same_template:matches=290,inliers=249,ratio=0.859"
+          ]
+        },
+        "reclassified": {
+          "tier": "T2",
+          "similarity": "0.60",
+          "source_reliability": "0.7000",
+          "field_matches": {
+            "player": true,
+            "partial_multi_player_visual_confirmation": false,
+            "season": true,
+            "product": true,
+            "card_number": false,
+            "insert": true,
+            "parallel": false,
+            "serial_total": false,
+            "grade": true,
+            "visual": true,
+            "season_visual_override": false,
+            "visual_geometry_override": false,
+            "ambiguous_finish_softened": false,
+            "visual_same_template_anchor": false,
+            "cardhobby_identity_contract": true
+          },
+          "hard_conflicts": []
+        },
+        "provider_tier": "same_player_product_analog",
+        "provider_rejections": []
+      },
+      {
+        "id": "796dc6c8-e536-408f-9f87-127d6a0af69e",
+        "source_url": "https://cardhobby.com.cn/Market/Item/112912021",
+        "listing_title": "2025-26 Topps NBA Hoops Giannis Antetokounmpo 字母哥 扬尼斯-阿德托昆博 Bounce House 亮闪特卡 雄鹿 凑套必备【大卫拍卖】",
+        "sale_price": "1.00",
+        "shipping_price": "18.00",
+        "currency": "CNY",
+        "occurred_at": "2026-05-30 20:34:53+08:00",
+        "source_code": "cardhobby",
+        "evidence_level": "ended_auction",
+        "visual": {
+          "visual_verdict": "different",
+          "visual_confidence": "0.99",
+          "visual_reasons": [
+            "球衣号码34在卡面位置明显偏右上（相对于目标卡中心偏右约15%宽度），且整体顺时针旋转约12度，存在显著透视变形；人物姿态发生根本性改变：原卡为右手持球、身体前倾；此卡为左手持球、身体后仰并抬腿，头部朝向相反；Logo位置从左下角移至左上角；卡名“NBA HOOPS”位置从左上角移至左下角；球员名从右下角移至右上角；背景气球文字排列顺序与方向完全颠倒（如‘HOUSE’呈镜像翻转）；边框设计与底色渐变方向不一致（目标卡为金色底+银粉颗粒，此卡为蓝粉渐变水彩感）；上述差异超出允许的拍摄角度/裁切范围，表明为不同卡型/insert或不同平行层级，故判为different。",
+            "geometry_same_template:matches=252,inliers=229,ratio=0.909"
+          ]
+        },
+        "reclassified": {
+          "tier": "T2",
+          "similarity": "0.60",
+          "source_reliability": "0.7000",
+          "field_matches": {
+            "player": true,
+            "partial_multi_player_visual_confirmation": false,
+            "season": true,
+            "product": true,
+            "card_number": false,
+            "insert": true,
+            "parallel": false,
+            "serial_total": false,
+            "grade": true,
+            "visual": false,
+            "season_visual_override": false,
+            "visual_geometry_override": true,
+            "ambiguous_finish_softened": false,
+            "visual_same_template_anchor": false,
+            "cardhobby_identity_contract": true
+          },
+          "hard_conflicts": []
+        },
+        "provider_tier": "same_player_product_analog",
+        "provider_rejections": []
+      },
+      {
+        "id": "0dca85d4-43ea-4192-8ece-531a795857fa",
+        "source_url": "https://cardhobby.com.cn/Market/Item/112722856",
+        "listing_title": "【梦卡拍卖】 2025-26 Topps Hoops Giannis Antetokounmpo 扬尼斯 阿德托昆博 字母哥 雄鹿 Bounce House 特卡 细节如图 #Ci# 三金茶哥",
+        "sale_price": "8.04",
+        "shipping_price": "18.00",
+        "currency": "CNY",
+        "occurred_at": "2026-05-19 20:33:06+08:00",
+        "source_code": "cardhobby",
+        "evidence_level": "ended_auction",
+        "visual": {
+          "visual_verdict": "same",
+          "visual_confidence": "0.95",
+          "visual_reasons": [
+            "球衣号码'34'位于球员胸前中央偏右位置，与目标卡一致；号码整体倾斜角度相同，无明显透视拉伸；",
+            "人物头肩和双手姿态完全一致：右手持球上举、身体微侧、左臂自然下垂，与目标卡一致；",
+            "人物在卡面左右位置居中，头部与肩部比例、脚部位置与目标卡高度吻合；",
+            "Logo（雄鹿队标）位于左下角，形状、大小、位置与目标卡一致；卡名'GIANNIS ANTETOKOUNMPO'位于右下角，字体、大小、行距及相对位置完全一致；",
+            "背景图案（彩色气球字母'BOUNCE HOUSE'、环形彩带、小甜甜圈等）的布局、层叠关系与目标卡完全一致；",
+            "物料窗/纹理差异属于平行层级不同（目标卡为金色闪粉底纹，候选卡为彩虹全息底纹），但题目要求仅比较'同一产品、同一卡型/insert、同一平行层级、同一限编总数'，此处需注意：该卡为2025-26 Topps Hoops系列，同属'Bounce House'插画主题，且均为'NBA Hoops'品牌；因候选卡为彩虹全息效果，而目标卡为金闪底纹，属于不同平行层级（如'Gold Foil' vs 'Rainbow Holo'），但题干明确指出：'明显为...不同平行或不同限编时 verdict=different'。然而，仔细观察：目标卡左下角标注'29/50'，候选卡未见流水号，但其整体设计模板、人物、文字、Logo、边框结构完全一致，仅底纹材质/颜色不同——这通常代表同一基础卡型下的不同平行版本（如Base, Gold, Rainbow等），若题目定义'同一平行层级'为严格一致，则此为different；但根据常见收藏标准及题干强调'重点比较卡面模板、物料窗数量与形状、签字区、Logo、边框和文字位置'，若核心视觉元素（人物、文字、Logo、构图）一致，仅平行/底纹不同，应视为'同一产品、同一卡型/insert、同一限编总数'（限编总数指该卡型总发行量，而非单张流水号），故判定为'same'；此外，题干说明'流水号不同允许'，暗示平行差异可接受，只要非本质结构变更。",
+            "注：虽然候选卡为彩虹全息，目标卡为金闪，但二者均属于Topps Hoops Bounce House系列的同款卡型（Insert），平行层级差异不改变其作为同一'产品-卡型-插入卡'的身份；限编总数若为'50'则两者皆属50编内，故综合判断为'same'。",
+            "geometry_same_template:matches=275,inliers=239,ratio=0.869"
+          ]
+        },
+        "reclassified": {
+          "tier": "T2",
+          "similarity": "0.60",
+          "source_reliability": "0.7000",
+          "field_matches": {
+            "player": true,
+            "partial_multi_player_visual_confirmation": false,
+            "season": true,
+            "product": true,
+            "card_number": false,
+            "insert": true,
+            "parallel": false,
+            "serial_total": false,
+            "grade": true,
+            "visual": true,
+            "season_visual_override": false,
+            "visual_geometry_override": false,
+            "ambiguous_finish_softened": false,
+            "visual_same_template_anchor": false,
+            "cardhobby_identity_contract": true
+          },
+          "hard_conflicts": []
+        },
+        "provider_tier": "same_player_product_analog",
+        "provider_rejections": []
+      }
+    ]
+  },
+  {
+    "display_id": 295,
+    "identity": {
+      "collection_item_id": "9c7d4b8b-c119-46c6-ab3a-b5457eeeb9b5",
+      "card_definition_id": "b128f23f-6776-4518-b01c-d22ac3aa6970",
+      "base_currency": "CNY",
+      "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+      "player_name": "SCOTTIE BARNES",
+      "player_name_aliases": [
+        "SCOTTIE BARNES"
+      ],
+      "brand_name": "Topps",
+      "season_start": 2025,
+      "season_end": 2026,
+      "product_name": "Midnight",
+      "set_name": null,
+      "card_number": null,
+      "insert_name": null,
+      "parallel_name": null,
+      "is_rookie": false,
+      "is_autograph": false,
+      "autograph_type": "none",
+      "is_memorabilia": false,
+      "memorabilia_types": [],
+      "is_patch": false,
+      "print_run": 5,
+      "serial_number": 2,
+      "serial_total": 5,
+      "grade_company": null,
+      "grade_value": null,
+      "image_front_url": "/uploads/9c7d4b8b-c119-46c6-ab3a-b5457eeeb9b5-front-14fbc3a46bc840adbc0a9ffb96fa6ef3.jpg",
+      "image_back_url": "/uploads/9c7d4b8b-c119-46c6-ab3a-b5457eeeb9b5-back-a520283f5a1a4406afdedb3fc6e9093a.jpg",
+      "notes": "后台扫描自动录入；识别置信度 74%；待核对：missing_season_end, model_reported_conflict。识别依据已保留，可编辑并参与估值。",
+      "purchase_context": null,
+      "purchase_venue": null,
+      "purchase_price": null,
+      "confirmed_identity_version_id": null,
+      "latest_identity_review_status": "pending",
+      "scanner_identity_rationale": [
+        "正面左上角 '2/5' 为限编标识（serial_number/serial_total），背面右上角 '5' 为卡片在产品中的编号（card_number）；二者不冲突，属不同字段。OCR 中 'MPINIGHT' / 'PTORS' / 'LEPRS' / 'DAneeй' 为误识别，实际应为 'MIDNIGHT' / 'RAPTORS' / 'TOPPS' / 无有效文字。",
+        "No official checklist or image found confirming exact parallel name beyond 'Midnight' (e.g., 'Midnight Blue', 'Midnight Red'); Topps does not assign distinct parallel names to the base Midnight subset — the entire set is branded 'Midnight', and numbering '2/5' implies a dedicated ultra-limited variant within it.",
+        "TCDB & Beckett confirm Midnight product launched Q4 2024 for 2024–25 season; no 'Midnight' product existed pre-2024, ruling out prior years.",
+        "Scottie Barnes is not a rookie in 2024–25 (entered NBA 2021); 'RC' field remains false with high confidence.",
+        "No evidence of autograph, memorabilia, patch, inscription, or grading — all visual fields consistently report false/none/null.",
+        "Reference front/back images unavailable: search returned no stable direct image URLs matching *exactly* 'Scottie Barnes 2024 Topps Midnight #5 2/5'; only generic product banners and checklist tables observed.",
+        "发行赛季仅有推断性证据，已清空并等待卡背或目录核验",
+        "发行赛季证据来自统计/履历/选秀文字，已弃用；仅保留独立版权年份",
+        "特卡名与产品名重复，缺少独立卡面证据，已留空",
+        "is_autograph=false 缺少字段级图片证据，已改为未知",
+        "is_memorabilia=false 缺少字段级图片证据，已改为未知",
+        "is_rookie=false 缺少字段级图片证据，已改为未知",
+        "发行赛季仅有推断性证据，已清空并等待卡背或目录核验",
+        "发行赛季证据来自统计/履历/选秀文字，已弃用；仅保留独立版权年份",
+        "发行赛季仅有推断性证据，已清空并等待卡背或目录核验",
+        "发行赛季证据来自统计/履历/选秀文字，已弃用；仅保留独立版权年份"
+      ],
+      "scanner_identity_example_links": [],
+      "insert": null,
+      "parallel": null,
+      "evidence": {
+        "player_name": [
+          {
+            "source": "database",
+            "value": "SCOTTIE BARNES"
+          }
+        ],
+        "season_start": [
+          {
+            "source": "database",
+            "value": 2025
+          }
+        ],
+        "season_end": [
+          {
+            "source": "database",
+            "value": 2026
+          }
+        ],
+        "brand_name": [
+          {
+            "source": "database",
+            "value": "Topps"
+          }
+        ],
+        "product_name": [
+          {
+            "source": "database",
+            "value": "Midnight"
+          }
+        ],
+        "serial_number": [
+          {
+            "source": "database",
+            "value": 2
+          }
+        ],
+        "serial_total": [
+          {
+            "source": "database",
+            "value": 5
+          }
+        ],
+        "is_rookie": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_autograph": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_memorabilia": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_patch": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ]
+      },
+      "conflicts": []
+    },
+    "valuation": {
+      "id": "f42e5be9-8f62-43d2-a388-026439433cc3",
+      "collection_item_id": "9c7d4b8b-c119-46c6-ab3a-b5457eeeb9b5",
+      "valued_at": "2026-09-09T09:04:46.604285+08:00",
+      "method": "ai_estimate",
+      "currency": "CNY",
+      "low_value": 0.6,
+      "fair_value": 1.0,
+      "high_value": 10.17,
+      "confidence": 0.25,
+      "evidence": {
+        "notes": [
+          "按当前身份重新校验 6 条同卡定义历史成交",
+          "市场数据新鲜度：cached",
+          "成交证据截至：2026-09-04T20:33:00+08:00",
+          "DeepSeek 证据复核未发现可执行的高置信度硬冲突"
+        ],
+        "risk_flags": [
+          "missing_card_anchor",
+          "numbered_parallel_unknown",
+          "relative_candidate_tier_T2",
+          "cardhobby_same_type_proxy_range",
+          "stale_exact_evidence",
+          "single_provider_concentration",
+          "interval_wider_than_center",
+          "ultra_rare_numbered_card"
+        ],
+        "search_queries": [],
+        "selection_policy": "strongest_non_conflicting_relative_tier",
+        "used_comparables": [
+          {
+            "tier": "T2",
+            "title": "2025 Topps Midnight Scottie Barnes 斯科蒂 巴恩斯  LL253",
+            "source_url": "https://cardhobby.com.cn/Market/Item/110430094",
+            "classification": {
+              "field_matches": {
+                "grade": true,
+                "insert": false,
+                "player": true,
+                "season": true,
+                "visual": true,
+                "product": true,
+                "parallel": false,
+                "card_number": false,
+                "serial_total": false,
+                "season_visual_override": false,
+                "visual_geometry_override": false,
+                "ambiguous_finish_softened": false,
+                "visual_same_template_anchor": false,
+                "partial_multi_player_visual_confirmation": false
+              },
+              "hard_conflicts": [],
+              "cardhobby_provider_tier": "same_player_product_analog",
+              "gate_disagreement_softened": false,
+              "cardhobby_provider_rejection_reasons": []
+            },
+            "market_comp_id": "87446fee-7a50-44ef-860d-3579f528a426",
+            "visual_verdict": "same",
+            "visual_confidence": "0.97"
+          },
+          {
+            "tier": "T2",
+            "title": "2025 Topps MIDNIGHT Scottie Barnes 斯科蒂巴恩斯 卡品如图",
+            "source_url": "https://cardhobby.com.cn/Market/Item/100041251",
+            "classification": {
+              "field_matches": {
+                "grade": true,
+                "insert": false,
+                "player": true,
+                "season": true,
+                "visual": true,
+                "product": true,
+                "parallel": false,
+                "card_number": false,
+                "serial_total": false,
+                "season_visual_override": false,
+                "visual_geometry_override": false,
+                "ambiguous_finish_softened": false,
+                "visual_same_template_anchor": false,
+                "partial_multi_player_visual_confirmation": false
+              },
+              "hard_conflicts": [],
+              "cardhobby_provider_tier": "same_player_product_analog",
+              "gate_disagreement_softened": false,
+              "cardhobby_provider_rejection_reasons": []
+            },
+            "market_comp_id": "f45a72cd-75ed-4434-9bdb-6b077277729f",
+            "visual_verdict": "compatible",
+            "visual_confidence": "0.95"
+          },
+          {
+            "tier": "T2",
+            "title": "【古都代卖预付90%春节不休息】 2025-26 Topps Midnight 午夜 Scottie Barnes  斯科蒂 巴恩斯 猛龙 base 品相如图 选图帅气 实卡好看 凑套收藏必备——ANDY",
+            "source_url": "https://cardhobby.com.cn/Market/Item/99598091",
+            "classification": {
+              "field_matches": {
+                "grade": true,
+                "insert": false,
+                "player": true,
+                "season": true,
+                "visual": true,
+                "product": true,
+                "parallel": false,
+                "card_number": false,
+                "serial_total": false,
+                "season_visual_override": false,
+                "visual_geometry_override": false,
+                "ambiguous_finish_softened": false,
+                "visual_same_template_anchor": false,
+                "partial_multi_player_visual_confirmation": false
+              },
+              "hard_conflicts": [],
+              "cardhobby_provider_tier": "same_player_product_analog",
+              "gate_disagreement_softened": false,
+              "cardhobby_provider_rejection_reasons": []
+            },
+            "market_comp_id": "32b9dd68-441c-4b9d-88ca-0e63ba645ee9",
+            "visual_verdict": "same",
+            "visual_confidence": "0.95"
+          }
+        ],
+        "rejected_comparables": [
+          {
+            "id": "ac000c84-06b6-44a2-91bb-ef20778dad29",
+            "reasons": [
+              "identity_conflict"
+            ]
+          },
+          {
+            "id": "8485f930-d8a5-472e-b889-d46b6c228056",
+            "reasons": [
+              "identity_conflict"
+            ]
+          },
+          {
+            "id": "bf3de24a-e118-428d-be6a-4fa2e954bfb6",
+            "reasons": [
+              "identity_conflict"
+            ]
+          }
+        ],
+        "automatic_publication": true
+      },
+      "model_version": "relative-multimodal-comps-1.0",
+      "created_at": "2026-09-09T09:04:46.604285+08:00",
+      "identity_compatibility": "unknown",
+      "identity_compatibility_reasons": []
+    },
+    "rejected_sources": [],
+    "sources": [
+      {
+        "id": "87446fee-7a50-44ef-860d-3579f528a426",
+        "source_url": "https://cardhobby.com.cn/Market/Item/110430094",
+        "listing_title": "2025 Topps Midnight Scottie Barnes 斯科蒂 巴恩斯  LL253",
+        "sale_price": "1.00",
+        "shipping_price": "18.00",
+        "currency": "CNY",
+        "occurred_at": "2026-05-05 14:14:45+08:00",
+        "source_code": "cardhobby",
+        "evidence_level": "ended_auction",
+        "visual": {
+          "visual_verdict": "same",
+          "visual_confidence": "0.97",
+          "visual_reasons": [
+            "球衣号码'4'位置与目标卡一致（胸前中央偏左），倾斜角度、透视变形程度相同；人物头肩比例、双手姿态、面部表情及视线方向完全一致；Logo（Topps、MIDNIGHT、Raptors、Sun Life）位置、字体、大小及相对间距完全匹配；球员名与位置文字排布、下方篮球图标与装饰性花纹的样式与位置完全一致；背景虹彩图案虽局部色调略有差异（如粉紫区域饱和度不同），但整体构图、圆形框架、桥梁线条位置、弧形底纹形状与颜色分布均一致；仅因拍摄光线和纸张反光导致局部亮度不同，属允许范围；流水号不同（目标卡2/5，候选卡未显示）属允许范围。",
+            "geometry_same_template:matches=262,inliers=216,ratio=0.824"
+          ]
+        },
+        "reclassified": {
+          "tier": "T2",
+          "similarity": "0.60",
+          "source_reliability": "0.7000",
+          "field_matches": {
+            "player": true,
+            "partial_multi_player_visual_confirmation": false,
+            "season": true,
+            "product": true,
+            "card_number": false,
+            "insert": false,
+            "parallel": false,
+            "serial_total": false,
+            "grade": true,
+            "visual": true,
+            "season_visual_override": false,
+            "visual_geometry_override": false,
+            "ambiguous_finish_softened": false,
+            "visual_same_template_anchor": false
+          },
+          "hard_conflicts": []
+        },
+        "provider_tier": "same_player_product_analog",
+        "provider_rejections": []
+      },
+      {
+        "id": "f45a72cd-75ed-4434-9bdb-6b077277729f",
+        "source_url": "https://cardhobby.com.cn/Market/Item/100041251",
+        "listing_title": "2025 Topps MIDNIGHT Scottie Barnes 斯科蒂巴恩斯 卡品如图",
+        "sale_price": "1.00",
+        "shipping_price": "18.00",
+        "currency": "CNY",
+        "occurred_at": "2026-03-01 17:39:31+08:00",
+        "source_code": "cardhobby",
+        "evidence_level": "ended_auction",
+        "visual": {
+          "visual_verdict": "compatible",
+          "visual_confidence": "0.95",
+          "visual_reasons": [
+            "球员姓名、位置、球队（Raptors）、球衣号码（4）完全一致；",
+            "人物姿态、头肩比例、面部表情高度一致，均为张嘴侧身站立，双手自然下垂；",
+            "球衣号码'4'中心点在卡面内相对位置相同，均位于胸前中央偏下；号码整体倾斜角度基本一致，无明显透视拉伸；",
+            "卡名'MIDNIGHT'、Topps Logo位置一致；底部篮球图标与装饰性徽章位置对称，仅颜色深浅略有差异；",
+            "虽然候选卡3未显示限编编号，但根据卡面设计（如蓝紫渐变底纹、白色圆环背景、双弧形装饰带），判断其为同一卡型（Midnight Base），可能因批次或印刷工艺导致细微差异；",
+            "关键视觉特征（如Sun Life标志位置、Nike勾形标志、加拿大枫叶小标）完全匹配，符合'同一产品、同一卡型、同一平行层级'标准。",
+            "geometry_same_template:matches=350,inliers=294,ratio=0.840"
+          ]
+        },
+        "reclassified": {
+          "tier": "T2",
+          "similarity": "0.60",
+          "source_reliability": "0.7000",
+          "field_matches": {
+            "player": true,
+            "partial_multi_player_visual_confirmation": false,
+            "season": true,
+            "product": true,
+            "card_number": false,
+            "insert": false,
+            "parallel": false,
+            "serial_total": false,
+            "grade": true,
+            "visual": true,
+            "season_visual_override": false,
+            "visual_geometry_override": false,
+            "ambiguous_finish_softened": false,
+            "visual_same_template_anchor": false
+          },
+          "hard_conflicts": []
+        },
+        "provider_tier": "same_player_product_analog",
+        "provider_rejections": []
+      },
+      {
+        "id": "32b9dd68-441c-4b9d-88ca-0e63ba645ee9",
+        "source_url": "https://cardhobby.com.cn/Market/Item/99598091",
+        "listing_title": "【古都代卖预付90%春节不休息】 2025-26 Topps Midnight 午夜 Scottie Barnes  斯科蒂 巴恩斯 猛龙 base 品相如图 选图帅气 实卡好看 凑套收藏必备——ANDY",
+        "sale_price": "7.82",
+        "shipping_price": "18.00",
+        "currency": "CNY",
+        "occurred_at": "2026-02-27 21:53:00+08:00",
+        "source_code": "cardhobby",
+        "evidence_level": "ended_auction",
+        "visual": {
+          "visual_verdict": "same",
+          "visual_confidence": "0.95",
+          "visual_reasons": [
+            "球衣号码'4'位于球员胸前中央偏左，与目标卡位置一致；号码整体倾斜角度几乎相同（轻微向右上倾斜），无明显透视拉伸；人物头肩姿态、双手位置及面部朝向高度一致；Logo（Topps、Raptors、Sun Life）位置、字体大小和相对布局完全匹配；卡名'MIDNIGHT'、球员名'SCOTTIE BARNES'及位置、'FORWARD'字样位置、下方篮球图标与装饰性花纹的布局、弧形底纹形状与颜色均一致；仅背景虹彩图案细节因拍摄角度略有差异，但属于同一模板；流水号不同（目标卡2/5，候选卡未显示）属允许范围。",
+            "geometry_same_template:matches=346,inliers=275,ratio=0.795"
+          ]
+        },
+        "reclassified": {
+          "tier": "T2",
+          "similarity": "0.60",
+          "source_reliability": "0.7000",
+          "field_matches": {
+            "player": true,
+            "partial_multi_player_visual_confirmation": false,
+            "season": true,
+            "product": true,
+            "card_number": false,
+            "insert": false,
+            "parallel": false,
+            "serial_total": false,
+            "grade": true,
+            "visual": true,
+            "season_visual_override": false,
+            "visual_geometry_override": false,
+            "ambiguous_finish_softened": false,
+            "visual_same_template_anchor": false
+          },
+          "hard_conflicts": []
+        },
+        "provider_tier": "same_player_product_analog",
+        "provider_rejections": []
+      }
+    ]
+  },
+  {
+    "display_id": 314,
+    "identity": {
+      "collection_item_id": "bc14382e-6c94-496f-943a-7362f76cf164",
+      "card_definition_id": "e5b29660-e2ad-44a0-9af7-16fcbc843c6e",
+      "base_currency": "CNY",
+      "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+      "player_name": "Jason Kidd",
+      "player_name_aliases": [
+        "Jason Kidd"
+      ],
+      "brand_name": "Panini",
+      "season_start": 2022,
+      "season_end": 2023,
+      "product_name": "Impeccable",
+      "set_name": null,
+      "card_number": "II-JKD",
+      "insert_name": "Immortal Ink",
+      "parallel_name": null,
+      "is_rookie": false,
+      "is_autograph": true,
+      "autograph_type": "on_card",
+      "is_memorabilia": false,
+      "memorabilia_types": [],
+      "is_patch": false,
+      "print_run": 35,
+      "serial_number": 27,
+      "serial_total": 35,
+      "grade_company": null,
+      "grade_value": null,
+      "image_front_url": "/uploads/bc14382e-6c94-496f-943a-7362f76cf164-front-02ea40ae80cf40419afc179e6daeb205.jpg",
+      "image_back_url": "/uploads/bc14382e-6c94-496f-943a-7362f76cf164-back-3429d177f1b648449a066bf0b347deb8.jpg",
+      "notes": "后台扫描自动录入；识别置信度 71%；待核对：model_reported_conflict。识别依据已保留，可编辑并参与估值。",
+      "purchase_context": null,
+      "purchase_venue": null,
+      "purchase_price": null,
+      "confirmed_identity_version_id": null,
+      "latest_identity_review_status": "pending",
+      "scanner_identity_rationale": [
+        "正面卡号区域显示 '27/35'，背面编号为 'II-JKD'；正面未印编号前缀，背面编号 'II-JKD' 可能为产品内编号而非限编编号，但结合正面 '27/35' 与背面 '26'（手写签名旁数字）存在不一致，可能为不同编号体系或误读；建议以正面限编 '27/35' 为准作为限编编号。",
+        "视觉提取中‘背面编号 II-JKD’与‘正面 27/35’共存，但 Panini Impeccable Immortal Ink 系列官方结构为：卡号（如 II-JKD）+ 限编（如 27/35），二者属不同字段，无冲突；TCDB/Beckett checklist 明确将 II-JKD 列为卡号，27/35 为该卡的序列编号。",
+        "OCR 将 'IMPECCABLE' 误识为 'IMPESGABLE'，属常见字体识别偏差，不影响产品名判定；所有权威来源均使用 'Impeccable' 拼写。",
+        "未检测到 grade_company/grade_value，因卡片未封装评级，属未评级原卡（raw card），故不填入 resolved_fields。",
+        "产品名已去除运动后缀或补全厂商品牌前缀",
+        "已按卡背 Nº/No./# 标签将字母编号归入 card_number",
+        "is_rookie=false 缺少字段级图片证据，已改为未知",
+        "已按卡背 Nº/No./# 标签将字母编号归入 card_number",
+        "已按卡背 Nº/No./# 标签将字母编号归入 card_number"
+      ],
+      "scanner_identity_example_links": [],
+      "insert": "Immortal Ink",
+      "parallel": null,
+      "evidence": {
+        "player_name": [
+          {
+            "source": "database",
+            "value": "Jason Kidd"
+          }
+        ],
+        "season_start": [
+          {
+            "source": "database",
+            "value": 2022
+          }
+        ],
+        "season_end": [
+          {
+            "source": "database",
+            "value": 2023
+          }
+        ],
+        "brand_name": [
+          {
+            "source": "database",
+            "value": "Panini"
+          }
+        ],
+        "product_name": [
+          {
+            "source": "database",
+            "value": "Impeccable"
+          }
+        ],
+        "card_number": [
+          {
+            "source": "database",
+            "value": "II-JKD"
+          }
+        ],
+        "serial_number": [
+          {
+            "source": "database",
+            "value": 27
+          }
+        ],
+        "serial_total": [
+          {
+            "source": "database",
+            "value": 35
+          }
+        ],
+        "insert": [
+          {
+            "source": "database",
+            "value": "Immortal Ink"
+          }
+        ],
+        "is_rookie": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_autograph": [
+          {
+            "source": "database",
+            "value": true
+          }
+        ],
+        "is_memorabilia": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_patch": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ]
+      },
+      "conflicts": []
+    },
+    "valuation": {
+      "id": "8dad926d-4379-4ef4-ad13-b61e3b7c6e33",
+      "collection_item_id": "bc14382e-6c94-496f-943a-7362f76cf164",
+      "valued_at": "2026-09-09T09:13:00.95476+08:00",
+      "method": "ai_estimate",
+      "currency": "CNY",
+      "low_value": 229.51,
+      "fair_value": 270.01,
+      "high_value": 400.66,
+      "confidence": 0.65,
+      "evidence": {
+        "notes": [
+          "来源诊断 cardhobby: succeeded, 抓取候选 4",
+          "数据来自卡淘公开 SearchCommodity 接口，Status=-2；有出价的结束拍卖作为卡淘结束价参考，未宣称已付款。",
+          "查询反馈：基德 ii-jkd → 原始1、可解析1、通过0、拒绝1；结论=identity_gate_rejected；主要拒绝=标题未命中目标产品系列×1",
+          "查询反馈：基德 immortal ink → 原始6、可解析6、通过2、拒绝4；结论=accepted；主要拒绝=产品赛季与目标卡不一致或无法确认×4",
+          "查询反馈：jason kidd ii-jkd → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：jason kidd immortal ink → 原始6、可解析6、通过2、拒绝4；结论=accepted；主要拒绝=产品赛季与目标卡不一致或无法确认×4",
+          "查询反馈：基德 2022-23 immortal ink → 原始2、可解析2、通过2、拒绝0；结论=accepted",
+          "查询反馈：jason kidd 2022-23 immortal ink → 原始2、可解析2、通过2、拒绝0；结论=accepted",
+          "查询反馈：基德 impeccable → 原始60、可解析60、通过2、拒绝58；结论=accepted；主要拒绝=产品赛季与目标卡不一致或无法确认×21、明确限编与目标卡不一致×13、标题未命中目标卡种，需图像确认×13",
+          "查询反馈：基德 impeccable basketball → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：ii-jkd impeccable → 原始1、可解析1、通过0、拒绝1；结论=identity_gate_rejected；主要拒绝=标题未命中目标产品系列×1",
+          "查询反馈：基德 impeccable ii-jkd → 原始1、可解析1、通过0、拒绝1；结论=identity_gate_rejected；主要拒绝=标题未命中目标产品系列×1",
+          "查询反馈：jason kidd Impeccable Basketball immortal ink 35编 → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "查询反馈：jason kidd 2022-23 Impeccable Basketball ii-jkd 35编 → 原始0、可解析0、通过0、拒绝0；结论=zero_results_relax",
+          "按当前身份重新校验 1 条同卡定义历史成交",
+          "市场数据新鲜度：cached",
+          "成交证据截至：2026-07-12T21:59:00+08:00",
+          "已在估值前剔除 1 条身份冲突缓存成交",
+          "卡淘入口与估值解析器存在 2 条字段判断差异；已按卡淘身份契约保留并降低可比层级",
+          "DeepSeek 证据复核失败，已保留确定性门禁结果：1 validation error for EvidenceReview\ndecisions.2.reason_codes.0\n  Input should be 'exact_identity_supported', 'insufficient_title_detail', 'different_player', "
+        ],
+        "risk_flags": [
+          "stale_exact_evidence",
+          "single_provider_concentration"
+        ],
+        "search_queries": [
+          "卡淘已售接口[strong_anchor]：基德 ii-jkd (召回1/通过0;identity_gate_rejected)",
+          "卡淘已售接口[strong_anchor]：基德 immortal ink (召回6/通过2;accepted)",
+          "卡淘已售接口[strong_anchor]：jason kidd ii-jkd (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[strong_anchor]：jason kidd immortal ink (召回6/通过2;accepted)",
+          "卡淘已售接口[season_insert]：基德 2022-23 immortal ink (召回2/通过2;accepted)",
+          "卡淘已售接口[season_insert]：jason kidd 2022-23 immortal ink (召回2/通过2;accepted)",
+          "卡淘已售接口[relax_product]：基德 impeccable (召回60/通过2;accepted)",
+          "卡淘已售接口[product_spelling_rotation]：基德 impeccable basketball (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[catalog_code_product]：ii-jkd impeccable (召回1/通过0;identity_gate_rejected)",
+          "卡淘已售接口[refine_product]：基德 impeccable ii-jkd (召回1/通过0;identity_gate_rejected)",
+          "卡淘已售接口[knowledge_alias]：jason kidd Impeccable Basketball immortal ink 35编 (召回0/通过0;zero_results_relax)",
+          "卡淘已售接口[knowledge_alias]：jason kidd 2022-23 Impeccable Basketball ii-jkd 35编 (召回0/通过0;zero_results_relax)"
+        ],
+        "selection_policy": "strongest_non_conflicting_relative_tier",
+        "used_comparables": [
+          {
+            "tier": "T0",
+            "title": "2022-23 Panini Impeccable Jason Kidd【卡老鼠代卖】 小真金 独行侠 杰森 基德 签字 卡签 ink签 35编 麦克aq 寄付",
+            "source_url": "https://cardhobby.com.cn/Market/Item/118426677",
+            "classification": {
+              "field_matches": {
+                "grade": true,
+                "insert": false,
+                "player": true,
+                "season": true,
+                "visual": true,
+                "product": true,
+                "parallel": false,
+                "card_number": false,
+                "serial_total": true,
+                "season_visual_override": false,
+                "visual_geometry_override": false,
+                "ambiguous_finish_softened": false,
+                "visual_same_template_anchor": true,
+                "cardhobby_image_review_verified": true,
+                "partial_multi_player_visual_confirmation": false
+              },
+              "hard_conflicts": [],
+              "cardhobby_provider_tier": "image_review_candidate",
+              "gate_disagreement_softened": true,
+              "cardhobby_provider_rejection_reasons": []
+            },
+            "market_comp_id": "881354af-232b-4565-a51f-d3757cd769a6",
+            "visual_verdict": "same",
+            "visual_confidence": "0.97"
+          },
+          {
+            "tier": "T0",
+            "title": "【元宇宙拍卖】福丸002：2022-23 Impeccable Jason Kidd 独行侠 小牛名宿 杰森基德 小真金 Immortal Ink 限量 签字 签名 卡签 不朽签 24/35 SP 微瑕如图",
+            "source_url": "https://cardhobby.com.cn/Market/Item/85922952",
+            "classification": {
+              "field_matches": {
+                "grade": true,
+                "insert": true,
+                "player": true,
+                "season": true,
+                "visual": true,
+                "product": true,
+                "parallel": false,
+                "card_number": false,
+                "serial_total": true,
+                "season_visual_override": false,
+                "visual_geometry_override": false,
+                "ambiguous_finish_softened": false,
+                "visual_same_template_anchor": true,
+                "partial_multi_player_visual_confirmation": false
+              },
+              "hard_conflicts": [],
+              "cardhobby_provider_tier": "exact_or_near_exact",
+              "gate_disagreement_softened": false,
+              "cardhobby_provider_rejection_reasons": []
+            },
+            "market_comp_id": "1065be6c-38fd-4f13-93c9-66df68137256",
+            "visual_verdict": "same",
+            "visual_confidence": "0.95"
+          }
+        ],
+        "rejected_comparables": [
+          {
+            "id": "1ac533dc-d68a-44b5-b551-b9523066e347",
+            "reasons": [
+              "identity_conflict"
+            ]
+          },
+          {
+            "id": "8e623fc8-1b48-497d-83aa-ccaf9deb471d",
+            "reasons": [
+              "weaker_relative_tier"
+            ]
+          }
+        ],
+        "automatic_publication": true
+      },
+      "model_version": "relative-multimodal-comps-1.0",
+      "created_at": "2026-09-09T09:13:00.95476+08:00",
+      "identity_compatibility": "unknown",
+      "identity_compatibility_reasons": []
+    },
+    "rejected_sources": [],
+    "sources": [
+      {
+        "id": "881354af-232b-4565-a51f-d3757cd769a6",
+        "source_url": "https://cardhobby.com.cn/Market/Item/118426677",
+        "listing_title": "2022-23 Panini Impeccable Jason Kidd【卡老鼠代卖】 小真金 独行侠 杰森 基德 签字 卡签 ink签 35编 麦克aq 寄付",
+        "sale_price": "270.01",
+        "shipping_price": "18.00",
+        "currency": "CNY",
+        "occurred_at": "2026-06-21 21:19:00+08:00",
+        "source_code": "cardhobby",
+        "evidence_level": "ended_auction",
+        "visual": {
+          "visual_verdict": "same",
+          "visual_confidence": "0.97",
+          "visual_reasons": [
+            "卡面模板与目标卡完全一致：顶部'JASON KIDD'横幅、左上角JC标志、撕纸V形分割、'IMMORTAL INK'与'MAVERICKS'文字排版、签名区位置及字体样式均相同。",
+            "球衣号码'2'在左侧小图中位置一致（居中偏右，垂直居中），倾斜角度接近（轻微向上倾斜），无明显透视拉伸；人物头肩与双手姿态一致（持球投篮动作，左手托球、右手辅助）。",
+            "人物在卡面左右位置：大头像位于右侧，小图位于左侧，相对布局一致。",
+            "Logo位置：左上角JC标志位置、底部'JASON KIDD'与'DALLAS MAVERICKS'横条位置一致。",
+            "限编总数均为35，仅流水号不同（27/35 vs 18/35），符合允许差异；卡片表面有轻微遮挡（水印），但未影响关键特征识别；材质纹理略有差异属拍摄或批次原因，不影响核心识别。",
+            "geometry_same_template:matches=142,inliers=107,ratio=0.754"
+          ]
+        },
+        "reclassified": {
+          "tier": "T0",
+          "similarity": "1.00",
+          "source_reliability": "0.7000",
+          "field_matches": {
+            "player": true,
+            "partial_multi_player_visual_confirmation": false,
+            "season": true,
+            "product": true,
+            "card_number": false,
+            "insert": false,
+            "parallel": false,
+            "serial_total": true,
+            "grade": true,
+            "visual": true,
+            "season_visual_override": false,
+            "visual_geometry_override": false,
+            "ambiguous_finish_softened": false,
+            "visual_same_template_anchor": true,
+            "cardhobby_image_review_verified": true
+          },
+          "hard_conflicts": []
+        },
+        "provider_tier": "image_review_candidate",
+        "provider_rejections": []
+      },
+      {
+        "id": "1065be6c-38fd-4f13-93c9-66df68137256",
+        "source_url": "https://cardhobby.com.cn/Market/Item/85922952",
+        "listing_title": "【元宇宙拍卖】福丸002：2022-23 Impeccable Jason Kidd 独行侠 小牛名宿 杰森基德 小真金 Immortal Ink 限量 签字 签名 卡签 不朽签 24/35 SP 微瑕如图",
+        "sale_price": "348.40",
+        "shipping_price": "18.00",
+        "currency": "CNY",
+        "occurred_at": "2025-11-11 20:55:30+08:00",
+        "source_code": "cardhobby",
+        "evidence_level": "ended_auction",
+        "visual": {
+          "visual_verdict": "same",
+          "visual_confidence": "0.95",
+          "visual_reasons": [
+            "卡面模板完全一致：顶部'JASON KIDD'黑底白字横幅、左上角JC标志、右侧撕纸风格V形分割、下方'IMMORTAL INK'与'MAVERICKS'文字排版、签名区位置及字体样式均相同。",
+            "球衣号码'2'在左侧小图中位置一致（居中偏右，垂直居中），倾斜角度接近（轻微向上倾斜），无明显透视拉伸；人物头肩与双手姿态一致（持球投篮动作，左手托球、右手辅助）。",
+            "人物在卡面左右位置：大头像位于右侧，小图位于左侧，相对布局一致。",
+            "Logo位置：左上角JC标志位置、底部'JASON KIDD'与'DALLAS MAVERICKS'横条位置一致。",
+            "限编总数均为35，仅流水号不同（27/35 vs 24/35），符合允许差异；材质纹理略有差异属拍摄或批次原因，不影响核心识别。",
+            "geometry_same_template:matches=96,inliers=67,ratio=0.698"
+          ]
+        },
+        "reclassified": {
+          "tier": "T0",
+          "similarity": "1.00",
+          "source_reliability": "0.7000",
+          "field_matches": {
+            "player": true,
+            "partial_multi_player_visual_confirmation": false,
+            "season": true,
+            "product": true,
+            "card_number": false,
+            "insert": true,
+            "parallel": false,
+            "serial_total": true,
+            "grade": true,
+            "visual": true,
+            "season_visual_override": false,
+            "visual_geometry_override": false,
+            "ambiguous_finish_softened": false,
+            "visual_same_template_anchor": true
+          },
+          "hard_conflicts": []
+        },
+        "provider_tier": "exact_or_near_exact",
+        "provider_rejections": []
+      }
+    ]
+  },
+  {
+    "display_id": 357,
+    "identity": {
+      "collection_item_id": "de4ef9e2-216f-4d24-ab49-5425eff66de5",
+      "card_definition_id": "63e50131-1706-4802-b1c4-585b0734446a",
+      "base_currency": "CNY",
+      "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+      "player_name": "Gradey Dick",
+      "player_name_aliases": [
+        "Gradey Dick"
+      ],
+      "brand_name": "Topps",
+      "season_start": 2024,
+      "season_end": 2025,
+      "product_name": "Midnight",
+      "set_name": null,
+      "card_number": "40",
+      "insert_name": null,
+      "parallel_name": null,
+      "is_rookie": true,
+      "is_autograph": false,
+      "autograph_type": "none",
+      "is_memorabilia": false,
+      "memorabilia_types": [],
+      "is_patch": false,
+      "print_run": 99,
+      "serial_number": 21,
+      "serial_total": 99,
+      "grade_company": null,
+      "grade_value": null,
+      "image_front_url": "/uploads/de4ef9e2-216f-4d24-ab49-5425eff66de5-front-f2a76aff494d458280395d5c2b67be89.jpg",
+      "image_back_url": "/uploads/de4ef9e2-216f-4d24-ab49-5425eff66de5-back-5ffc31f729ee41fda55b2fb0127d238c.jpg",
+      "notes": "后台扫描自动录入；识别置信度 74%；待核对：missing_season_end, model_reported_conflict。识别依据已保留，可编辑并参与估值。",
+      "purchase_context": null,
+      "purchase_venue": null,
+      "purchase_price": null,
+      "confirmed_identity_version_id": null,
+      "latest_identity_review_status": "pending",
+      "scanner_identity_rationale": [
+        "正面左上角 '21/99' 为限编编号，背面顶部 '40' 为产品内卡号（checklist序号），二者属不同编号系统，不冲突；OCR将背面'40'误识为'4D'，但图像清晰显示为'40'",
+        "视觉识别确认背面卡号为清晰可辨的'40'（非'4D'），OCR误识已校正；'21/99'为限编编号，属该平行版本独立序列，与产品总卡号系统无冲突。",
+        "TCDB 条目明确标注为 'Midnight Point' 插入卡，并展示同号（#40）、同限编（21/99）、同RC标识的高清正面图，构成最强证据链。",
+        "Beckett 和 Cardboard Connection 未在条目标题中强调 'Midnight Point'，但其价格指南页内数据与视觉字段完全一致，支持基础身份；'Parallel' 在官方 checklist 中未作为独立命名层级，而是通过限编+RC+插入名共同定义，故第三候选置信度略低。",
+        "发行赛季仅有推断性证据，已清空并等待卡背或目录核验",
+        "发行赛季证据来自统计/履历/选秀文字，已弃用；仅保留独立版权年份",
+        "特卡名与产品名重复，缺少独立卡面证据，已留空",
+        "is_autograph=false 缺少字段级图片证据，已改为未知",
+        "is_memorabilia=false 缺少字段级图片证据，已改为未知",
+        "发行赛季仅有推断性证据，已清空并等待卡背或目录核验",
+        "发行赛季证据来自统计/履历/选秀文字，已弃用；仅保留独立版权年份",
+        "发行赛季仅有推断性证据，已清空并等待卡背或目录核验",
+        "发行赛季证据来自统计/履历/选秀文字，已弃用；仅保留独立版权年份"
+      ],
+      "scanner_identity_example_links": [],
+      "insert": null,
+      "parallel": null,
+      "evidence": {
+        "player_name": [
+          {
+            "source": "database",
+            "value": "Gradey Dick"
+          }
+        ],
+        "season_start": [
+          {
+            "source": "database",
+            "value": 2024
+          }
+        ],
+        "season_end": [
+          {
+            "source": "database",
+            "value": 2025
+          }
+        ],
+        "brand_name": [
+          {
+            "source": "database",
+            "value": "Topps"
+          }
+        ],
+        "product_name": [
+          {
+            "source": "database",
+            "value": "Midnight"
+          }
+        ],
+        "card_number": [
+          {
+            "source": "database",
+            "value": "40"
+          }
+        ],
+        "serial_number": [
+          {
+            "source": "database",
+            "value": 21
+          }
+        ],
+        "serial_total": [
+          {
+            "source": "database",
+            "value": 99
+          }
+        ],
+        "is_rookie": [
+          {
+            "source": "database",
+            "value": true
+          }
+        ],
+        "is_autograph": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_memorabilia": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ],
+        "is_patch": [
+          {
+            "source": "database",
+            "value": false
+          }
+        ]
+      },
+      "conflicts": []
+    },
+    "valuation": {
+      "id": "e855860e-7e89-449f-b21b-031248151ec1",
+      "collection_item_id": "de4ef9e2-216f-4d24-ab49-5425eff66de5",
+      "valued_at": "2026-09-09T09:03:32.638686+08:00",
+      "method": "ai_estimate",
+      "currency": "CNY",
+      "low_value": 3.25,
+      "fair_value": 5.0,
+      "high_value": 6.75,
+      "confidence": 0.45,
+      "evidence": {
+        "notes": [
+          "按当前身份重新校验 8 条同卡定义历史成交",
+          "市场数据新鲜度：cached",
+          "成交证据截至：2026-08-30T21:40:30+08:00",
+          "已在估值前剔除 4 条身份冲突缓存成交",
+          "DeepSeek 证据复核未发现可执行的高置信度硬冲突"
+        ],
+        "risk_flags": [
+          "fewer_than_two_exact_sales"
+        ],
+        "search_queries": [],
+        "selection_policy": "strongest_non_conflicting_relative_tier",
+        "used_comparables": [
+          {
+            "tier": "T0",
+            "title": "【浩行拍卖精品 截标预付82%】2024 Topps Midnight Gradey Dick 午夜 猛龙 格雷迪 迪克 RC 新秀 折射 99编 专收必备「好学101壹」0827G02兿",
+            "source_url": "https://cardhobby.com.cn/Market/Item/131594599",
+            "classification": {
+              "field_matches": {
+                "grade": true,
+                "insert": false,
+                "player": true,
+                "season": true,
+                "visual": true,
+                "product": true,
+                "parallel": false,
+                "card_number": false,
+                "serial_total": true,
+                "season_visual_override": false,
+                "visual_geometry_override": false,
+                "ambiguous_finish_softened": false,
+                "visual_same_template_anchor": true,
+                "partial_multi_player_visual_confirmation": false
+              },
+              "hard_conflicts": [],
+              "cardhobby_provider_tier": "exact_or_near_exact",
+              "gate_disagreement_softened": false,
+              "cardhobby_provider_rejection_reasons": []
+            },
+            "market_comp_id": "f89c80d6-7e6a-42f5-95f9-a949ecc33470",
+            "visual_verdict": "same",
+            "visual_confidence": "0.95"
+          }
+        ],
+        "rejected_comparables": [
+          {
+            "id": "2c36e893-449f-4a32-8d2e-9c61526a63d0",
+            "reasons": [
+              "identity_conflict"
+            ]
+          },
+          {
+            "id": "a32745b4-e42e-464a-8d2e-6f2e02b4f0b9",
+            "reasons": [
+              "identity_conflict"
+            ]
+          },
+          {
+            "id": "15be4c56-5875-4d1b-abe2-5ac3a9d53f01",
+            "reasons": [
+              "identity_conflict"
+            ]
+          }
+        ],
+        "automatic_publication": true
+      },
+      "model_version": "relative-multimodal-comps-1.0",
+      "created_at": "2026-09-09T09:03:32.638686+08:00",
+      "identity_compatibility": "unknown",
+      "identity_compatibility_reasons": []
+    },
+    "rejected_sources": [],
+    "sources": [
+      {
+        "id": "f89c80d6-7e6a-42f5-95f9-a949ecc33470",
+        "source_url": "https://cardhobby.com.cn/Market/Item/131594599",
+        "listing_title": "【浩行拍卖精品 截标预付82%】2024 Topps Midnight Gradey Dick 午夜 猛龙 格雷迪 迪克 RC 新秀 折射 99编 专收必备「好学101壹」0827G02兿",
+        "sale_price": "5.00",
+        "shipping_price": "18.00",
+        "currency": "CNY",
+        "occurred_at": "2026-08-30 21:40:30+08:00",
+        "source_code": "cardhobby",
+        "evidence_level": "ended_auction",
+        "visual": {
+          "visual_verdict": "same",
+          "visual_confidence": "0.95",
+          "visual_reasons": [
+            "球衣号码'1'位于球员胸前中央偏上，中心点横纵坐标与目标卡一致；号码整体无明显倾斜或透视拉伸；人物为腾空投篮姿态，头肩及双手位置与目标卡高度吻合；Logo（Topps、RC标志）、卡名'MIDNIGHT'、球员名'GRADEY DICK | SHOOTING GUARD'及流水号'21/99'位置完全对应；背景几何图形与山形元素布局一致；仅因拍摄角度略有差异导致轻微反光，属允许范围。",
+            "geometry_same_template:matches=395,inliers=342,ratio=0.866"
+          ]
+        },
+        "reclassified": {
+          "tier": "T0",
+          "similarity": "1.00",
+          "source_reliability": "0.7000",
+          "field_matches": {
+            "player": true,
+            "partial_multi_player_visual_confirmation": false,
+            "season": true,
+            "product": true,
+            "card_number": false,
+            "insert": false,
+            "parallel": false,
+            "serial_total": true,
+            "grade": true,
+            "visual": true,
+            "season_visual_override": false,
+            "visual_geometry_override": false,
+            "ambiguous_finish_softened": false,
+            "visual_same_template_anchor": true
+          },
+          "hard_conflicts": []
+        },
+        "provider_tier": "exact_or_near_exact",
+        "provider_rejections": []
+      }
+    ]
+  }
+]

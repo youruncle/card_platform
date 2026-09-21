@@ -25,7 +25,7 @@ def test_cardhobby_reads_shared_marketplace_alias_catalog() -> None:
     assert any("教堂" in query for query in queries)
 
 
-def test_numeric_card_number_cannot_promote_a_different_insert() -> None:
+def test_numeric_card_number_cannot_promote_explicit_base_to_target_insert() -> None:
     sale = CardHobbySale(
         item_id="128370328",
         title=(
@@ -55,6 +55,7 @@ def test_numeric_card_number_cannot_promote_a_different_insert() -> None:
         sale,
     )
 
-    assert score == Decimal("0.40")
-    assert tier == "same_player_product_analog"
+    assert score == Decimal("0")
+    assert tier is None
+    assert "标题明确为基础卡，与目标卡种不一致" in conflicts
     assert "标题未命中目标卡号或卡种" in conflicts

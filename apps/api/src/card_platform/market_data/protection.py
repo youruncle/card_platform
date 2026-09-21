@@ -14,6 +14,10 @@ class SourceLimitedError(RuntimeError):
     pass
 
 
+class ProviderConcurrencyBusy(SourceLimitedError):
+    """A transient database lease collision, not a provider failure."""
+
+
 def retry_after_seconds(value: str | None) -> int | None:
     if not value:
         return None
@@ -34,16 +38,33 @@ class ProtectedProvider:
         self.provider = provider
         self._semaphore = asyncio.Semaphore(1)
 
+    async def _reserve_request(self, *, timeout_seconds: float = 30.0) -> float:
+        deadline = monotonic() + timeout_seconds
+        while True:
+            try:
+                return await self._begin()
+            except ProviderConcurrencyBusy:
+                if monotonic() >= deadline:
+                    raise ProviderConcurrencyBusy(
+                        f"{self.provider.code} local capacity busy"
+                    ) from None
+                await asyncio.sleep(min(0.25, max(0.0, deadline - monotonic())))
+
     async def fetch_sales(
         self, identity: MarketIdentity, *, since: datetime | None = None
     ) -> ProviderFetchResult:
         async with self._semaphore:
-            wait_seconds = await self._begin()
-            if wait_seconds:
-                await asyncio.sleep(wait_seconds)
+            wait_seconds = await self._reserve_request()
             started = monotonic()
             try:
+                if wait_seconds:
+                    await asyncio.sleep(wait_seconds)
                 result = await self.provider.fetch_sales(identity, since=since)
+            except asyncio.CancelledError:
+                # Graceful shutdown must not leave a phantom provider lease.
+                # Cancellation is neither an HTTP failure nor a circuit event.
+                await asyncio.shield(self._release_cancelled())
+                raise
             except httpx.HTTPStatusError as error:
                 status = error.response.status_code
                 retry_after = retry_after_seconds(error.response.headers.get("Retry-After"))
@@ -73,8 +94,24 @@ class ProtectedProvider:
                         f"{self.provider.code} presented an anti-bot challenge"
                     ) from error
                 raise
+            if result.source_error:
+                await self._failure(
+                    result.source_error[:300],
+                    duration_ms=int((monotonic() - started) * 1000),
+                )
+                return result
             await self._success(int((monotonic() - started) * 1000))
             return result
+
+    async def _release_cancelled(self) -> None:
+        async with self.database.connection() as connection:
+            await connection.execute(
+                """UPDATE provider_state
+                   SET active_requests = GREATEST(active_requests - 1, 0),
+                       updated_at = now()
+                   WHERE provider_code = %s""",
+                (self.provider.code,),
+            )
 
     async def _begin(self) -> float:
         async with self.database.connection() as connection, connection.transaction():
@@ -116,7 +153,9 @@ class ProtectedProvider:
                     (self.provider.code,),
                 )
             if state["active_requests"] >= state["concurrent_limit"]:
-                raise SourceLimitedError(f"{self.provider.code} concurrency limit reached")
+                raise ProviderConcurrencyBusy(
+                    f"{self.provider.code} concurrency limit reached"
+                )
             wait_seconds = 0.0
             if state["last_request_at"]:
                 elapsed = (now - state["last_request_at"]).total_seconds()

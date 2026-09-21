@@ -1,0 +1,44 @@
+{
+  "overlap_allowed": true,
+  "causes": [
+    {
+      "cause": "visible_serial_missing",
+      "affected_recent_ids": [
+        435,
+        436,
+        437,
+        438,
+        440,
+        443
+      ],
+      "denominator": 20
+    },
+    {
+      "cause": "physically_verified_catalog_identity_correction",
+      "affected_recent_ids": [
+        430,
+        431,
+        441,
+        442,
+        443,
+        447
+      ],
+      "denominator": 20
+    },
+    {
+      "cause": "cross_layer_or_mixed_language_roster_rejection",
+      "affected_recent_ids": [
+        442,
+        443
+      ],
+      "denominator": 20
+    },
+    {
+      "cause": "partial_three_subject_seller_title",
+      "affected_recent_ids": [
+        444
+      ],
+      "denominator": 20
+    }
+  ]
+}

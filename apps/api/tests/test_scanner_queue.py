@@ -115,6 +115,46 @@ def test_recognition_auto_import_preserves_editable_card_attributes() -> None:
     assert payload.serial_total == 99
     assert payload.card.is_autograph is True
     assert payload.card.is_memorabilia is True
+    assert "识别置信度 91%" in (payload.notes or "")
+    assert "可编辑并参与估值" in (payload.notes or "")
+
+
+def test_low_confidence_recognition_is_still_a_formal_import_payload() -> None:
+    payload = _auto_import_payload(
+        uuid4(),
+        CardRecognitionResult(
+            confidence="0.58",
+            player_name=None,
+            brand_name=None,
+            season_start=None,
+            product_name=None,
+            recognition_status="research_required",
+            recognition_quality_issues=["missing_player_name", "missing_card_number"],
+        ),
+    )
+
+    assert payload.card.player_name == "无法识别球员"
+    assert payload.card.brand_name == "无法识别品牌"
+    assert payload.card.product_name == "无法识别产品"
+    assert "识别置信度 58%" in (payload.notes or "")
+    assert "missing_player_name" in (payload.notes or "")
+
+
+def test_recognition_auto_import_drops_incompatible_season_end() -> None:
+    payload = _auto_import_payload(
+        uuid4(),
+        CardRecognitionResult(
+            confidence="0.80",
+            player_name="Cade Cunningham",
+            brand_name="Panini",
+            season_start=2021,
+            season_end=2024,
+            product_name="Prizm Basketball",
+        ),
+    )
+
+    assert payload.card.season_start == 2021
+    assert payload.card.season_end is None
 
 
 @pytest.mark.asyncio
@@ -223,6 +263,27 @@ async def test_enqueue_preserves_preprocessed_flatbed_crops(
     assert service.image_path(connection.params[2]).read_bytes() == b"flatbed-front"
     assert service.image_path(connection.params[3]).read_bytes() == b"flatbed-back"
     assert connection.params[10:14] == (1.0, 1.0, False, False)
+
+
+@pytest.mark.asyncio
+async def test_enqueue_preserves_flatbed_crop_confidence(tmp_path: Path) -> None:
+    service = ScannerQueueService(Settings(scanner_job_dir=str(tmp_path)))
+    connection = _Connection()
+
+    await service.enqueue(
+        connection,
+        uuid4(),
+        b"flatbed-front",
+        "image/jpeg",
+        b"flatbed-back",
+        "image/jpeg",
+        preprocessed=True,
+        front_crop_confidence=0.73,
+        back_crop_confidence=0.61,
+    )
+
+    assert connection.params is not None
+    assert connection.params[10:14] == (0.73, 0.61, False, False)
 
 
 @pytest.mark.asyncio

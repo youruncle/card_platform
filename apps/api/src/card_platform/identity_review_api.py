@@ -4,6 +4,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.encoders import jsonable_encoder
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field
 
@@ -58,12 +59,31 @@ async def _item_identity(connection, item_id: UUID, owner_id: UUID, lock: bool =
                cs.season_start, cs.season_end, cs.product_name, cs.set_name,
                cd.card_number, cd.insert_name, cd.parallel_name, cd.is_rookie,
                cd.is_autograph, cd.autograph_type, cd.is_memorabilia,
-               cd.memorabilia_types
+               cd.memorabilia_types,
+               COALESCE(NULLIF(confirmed.identity->'is_redemption', 'null'::jsonb),
+                        NULLIF(scanner.result->'is_redemption', 'null'::jsonb),
+                        'false'::jsonb) AS is_redemption,
+               COALESCE(confirmed.identity->>'redemption_status',
+                        scanner.result->>'redemption_status', 'unknown') AS redemption_status
         FROM collection_item ci
         JOIN card_definition cd ON cd.id = ci.card_definition_id
         JOIN player p ON p.id = cd.player_id
         JOIN card_set cs ON cs.id = cd.card_set_id
         JOIN brand b ON b.id = cs.brand_id
+        LEFT JOIN LATERAL (
+            SELECT version.identity FROM card_identity_version version
+            WHERE version.collection_item_id = ci.id AND version.review_status = 'confirmed'
+              AND NOT EXISTS (
+                  SELECT 1 FROM card_identity_version revoked
+                  WHERE revoked.supersedes_id = version.id AND revoked.review_status = 'rejected'
+              )
+            ORDER BY version.version DESC LIMIT 1
+        ) confirmed ON true
+        LEFT JOIN LATERAL (
+            SELECT result FROM scanner_recognition_job
+            WHERE collection_item_id = ci.id AND result IS NOT NULL
+            ORDER BY created_at DESC LIMIT 1
+        ) scanner ON true
         WHERE ci.id = %s AND ci.owner_id = %s AND ci.deleted_at IS NULL
         {"FOR UPDATE OF ci" if lock else ""}
         """,
@@ -73,8 +93,14 @@ async def _item_identity(connection, item_id: UUID, owner_id: UUID, lock: bool =
 
 
 def _identity(row: dict) -> dict:
-    keys = ConfirmedIdentity.model_fields.keys()
-    return {key: row.get(key) for key in keys}
+    fields = ConfirmedIdentity.model_fields
+    # Database numerics arrive as Decimal.  Identity snapshots are written to
+    # jsonb audit columns, so normalize them before handing the value to Jsonb.
+    return jsonable_encoder({
+        key: row[key] if key in row else None if field.is_required()
+        else field.get_default(call_default_factory=True)
+        for key, field in fields.items()
+    })
 
 
 async def _evidence_rows(connection, item: dict) -> list[dict]:
@@ -209,7 +235,7 @@ async def review_queue(request: Request, user: AuthenticatedUser = Depends(curre
             LEFT JOIN LATERAL (
                 SELECT version, review_status, conflicts FROM card_identity_version
                 WHERE collection_item_id = ci.id
-                ORDER BY (review_status = 'confirmed') DESC, version DESC LIMIT 1
+                ORDER BY version DESC LIMIT 1
             ) latest ON true
             WHERE ci.owner_id = %s AND ci.deleted_at IS NULL
             ORDER BY priority DESC, ci.created_at
@@ -233,7 +259,7 @@ async def review_detail(item_id: UUID, request: Request, user: AuthenticatedUser
         item = dict(item_row)
         version_result = await connection.execute(
             """SELECT * FROM card_identity_version WHERE collection_item_id = %s
-               ORDER BY (review_status = 'confirmed') DESC, version DESC LIMIT 1""",
+               ORDER BY version DESC LIMIT 1""",
             (item_id,),
         )
         version = await version_result.fetchone()
@@ -318,6 +344,11 @@ async def publish_shadow_valuation(item_id: UUID, request: Request,
                FROM valuation_shadow_result s
                JOIN card_identity_version v ON v.id = s.identity_version_id
                WHERE s.collection_item_id = %s AND v.review_status = 'confirmed'
+                 AND NOT EXISTS (
+                     SELECT 1 FROM card_identity_version revocation
+                     WHERE revocation.supersedes_id = v.id
+                       AND revocation.review_status = 'rejected'
+                 )
                  AND s.fair_value IS NOT NULL
                ORDER BY s.created_at DESC LIMIT 1 FOR UPDATE OF s""",
             (item_id,),
@@ -563,7 +594,8 @@ async def confirm_identity(item_id: UUID, payload: ConfirmIdentityRequest, reque
         accepted = rejected = 0
         for sale in evidence:
             decision, reasons = structured_evidence_decision(
-                sale.get("identity_classification") or {}, sale["evidence_level"]
+                sale.get("identity_classification") or {}, sale["evidence_level"],
+                identity_changed=old_fingerprint != market_identity.fingerprint,
             )
             accepted += decision == "accepted"
             rejected += decision == "rejected"
@@ -579,6 +611,9 @@ async def confirm_identity(item_id: UUID, payload: ConfirmIdentityRequest, reque
                     "UPDATE market_evidence SET identity_fingerprint = %s WHERE id = %s",
                     (market_identity.fingerprint, sale["id"]),
                 )
+        await MarketDataRepository().adopt_reviewed_evidence(
+            connection, market_identity.fingerprint, version["id"]
+        )
         await connection.execute(
             """INSERT INTO market_identity_rebind_audit
                (collection_item_id, identity_version_id, old_fingerprint, new_fingerprint,

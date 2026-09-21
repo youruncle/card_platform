@@ -1,4 +1,5 @@
 import pytest
+from decimal import Decimal
 from pydantic import ValidationError
 
 from card_platform.domain.identity_review import ConfirmedIdentity, structured_evidence_decision
@@ -12,10 +13,12 @@ from card_platform.domain.identity_research import (
     LUKA_DONCIC_FIXTURE_VISUAL,
     SCOTTIE_BARNES_FIXTURE_VISUAL,
     STEPHEN_CURRY_FIXTURE_VISUAL,
+    automatic_candidate_decision,
     generate_candidates,
 )
 from card_platform.identity_review_api import (
     _enrich_candidate_evidence,
+    _identity,
     _market_comp_uuid_ids,
 )
 
@@ -31,6 +34,12 @@ def identity(**updates):
     }
     payload.update(updates)
     return payload
+
+
+def test_identity_audit_payload_serializes_database_decimal_grade() -> None:
+    payload = _identity(identity(grade_company="PSA", grade_value=Decimal("10.0")))
+
+    assert payload["grade_value"] == 10.0
 
 
 def test_candidate_evidence_is_enriched_with_canonical_source_and_image() -> None:
@@ -194,6 +203,90 @@ def test_same_serial_total_keeps_distinct_parallel_candidates() -> None:
         "Gold Diamante", "Gold Rainbow", "Gold Holo Foil",
         "Season Tip-Off Gold Foilboard", "Crackleboard Gold",
     }
+
+
+def test_automatic_identity_accepts_one_valid_resolved_candidate() -> None:
+    candidate = {
+        "identity": identity(parallel_name="Blue", serial_number=1, serial_total=250),
+        "confidence": "0.96",
+        "is_valid": True,
+        "validation_reasons": [],
+        "visual_reasons": ["tiered_recognition_status:resolved"],
+        "field_provenance": {
+            "player_name": ["front"],
+            "season_start": ["checklist"],
+            "product_name": ["logo"],
+            "card_number": ["back"],
+        },
+    }
+
+    selected, reasons = automatic_candidate_decision([candidate])
+
+    assert selected is candidate
+    assert reasons == ["single_valid_high_confidence_candidate"]
+
+
+def test_automatic_identity_rejects_model_research_request_with_diagnostics() -> None:
+    candidate = {
+        "identity": identity(parallel_name="Blue", serial_number=1, serial_total=250),
+        "confidence": "0.99",
+        "is_valid": True,
+        "validation_reasons": [],
+        "visual_reasons": [
+            "tiered_recognition_status:research_required",
+            "quality_issue:model_reported_conflict",
+        ],
+        "field_provenance": {
+            "player_name": ["front"],
+            "season_start": ["checklist"],
+            "product_name": ["logo"],
+            "card_number": ["back"],
+        },
+    }
+
+    selected, reasons = automatic_candidate_decision([candidate])
+
+    assert selected is None
+    assert reasons[0] == "vision_quality_gate_failed"
+    assert "quality_issue:model_reported_conflict" in reasons
+
+
+@pytest.mark.parametrize(
+    ("identity_updates", "rationale", "expected_reason"),
+    [
+        (
+            {"card_number": "30"},
+            "正面 30 为球员球衣号，非卡号；背面实际编号为 SC-15。",
+            "candidate_card_number_denied_by_own_rationale",
+        ),
+        (
+            {"serial_number": 3, "serial_total": 19},
+            "正面 3/19/98 是比赛日期，并非限编编号。",
+            "candidate_serial_denied_by_own_rationale",
+        ),
+    ],
+)
+def test_automatic_identity_rejects_fields_denied_by_its_own_rationale(
+    identity_updates: dict, rationale: str, expected_reason: str
+) -> None:
+    candidate = {
+        "identity": identity(parallel_name="Blue", **identity_updates),
+        "confidence": "0.99",
+        "is_valid": True,
+        "validation_reasons": [],
+        "visual_reasons": ["tiered_recognition_status:resolved", rationale],
+        "field_provenance": {
+            "player_name": ["front"],
+            "season_start": ["checklist"],
+            "product_name": ["logo"],
+            "card_number": ["back"],
+        },
+    }
+
+    selected, reasons = automatic_candidate_decision([candidate])
+
+    assert selected is None
+    assert expected_reason in reasons
 
 
 def test_brandon_prizm_base_removes_generic_parallel_fields() -> None:

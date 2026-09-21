@@ -1,0 +1,30 @@
+{
+  "active_cards": 519,
+  "effective_status": {
+    "insufficient_evidence": 424,
+    "succeeded": 95
+  },
+  "never_had_snapshot": 130,
+  "cardhobby_comp_rows": 3373,
+  "latest_job_status": {
+    "insufficient_evidence": 424,
+    "succeeded": 95
+  },
+  "latest_failure_stage": {
+    "cardhobby_recall_and_similarity_gate": 306,
+    "unrecorded": 93,
+    "evidence_quality_gate": 5,
+    "exact_identity_hard_gate": 19,
+    "exact_identity_tier_gate": 1
+  },
+  "snapshot_history_but_current_insufficient": 294,
+  "system_priced_coverage": 0.18304431599229287,
+  "independently_reviewed_cards": 14,
+  "full_reference_intervals": 0,
+  "full_reference_interval_status": "no_sufficient_labels_not_zero_accuracy",
+  "selected_samples": 60,
+  "reviewed_candidate_images": 29,
+  "cost_baseline": "unknown",
+  "frozen_at": "2026-09-21 00:52:45.620429+08:00",
+  "baseline_sha256": "d0bb8027e5a2aff032c841d68d5a0e0a672c32f279bfddac292a2ab6ce212285"
+}

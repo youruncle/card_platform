@@ -1,0 +1,1279 @@
+[
+  {
+    "display_id": 4,
+    "sampling_stratum": "insufficient_history",
+    "current_status": "insufficient_evidence",
+    "current_fair_value": null,
+    "historical_fair_value": 40.9,
+    "observed_identity": "正面ACE BAILEY/UTAH19及球皮状边纹可见；背面主体为垫板，仅卡角。confirmed版本Basketball Refractor与投影为空并存。",
+    "failed_or_uncertain_stage": "原图质量；身份来源",
+    "assessment": "候选100226176正面构图相同，但原背不足、日期价格仅历史记录且bid_count缺失，不能据40.90补值。",
+    "review_method": "direct_image_and_source_review_not_blinded",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "historical_observation_range_cny": null,
+    "price_bias_label": "undetermined",
+    "historical_model_cost": null,
+    "cost_missing_reason": "per_call_usage_and_price_version_not_available",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/100226176"
+    ],
+    "local_contact_sheet": "work/audits/valuation-design-20260921/sheets/4.jpg",
+    "split": "development"
+  },
+  {
+    "display_id": 6,
+    "sampling_stratum": "normal_candidate",
+    "current_status": "succeeded",
+    "current_fair_value": 330.0,
+    "historical_fair_value": 330.0,
+    "observed_identity": "Star Cast构图、库里球衣30号、背面姓名相符；两候选正面构图相同。",
+    "failed_or_uncertain_stage": "详情/品相与样本量",
+    "assessment": "131184551本轮页面可读：330元/21次/2026-08-30，详情含所有卡不保卡品；125023844仅历史400元。模板免责声明需独立分层，不能忽略也不能直接当具体损伤。",
+    "review_method": "direct_image_and_source_review_not_blinded",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "sufficient",
+    "reference_interval": [
+      "403",
+      "525"
+    ],
+    "historical_observation_range_cny": [
+      330,
+      400
+    ],
+    "price_bias_label": "undetermined",
+    "historical_model_cost": null,
+    "cost_missing_reason": "per_call_usage_and_price_version_not_available",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/131184551",
+      "https://cardhobby.com.cn/Market/Item/125023844"
+    ],
+    "local_contact_sheet": "work/audits/valuation-design-20260921/sheets/6.jpg",
+    "split": "development",
+    "reference_kind": "public_ended_auction_normal_circulation_raw_card",
+    "reference_method": "Blind independent review of three latest non-explicit-damage retained candidates; interval min/max of observed hammer prices, shipping excluded; not fitted to system output",
+    "reference_review": "work/audits/valuation-implementation-20260921/browser-evidence/blind-reference-review.json",
+    "reference_source_urls": [
+      "https://cardhobby.com.cn/Market/Item/133331996",
+      "https://cardhobby.com.cn/Market/Item/133368915",
+      "https://cardhobby.com.cn/Market/Item/132872750"
+    ],
+    "reference_limitations": "No confirmed payment. Target image is dark; minor condition cannot be certified. Distinct seller/image review excludes visible duplicates, does not prove absence of resale. Only three reviewed sources; earlier observations remain separately recorded."
+  },
+  {
+    "display_id": 20,
+    "sampling_stratum": "insufficient_history",
+    "split": "holdout",
+    "observed_identity_and_assessment": "AJ Dybantsa, Topps Chrome McDonald's All American WEST #7, copyright2025. Red fixed stars visible; exact parallel name unconfirmed. No frozen candidate.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-holdout/sheets/20.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 31,
+    "sampling_stratum": "insufficient_history",
+    "split": "holdout",
+    "observed_identity_and_assessment": "Nate Ament Winning Tags WTA-NA autograph, back explicitly2025 Chrome McDonald's All American. Candidates124060590/125760632/125577326 all portrait tomorrow-signature design, not Winning Tags moving pose; first two appear same photo and first/third titles disclose defects.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/124060590",
+      "https://cardhobby.com.cn/Market/Item/125760632",
+      "https://cardhobby.com.cn/Market/Item/125577326"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-holdout/sheets/31.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 47,
+    "sampling_stratum": "insufficient_history",
+    "split": "development",
+    "observed_identity_and_assessment": "John Stockton, Fleer Showcase, back #90, 2000-01. No candidate returned in bounded query.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/47.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 51,
+    "sampling_stratum": "insufficient_history",
+    "split": "holdout",
+    "observed_identity_and_assessment": "Shawn Marion Fleer Showcase00-01 #46; 2001 copyright. No frozen candidate.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-holdout/sheets/51.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 52,
+    "sampling_stratum": "insufficient_history",
+    "split": "holdout",
+    "observed_identity_and_assessment": "Bryon Russell Fleer Showcase00-01 #5.131699487 same front pose/template; rainbow reflection alone not an exclusion. Candidate back/condition not independently verified, only one record; disclaimer not a specific damage finding.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/131699487"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-holdout/sheets/52.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 54,
+    "sampling_stratum": "insufficient_history",
+    "split": "holdout",
+    "observed_identity_and_assessment": "Allen Iverson Topps Stadium Club #125, copyright1997.1996-97 line is player statistics, not sufficient release-season evidence. No frozen candidate.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-holdout/sheets/54.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 58,
+    "sampling_stratum": "insufficient_history",
+    "split": "holdout",
+    "observed_identity_and_assessment": "Tracy McGrady Upper Deck Super Powers S26.1997-98 appears in biography; no explicit release season established. No frozen candidate.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-holdout/sheets/58.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 60,
+    "sampling_stratum": "price_risk",
+    "current_status": "succeeded",
+    "current_fair_value": 1335.14,
+    "historical_fair_value": 1335.14,
+    "observed_identity": "原卡Stained Glass，背No.1、2020-21 Mosaic可读。",
+    "failed_or_uncertain_stage": "单证据/候选图缺失",
+    "assessment": "当前1335.14仅126449431一条，冻结记录无候选图片URL；本轮无法逐图同款确认，高值本身不是高估证明。",
+    "review_method": "direct_image_and_source_review_not_blinded",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "historical_observation_range_cny": null,
+    "price_bias_label": "undetermined",
+    "historical_model_cost": null,
+    "cost_missing_reason": "per_call_usage_and_price_version_not_available",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/126449431"
+    ],
+    "local_contact_sheet": "work/audits/valuation-design-20260921/sheets/60.jpg",
+    "split": "development"
+  },
+  {
+    "display_id": 63,
+    "sampling_stratum": "price_risk",
+    "split": "development",
+    "observed_identity_and_assessment": "Shai Gilgeous-Alexander Hoops Oasis, back O-1. 113739986 front composition matches; candidate back and condition not verified.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://www.cardhobby.com.cn/market/item/113739986"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/63.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 67,
+    "sampling_stratum": "insufficient_history",
+    "split": "holdout",
+    "observed_identity_and_assessment": "Victor Wembanyama Topps Chrome ET-7, back REFRACTOR, copyright2026. Exact release-season label not independently established. No frozen candidate.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-holdout/sheets/67.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 82,
+    "sampling_stratum": "never_valued",
+    "current_status": "insufficient_evidence",
+    "current_fair_value": null,
+    "historical_fair_value": null,
+    "observed_identity": "原图可见Jamal Murray、Treasured Threads、TTH-37及/25；Ultra-PR不能从图确认。",
+    "failed_or_uncertain_stage": "身份/召回",
+    "assessment": "无冻结可用候选；历史queries既有传输失败也有60条宽泛候选被拒。不以同球员物料卡或成本定价。",
+    "review_method": "direct_image_and_source_review_not_blinded",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "historical_observation_range_cny": null,
+    "price_bias_label": "undetermined",
+    "historical_model_cost": null,
+    "cost_missing_reason": "per_call_usage_and_price_version_not_available",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-design-20260921/sheets/82.jpg",
+    "split": "development"
+  },
+  {
+    "display_id": 85,
+    "sampling_stratum": "insufficient_history",
+    "split": "development",
+    "observed_identity_and_assessment": "Anthony Davis Bounce House BH-9, target 35/50 gold granular finish. 128968928 also visibly 35/50: likely same physical card, must not count independent observations blindly. 123608080 04/50 gold finish matches. 126878706 silver is different version.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/128968928",
+      "https://cardhobby.com.cn/Market/Item/123608080",
+      "https://cardhobby.com.cn/Market/Item/126878706"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/85.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 87,
+    "sampling_stratum": "insufficient_history",
+    "split": "holdout",
+    "observed_identity_and_assessment": "Paolo Banchero Hoops Oasis O-17 copyright2026; 2024/25 in biography not release. Three candidate fronts match template;112204931 explicitly 瑕疵如圖. Candidate backs/details unavailable, no three qualified independent reference sales.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/112204931",
+      "https://cardhobby.com.cn/Market/Item/116905950",
+      "https://cardhobby.com.cn/Market/Item/115941972"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-holdout/sheets/87.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 91,
+    "sampling_stratum": "price_risk",
+    "split": "development",
+    "observed_identity_and_assessment": "Dylan Harper Chrome #252; target blue geometric surface. 114307975 base, 114307450/133542738 silver rainbow are not demonstrated same finish; titles also disclose corner/edge/surface defects.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/114307975",
+      "https://cardhobby.com.cn/Market/Item/114307450",
+      "https://cardhobby.com.cn/Market/Item/133542738"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/91.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 97,
+    "sampling_stratum": "insufficient_history",
+    "current_status": "insufficient_evidence",
+    "current_fair_value": null,
+    "historical_fair_value": 155.0,
+    "observed_identity": "原正面湖人全队合照，背面203–211是球员卡清单；203对应Kobe条目，不是本卡号证据。",
+    "failed_or_uncertain_stage": "识别字段角色/错卡",
+    "assessment": "旧108792903为科比Headliners新闻版面，构图完全不同；后续复核误把清单203当卡号。confirmed #290另存，本轮不改也不声称图中已证#290。",
+    "review_method": "direct_image_and_source_review_not_blinded",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "historical_observation_range_cny": null,
+    "price_bias_label": "undetermined",
+    "historical_model_cost": null,
+    "cost_missing_reason": "per_call_usage_and_price_version_not_available",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/108792903"
+    ],
+    "local_contact_sheet": "work/audits/valuation-design-20260921/sheets/97.jpg",
+    "split": "development"
+  },
+  {
+    "display_id": 102,
+    "sampling_stratum": "never_valued",
+    "current_status": "insufficient_evidence",
+    "current_fair_value": null,
+    "historical_fair_value": null,
+    "observed_identity": "背面ROW1/SEAT45/SECTION1可读；前面双人像构图与86795941相似。",
+    "failed_or_uncertain_stage": "候选版本/背面证据",
+    "assessment": "历史8元候选仅前图；缺ROW背面核对和当前详情，不能断言错误拒绝或给参考区间。",
+    "review_method": "direct_image_and_source_review_not_blinded",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "historical_observation_range_cny": null,
+    "price_bias_label": "undetermined",
+    "historical_model_cost": null,
+    "cost_missing_reason": "per_call_usage_and_price_version_not_available",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/86795941"
+    ],
+    "local_contact_sheet": "work/audits/valuation-design-20260921/sheets/102.jpg",
+    "split": "development"
+  },
+  {
+    "display_id": 107,
+    "sampling_stratum": "insufficient_history",
+    "split": "development",
+    "observed_identity_and_assessment": "Joel Embiid SE-8, black geometric frame. 91338525 is VJ Edgecombe Serenity: different player/template. 92382224 is two-card Magic Serenity plus different Embiid insert: wrong lot/template.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/91338525",
+      "https://cardhobby.com.cn/Market/Item/92382224"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/107.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 116,
+    "sampling_stratum": "price_risk",
+    "current_status": "succeeded",
+    "current_fair_value": 1.0,
+    "historical_fair_value": 1.0,
+    "observed_identity": "蓝色Starquest、背SQ26/一星；三候选前图构图一致。",
+    "failed_or_uncertain_stage": "低竞价/来源独立性",
+    "assessment": "三条历史均1元且仅1次出价，不能把重复起价附近落槌当市场底价；缺详情与重拍识别。",
+    "review_method": "direct_image_and_source_review_not_blinded",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "historical_observation_range_cny": [
+      1,
+      1
+    ],
+    "price_bias_label": "undetermined",
+    "historical_model_cost": null,
+    "cost_missing_reason": "per_call_usage_and_price_version_not_available",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/128865702",
+      "https://cardhobby.com.cn/Market/Item/84152038",
+      "https://cardhobby.com.cn/Market/Item/83581258"
+    ],
+    "local_contact_sheet": "work/audits/valuation-design-20260921/sheets/116.jpg",
+    "split": "development"
+  },
+  {
+    "display_id": 135,
+    "sampling_stratum": "never_valued",
+    "current_status": "insufficient_evidence",
+    "current_fair_value": null,
+    "historical_fair_value": null,
+    "observed_identity": "原卡Trae Young FANATICAL，背FAN-12；版权不独立决定发行赛季。存储TRAЕ含西里尔Е。",
+    "failed_or_uncertain_stage": "别名/年份与版本",
+    "assessment": "独立找到106572373，正面人物/版面与原卡相同，页面53元9次出价；标题2025与存储2024需核验，缺候选背面。100775394微瑕、121755780评级、121755619橙/25不能混用。",
+    "review_method": "direct_image_and_source_review_not_blinded",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "historical_observation_range_cny": null,
+    "price_bias_label": "undetermined",
+    "historical_model_cost": null,
+    "cost_missing_reason": "per_call_usage_and_price_version_not_available",
+    "source_urls": [
+      "https://www.cardhobby.com.cn/market/item/106572373"
+    ],
+    "local_contact_sheet": "work/audits/valuation-design-20260921/sheets/135.jpg",
+    "split": "development"
+  },
+  {
+    "display_id": 136,
+    "sampling_stratum": "price_risk",
+    "split": "development",
+    "observed_identity_and_assessment": "Luka Doncic Hoops Hoopnotic HN-10. Three candidate front templates match. Rainbow changes alone do not show version difference. 121303022 title states 瑕疵图; needs detail review; other candidates lack backs.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/121303022",
+      "https://cardhobby.com.cn/Market/Item/119067379",
+      "https://cardhobby.com.cn/Market/Item/113226773"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/136.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 140,
+    "sampling_stratum": "price_risk",
+    "split": "development",
+    "observed_identity_and_assessment": "James Harden Chrome #33, target monochrome negative-like image. All three candidates colored orange jersey with different surface patterns; cannot substitute their color print/parallel.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/135368240",
+      "https://cardhobby.com.cn/Market/Item/134763450",
+      "https://cardhobby.com.cn/Market/Item/135607855"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/140.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 162,
+    "sampling_stratum": "insufficient_history",
+    "split": "development",
+    "observed_identity_and_assessment": "Brandon Miller Court Kings Rookies I #80, 2023-24 back. 118362729 matches front template; only one source, no candidate back.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/118362729"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/162.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 165,
+    "sampling_stratum": "normal_candidate",
+    "split": "development",
+    "observed_identity_and_assessment": "Anthony Edwards 2020-21 Prizm Emergent #3. All three fronts match template; 128037264 title explicitly 微瑕, exclude condition benchmark. Others need back/detail checks.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/128037264",
+      "https://cardhobby.com.cn/Market/Item/124340895",
+      "https://cardhobby.com.cn/Market/Item/128412161"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/165.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 179,
+    "sampling_stratum": "normal_candidate",
+    "split": "development",
+    "observed_identity_and_assessment": "Matas Buzelis 2024-25 Prizm #252. Target rainbow reflective surface, all candidate titles base. Same pose is insufficient to decide exact finish from these images. 131679695/129133140 appear identical product photos and require same-physical-card deduplication.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/131679695",
+      "https://cardhobby.com.cn/Market/Item/132009396",
+      "https://cardhobby.com.cn/Market/Item/129133140"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/179.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 201,
+    "sampling_stratum": "never_valued",
+    "split": "development",
+    "observed_identity_and_assessment": "BEM 9.5 Jalen Brunson Clutch Gene CG-18 green /199, front serial partly obscured. No bounded-query candidate; do not equate other grader/raw card.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/201.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 223,
+    "sampling_stratum": "never_valued",
+    "split": "development",
+    "observed_identity_and_assessment": "Stephon Marbury SkyBox EX2000 Star Date 2000, back 10 of 15 insert checklist position, not automatically /15 print run. No candidate.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/223.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 226,
+    "sampling_stratum": "insufficient_history",
+    "split": "holdout",
+    "observed_identity_and_assessment": "Stephen Curry Prizm Draft Picks Brilliance No.18 copyright2023.130545245/125029744 fronts match base template.114339926 is PSA7 red cracked ice, incompatible grading/parallel.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/130545245",
+      "https://cardhobby.com.cn/Market/Item/125029744",
+      "https://cardhobby.com.cn/Market/Item/114339926"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-holdout/sheets/226.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 230,
+    "sampling_stratum": "normal_candidate",
+    "split": "development",
+    "observed_identity_and_assessment": "Bobby Portis #124 horizontal yellow patterned card. 130230476/128995571 vertical dunk image are different card designs. 129669374 horizontal same pose but multicolor pattern differs from target fixed yellow; exact version unconfirmed.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/130230476",
+      "https://cardhobby.com.cn/Market/Item/128995571",
+      "https://cardhobby.com.cn/Market/Item/129669374"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/230.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 248,
+    "sampling_stratum": "insufficient_history",
+    "split": "development",
+    "observed_identity_and_assessment": "Kobe Bryant 1999-00 Fleer Focus #62. Three candidate fronts match. 133941911 title explicitly 瑕疵见详图; no current condition-qualified three-source reference.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/135658284",
+      "https://cardhobby.com.cn/Market/Item/133941911",
+      "https://cardhobby.com.cn/Market/Item/135134747"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/248.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 266,
+    "sampling_stratum": "never_valued",
+    "split": "holdout",
+    "observed_identity_and_assessment": "Merida Disney100 Topps Chrome #37, back REFRACTOR copyright2023. Character's2012 film date is not card release. No frozen candidate.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-holdout/sheets/266.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 276,
+    "sampling_stratum": "insufficient_history",
+    "split": "holdout",
+    "observed_identity_and_assessment": "LaMelo Ball Prizm Emergent No.23, explicit2020-21 product line.81871639 image unavailable;128547232/105866140 fronts match but titles respectively disclose defects and scratches/edge/corner defects. No condition-comparable gold.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/81871639",
+      "https://cardhobby.com.cn/Market/Item/128547232",
+      "https://cardhobby.com.cn/Market/Item/105866140"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-holdout/sheets/276.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 290,
+    "sampling_stratum": "never_valued",
+    "split": "holdout",
+    "observed_identity_and_assessment": "Horace Horsecollar Disney100 Chrome Off The Page OTP-8 copyright2023. Story dates1929/1942 are not release. No frozen candidate.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-holdout/sheets/290.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 305,
+    "sampling_stratum": "normal_candidate",
+    "current_status": "succeeded",
+    "current_fair_value": 411.0,
+    "historical_fair_value": 411.0,
+    "observed_identity": "背No.136、2023-24 PRIZM；六候选前图同基本构图，反光差异不能凭照片认成不同平行。",
+    "failed_or_uncertain_stage": "品相/详情",
+    "assessment": "117442608披露边框小花点，现正则漏识别，先从参考候选剔除；余五历史315.60/411/414.16/415/383。缺全部详情/背面，不作当前公允区间。",
+    "review_method": "direct_image_and_source_review_not_blinded",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "historical_observation_range_cny": [
+      315.6,
+      415
+    ],
+    "price_bias_label": "undetermined",
+    "historical_model_cost": null,
+    "cost_missing_reason": "per_call_usage_and_price_version_not_available",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/133076372",
+      "https://cardhobby.com.cn/Market/Item/130586680",
+      "https://cardhobby.com.cn/Market/Item/130586587",
+      "https://cardhobby.com.cn/Market/Item/121746452",
+      "https://cardhobby.com.cn/Market/Item/118230627",
+      "https://cardhobby.com.cn/Market/Item/117442608"
+    ],
+    "local_contact_sheet": "work/audits/valuation-design-20260921/sheets/305.jpg",
+    "split": "development"
+  },
+  {
+    "display_id": 310,
+    "sampling_stratum": "never_valued",
+    "split": "development",
+    "observed_identity_and_assessment": "Scottie Barnes Mosaic Draft Picks Scripts MSA-SB, target back 37/49, college Florida State. No candidate; do not substitute NBA card.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/310.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 312,
+    "sampling_stratum": "never_valued",
+    "split": "development",
+    "observed_identity_and_assessment": "Michael Jordan Scoring image; supplied back repeats front, so no readable true back/card number. Identity remains incomplete.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/312.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 327,
+    "sampling_stratum": "never_valued",
+    "split": "holdout",
+    "observed_identity_and_assessment": "Dirk Nowitzki Topps Finest #41 REFRACTOR copyright2021, suit portrait.2010-11 in biography is not release. No frozen candidate.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-holdout/sheets/327.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 329,
+    "sampling_stratum": "never_valued",
+    "split": "holdout",
+    "observed_identity_and_assessment": "Michael Jordan Upper Deck Jordan Tribute MJ Reflections mj64 copyright1998. Handwritten23 on holder is not card number or serial. No frozen candidate.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-holdout/sheets/329.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 335,
+    "sampling_stratum": "normal_candidate",
+    "current_status": "succeeded",
+    "current_fair_value": 12.0,
+    "historical_fair_value": 12.0,
+    "observed_identity": "原背#220、Fleer1991；三候选前图League Leaders同构图。",
+    "failed_or_uncertain_stage": "来源时效/详情",
+    "assessment": "三历史10/13/12元；最近2026-06-28，另外两条超过90天；本轮三详情均不可访问。历史10–13只能作为正常候选观测。",
+    "review_method": "direct_image_and_source_review_not_blinded",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "historical_observation_range_cny": [
+      10,
+      13
+    ],
+    "price_bias_label": "undetermined",
+    "historical_model_cost": null,
+    "cost_missing_reason": "per_call_usage_and_price_version_not_available",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/119509001",
+      "https://cardhobby.com.cn/Market/Item/114539186",
+      "https://cardhobby.com.cn/Market/Item/111699683"
+    ],
+    "local_contact_sheet": "work/audits/valuation-design-20260921/sheets/335.jpg",
+    "split": "development"
+  },
+  {
+    "display_id": 344,
+    "sampling_stratum": "normal_candidate",
+    "split": "development",
+    "observed_identity_and_assessment": "Michael Jordan 2022 Goodwin Goudey GP1 suit portrait. Candidate132783625 front matches template, strong rainbow reflection not by itself version conflict; candidate back absent.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/132783625"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/344.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 355,
+    "sampling_stratum": "insufficient_history",
+    "split": "holdout",
+    "observed_identity_and_assessment": "Amen Thompson Hoops Premium Stock Anti Gravity No.16, back104/199, explicit2023-24.124369792 paper Hoops red jersey is different design;120542547 bubble finish different parallel;133857191 Elite SpellboundA is different insert.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/124369792",
+      "https://cardhobby.com.cn/Market/Item/120542547",
+      "https://cardhobby.com.cn/Market/Item/133857191"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-holdout/sheets/355.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 383,
+    "sampling_stratum": "price_risk",
+    "current_status": "succeeded",
+    "current_fair_value": 6.0,
+    "historical_fair_value": 6.0,
+    "observed_identity": "原卡细密斜向颗粒纹理；118231208同类细密纹理；92031221为明显大星形纹理。",
+    "failed_or_uncertain_stage": "同版验证误放行",
+    "assessment": "当前6元采用92031221的一元记录，旧same/.95不可靠；当前v5纯函数仍T0，different后才拒绝。排除后仅6元一条，不能建立区间，也不能凭此断言中心6元错误。",
+    "review_method": "direct_image_and_source_review_not_blinded",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "historical_observation_range_cny": null,
+    "price_bias_label": "undetermined",
+    "historical_model_cost": null,
+    "cost_missing_reason": "per_call_usage_and_price_version_not_available",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/118231208",
+      "https://cardhobby.com.cn/Market/Item/92031221"
+    ],
+    "local_contact_sheet": "work/audits/valuation-design-20260921/sheets/383.jpg",
+    "split": "development"
+  },
+  {
+    "display_id": 392,
+    "sampling_stratum": "normal_candidate",
+    "split": "holdout",
+    "observed_identity_and_assessment": "LeBron James Contenders Supernatural No.17, explicit2023-24. Three front templates and dot foil appear compatible;105037107 title轻印 needs condition exclusion/review. Candidate backs and independent condition/recency not verified.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/111624455",
+      "https://cardhobby.com.cn/Market/Item/128341733",
+      "https://cardhobby.com.cn/Market/Item/105037107"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-holdout/sheets/392.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 413,
+    "sampling_stratum": "never_valued",
+    "split": "development",
+    "observed_identity_and_assessment": "Danny Fortson UD MVP #40 Silver Script. Printed facsimile signature/silver script is not authenticated autograph evidence. No candidate.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/413.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 417,
+    "sampling_stratum": "never_valued",
+    "split": "holdout",
+    "observed_identity_and_assessment": "LaPhonso Ellis Topps Finest Masters, back dual identifiers270/M58. Peel-off protective film still present.1996-97 is biography/stat context; release unresolved. No frozen candidate.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-holdout/sheets/417.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 423,
+    "sampling_stratum": "never_valued",
+    "split": "development",
+    "observed_identity_and_assessment": "Linas Kleiza 2005-06 UD Rookie Debut #121. No candidate.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/423.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 425,
+    "sampling_stratum": "never_valued",
+    "split": "development",
+    "observed_identity_and_assessment": "Anderson Varejao 2008-09 Upper Deck; back top partly cropped and card number not securely readable. Y8M6A at bottom is not established card number. No candidate.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/425.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 435,
+    "sampling_stratum": "never_valued",
+    "split": "development",
+    "observed_identity_and_assessment": "Jason Kidd 2025-26 Prizm #187 purple circular patterned finish; exact parallel name not determined by photo alone. No candidate.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/435.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 456,
+    "sampling_stratum": "price_risk",
+    "current_status": "succeeded",
+    "current_fair_value": 35.0,
+    "historical_fair_value": 35.0,
+    "observed_identity": "原背#256/2023-24 Phoenix，四候选前图同构图。",
+    "failed_or_uncertain_stage": "历史价格跨度/详情",
+    "assessment": "35/35/35/3元，低价来自2026-05-09；三条35较近。价格差不能直接判错卡，也不能直接扔掉3元；缺详情和重拍检查。",
+    "review_method": "direct_image_and_source_review_not_blinded",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "historical_observation_range_cny": [
+      3,
+      35
+    ],
+    "price_bias_label": "undetermined",
+    "historical_model_cost": null,
+    "cost_missing_reason": "per_call_usage_and_price_version_not_available",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/133582388",
+      "https://cardhobby.com.cn/Market/Item/133757529",
+      "https://cardhobby.com.cn/Market/Item/129458278",
+      "https://cardhobby.com.cn/Market/Item/110850844"
+    ],
+    "local_contact_sheet": "work/audits/valuation-design-20260921/sheets/456.jpg",
+    "split": "development"
+  },
+  {
+    "display_id": 458,
+    "sampling_stratum": "price_risk",
+    "split": "development",
+    "observed_identity_and_assessment": "Shaedon Sharpe Chrome #106, target back explicitly REFRACTOR. 135405466 same front template and silver title, but title claims RC inconsistent with target's lack of RC logo; do not infer rookie flag from seller.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/135405466"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/458.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 460,
+    "sampling_stratum": "never_valued",
+    "split": "development",
+    "observed_identity_and_assessment": "Richaun Holmes Chrome #236 target blue shattered geometric finish. Three candidate images are multicolor small checker finish, different parallel. Images appear repeated same physical listing photo; do not count IDs as independent cards.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/121774830",
+      "https://cardhobby.com.cn/Market/Item/121751045",
+      "https://cardhobby.com.cn/Market/Item/119889055"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/460.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 463,
+    "sampling_stratum": "never_valued",
+    "split": "holdout",
+    "observed_identity_and_assessment": "Khris Middleton Chrome #101 REFRACTOR copyright2026. Wizards team while pictured in gold Lakers shirt; do not reject correct card on team shirt alone.2025/26 in biography is not explicit release. No frozen candidate.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-holdout/sheets/463.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 486,
+    "sampling_stratum": "insufficient_history",
+    "current_status": "insufficient_evidence",
+    "current_fair_value": null,
+    "historical_fair_value": 1150.0,
+    "observed_identity": "原正面斜构图、球员运球，背GR-5；三个旧候选均白球衣19号站姿基础卡构图。",
+    "failed_or_uncertain_stage": "身份锚点/错卡",
+    "assessment": "三候选123655756/101387225/99524566全部异卡，不能只是讨论紫折与紫波纹；当前已不足，历史463.80不得复活。",
+    "review_method": "direct_image_and_source_review_not_blinded",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "historical_observation_range_cny": null,
+    "price_bias_label": "undetermined",
+    "historical_model_cost": null,
+    "cost_missing_reason": "per_call_usage_and_price_version_not_available",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/123655756",
+      "https://cardhobby.com.cn/Market/Item/101387225",
+      "https://cardhobby.com.cn/Market/Item/99524566"
+    ],
+    "local_contact_sheet": "work/audits/valuation-design-20260921/sheets/486.jpg",
+    "split": "development"
+  },
+  {
+    "display_id": 493,
+    "sampling_stratum": "never_valued",
+    "split": "development",
+    "observed_identity_and_assessment": "Jalen Green Phoenix Suns 2026 Chrome Update Havoc Marks HM-JG redemption card, unredeemed appearance not proof of actual redeemability. 135588284 is nine physical Starting 5 cards, not target voucher.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/135588284"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/493.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 503,
+    "sampling_stratum": "insufficient_history",
+    "split": "holdout",
+    "observed_identity_and_assessment": "LeBron James Donruss Elite No.122, explicit2022-23, red/green patterned base parallel.130538534/134918282/132318568 are Spellbound letter cards, different insert/design; do not price target from them.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/130538534",
+      "https://cardhobby.com.cn/Market/Item/134918282",
+      "https://cardhobby.com.cn/Market/Item/132318568"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-holdout/sheets/503.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 506,
+    "sampling_stratum": "normal_candidate",
+    "split": "development",
+    "observed_identity_and_assessment": "Michael Jordan Rare Air Out Takes #53, horizontal telephone image. 133895886 front matches. 135306387 dunk photo and132429295 red45shirt filmstrip are different cards despite #53 title token.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/133895886",
+      "https://cardhobby.com.cn/Market/Item/135306387",
+      "https://cardhobby.com.cn/Market/Item/132429295"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/506.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 511,
+    "sampling_stratum": "price_risk",
+    "split": "development",
+    "observed_identity_and_assessment": "Mark Williams 2022-23 Revolution #104 CUBIC 31/50 back.132942659 title50 and front geometric texture compatible, candidate back required.84312922 has large star finish, different parallel.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/132942659",
+      "https://cardhobby.com.cn/Market/Item/84312922"
+    ],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-development/sheets/511.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 517,
+    "sampling_stratum": "never_valued",
+    "split": "holdout",
+    "observed_identity_and_assessment": "Wasp Marvel Topps Chrome #15 copyright2024, light-blue shattered finish, visible /399 with numerator partly obscured. No frozen candidate; do not guess serial numerator or exact parallel name.",
+    "review_method": "direct_original_and_candidate_image_review; system_prices_hidden",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "price_bias_label": "undetermined",
+    "source_urls": [],
+    "local_contact_sheet": "work/audits/valuation-implementation-20260921/blind-holdout/sheets/517.jpg",
+    "limitations": "At most three retained candidate images independently reviewed; fresh full retrieval retained separately. Source detail/recency/condition/seller independence not sufficient for three-source reference."
+  },
+  {
+    "display_id": 519,
+    "sampling_stratum": "normal_candidate",
+    "current_status": "succeeded",
+    "current_fair_value": 6.0,
+    "historical_fair_value": 6.0,
+    "observed_identity": "原背#157/2025 Flagship；两个候选同黑白白球衣7号投篮构图，彩虹反射不单独构成版本冲突。",
+    "failed_or_uncertain_stage": "稀疏/详情",
+    "assessment": "两历史4/6元；其中4元2026-03-12较旧，详情均不可读。保留作为反光正常对照，不标当前价格正确。",
+    "review_method": "direct_image_and_source_review_not_blinded",
+    "reviewed_target_sides": [
+      "front",
+      "back"
+    ],
+    "reference_status": "undetermined",
+    "reference_interval": null,
+    "historical_observation_range_cny": [
+      4,
+      6
+    ],
+    "price_bias_label": "undetermined",
+    "historical_model_cost": null,
+    "cost_missing_reason": "per_call_usage_and_price_version_not_available",
+    "source_urls": [
+      "https://cardhobby.com.cn/Market/Item/133337089",
+      "https://cardhobby.com.cn/Market/Item/101228170"
+    ],
+    "local_contact_sheet": "work/audits/valuation-design-20260921/sheets/519.jpg",
+    "split": "development"
+  }
+]

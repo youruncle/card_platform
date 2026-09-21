@@ -1,0 +1,1341 @@
+{
+  "corpus_files": 99,
+  "unique_files": 63,
+  "duplicate_revisions_removed": 36,
+  "passed": 56,
+  "metrics": {
+    "standalone_count_recall": 0.8888888888888888,
+    "duplicate_free_rate": 1,
+    "whole_sheet_rejection_rate": 1,
+    "usable_region_rate": 0.9978213507625272,
+    "critical_geometry_pass_rate": 1
+  },
+  "regressions": [],
+  "methodology": {
+    "deduplicated_by_sha256": true,
+    "deduplication_key_includes_expected_count_and_dpi": true,
+    "detector_receives_expected_count": false,
+    "detector_receives_generated_prior": false,
+    "detector_receives_recorded_dpi": true,
+    "crop_quality_independent_of_detector_confidence": true
+  },
+  "results": [
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/1143db53-b905-4b52-a9c2-aa9450c886ab/046a695e-42c2-43dd-be14-b10abf771eae/original.png",
+      "sheet_ids": [
+        "046a695e-42c2-43dd-be14-b10abf771eae"
+      ],
+      "sha256": "0232d6185cd6296aa3d2895929ec29d12eac0ef0c1b8d7a86e131fbcd7a1601c",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.5125,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/1143db53-b905-4b52-a9c2-aa9450c886ab/0b82aa59-e569-4fd8-ac0f-5af08f8eb93a/original.png",
+      "sheet_ids": [
+        "0b82aa59-e569-4fd8-ac0f-5af08f8eb93a",
+        "16c9806c-7f75-44d6-a84f-6649b0dae670",
+        "755ddb4e-32bb-4645-81e5-e81f6f773a8b",
+        "b179a6d1-c707-4391-98dc-4e04d72eadad",
+        "c0a5810b-f79d-40c5-afd7-e111b83ef539"
+      ],
+      "sha256": "209b562be73b52dd1582a6bd518b67a840b00bdec839c1731b359782da69c248",
+      "equivalent_revision_count": 5,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.5131,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 4,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/1143db53-b905-4b52-a9c2-aa9450c886ab/361a862c-bff8-48ba-9a0c-260351bb01d4/original.png",
+      "sheet_ids": [
+        "361a862c-bff8-48ba-9a0c-260351bb01d4",
+        "515cef32-198f-42f4-b736-01ac69de2508",
+        "5ab04924-48c3-45a1-8261-7ced8000a863",
+        "6790b92e-c8c9-443f-943a-189f749dd801",
+        "6ede6e33-f7a3-4e88-ba66-d6198586ee5f",
+        "7e21b5e0-a9b1-4dad-8ccb-345800174d0d",
+        "8d5915d5-5bef-4076-9c09-9f30621c07ee"
+      ],
+      "sha256": "104d3eb57affb55c1e489c8439337748bff5e8a1bcd76c4ab58a8bae5b16a1e4",
+      "equivalent_revision_count": 7,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.9064,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/1143db53-b905-4b52-a9c2-aa9450c886ab/54872936-6fd4-449f-a404-b3843f2581cc/original.png",
+      "sheet_ids": [
+        "54872936-6fd4-449f-a404-b3843f2581cc"
+      ],
+      "sha256": "7d0a8ab832713c65e6479e3579ca4764734d2b4b84382e5a7b7afb68c77ef26b",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.9119,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/1143db53-b905-4b52-a9c2-aa9450c886ab/6b4e3d87-0c3c-40ee-af23-56bd01ed84cd/original.png",
+      "sheet_ids": [
+        "6b4e3d87-0c3c-40ee-af23-56bd01ed84cd",
+        "e4fd03d1-08b4-4128-8910-c80d1b270a70"
+      ],
+      "sha256": "94b84b55ea70ccebed585290825be2230d7e1bdda51758ba16216004415d4aa5",
+      "equivalent_revision_count": 2,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.9061,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/1143db53-b905-4b52-a9c2-aa9450c886ab/79fc9d02-3334-42fa-9217-025b0061222a/original.png",
+      "sheet_ids": [
+        "79fc9d02-3334-42fa-9217-025b0061222a",
+        "dea1d629-3a98-40db-8971-c05c26fb4cc7"
+      ],
+      "sha256": "876d403e14d82e911c91d6e57afb648aa6c4d0a17367812b8ac0be617328ed6e",
+      "equivalent_revision_count": 2,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.9033,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 4,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/165b6654-4e5b-4a88-a98b-ba1863780055/0fc4f3ed-88a5-462b-bc18-085b46fce7b7/original.png",
+      "sheet_ids": [
+        "0fc4f3ed-88a5-462b-bc18-085b46fce7b7"
+      ],
+      "sha256": "cadf7db07e48d6817a171b4108eed0a682125d1c161203daf55f4129e432346e",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.8925,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/165b6654-4e5b-4a88-a98b-ba1863780055/972de548-ea63-4441-974a-5056d7d32339/original.png",
+      "sheet_ids": [
+        "972de548-ea63-4441-974a-5056d7d32339"
+      ],
+      "sha256": "5b949d1cbcc6102a7fd67b76839c48a6f337051f23d034d198639f5ad1352389",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.8962,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/165b6654-4e5b-4a88-a98b-ba1863780055/e04920e4-2245-4e1f-88b4-7b2ca715870e/original.png",
+      "sheet_ids": [
+        "e04920e4-2245-4e1f-88b4-7b2ca715870e"
+      ],
+      "sha256": "7ab92d68586a93f6055d5267bbb260bb2a4b15d2f8017a67077c7fe8aa1bce07",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.78,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 6,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/21facd5d-c965-4aae-b3da-3be4cc2cbb37/5bf6682a-7f9b-4fc7-95d0-fc32ac3dcaf4/original.png",
+      "sheet_ids": [
+        "5bf6682a-7f9b-4fc7-95d0-fc32ac3dcaf4"
+      ],
+      "sha256": "5af18e108ee260025cadcb1c7e3c60a42f5db0ac2a0f869b3b1dfc15ab4057e2",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 5,
+      "dpi": 300,
+      "score": 0.9098,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 2,
+      "geometry_failures": [],
+      "passed": false
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/21facd5d-c965-4aae-b3da-3be4cc2cbb37/69b56186-7879-48f2-84a7-6da5ae85b158/original.png",
+      "sheet_ids": [
+        "69b56186-7879-48f2-84a7-6da5ae85b158",
+        "83b49571-3533-4f5a-a57c-28c0573409f0"
+      ],
+      "sha256": "7c835a99f65651e63cd1919ccda314b8555eb9572a40e427b0a40ba021ef1764",
+      "equivalent_revision_count": 2,
+      "count": 8,
+      "expected": 5,
+      "dpi": 300,
+      "score": 0.9112,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 2,
+      "geometry_failures": [],
+      "passed": false
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/21facd5d-c965-4aae-b3da-3be4cc2cbb37/7691e09a-1ab6-4a8b-aa27-c03762368735/original.png",
+      "sheet_ids": [
+        "7691e09a-1ab6-4a8b-aa27-c03762368735",
+        "b8f1e956-9422-454d-bc43-9db0163d9c94"
+      ],
+      "sha256": "32115948cc9439d66d44bda9d778ceb4f62738e90bc22a26a29a970595b7f559",
+      "equivalent_revision_count": 2,
+      "count": 5,
+      "expected": 5,
+      "dpi": 300,
+      "score": 0.888,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/34358aef-f55a-4504-aa0f-bfcc8a5d4a80/2657f5df-1ea6-4feb-bce2-f57e6f23913e/original.png",
+      "sheet_ids": [
+        "2657f5df-1ea6-4feb-bce2-f57e6f23913e"
+      ],
+      "sha256": "8121f0713dec07283bc9a8ffd2aa2d912daf2adaf6b0f2ba60c92611f199118f",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.9075,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/34358aef-f55a-4504-aa0f-bfcc8a5d4a80/4f6befdf-2a00-4c1d-901e-134f71811b14/original.png",
+      "sheet_ids": [
+        "4f6befdf-2a00-4c1d-901e-134f71811b14"
+      ],
+      "sha256": "2b44eeb3f80d2ff26aac2a1e5884b2402c40c3a662e86ba69cfc23d7a2d2ad41",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.9075,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 4,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/34358aef-f55a-4504-aa0f-bfcc8a5d4a80/7e15b91d-de7a-4147-8865-b1fa3426c89b/original.png",
+      "sheet_ids": [
+        "7e15b91d-de7a-4147-8865-b1fa3426c89b"
+      ],
+      "sha256": "4846ed394b0be4d16ecdc18a9ca67571691dbf1a99638bb71516f757c71e9948",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.88,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 4,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/34358aef-f55a-4504-aa0f-bfcc8a5d4a80/9c5b9bfa-a0f1-4a6f-bfc4-12e0805b8e7e/original.png",
+      "sheet_ids": [
+        "9c5b9bfa-a0f1-4a6f-bfc4-12e0805b8e7e"
+      ],
+      "sha256": "0398b6e9dc5f9bac653e82f61a22161c409504dec94ff417f6b11e5407fd1b79",
+      "equivalent_revision_count": 1,
+      "count": 4,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.8987,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 2,
+      "geometry_failures": [],
+      "passed": false
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/34358aef-f55a-4504-aa0f-bfcc8a5d4a80/aa8716b8-b6a2-4062-8dae-aa9d384d08a2/original.png",
+      "sheet_ids": [
+        "aa8716b8-b6a2-4062-8dae-aa9d384d08a2"
+      ],
+      "sha256": "4cd54914094928b7d422223363ee888276e030301b7ce6d6f0adca32ed014aa8",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.8938,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/34358aef-f55a-4504-aa0f-bfcc8a5d4a80/e3683f43-58e8-468f-816f-e2b97e52e081/original.png",
+      "sheet_ids": [
+        "e3683f43-58e8-468f-816f-e2b97e52e081"
+      ],
+      "sha256": "4c48d71c83450b19ea40346e46eb1f370697736e0957c2398ce8e6d3f8cd9435",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.9887,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/4c8ea546-1b0e-4d77-a10e-4e700af71013/45b03ce1-a518-431d-bae2-20ed0bf20a71/original.png",
+      "sheet_ids": [
+        "45b03ce1-a518-431d-bae2-20ed0bf20a71",
+        "62829188-399e-4ec9-a59b-f33b5e646671"
+      ],
+      "sha256": "fbccf01b61c2ae5034ef33f3eae93467c659d685f2b5ae980933e2b6de367b3c",
+      "equivalent_revision_count": 2,
+      "count": 6,
+      "expected": 6,
+      "dpi": 300,
+      "score": 0.76,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 4,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/4c8ea546-1b0e-4d77-a10e-4e700af71013/46876287-ffb4-4758-a445-9db3e279cbbf/original.png",
+      "sheet_ids": [
+        "46876287-ffb4-4758-a445-9db3e279cbbf",
+        "c8f21ff9-7648-4a3d-ab6c-a5c8475e0e1b"
+      ],
+      "sha256": "54327b0e9938dd651ad05654da1d7cd5650239e54e290a32951ec3695c991969",
+      "equivalent_revision_count": 2,
+      "count": 6,
+      "expected": 6,
+      "dpi": 300,
+      "score": 0.8142,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 1,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/609508cb-de55-4e6d-8e4b-75bb9e6abcd3/9ae50bc2-947e-400a-8339-ce38e8ad16a5/original.png",
+      "sheet_ids": [
+        "9ae50bc2-947e-400a-8339-ce38e8ad16a5"
+      ],
+      "sha256": "cbb77a4057be3a41ef593747d22a53b0d0c59f8ca7cded9b6331bb607b81d22b",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.7737,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 3,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/609508cb-de55-4e6d-8e4b-75bb9e6abcd3/9ce2511d-034e-4366-b22b-6cc569dfaa69/original.png",
+      "sheet_ids": [
+        "9ce2511d-034e-4366-b22b-6cc569dfaa69"
+      ],
+      "sha256": "faa78fa96c6cf5433daa201804c4cb7a112c6cab37d866a558b1775c745b651b",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.7269,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 5,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/609508cb-de55-4e6d-8e4b-75bb9e6abcd3/b03c97ec-5c1f-4ee7-9ec1-19ee04165873/original.png",
+      "sheet_ids": [
+        "b03c97ec-5c1f-4ee7-9ec1-19ee04165873"
+      ],
+      "sha256": "ddac62d73a14a76cb4ae5d5be0f3376b9a785e12957ade7abb3cbfb38aa3d6a4",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.6269,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 6,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/609508cb-de55-4e6d-8e4b-75bb9e6abcd3/b6d71760-160c-4af2-86f1-481baab4bb5c/original.png",
+      "sheet_ids": [
+        "b6d71760-160c-4af2-86f1-481baab4bb5c"
+      ],
+      "sha256": "fe356209fa4090ed2cb01469f95451890d1cc1b1d5fa1108dee0e9f4cec24ab4",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.8825,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 3,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/609508cb-de55-4e6d-8e4b-75bb9e6abcd3/d73a23f5-8180-44e3-9bd6-983844052930/original.png",
+      "sheet_ids": [
+        "d73a23f5-8180-44e3-9bd6-983844052930"
+      ],
+      "sha256": "c317315040e61db414d3f5e624a3ca478b2d0e287db4aa35d5a5c99cc53140c1",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.6769,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 6,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/66edddbe-0dad-4b03-b454-9f2f6f14c242/74737b6f-c25d-43f7-983a-ed22f594e1e8/original.png",
+      "sheet_ids": [
+        "74737b6f-c25d-43f7-983a-ed22f594e1e8",
+        "8b3a4597-fe63-4957-a703-5cbc283ed632"
+      ],
+      "sha256": "2514617bd1938e96b59609e4189777bfa705c97f2fc687709f074120a58ffbab",
+      "equivalent_revision_count": 2,
+      "count": 7,
+      "expected": 7,
+      "dpi": 300,
+      "score": 0.7786,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/66edddbe-0dad-4b03-b454-9f2f6f14c242/99b985d6-fc21-44b7-bd09-08dc4d37133b/original.png",
+      "sheet_ids": [
+        "99b985d6-fc21-44b7-bd09-08dc4d37133b",
+        "ef5f74dc-d6ab-497c-b782-45ea1190d4d5"
+      ],
+      "sha256": "7938a6adcaed264656ceab19e431798c2aca4791695f743f549de7ba3bef36a3",
+      "equivalent_revision_count": 2,
+      "count": 7,
+      "expected": 7,
+      "dpi": 300,
+      "score": 0.78,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/820fefac-ea4a-4100-b63a-c5339647aff4/035fc2c5-0b8e-4067-acae-d2e984fc31c4/original.png",
+      "sheet_ids": [
+        "035fc2c5-0b8e-4067-acae-d2e984fc31c4",
+        "29adf0c6-6ac7-4196-b16e-884ebf594299"
+      ],
+      "sha256": "5c6a63ba48bb6223b602a552134252e942fa5b3c608746d7e6934e71b48f84d8",
+      "equivalent_revision_count": 2,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.5162,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 4,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/820fefac-ea4a-4100-b63a-c5339647aff4/26f394cc-1dc2-4382-b15d-a80bfaefdaf9/original.png",
+      "sheet_ids": [
+        "26f394cc-1dc2-4382-b15d-a80bfaefdaf9",
+        "2cc053f5-abb1-4863-b4cb-cc4d862efe9a"
+      ],
+      "sha256": "4b5fcdd02240d57703c3061f06125a6809fc095bd8d916b55147e21851421a47",
+      "equivalent_revision_count": 2,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.911,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/820fefac-ea4a-4100-b63a-c5339647aff4/c1cc16cb-790b-4fe1-b948-da61e3b3e7b9/original.png",
+      "sheet_ids": [
+        "c1cc16cb-790b-4fe1-b948-da61e3b3e7b9"
+      ],
+      "sha256": "fd1abbecb53dc985f184017ba1faed9c3fb7a0cf4c7f25f7e2c5279419822be8",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.5688,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 3,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/8527da4a-6c5c-42dc-a368-cb18568d8b0a/661221b9-ac34-4ddd-958c-4f714cdd2083/original.png",
+      "sheet_ids": [
+        "661221b9-ac34-4ddd-958c-4f714cdd2083"
+      ],
+      "sha256": "9dd82b248872bb1b784c22a60c56eaa23388963e45a6f267f6e422095690fbad",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.57,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/8527da4a-6c5c-42dc-a368-cb18568d8b0a/84cbc282-82de-418b-b164-8620762a1c2c/original.png",
+      "sheet_ids": [
+        "84cbc282-82de-418b-b164-8620762a1c2c"
+      ],
+      "sha256": "7a6f2432f6ea459f5aa8770fa88eefda64a5db74f5b3380bc98dea84d9d6d3ac",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.5769,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/869be071-c2c2-42ab-aef2-455f8b2539cb/4ffbe295-db4f-4fb7-b369-4de73cd233bf/original.png",
+      "sheet_ids": [
+        "4ffbe295-db4f-4fb7-b369-4de73cd233bf"
+      ],
+      "sha256": "fc5b9f3187fe6617ce7409e2e7a2a2f91fb30c52f30cbc906c5458cda50c9bf1",
+      "equivalent_revision_count": 1,
+      "count": 5,
+      "expected": 5,
+      "dpi": 300,
+      "score": 0.884,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/869be071-c2c2-42ab-aef2-455f8b2539cb/980f639d-4585-46fe-888a-71284713deaa/original.png",
+      "sheet_ids": [
+        "980f639d-4585-46fe-888a-71284713deaa"
+      ],
+      "sha256": "c0043a2e1b5d62faad33a4e058335f0289e8a4848fe1aa10a784dea476b47e90",
+      "equivalent_revision_count": 1,
+      "count": 5,
+      "expected": 5,
+      "dpi": 300,
+      "score": 0.884,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/869be071-c2c2-42ab-aef2-455f8b2539cb/ed35d948-0b32-4f16-9433-e2bae9764f0b/original.png",
+      "sheet_ids": [
+        "ed35d948-0b32-4f16-9433-e2bae9764f0b"
+      ],
+      "sha256": "aa4baafe66025a157e1b931780ddadbc175750357553d515db23fb8e486f67be",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.5731,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 4,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/869be071-c2c2-42ab-aef2-455f8b2539cb/fdd0731e-12cc-4536-93e9-4402a1b1e465/original.png",
+      "sheet_ids": [
+        "fdd0731e-12cc-4536-93e9-4402a1b1e465"
+      ],
+      "sha256": "7f44067cf5d0bcd04322f22634f70650e3a3b8cd434b0f06a9e087bcf20c8b4b",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.6275,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 2,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/907e7361-5c66-4f56-a048-71e0a8c38e5b/087c972f-20b5-4bde-a2f1-c258d703ac9d/original.png",
+      "sheet_ids": [
+        "087c972f-20b5-4bde-a2f1-c258d703ac9d"
+      ],
+      "sha256": "da52ba9ebe239c5aa68468d428a94ae738dec46550482adc0c5941c3031dd912",
+      "equivalent_revision_count": 1,
+      "count": 5,
+      "expected": 5,
+      "dpi": 300,
+      "score": 0.917,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/907e7361-5c66-4f56-a048-71e0a8c38e5b/17f1231f-48de-40f2-8157-0657a27978e8/original.png",
+      "sheet_ids": [
+        "17f1231f-48de-40f2-8157-0657a27978e8",
+        "7614a7e3-4b30-405c-a153-93dbf562a5ed"
+      ],
+      "sha256": "20b237324cf399b1c530782b89521c18d28fa4f847861d27545baf1dcbc2ce26",
+      "equivalent_revision_count": 2,
+      "count": 5,
+      "expected": 5,
+      "dpi": 300,
+      "score": 0.923,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/b42eb953-4d51-40ac-8672-7bade5a0bc51/01d1ba6c-4d36-400d-a81d-0a126395553f/original.png",
+      "sheet_ids": [
+        "01d1ba6c-4d36-400d-a81d-0a126395553f"
+      ],
+      "sha256": "2de4e6921fcc2312f50367a5302515fc2ea444acaa4d31cb41b8fc8899b9c4dc",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.7831,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/b42eb953-4d51-40ac-8672-7bade5a0bc51/4fd0247a-3d4e-4fe6-b437-a4343732848f/original.png",
+      "sheet_ids": [
+        "4fd0247a-3d4e-4fe6-b437-a4343732848f"
+      ],
+      "sha256": "c5c3168a6278c8940e6d8c0753c00b574ffd7118c51cbf94cc20d536cc90f826",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.7331,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/b42eb953-4d51-40ac-8672-7bade5a0bc51/de828677-fde3-4396-9a9f-4d363009cca6/original.png",
+      "sheet_ids": [
+        "de828677-fde3-4396-9a9f-4d363009cca6"
+      ],
+      "sha256": "b45fd3baf083fd5034af30fae105425ef5e3c787a13fb8c5249de00b271362bb",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.7794,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/ba0d998f-729f-4ccb-be42-205ae7a94027/35782f84-093a-4dc5-bb0f-07ab39c78346/original.png",
+      "sheet_ids": [
+        "35782f84-093a-4dc5-bb0f-07ab39c78346",
+        "bd35946b-f875-45fc-a8aa-f89843865e76"
+      ],
+      "sha256": "98049fe0be1b2879fc5c8e58a819fd151c72fadcf108011a5e0f04cde352eb3b",
+      "equivalent_revision_count": 2,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.6756,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/ba0d998f-729f-4ccb-be42-205ae7a94027/4b712d79-425f-40b8-b9fd-afbd4fd60e52/original.png",
+      "sheet_ids": [
+        "4b712d79-425f-40b8-b9fd-afbd4fd60e52"
+      ],
+      "sha256": "f1b25d7eee255d5e8bfbd8d6a2381f3d1b3075d6ee33382014230b159d7c5fe7",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.62,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/ba0d998f-729f-4ccb-be42-205ae7a94027/dc83ad66-1f1d-4fd0-86e2-9e3f594f715e/original.png",
+      "sheet_ids": [
+        "dc83ad66-1f1d-4fd0-86e2-9e3f594f715e"
+      ],
+      "sha256": "9775954323ab3eb2d29c34937f0ce43d760c67c13ea987ec08ac4d12a97a3543",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.6162,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/db7056ee-b9d0-41bd-a88f-647465e2b2ca/5a845364-b20e-4978-b03f-246aa90666bf/original.png",
+      "sheet_ids": [
+        "5a845364-b20e-4978-b03f-246aa90666bf"
+      ],
+      "sha256": "6486596124705809a810f30e6ff118d9cde1ff7011db5e9d712c21e8f10bcdd8",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.87,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 1,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/db7056ee-b9d0-41bd-a88f-647465e2b2ca/e5ea13b2-f09b-4b64-91dd-9d4010a069dc/original.png",
+      "sheet_ids": [
+        "e5ea13b2-f09b-4b64-91dd-9d4010a069dc"
+      ],
+      "sha256": "b0231390270b54cfb7252c65d004d93af83a3c5a6d643457f1edd07e2765b0b0",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.9487,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/dca1a79a-b1bf-4e4f-b74e-3bc43b0875d0/1457338e-4af8-4bf4-84e0-007d12269f8a/original.png",
+      "sheet_ids": [
+        "1457338e-4af8-4bf4-84e0-007d12269f8a",
+        "2948ec44-8769-4b21-a871-adb71765adfc"
+      ],
+      "sha256": "451a5ccb7a51f5354db1ff8e8bc5a0c847ac76a2d9225d57de26751e55173ee3",
+      "equivalent_revision_count": 2,
+      "count": 8,
+      "expected": 8,
+      "dpi": 600,
+      "score": 0.9075,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/dca1a79a-b1bf-4e4f-b74e-3bc43b0875d0/3a4eab3d-ed4e-4c09-993a-435249c5be76/original.png",
+      "sheet_ids": [
+        "3a4eab3d-ed4e-4c09-993a-435249c5be76",
+        "7f9b94d1-1092-4625-a85e-cb8c00cac234",
+        "d30b7097-cfe6-4a29-8ccb-2a45f29882d8",
+        "f5f3d562-da2e-4efa-9003-7a9004f29a50"
+      ],
+      "sha256": "2e47a6d4eeddf2f77d0b998deef9d6c7532a1a80cd713d7a32a332a9bfc88a77",
+      "equivalent_revision_count": 4,
+      "count": 4,
+      "expected": 8,
+      "dpi": 600,
+      "score": 0.8985,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": false
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/dca1a79a-b1bf-4e4f-b74e-3bc43b0875d0/8692046a-95ee-41b7-9b22-846f55b7e446/original.png",
+      "sheet_ids": [
+        "8692046a-95ee-41b7-9b22-846f55b7e446"
+      ],
+      "sha256": "6d6e9bac9af95af63a009c5d376898c68830fd9336099adc5c03a6a0a5178d30",
+      "equivalent_revision_count": 1,
+      "count": 4,
+      "expected": 8,
+      "dpi": 600,
+      "score": 0.8982,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": false
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/dca1a79a-b1bf-4e4f-b74e-3bc43b0875d0/88d8583c-db3f-4a1e-bd3c-35c95acda864/original.png",
+      "sheet_ids": [
+        "88d8583c-db3f-4a1e-bd3c-35c95acda864",
+        "8c91b66c-11de-4a39-afd5-09124375dda7"
+      ],
+      "sha256": "ff6886f47a368e66f209680fa16b2dca978853f9ab36547f083d8e8565707ce2",
+      "equivalent_revision_count": 2,
+      "count": 8,
+      "expected": 8,
+      "dpi": 600,
+      "score": 0.87,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/dca1a79a-b1bf-4e4f-b74e-3bc43b0875d0/b2f1c10a-f0cd-4858-a195-65c129f9cac1/original.png",
+      "sheet_ids": [
+        "b2f1c10a-f0cd-4858-a195-65c129f9cac1"
+      ],
+      "sha256": "5c44c6bcb4584fe7a1d384b54213067746de679f54a3069d23d2d7bab81a41d4",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 600,
+      "score": 0.9019,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 2,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/dca1a79a-b1bf-4e4f-b74e-3bc43b0875d0/c361f0e8-3dfb-4774-b94f-d37b93eae037/original.png",
+      "sheet_ids": [
+        "c361f0e8-3dfb-4774-b94f-d37b93eae037"
+      ],
+      "sha256": "cf62857a54d0ef1633099ad230c314bc3ba697c3844b7a1fc4ab5cea248e472b",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 600,
+      "score": 0.9075,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/dca1a79a-b1bf-4e4f-b74e-3bc43b0875d0/cd8f7bf4-125e-4fab-a110-285e19d0c38c/original.png",
+      "sheet_ids": [
+        "cd8f7bf4-125e-4fab-a110-285e19d0c38c"
+      ],
+      "sha256": "5ec06e34bb74ab54582ea759c6f62ef40ed4ea1697221e631418cc76579f21e4",
+      "equivalent_revision_count": 1,
+      "count": 4,
+      "expected": 8,
+      "dpi": 600,
+      "score": 0.8979,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": false
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/dfbf09bc-5568-4ba9-8b25-34668c9d5623/2bc38af0-868d-4d26-b4a0-e8dd10c2aa1e/original.png",
+      "sheet_ids": [
+        "2bc38af0-868d-4d26-b4a0-e8dd10c2aa1e",
+        "69a46934-fc39-44da-9f4b-ac57a2285262"
+      ],
+      "sha256": "9da7ff59c587a3f38354be36e265872018852435e30d68903b1a22475222c6f5",
+      "equivalent_revision_count": 2,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.6694,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/dfbf09bc-5568-4ba9-8b25-34668c9d5623/66ab2326-2060-481b-a7ec-2cbfa1e178bc/original.png",
+      "sheet_ids": [
+        "66ab2326-2060-481b-a7ec-2cbfa1e178bc",
+        "a6d7b5ef-f664-4ab2-96db-3053a24a51f8"
+      ],
+      "sha256": "10c460512e11523e8ad6cdcec8d74f93dcbdf9beabc1c5a37b79a385786b1734",
+      "equivalent_revision_count": 2,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.6163,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/dfbf09bc-5568-4ba9-8b25-34668c9d5623/735e0586-dffc-4ab4-ab9f-b1c9f6360193/original.png",
+      "sheet_ids": [
+        "735e0586-dffc-4ab4-ab9f-b1c9f6360193"
+      ],
+      "sha256": "18c2f2d7f0def0966bb6de28b089e1f1d91d457f5e051695f02f4ea7f44929ee",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.6725,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/e30922b3-ef3d-4749-b055-bb9afbecf8bf/74b8d526-1e0f-4b92-b3ca-915de1635fee/original.png",
+      "sheet_ids": [
+        "74b8d526-1e0f-4b92-b3ca-915de1635fee"
+      ],
+      "sha256": "653c6f58fd1bf20a680d7d7800de22e6b66f58252febdea54139e43ea8946947",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.78,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/e30922b3-ef3d-4749-b055-bb9afbecf8bf/8e9c298b-e03b-4a00-8fa6-df3b527019c0/original.png",
+      "sheet_ids": [
+        "8e9c298b-e03b-4a00-8fa6-df3b527019c0"
+      ],
+      "sha256": "a1b4125363021f7d410f7a56fbbbc1c0dadbf50c32e24030c67f9fd46617dfde",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 8,
+      "dpi": 300,
+      "score": 0.9625,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 1,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/f0bf8f4e-708d-4e84-877f-0896e8a1ea21/12748252-02fa-40d3-a1e0-11ca98c23f6e/original.png",
+      "sheet_ids": [
+        "12748252-02fa-40d3-a1e0-11ca98c23f6e",
+        "8aa53a6a-ab67-4f5e-b053-b728dcc37814",
+        "c07654cc-74be-46ee-a4bf-d2896d05516d"
+      ],
+      "sha256": "3395360df977620468fd241a6e4bc01f76a3ae9972ce621390fb03124e44a660",
+      "equivalent_revision_count": 3,
+      "count": 6,
+      "expected": 6,
+      "dpi": 300,
+      "score": 0.85,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/f0bf8f4e-708d-4e84-877f-0896e8a1ea21/bb91de95-1451-4ffc-b3ed-f02b437c8083/original.png",
+      "sheet_ids": [
+        "bb91de95-1451-4ffc-b3ed-f02b437c8083"
+      ],
+      "sha256": "dbc3d09c81ba80238a77ed9d44f80e8d5cb9ed12181675892b3bb1ebe3e83db4",
+      "equivalent_revision_count": 1,
+      "count": 8,
+      "expected": 6,
+      "dpi": 300,
+      "score": 0.5162,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 1,
+      "crop_quality_errors": [
+        "blank_or_fragment"
+      ],
+      "boundary_continuity_warnings": 3,
+      "geometry_failures": [],
+      "passed": false
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/f38c4606-7dac-4b42-abc6-510743bc8997/072c29ed-1137-43ed-bed2-b23919ab1773/original.png",
+      "sheet_ids": [
+        "072c29ed-1137-43ed-bed2-b23919ab1773",
+        "9245d888-2aae-4202-85b3-3739d8e732c4",
+        "a09fd024-90fa-4b25-a420-b60cef8a20ea",
+        "ee8a6f09-b2ca-4da7-86ed-05e2dd3b8628"
+      ],
+      "sha256": "b57eda5df91447661565a26ce1270b616a26316a11d9ed2781b5ba0291f0d274",
+      "equivalent_revision_count": 4,
+      "count": 6,
+      "expected": 6,
+      "dpi": 300,
+      "score": 0.54,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 6,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/f38c4606-7dac-4b42-abc6-510743bc8997/223e6115-93cd-4649-98e6-21151a20dae0/original.png",
+      "sheet_ids": [
+        "223e6115-93cd-4649-98e6-21151a20dae0",
+        "51d930ae-1665-4b92-8049-feb4caa6bd40"
+      ],
+      "sha256": "d61ed8ecbd58bf056cec9dd4fa886a05325ce9d3b79b44b4165ad0f128b5ed89",
+      "equivalent_revision_count": 2,
+      "count": 6,
+      "expected": 6,
+      "dpi": 300,
+      "score": 0.61,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 6,
+      "geometry_failures": [],
+      "passed": true
+    },
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/f38c4606-7dac-4b42-abc6-510743bc8997/7c1afe9d-bcda-4db5-862b-c11915220655/original.png",
+      "sheet_ids": [
+        "7c1afe9d-bcda-4db5-862b-c11915220655",
+        "cac8d3ff-59b6-4a8c-b36b-3e54bed5d621"
+      ],
+      "sha256": "df346aaaec4397c72da462ad426e9af6e1a69478ce681d00ae87734e13c3c52a",
+      "equivalent_revision_count": 2,
+      "count": 6,
+      "expected": 6,
+      "dpi": 300,
+      "score": 0.54,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 5,
+      "geometry_failures": [],
+      "passed": true
+    }
+  ],
+  "deployment": {
+    "detector_sha256": "f7711796b9ebcfda99ee77120ce04a1030e25f7b5a98faece74e9b3f74a7c30a",
+    "detector_version": "component-first-layout-v17",
+    "ml_geometry_validation": "joint_proposals_v2",
+    "worktree_tests": {
+      "passed": 1174,
+      "skipped": 9
+    },
+    "runtime_tests": {
+      "passed": 1018,
+      "skipped": 26
+    },
+    "recovered_sheet": "7614a7e3-4b30-405c-a153-93dbf562a5ed",
+    "recovered_revision": 3,
+    "recovered_count": 5,
+    "previous_revisions_preserved": true,
+    "formal_collection_count_before_after": 430,
+    "card_definition_count_before_after": 514
+  }
+}

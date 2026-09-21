@@ -4,7 +4,12 @@ import re
 import time
 from typing import Awaitable, Callable
 
+from card_platform.domain.serial_evidence import (
+    serial_field_evidence,
+    unique_visible_serial,
+)
 from card_platform.schemas import CardRecognitionResult
+from card_platform.domain.sketch_identity import is_sketch_card
 
 
 GENERIC_PARALLELS = {"prizm", "refractor", "parallel", "折射", "折射版"}
@@ -26,14 +31,32 @@ MAX_TIER = VisionTier("max", "qwen3.8-max", Decimal("12"), Decimal("36"))
 
 def recognition_quality_issues(result: CardRecognitionResult) -> list[str]:
     issues: list[str] = []
-    for field in ("player_name", "season_start", "product_name", "card_number"):
+    if result.copyright_year is None and 'copyright_year_not_in_quoted_evidence' in result.caveats:
+        issues.append('copyright_year_not_in_quoted_evidence')
+    if is_sketch_card(result.insert_name) and result.player_name:
+        subject = re.sub(r"[^a-z0-9\u4e00-\u9fff]+", " ", result.player_name.casefold()).strip()
+        product = re.sub(r"[^a-z0-9\u4e00-\u9fff]+", " ", (result.product_name or "").casefold()).strip()
+        if subject and re.search(r"(?<!\w)" + re.escape(subject) + r"(?!\w)", product):
+            issues.append("sketch_subject_may_be_series_logo")
+    for field in (
+        "player_name", "season_start", "season_end", "brand_name",
+        "product_name", "card_number",
+    ):
         if getattr(result, field) in (None, ""):
             issues.append(f"missing_{field}")
     if (result.serial_number is None) != (result.serial_total is None):
         issues.append("partial_serial_fraction")
     if result.serial_number and result.serial_total and result.serial_number > result.serial_total:
         issues.append("invalid_serial_fraction")
-    if str(result.parallel_name or "").strip().casefold() in GENERIC_PARALLELS:
+    generic_parallel = str(result.parallel_name or "").strip().casefold()
+    product_context = str(result.product_name or "").strip().casefold()
+    official_chrome_refractor = bool(
+        generic_parallel == "refractor"
+        and "chrome" in product_context
+        and result.card_number
+        and result.insert_name
+    )
+    if generic_parallel in GENERIC_PARALLELS and not official_chrome_refractor:
         issues.append("generic_parallel_name")
     parallel = str(result.parallel_name or "").strip().casefold()
     product = str(result.product_name or "").strip().casefold()
@@ -49,6 +72,9 @@ def recognition_quality_issues(result: CardRecognitionResult) -> list[str]:
     caveats = " ".join(result.caveats).casefold()
     if BIRTHDATE_SERIAL_CAVEAT in caveats:
         issues.append("birthdate_serial_false_positive")
+    for marker in ("catalog_number_serial_collision", "social_logo_parallel_removed"):
+        if marker in caveats:
+            issues.append(marker)
     if any(token in caveats for token in ("冲突", "conflict", "无法确认", "不确定")):
         issues.append("model_reported_conflict")
     return issues
@@ -66,6 +92,24 @@ def sanitize_birthdate_serial_false_positive(
     real, independently visible serial stamp can still be restored by review.
     """
     if result.serial_number is None or result.serial_total is None:
+        return result
+
+    if result.serial_number > 12 or result.serial_total > 31:
+        # The false-positive pattern below is specifically a month/day prefix.
+        # Values outside the calendar range (for example a real 20/20 stamp)
+        # cannot be removed as a birthday here.
+        return result
+
+    visible_serial = unique_visible_serial(
+        serial_field_evidence(result.field_evidence)
+    )
+    if visible_serial is not None and (
+        visible_serial.number,
+        visible_serial.total,
+    ) == (result.serial_number, result.serial_total):
+        # A card may print both a player birthday and an independent serial
+        # stamp. Candidate-local physical evidence outranks the biographical
+        # false-positive guard.
         return result
 
     evidence = [*result.caveats]
@@ -115,7 +159,42 @@ def estimate_call_cost_cny(
     return (input_cost + output_cost).quantize(Decimal("0.000001"))
 
 
+def sanitize_local_ocr_conflicts(result: CardRecognitionResult) -> CardRecognitionResult:
+    """Independent OCR can contradict model prose, but absence alone cannot.
+
+    A repeated checklist number is not a photographed x/y stamp. Keep a
+    genuine end-of-run fraction when either local OCR pass observed one;
+    otherwise clear only the narrow card-number/serial collision for review.
+    """
+    anchors = next((entry.get("anchor_evidence", {}) for entry in result.recognition_route
+                    if entry.get("tier") == "local_ocr"), {})
+    updates = {}
+    caveats = list(result.caveats)
+    evidence = dict(result.field_evidence)
+    if str(result.parallel_name or "").strip().casefold() == "x" and anchors.get("social_mark_evidence"):
+        updates["parallel_name"] = None
+        marker = "social_logo_parallel_removed"
+        if not any(marker in value for value in caveats):
+            caveats.append(f"{marker}: OCR {anchors['social_mark_evidence']}; social branding is not a parallel")
+        evidence["parallel_name"] = [f"Local OCR social mark: {anchors['social_mark_evidence']}"]
+    physical_fraction = bool(anchors.get("serial_number") and anchors.get("serial_total")) or any(
+        entry.get("tier") == "local_serial_ocr" and entry.get("outcome") == "confirmed"
+        for entry in result.recognition_route
+    )
+    card_number = str(anchors.get("card_number") or "")
+    if (not physical_fraction and card_number.isdigit()
+            and result.serial_number == result.serial_total == int(card_number)):
+        updates.update(serial_number=None, serial_total=None, is_numbered=None)
+        marker = "catalog_number_serial_collision"
+        if not any(marker in value for value in caveats):
+            caveats.append(f"{marker}: local OCR reads checklist #{card_number}, not a serial fraction; verify stamp")
+        for field in ("serial_number", "serial_total", "is_numbered"):
+            evidence[field] = [f"Local OCR checklist number {card_number}; fraction unverified"]
+    return result.model_copy(update={**updates, "caveats": caveats, "field_evidence": evidence})
+
+
 def finalize_recognition_status(result: CardRecognitionResult) -> CardRecognitionResult:
+    result = sanitize_local_ocr_conflicts(result)
     result = sanitize_birthdate_serial_false_positive(result)
     issues = recognition_quality_issues(result)
     return result.model_copy(update={

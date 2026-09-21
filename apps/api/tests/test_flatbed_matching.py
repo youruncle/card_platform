@@ -70,6 +70,45 @@ def test_low_confidence_conflict_never_silently_auto_pairs() -> None:
     assert result["pairs"][0]["conflicts"]
 
 
+def test_unresolved_crop_never_silently_auto_pairs() -> None:
+    front = CardRegion(
+        "f1",
+        0.1,
+        0.1,
+        0.18,
+        0.28,
+        failure_reason="card_outline_unresolved",
+    )
+    back = CardRegion("b1", 0.1, 0.1, 0.18, 0.28)
+
+    pair = propose_pairs([front], [back])["pairs"][0]
+
+    assert pair["requires_review"] is True
+    assert "front_crop_card_outline_unresolved" in pair["conflicts"]
+
+
+def test_independent_crop_quality_error_never_silently_auto_pairs() -> None:
+    front = region("f1", 0.1, 0.1)
+    back = region(
+        "b1",
+        0.1,
+        0.1,
+        crop_quality={
+            "usability_score": 0.18,
+            "usable": False,
+            "violations": [
+                {"code": "blank_or_fragment", "severity": "error"}
+            ],
+        },
+    )
+
+    pair = propose_pairs([front], [back])["pairs"][0]
+
+    assert pair["signals"]["crop_quality"] == 0.18
+    assert pair["requires_review"] is True
+    assert "back_crop_quality_blank_or_fragment" in pair["conflicts"]
+
+
 def test_ocr_name_containment_ignores_back_stats_and_tolerates_ocr_noise() -> None:
     result = propose_pairs(
         [region("f1", 0.1, 0.1, ocr_tokens=["shareet", "abdur", "pahim", "grizzlies"])],

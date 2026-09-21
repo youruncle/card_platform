@@ -1,0 +1,48 @@
+const {test,afterEach}=require('node:test');
+const assert=require('node:assert/strict');
+const {JSDOM}=require('jsdom');
+const dom=new JSDOM('<html><body></body></html>',{url:'http://localhost:3000'});
+global.window=dom.window;global.document=dom.window.document;
+Object.defineProperty(global,'navigator',{value:dom.window.navigator,configurable:true});
+global.HTMLElement=dom.window.HTMLElement;global.React=require('react');
+const {render,screen,fireEvent,cleanup}=require('@testing-library/react');
+const {CollectionSearch}=require('../components/collection-search.tsx');
+afterEach(cleanup);
+test('advanced fields preserve false and zero and allow multi-value intersection',()=>{
+ let applied;
+ render(React.createElement(CollectionSearch,{filters:{},total:519,busy:false,onApply:v=>{applied=v;}}));
+ fireEvent.click(screen.getByRole('button',{name:'高级筛选'}));
+ fireEvent.change(screen.getByLabelText('品牌'),{target:{value:'Topps，Panini'}});
+ fireEvent.change(screen.getByLabelText('签字'),{target:{value:'false'}});
+ fireEvent.change(screen.getByLabelText('最低成本'),{target:{value:'0'}});
+ fireEvent.change(screen.getByRole('textbox',{name:'搜索全部卡片'}),{target:{value:'杜兰特'}});
+ fireEvent.click(screen.getByRole('button',{name:'搜索'}));
+ assert.deepEqual(applied,{q:'杜兰特',brand:['Topps','Panini'],autograph:false,cost_min:0});
+});
+test('invalid ranges display an error without applying and chips clear independently',()=>{
+ let applied;
+ render(React.createElement(CollectionSearch,{filters:{q:'Durant',rookie:false},total:1,busy:false,onApply:v=>{applied=v;}}));
+ fireEvent.click(screen.getByRole('button',{name:'高级筛选'}));
+ fireEvent.change(screen.getByLabelText('起始年份'),{target:{value:'2026'}});
+ fireEvent.change(screen.getByLabelText('结束年份'),{target:{value:'2025'}});
+ fireEvent.click(screen.getByRole('button',{name:'搜索'}));
+ assert.match(screen.getByRole('alert').textContent,/最小值不能大于最大值/);
+ assert.equal(applied,undefined);
+ fireEvent.click(screen.getByRole('button',{name:'移除 新秀 RC'}));
+ assert.deepEqual(applied,{q:'Durant'});
+ fireEvent.click(screen.getByRole('button',{name:'清空条件'}));
+ assert.deepEqual(applied,{});
+});
+test('Chinese composition does not accidentally submit incomplete query',()=>{
+ let applied;
+ render(React.createElement(CollectionSearch,{filters:{},total:0,busy:false,onApply:v=>{applied=v;}}));
+ const input=screen.getByRole('textbox',{name:'搜索全部卡片'});
+ fireEvent.compositionStart(input);
+ fireEvent.change(input,{target:{value:'du'}});
+ fireEvent.submit(input.closest('form'));
+ assert.equal(applied,undefined);
+ fireEvent.compositionEnd(input);
+ fireEvent.change(input,{target:{value:'杜兰特'}});
+ fireEvent.submit(input.closest('form'));
+ assert.deepEqual(applied,{q:'杜兰特'});
+});

@@ -92,6 +92,18 @@ def test_flatbed_session_isolated_immutable_manual_and_idempotent(tmp_path) -> N
             f"/v1/flatbed/sessions/{session_id}/pairs", json={"pairs": manual_pairs}
         )
         assert confirmed.status_code == 200, confirmed.text
+        assert confirmed.json()["skipped"] == {"front": 0, "back": 0}
+
+        with psycopg.connect(os.environ["TEST_DATABASE_URL"]) as connection:
+            candidate_count, selected_count, confirmed_count = connection.execute(
+                """SELECT count(*),count(*) FILTER (WHERE selected),
+                          count(*) FILTER (WHERE selected AND manual_override)
+                   FROM flatbed_pair_proposal WHERE session_id=%s""",
+                (session_id,),
+            ).fetchone()
+            # Confirmation annotates existing scored candidates; it must not
+            # add fake score=1/high rows that erase the original risk signals.
+            assert (candidate_count, selected_count, confirmed_count) == (4, 2, 2)
 
         submitted = client.post(f"/v1/flatbed/sessions/{session_id}/submit")
         repeated = client.post(f"/v1/flatbed/sessions/{session_id}/submit")

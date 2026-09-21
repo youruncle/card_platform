@@ -68,15 +68,24 @@ def test_full_investment_workflow(tmp_path) -> None:
         ready = client.get("/health/ready")
         assert ready.status_code == 200, ready.text
         user = client.post(
-            "/v1/users",
+            "/v1/auth/register",
             json={
                 "email": f"e2e-{uuid4()}@card-alpha.local",
+                "password": "A-safe-integration-password-2026!",
                 "display_name": "E2E Portfolio",
                 "base_currency": "CNY",
             },
         )
         assert user.status_code == 201, user.text
         owner_id = user.json()["id"]
+        other_client = TestClient(app)
+        other_user = other_client.post(
+            "/v1/auth/register",
+            json={"email": f"other-e2e-{uuid4()}@card-alpha.local",
+                  "password": "A-safe-other-password-2026!", "display_name": "Other owner",
+                  "base_currency": "CNY"},
+        )
+        assert other_user.status_code == 201, other_user.text
 
         created = client.post(
             "/v1/portfolio/items",
@@ -335,7 +344,7 @@ def test_full_investment_workflow(tmp_path) -> None:
         assert shared_item.status_code == 201, shared_item.text
         shared_item_id = shared_item.json()["id"]
 
-        unauthorized = client.request(
+        unauthorized = other_client.request(
             "DELETE",
             f"/v1/portfolio/items/{item_id}",
             json={"owner_id": str(uuid4())},
@@ -373,7 +382,7 @@ def test_full_investment_workflow(tmp_path) -> None:
         trash = client.get("/v1/portfolio/trash", params={"owner_id": owner_id})
         assert trash.status_code == 200
         assert trash.json()[0]["id"] == item_id
-        assert client.post(
+        assert other_client.post(
             f"/v1/portfolio/items/{item_id}/restore",
             json={"owner_id": str(uuid4())},
         ).status_code == 404

@@ -3,6 +3,7 @@ from typing import Any
 from uuid import UUID
 
 from psycopg import AsyncConnection
+from psycopg.errors import UniqueViolation
 from psycopg.types.json import Jsonb
 
 from card_platform.market_data.models import (
@@ -11,6 +12,8 @@ from card_platform.market_data.models import (
     MarketDataResult,
     MarketIdentity,
 )
+
+from card_platform.market_data.retry import MAX_REFRESH_ATTEMPTS, TRANSIENT_ERROR, retry_delay_seconds
 
 
 class MarketDataRepository:
@@ -105,22 +108,122 @@ class MarketDataRepository:
         notes = []
         if cache["refresh_error"] or cache["last_error"]:
             notes.append(
-                "市场来源刷新异常："
-                + str(cache["refresh_error"] or cache["last_error"])[:300]
+                "市场来源刷新异常：" + str(cache["refresh_error"] or cache["last_error"])[:300]
             )
         for diagnostic in diagnostics:
             provider = diagnostic.get("provider") or "unknown"
             status = diagnostic.get("status") or "unknown"
             count = diagnostic.get("evidence_count", 0)
             notes.append(f"来源诊断 {provider}: {status}, 抓取候选 {count}")
+            notes.extend(str(note) for note in diagnostic.get("notes", []) if note)
         return MarketDataResult(
             identity_fingerprint=fingerprint,
             freshness=freshness,
             evidence=evidence,
             data_as_of=cache["data_as_of"],
+            next_refresh_at=cache["next_refresh_at"],
             notes=notes,
             provider_diagnostics=diagnostics,
         )
+
+    async def historical_evidence_for_card_definition(
+        self,
+        connection: AsyncConnection,
+        fingerprint: str,
+        card_definition_id: UUID,
+    ) -> list[EvidenceRecord]:
+        """Read prior durable sales for the same card definition.
+
+        Identity normalization can legitimately change a fingerprint (for
+        example, when an OCR product heading is reclassified as an insert).
+        The sale itself remains an immutable source fact.  Return those prior
+        rows for the valuation worker to reclassify against the *current*
+        identity, without moving or duplicating evidence ownership.
+        """
+        result = await connection.execute(
+            """
+            SELECT DISTINCT ON (evidence.provider_code, evidence.external_sale_id)
+                   evidence.provider_code, evidence.external_sale_id,
+                   evidence.raw_title, evidence.sale_price,
+                   evidence.shipping_price, evidence.currency,
+                   evidence.occurred_at, evidence.source_url,
+                   evidence.evidence_level, evidence.grade_company,
+                   evidence.grade_value, evidence.match_confidence,
+                   evidence.identity_classification, evidence.raw_payload,
+                   evidence.evidence_version, evidence.fetched_at
+            FROM market_comp comparable
+            JOIN market_evidence evidence
+              ON evidence.id = comparable.market_evidence_id
+            WHERE comparable.card_definition_id = %s
+              AND evidence.identity_fingerprint <> %s
+            ORDER BY evidence.provider_code, evidence.external_sale_id,
+                     evidence.occurred_at DESC
+            LIMIT 100
+            """,
+            (card_definition_id, fingerprint),
+        )
+        return [EvidenceRecord.model_validate(row) for row in await result.fetchall()]
+
+    async def adopt_reviewed_evidence(
+        self,
+        connection: AsyncConnection,
+        fingerprint: str,
+        identity_version_id: UUID,
+    ) -> int:
+        """Attach evidence explicitly accepted for this identity version.
+
+        Evidence is globally unique per provider and can predate an identity
+        correction.  The review decision is the authoritative, auditable link;
+        without this adoption step a corrected identity can remain empty even
+        though a reviewer accepted the existing public-sale URL.
+        """
+        result = await connection.execute(
+            """
+            UPDATE market_evidence evidence
+            SET identity_fingerprint = %s,
+                identity_classification = evidence.identity_classification || jsonb_build_object(
+                    'reviewed_identity_accepted', true,
+                    'reviewed_identity_version_id', decision.identity_version_id::text,
+                    'reviewed_collection_item_id', decision.collection_item_id::text
+                ),
+                last_seen_at = now()
+            FROM market_evidence_identity_decision decision
+            WHERE decision.identity_version_id = %s
+              AND decision.market_evidence_id = evidence.id
+              AND decision.decision = 'accepted'
+              AND (
+                  evidence.identity_fingerprint <> %s
+                  OR COALESCE(
+                      (evidence.identity_classification->>'reviewed_identity_accepted')::boolean,
+                      false
+                  ) = false
+              )
+            RETURNING evidence.id
+            """,
+            (fingerprint, identity_version_id, fingerprint),
+        )
+        adopted = len(await result.fetchall())
+        await connection.execute(
+            """
+            UPDATE market_identity_cache cache
+            SET evidence_count = (
+                    SELECT count(*) FROM market_evidence evidence
+                    WHERE evidence.identity_fingerprint = cache.identity_fingerprint
+                ),
+                freshness = CASE WHEN EXISTS (
+                    SELECT 1 FROM market_evidence evidence
+                    WHERE evidence.identity_fingerprint = cache.identity_fingerprint
+                ) THEN 'cached' ELSE cache.freshness END,
+                data_as_of = COALESCE((
+                    SELECT max(occurred_at) FROM market_evidence evidence
+                    WHERE evidence.identity_fingerprint = cache.identity_fingerprint
+                ), cache.data_as_of),
+                updated_at = now()
+            WHERE cache.identity_fingerprint = %s
+            """,
+            (fingerprint,),
+        )
+        return adopted
 
     async def adopt_legacy_evidence(
         self,
@@ -202,6 +305,66 @@ class MarketDataRepository:
             )
         return row["id"], row["created"]
 
+    async def enqueue_revaluation_after_concurrent_refresh(
+        self,
+        connection: AsyncConnection,
+        valuation_job_id: UUID,
+    ) -> UUID | None:
+        """Retry once when fresh evidence arrived while valuation was running.
+
+        A refresh normally queues a valuation when it finishes.  If a valuation
+        for the same card is still active, the active-job guard intentionally
+        suppresses that insert.  Once the active valuation ends with insufficient
+        evidence, this closes the race without creating a refresh/valuation loop:
+        the next job starts after the refresh's finish time and cannot match it.
+        """
+        result = await connection.execute(
+            """
+            INSERT INTO valuation_job (collection_item_id, status, result_summary)
+            SELECT current.collection_item_id, 'queued', jsonb_build_object(
+                'reason', 'market_refresh_completed_during_valuation',
+                'source_valuation_job_id', current.id::text
+            )
+            FROM valuation_job current
+            WHERE current.id = %s
+              AND current.status = 'insufficient_evidence'
+              -- A refresh-race compensation job is the one permitted retry.
+              -- Do not let that retry queue another refresh compensation when
+              -- sparse evidence remains below the normal cache threshold.
+              AND COALESCE(
+                    current.result_summary->>'source_valuation_job_id', ''
+                  ) = ''
+              AND EXISTS (
+                  SELECT 1
+                  FROM market_identity_binding binding
+                  JOIN market_refresh_job refresh
+                    ON refresh.identity_fingerprint = binding.identity_fingerprint
+                  WHERE binding.collection_item_id = current.collection_item_id
+                    AND refresh.status IN (
+                        'succeeded', 'source_limited', 'insufficient'
+                    )
+                    AND refresh.finished_at >= current.started_at
+                    AND refresh.finished_at <= current.finished_at
+                    AND COALESCE(
+                        (refresh.result_summary->>'fetched_candidate_count')::integer,
+                        0
+                    ) > 0
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM valuation_job active
+                  WHERE active.collection_item_id = current.collection_item_id
+                    AND active.status IN (
+                        'queued', 'identifying', 'searching', 'calculating'
+                    )
+              )
+            ON CONFLICT DO NOTHING
+            RETURNING id
+            """,
+            (valuation_job_id,),
+        )
+        row = await result.fetchone()
+        return row["id"] if row else None
+
     async def claim_refresh(self, connection: AsyncConnection) -> dict | None:
         await connection.execute(
             """
@@ -255,6 +418,75 @@ class MarketDataRepository:
         )
         return dict(row)
 
+    async def claim_refresh_by_id(self, connection: AsyncConnection, job_id: UUID) -> dict | None:
+        """Claim one explicitly selected queued refresh.
+
+        Callers that need ownership of a newly enqueued refresh must call this
+        in the same transaction as :meth:`enqueue_refresh`.  The row lock and
+        status transition make the job invisible to general workers as queued
+        once that transaction commits.  An already-running job is never stolen;
+        the caller may wait for it and enqueue a new refresh afterwards.
+        """
+        result = await connection.execute(
+            """
+            SELECT j.id, j.identity_fingerprint, j.status,
+                   c.normalized_identity, c.data_as_of
+            FROM market_refresh_job j
+            JOIN market_identity_cache c USING (identity_fingerprint)
+            WHERE j.id = %s
+            FOR UPDATE OF j
+            """,
+            (job_id,),
+        )
+        row = await result.fetchone()
+        if row is None or row["status"] != "queued":
+            return None
+        await connection.execute(
+            """
+            UPDATE market_refresh_job
+            SET status = 'running', attempt_count = attempt_count + 1,
+                started_at = now(), finished_at = NULL, error_message = NULL,
+                updated_at = now()
+            WHERE id = %s
+            """,
+            (job_id,),
+        )
+        await connection.execute(
+            """
+            UPDATE market_identity_cache
+            SET last_refresh_started_at = now(), updated_at = now()
+            WHERE identity_fingerprint = %s
+            """,
+            (row["identity_fingerprint"],),
+        )
+        claimed = dict(row)
+        claimed.pop("status", None)
+        return claimed
+
+    async def defer_refresh_for_capacity(self, connection: AsyncConnection, job_id: UUID) -> None:
+        """Let an unstarted local request wait without counting a source failure.
+
+        The five-second not_before floor avoids a hot queue loop. Original
+        created_at is preserved, so deferred old jobs retain claim priority
+        over newly queued work once eligible.
+        """
+        await connection.execute(
+            """UPDATE market_refresh_job
+               SET status = 'queued', started_at = NULL, finished_at = NULL,
+                   attempt_count = GREATEST(attempt_count - 1, 0),
+                   not_before = now() + interval '5 seconds',
+                   error_message = NULL,
+                   result_summary = COALESCE(result_summary, '{}'::jsonb) ||
+                       jsonb_build_object(
+                           'deferred_reason', 'local_provider_capacity',
+                           'capacity_deferred_count',
+                           COALESCE((result_summary->>'capacity_deferred_count')::integer, 0) + 1
+                       ),
+                   updated_at = now()
+               WHERE id = %s AND status = 'running'""",
+            (job_id,),
+        )
+
     async def store_evidence(
         self,
         connection: AsyncConnection,
@@ -275,6 +507,20 @@ class MarketDataRepository:
                 )
                 ON CONFLICT (provider_code, external_sale_id)
                 DO UPDATE SET
+                    -- A sale is globally unique per provider, but its first
+                    -- search may have attached it to an OCR-misidentified
+                    -- card.  A later authoritative refresh must move the
+                    -- evidence to the corrected identity; otherwise identity
+                    -- correction leaves the new cache permanently empty.
+                    identity_fingerprint = CASE
+                        WHEN EXISTS (
+                            SELECT 1
+                            FROM market_evidence_identity_decision decision
+                            WHERE decision.market_evidence_id = market_evidence.id
+                              AND decision.decision = 'accepted'
+                        ) THEN market_evidence.identity_fingerprint
+                        ELSE EXCLUDED.identity_fingerprint
+                    END,
                     raw_title = EXCLUDED.raw_title,
                     sale_price = EXCLUDED.sale_price,
                     shipping_price = EXCLUDED.shipping_price,
@@ -285,7 +531,15 @@ class MarketDataRepository:
                     grade_company = EXCLUDED.grade_company,
                     grade_value = EXCLUDED.grade_value,
                     match_confidence = EXCLUDED.match_confidence,
-                    identity_classification = EXCLUDED.identity_classification,
+                    identity_classification = CASE
+                        WHEN EXISTS (
+                            SELECT 1
+                            FROM market_evidence_identity_decision decision
+                            WHERE decision.market_evidence_id = market_evidence.id
+                              AND decision.decision = 'accepted'
+                        ) THEN market_evidence.identity_classification
+                        ELSE EXCLUDED.identity_classification
+                    END,
                     raw_payload = EXCLUDED.raw_payload,
                     evidence_version = EXCLUDED.evidence_version,
                     fetched_at = EXCLUDED.fetched_at,
@@ -421,7 +675,14 @@ class MarketDataRepository:
         # A healthy provider can still return verified evidence while another
         # provider is rate-limited, so SOURCE_LIMITED is also eligible. The
         # evidence EXISTS guard below prevents empty refreshes from looping.
-        if freshness in {Freshness.FRESH, Freshness.SOURCE_LIMITED}:
+        if freshness == Freshness.SOURCE_LIMITED and await self.schedule_transient_retry(
+            connection, job_id, error,
+        ):
+            return
+        # One or two retained source-backed sales are still valuation input.
+        # The evidence EXISTS guard prevents empty refresh loops; service.get
+        # respects the persisted next_refresh_at deadline.
+        if freshness in {Freshness.FRESH, Freshness.SOURCE_LIMITED, Freshness.INSUFFICIENT}:
             await connection.execute(
                 """
                 INSERT INTO valuation_job (collection_item_id, status)
@@ -457,6 +718,66 @@ class MarketDataRepository:
                 (fingerprint,),
             )
 
+    async def schedule_transient_retry(
+        self, connection: AsyncConnection, job_id: UUID, error: str | None,
+    ) -> bool:
+        """Reuse the durable job and its attempt counter, respecting source backoff."""
+        if not error or not TRANSIENT_ERROR.search(error):
+            return False
+        result = await connection.execute(
+            "SELECT attempt_count FROM market_refresh_job WHERE id = %s FOR UPDATE",
+            (job_id,),
+        )
+        row = await result.fetchone()
+        if row is None:
+            return False
+        attempt_count = row["attempt_count"]
+        delay = retry_delay_seconds(error, attempt_count)
+        if delay is None:
+            await connection.execute(
+                """UPDATE market_refresh_job SET result_summary = result_summary || %s
+                   WHERE id = %s""",
+                (Jsonb({"retry_policy": {
+                    "attempt_count": attempt_count, "max_attempts": MAX_REFRESH_ATTEMPTS,
+                    "scheduled": False,
+                    "reason": "retry_limit_reached" if attempt_count >= MAX_REFRESH_ATTEMPTS
+                              else "not_a_retryable_transport_error",
+                }}), job_id),
+            )
+            return False
+        try:
+            async with connection.transaction():
+                result = await connection.execute(
+                    """UPDATE market_refresh_job job
+                       SET status = 'queued', started_at = NULL,
+                           not_before = GREATEST(
+                               now() + make_interval(secs => %s),
+                               (SELECT circuit_until FROM provider_state WHERE provider_code='cardhobby'),
+                               (SELECT retry_after_until FROM provider_state WHERE provider_code='cardhobby')
+                           ),
+                           result_summary = result_summary || %s, updated_at = now()
+                       WHERE job.id = %s AND job.status IN ('failed', 'source_limited')
+                         AND job.attempt_count < %s
+                         AND EXISTS (SELECT 1 FROM market_identity_binding binding
+                                     WHERE binding.identity_fingerprint=job.identity_fingerprint)
+                         AND NOT EXISTS (
+                             SELECT 1 FROM market_refresh_job active
+                             WHERE active.identity_fingerprint=job.identity_fingerprint
+                               AND active.id <> job.id AND active.status IN ('queued','running')
+                         )
+                       RETURNING job.id""",
+                    (delay, Jsonb({"retry_policy": {
+                        "attempt_count": attempt_count, "max_attempts": MAX_REFRESH_ATTEMPTS,
+                        "scheduled": True, "minimum_delay_seconds": delay,
+                        "reason": "transient_source_failure",
+                    }}), job_id, MAX_REFRESH_ATTEMPTS),
+                )
+                return await result.fetchone() is not None
+        except UniqueViolation:
+            # A concurrent refresh already won the active-identity slot.
+            # Its job owns the retry; never overwrite it or abort this result.
+            return False
+
     async def fail_refresh(
         self,
         connection: AsyncConnection,
@@ -481,6 +802,8 @@ class MarketDataRepository:
             """,
             (error, fingerprint),
         )
+
+        await self.schedule_transient_retry(connection, job_id, error)
 
     async def provider_status(self, connection: AsyncConnection) -> list[dict]:
         result = await connection.execute(

@@ -7,6 +7,9 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from card_platform.purchase_cost_api import router as purchase_cost_router
+from card_platform.cardhobby_account_api import router as cardhobby_account_router
+from card_platform.purchase_cost_service import run_cost_worker
 from card_platform.api import router
 from card_platform.auth_api import router as auth_router
 from card_platform.config import get_settings
@@ -41,7 +44,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     recognition_worker = None
     recognition_worker_task = None
     scanner_worker = None
-    scanner_worker_task = None
+    scanner_worker_tasks: list[asyncio.Task] = []
     if get_settings().recognition_worker_enabled:
         recognition_worker = RecognitionBenchmarkWorker(database, get_settings())
         recognition_worker_task = asyncio.create_task(recognition_worker.run())
@@ -50,20 +53,31 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         worker_tasks = [asyncio.create_task(worker.run()) for _ in range(concurrency)]
     if get_settings().scanner_worker_enabled:
         scanner_worker = ScannerRecognitionWorker(database, get_settings())
-        scanner_worker_task = asyncio.create_task(scanner_worker.run())
+        concurrency = max(1, get_settings().scanner_worker_concurrency)
+        scanner_worker_tasks = [
+            asyncio.create_task(scanner_worker.run()) for _ in range(concurrency)
+        ]
+    cost_worker = (
+        asyncio.create_task(run_cost_worker(database))
+        if get_settings().purchase_cost_worker_enabled
+        else None
+    )
     try:
         yield
     finally:
+        if cost_worker is not None:
+            cost_worker.cancel()
+            await asyncio.gather(cost_worker, return_exceptions=True)
         if worker_tasks:
             await stop_worker(worker_tasks, worker)
         if recognition_worker_task is not None and recognition_worker is not None:
             await stop_recognition_worker(recognition_worker_task, recognition_worker)
-        if scanner_worker_task is not None and scanner_worker is not None:
-            await stop_scanner_worker(scanner_worker_task, scanner_worker)
+        if scanner_worker_tasks and scanner_worker is not None:
+            await stop_scanner_worker(scanner_worker_tasks, scanner_worker)
         await database.close()
 
 
-app = FastAPI(title="Card Platform API", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="Card Platform API", version="0.5.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().cors_origins,
@@ -87,6 +101,8 @@ async def reject_cross_site_session_writes(request: Request, call_next):
 
 
 app.include_router(router)
+app.include_router(purchase_cost_router)
+app.include_router(cardhobby_account_router)
 app.include_router(auth_router)
 app.include_router(scanner_router)
 app.include_router(flatbed_router)

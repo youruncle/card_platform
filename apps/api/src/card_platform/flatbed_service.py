@@ -18,14 +18,19 @@ from card_platform.card_orientation import (
     OrientationDecision,
     rotate_image_content,
 )
+from card_platform.flatbed_crop_quality import assess_sheet_crop_quality
+from card_platform.flatbed_capture_resolution import resolve_source_resolution
 from card_platform.flatbed_detection import (
     DETECTOR_VERSION,
     Detection,
+    LayoutHypothesis,
     detect_layout,
     explain_detection,
     visual_signals,
 )
 from card_platform.flatbed_matching import CardRegion, propose_pairs
+from card_platform.flatbed_ml import refine_with_sam2
+from card_platform.flatbed_object_quality import audit_object_crop_integrity
 
 
 class FlatbedBridgeError(RuntimeError):
@@ -34,17 +39,117 @@ class FlatbedBridgeError(RuntimeError):
 
 _bridge_session_lock = asyncio.Lock()
 
-# Grid recovery describes the allocation cell, not always the physical holder:
-# tightly packed holders can cross an inferred row/column boundary by several
-# percent. Keep enough real scanner-bed context to avoid clipping labels,
-# corners, and holder lips used for condition review.
-CROP_SHORT_AXIS_PADDING_RATIO = 0.06
-CROP_SHORT_AXIS_LEADING_INSET_RATIO = 0.06
+# Independent contour detections get a small, symmetric safety margin. Refined
+# full-bed grid detections already include their own local margin and bypass it;
+# shifting both crop edges in one direction used to clip one card while pulling
+# pixels from its neighbour into the crop.
+CROP_SHORT_AXIS_PADDING_RATIO = 0.03
 CROP_LONG_AXIS_PADDING_RATIO = 0.0
+CROP_OUTPUT_BORDER_RATIO = 0.008
+
+
+def _axis_aligned_intersection_over_smaller(left: Detection, right: Detection) -> float:
+    intersection_width = max(
+        0.0,
+        min(left.x + left.width, right.x + right.width) - max(left.x, right.x),
+    )
+    intersection_height = max(
+        0.0,
+        min(left.y + left.height, right.y + right.height) - max(left.y, right.y),
+    )
+    smaller = min(left.width * left.height, right.width * right.height)
+    return intersection_width * intersection_height / smaller if smaller else 0.0
+
+
+def back_refinement_prompts(
+    detections: list[Detection], prior: list[Detection]
+) -> list[Detection] | None:
+    """Use a compatible front envelope only as a SAM prompt for the back.
+
+    Current-side detections remain the fallback geometry. This gives a weak
+    back outline a tighter object-shaped prompt without allowing the front to
+    force a moved card into stale coordinates.
+    """
+    if not detections or len(detections) != len(prior):
+        return None
+    ranked_pairs = sorted(
+        (
+            (
+                _axis_aligned_intersection_over_smaller(current, candidate),
+                current_index,
+                prior_index,
+            )
+            for current_index, current in enumerate(detections)
+            for prior_index, candidate in enumerate(prior)
+        ),
+        reverse=True,
+    )
+    assignment: dict[int, tuple[float, int]] = {}
+    assigned_prior: set[int] = set()
+    for overlap, current_index, prior_index in ranked_pairs:
+        if current_index in assignment or prior_index in assigned_prior:
+            continue
+        assignment[current_index] = (overlap, prior_index)
+        assigned_prior.add(prior_index)
+    prompts: list[Detection] = []
+    for current_index, current in enumerate(detections):
+        if current.failure is None and current.confidence >= 0.70:
+            prompts.append(current)
+            continue
+        match = assignment.get(current_index)
+        if match is None:
+            prompts.append(current)
+            continue
+        overlap, index = match
+        candidate = prior[index]
+        area_ratio = candidate.width * candidate.height / max(current.width * current.height, 1e-9)
+        if overlap < 0.55 or not 0.60 <= area_ratio <= 1.65:
+            prompts.append(current)
+            continue
+        prompts.append(
+            Detection(
+                candidate.x,
+                candidate.y,
+                candidate.width,
+                candidate.height,
+                candidate.angle,
+                current.confidence,
+                current.failure,
+                candidate.points,
+                current.evidence,
+            )
+        )
+    return prompts
+
+
+def stored_region_as_prior(row: dict) -> Detection:
+    bounds = row["bounds"]
+    points = (
+        tuple((float(point["x"]), float(point["y"])) for point in bounds.get("points", [])) or None
+    )
+    source_evidence = tuple(
+        str(value)
+        for value in (row.get("signals") or {}).get("detection_evidence", [])
+        if not str(value).startswith("sam2_")
+    )
+    return Detection(
+        float(bounds["x"]),
+        float(bounds["y"]),
+        float(bounds["width"]),
+        float(bounds["height"]),
+        float(bounds.get("angle", 0)),
+        1,
+        points=points,
+        evidence=tuple(dict.fromkeys((*source_evidence, "front_to_back_prior"))),
+    )
 
 
 def padded_source_quad(
-    points: np.ndarray, image_width: int, image_height: int
+    points: np.ndarray,
+    image_width: int,
+    image_height: int,
+    *,
+    padding_ratio: float = CROP_SHORT_AXIS_PADDING_RATIO,
 ) -> np.ndarray:
     expanded = points.copy()
     span_x = float(np.ptp(points[:, 0]))
@@ -53,26 +158,116 @@ def padded_source_quad(
         midpoint = points[:, 1].mean()
         leading = points[:, 1] < midpoint
         trailing = points[:, 1] > midpoint
-        if float(points[:, 1].min()) > 1:
-            expanded[leading, 1] += span_y * CROP_SHORT_AXIS_LEADING_INSET_RATIO
-        expanded[trailing, 1] += span_y * CROP_SHORT_AXIS_PADDING_RATIO
+        expanded[leading, 1] -= span_y * padding_ratio
+        expanded[trailing, 1] += span_y * padding_ratio
     else:
         midpoint = points[:, 0].mean()
         leading = points[:, 0] < midpoint
         trailing = points[:, 0] > midpoint
-        if float(points[:, 0].min()) > 1:
-            expanded[leading, 0] += span_x * CROP_SHORT_AXIS_LEADING_INSET_RATIO
-        expanded[trailing, 0] += span_x * CROP_SHORT_AXIS_PADDING_RATIO
+        expanded[leading, 0] -= span_x * padding_ratio
+        expanded[trailing, 0] += span_x * padding_ratio
     expanded[:, 0] = np.clip(expanded[:, 0], 0, image_width - 1)
     expanded[:, 1] = np.clip(expanded[:, 1], 0, image_height - 1)
     return expanded.astype(np.float32)
 
 
+def ordered_source_quad(points: np.ndarray) -> np.ndarray:
+    """Order four distinct corners without sum/difference ties at 45 degrees."""
+    points = np.asarray(points, dtype=np.float32)
+    if points.shape != (4, 2) or not np.isfinite(points).all():
+        raise ValueError("卡片边界需要四个有效顶点")
+    hull = cv2.convexHull(points).reshape(-1, 2)
+    if len(hull) != 4 or abs(cv2.contourArea(hull)) < 1:
+        raise ValueError("卡片边界不能退化或包含重复顶点")
+    center = points.mean(axis=0)
+    ordered = points[np.argsort(np.arctan2(points[:, 1] - center[1], points[:, 0] - center[0]))]
+    start = int(np.argmin(ordered.sum(axis=1)))
+    return np.roll(ordered, -start, axis=0).astype(np.float32)
+
+
+def peer_safe_padding_ratio(
+    points: np.ndarray,
+    detections: list[Detection],
+    ordinal: int,
+    image_width: int,
+    image_height: int,
+    requested: float,
+) -> float:
+    """A cosmetic source margin must never capture new pixels from a peer.
+
+    Keep existing geometry intact; only cancel the optional margin. The neutral
+    output border still supplies a visual margin without copying another card.
+    Use polygons, not bounding boxes, so rotated neighbours remain independent.
+    """
+    if requested <= 0:
+        return 0.0
+    original = cv2.convexHull(points)
+    expanded = cv2.convexHull(
+        padded_source_quad(points, image_width, image_height, padding_ratio=requested)
+    )
+    for index, peer in enumerate(detections):
+        if index == ordinal:
+            continue
+        polygon = np.asarray(
+            peer.points
+            or (
+                (peer.x, peer.y),
+                (peer.x + peer.width, peer.y),
+                (peer.x + peer.width, peer.y + peer.height),
+                (peer.x, peer.y + peer.height),
+            ),
+            dtype=np.float32,
+        ) * np.array([image_width, image_height], dtype=np.float32)
+        hull = cv2.convexHull(polygon)
+        before, _ = cv2.intersectConvexConvex(original, hull)
+        after, _ = cv2.intersectConvexConvex(expanded, hull)
+        if after > before + 1.0:
+            return 0.0
+    return requested
+
+
+def add_output_safety_border(image: np.ndarray) -> np.ndarray:
+    """Add a very narrow neutral border after rectification.
+
+    Source-space padding cannot exist beyond the scanner bed. Adding the final
+    presentation border after warping keeps edge-touching cards from appearing
+    over-cropped without pretending that missing source pixels were scanned.
+    """
+    if image.size == 0:
+        return image
+    border = max(2, round(min(image.shape[:2]) * CROP_OUTPUT_BORDER_RATIO))
+    return cv2.copyMakeBorder(
+        image,
+        border,
+        border,
+        border,
+        border,
+        cv2.BORDER_CONSTANT,
+        value=(245, 245, 245),
+    )
+
+
 class FlatbedService:
-    def __init__(self, root: str, bridge_script: str, ocr_script: str | None = None) -> None:
+    def __init__(
+        self,
+        root: str,
+        bridge_script: str,
+        ocr_script: str | None = None,
+        *,
+        ml_enabled: bool = False,
+        ml_python: str = ".runtime/flatbed-ml/bin/python",
+        ml_worker_script: str = "scripts/flatbed_sam2_worker.py",
+        ml_checkpoint: str = ".runtime/models/sam2.1_hiera_tiny.pt",
+        ml_timeout_seconds: float = 20.0,
+    ) -> None:
         self.root = Path(root).resolve()
         self.bridge_script = Path(bridge_script).resolve()
         self.ocr_script = Path(ocr_script).resolve() if ocr_script else None
+        self.ml_enabled = ml_enabled
+        self.ml_python = ml_python
+        self.ml_worker_script = ml_worker_script
+        self.ml_checkpoint = ml_checkpoint
+        self.ml_timeout_seconds = ml_timeout_seconds
         self.orientation_classifier = AppleVisionOrientationClassifier(
             str(self.bridge_script.with_name("orient_card_images.swift"))
         )
@@ -114,9 +309,7 @@ class FlatbedService:
         # Serialize every bridge command process-wide and let each Swift
         # invocation close its session before the next command starts.
         async with _bridge_session_lock:
-            return await self._run_bridge(
-                command, output=output, dpi=dpi, timeout=timeout
-            )
+            return await self._run_bridge(command, output=output, dpi=dpi, timeout=timeout)
 
     async def _run_bridge(
         self, command: str, *, output: Path | None = None, dpi: int = 300, timeout: float = 60
@@ -158,6 +351,22 @@ class FlatbedService:
         return events
 
     async def create_session(self, connection, owner_id: UUID, dpi: int) -> dict:
+        # Opening the scanner tab and React development strict-mode can issue
+        # concurrent initialization requests. Serialize them per account and
+        # reuse the unfinished session instead of creating duplicate batches.
+        await connection.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+            (f"flatbed-session:{owner_id}",),
+        )
+        existing = await connection.execute(
+            """SELECT * FROM flatbed_scan_session
+               WHERE owner_id=%s AND submitted_at IS NULL
+               ORDER BY created_at DESC LIMIT 1 FOR UPDATE""",
+            (owner_id,),
+        )
+        row = await existing.fetchone()
+        if row is not None:
+            return dict(row)
         row = await connection.execute(
             """INSERT INTO flatbed_scan_session(owner_id,device_serial,dpi) VALUES (%s,'4706E5',%s) RETURNING *""",
             (owner_id, dpi),
@@ -173,6 +382,7 @@ class FlatbedService:
         content: bytes,
         content_type: str,
         detections_override: list[Detection] | None = None,
+        source_resolution: dict | None = None,
     ) -> dict:
         session_result = await connection.execute(
             "SELECT * FROM flatbed_scan_session WHERE id=%s AND owner_id=%s FOR UPDATE",
@@ -181,24 +391,101 @@ class FlatbedService:
         session = await session_result.fetchone()
         if session is None:
             raise LookupError("扫描会话不存在")
-        prior: list[Detection] = []
+        decoded = cv2.imdecode(np.frombuffer(content, np.uint8), cv2.IMREAD_COLOR)
+        if decoded is None:
+            raise ValueError("无法解码扫描图像")
+        height, width = decoded.shape[:2]
+        resolution = resolve_source_resolution(width, height, session["dpi"], source_resolution)
+        effective_dpi = resolution["effective_dpi"]
         expected_count = None
         if side == "back":
             prior_result = await connection.execute(
-                """SELECT r.bounds FROM flatbed_scan_region r JOIN flatbed_scan_sheet s ON s.id=r.sheet_id
+                """SELECT r.bounds,r.signals FROM flatbed_scan_region r JOIN flatbed_scan_sheet s ON s.id=r.sheet_id
                    WHERE s.session_id=%s AND s.owner_id=%s AND s.side='front'
                      AND s.revision=(SELECT max(revision) FROM flatbed_scan_sheet WHERE session_id=%s AND side='front')
                    ORDER BY r.ordinal""",
                 (session_id, owner_id, session_id),
             )
-            for row in await prior_result.fetchall():
-                b = row["bounds"]
-                points = tuple((float(p["x"]), float(p["y"])) for p in b.get("points", [])) or None
-                prior.append(Detection(float(b["x"]), float(b["y"]), float(b["width"]), float(b["height"]), float(b.get("angle", 0)), 1, points=points))
-            expected_count = len(prior) or None
-        layout = detect_layout(content, dpi=session["dpi"], expected_count=expected_count, prior=prior)
-        detections = detections_override if detections_override is not None else list(layout.detections)
+            # Only cardinality is relevant here; even malformed historical
+            # front bounds must not affect decoding/cropping this back image.
+            expected_count = len(await prior_result.fetchall()) or None
+        layout = (
+            LayoutHypothesis(
+                tuple(detections_override),
+                1.0,
+                0,
+                0,
+                transform="manual",
+                signals={"source": "user_confirmed_quads"},
+            )
+            if detections_override is not None
+            else detect_layout(
+                content,
+                dpi=effective_dpi,
+            )
+        )
+        detections = (
+            detections_override if detections_override is not None else list(layout.detections)
+        )
+        ml_refinement = {"status": "skipped", "reason": "disabled"}
+        # Front coordinates are identity/pairing hints, never back-image
+        # geometry. Even a plausible slot can cut two moved cards in half and
+        # pass an ink-presence check. Keep detection and SAM entirely local to
+        # the current image, including when its count differs from the front.
+        slot_refinement = {
+            "status": "skipped",
+            "reason": "independent_back_geometry" if side == "back" else "not_a_back_with_slots",
+        }
+        if detections_override is None and self.ml_enabled:
+            detections, ml_refinement = await refine_with_sam2(
+                content,
+                detections,
+                prompt_detections=None,
+                python_path=self.ml_python,
+                worker_script=self.ml_worker_script,
+                checkpoint=self.ml_checkpoint,
+                timeout_seconds=self.ml_timeout_seconds,
+            )
+        detector_version = (
+            f"{DETECTOR_VERSION}+sam2.1-tiny"
+            if ml_refinement.get("status") == "accepted"
+            else DETECTOR_VERSION
+        )
+        quality_reports = assess_sheet_crop_quality(decoded, detections)
+        quality_reports, object_integrity = audit_object_crop_integrity(
+            quality_reports, detections, layout.detections
+        )
+        quality_error_codes = list(
+            dict.fromkeys(
+                violation.code
+                for report in quality_reports
+                for violation in report.violations
+                if violation.severity == "error"
+            )
+        )
+        crop_quality_summary = {
+            "region_count": len(quality_reports),
+            "usable_count": sum(report.usable for report in quality_reports),
+            "needs_review_count": sum(report.needs_review for report in quality_reports),
+            "error_count": sum(
+                any(item.severity == "error" for item in report.violations)
+                for report in quality_reports
+            ),
+            "error_codes": quality_error_codes,
+            "minimum_usability_score": round(
+                min(
+                    (report.usability_score for report in quality_reports),
+                    default=0.0,
+                ),
+                4,
+            ),
+        }
         detection_failures = explain_detection(content, detections)
+        detection_failures.extend(f"crop_quality_{code}" for code in quality_error_codes)
+        detection_failures.extend(
+            f"crop_quality_{code}" for code in object_integrity.get("error_codes", [])
+            if code not in quality_error_codes
+        )
         if expected_count and len(detections) != expected_count:
             detection_failures.append("front_back_count_mismatch")
         if layout.score < 0.78 or any(item.failure for item in detections):
@@ -216,7 +503,6 @@ class FlatbedService:
         fd = os.open(original, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, "wb") as stream:
             stream.write(content)
-        decoded = cv2.imdecode(np.frombuffer(content, np.uint8), cv2.IMREAD_COLOR)
         height, width = decoded.shape[:2]
         relative_original = str(original.relative_to(self.root))
         await connection.execute(
@@ -230,14 +516,35 @@ class FlatbedService:
                 relative_original,
                 content_type,
                 hashlib.sha256(content).hexdigest(),
-                "manual-layout-v1" if detections_override is not None else DETECTOR_VERSION,
-                Jsonb({**layout.as_dict(), "manual_override": detections_override is not None}),
-                Jsonb({"expected_count": expected_count, "transform": layout.transform} if side == "back" else {}),
+                "manual-layout-v1" if detections_override is not None else detector_version,
+                Jsonb(
+                    {
+                        **layout.as_dict(),
+                        "manual_override": detections_override is not None,
+                        "ml_refinement": ml_refinement,
+                        "slot_refinement": slot_refinement,
+                        "crop_quality": crop_quality_summary,
+                        "source_resolution": resolution,
+                        "object_integrity": object_integrity,
+                    }
+                ),
+                Jsonb(
+                    {
+                        "expected_count": expected_count,
+                        "transform": layout.transform,
+                        "prior_role": "count_and_pairing_advisory_only",
+                        "geometry_source": "manual_back_quads" if detections_override is not None else "current_image",
+                    }
+                    if side == "back"
+                    else {}
+                ),
                 bool(detection_failures),
             ),
         )
         regions = []
-        for ordinal, detection in enumerate(detections):
+        for ordinal, (detection, quality_report) in enumerate(
+            zip(detections, quality_reports, strict=True)
+        ):
             region_id = uuid4()
             x1 = max(0, int(detection.x * width))
             y1 = max(0, int(detection.y * height))
@@ -249,18 +556,25 @@ class FlatbedService:
                     [[point[0] * width, point[1] * height] for point in detection.points],
                     dtype=np.float32,
                 )
-                sums = source.sum(axis=1)
-                differences = np.diff(source, axis=1).reshape(-1)
-                ordered = np.array(
-                    [
-                        source[np.argmin(sums)],
-                        source[np.argmin(differences)],
-                        source[np.argmax(sums)],
-                        source[np.argmax(differences)],
-                    ],
-                    dtype=np.float32,
+                ordered = ordered_source_quad(source)
+                crop_padding_ratio = (
+                    0.0
+                    if any(
+                        evidence in detection.evidence
+                        for evidence in (
+                            "ink_extent_refinement",
+                            "current_candidate_inward_edges",
+                            "current_instance_grid_reconciliation",
+                        )
+                    )
+                    else CROP_SHORT_AXIS_PADDING_RATIO
                 )
-                ordered = padded_source_quad(ordered, width, height)
+                crop_padding_ratio = peer_safe_padding_ratio(
+                    ordered, detections, ordinal, width, height, crop_padding_ratio
+                )
+                ordered = padded_source_quad(
+                    ordered, width, height, padding_ratio=crop_padding_ratio
+                )
                 top_left, top_right, bottom_right, bottom_left = ordered
                 target_width = max(
                     1,
@@ -281,7 +595,12 @@ class FlatbedService:
                     ),
                 )
                 destination = np.array(
-                    [[0, 0], [target_width - 1, 0], [target_width - 1, target_height - 1], [0, target_height - 1]],
+                    [
+                        [0, 0],
+                        [target_width - 1, 0],
+                        [target_width - 1, target_height - 1],
+                        [0, target_height - 1],
+                    ],
                     dtype=np.float32,
                 )
                 crop = cv2.warpPerspective(
@@ -289,6 +608,8 @@ class FlatbedService:
                     cv2.getPerspectiveTransform(ordered, destination),
                     (target_width, target_height),
                 )
+            if detection.failure != "card_outline_unresolved":
+                crop = add_output_safety_border(crop)
             crop_path = directory / f"region-{ordinal}.jpg"
             ok, encoded = cv2.imencode(".jpg", crop, [cv2.IMWRITE_JPEG_QUALITY, 95])
             if ok:
@@ -313,12 +634,13 @@ class FlatbedService:
             signals = visual_signals(crop)
             signals["detection_evidence"] = list(detection.evidence)
             signals["layout_score"] = layout.score
-            signals["detector_version"] = DETECTOR_VERSION
+            signals["detector_version"] = detector_version
             signals["orientation_rotation_degrees"] = rotation
             signals["orientation_confidence"] = round(orientation.confidence, 4)
             signals["orientation_method"] = orientation.method
             signals["orientation_text_count"] = orientation.text_count
             signals["orientation_face_count"] = orientation.face_count
+            signals["crop_quality"] = quality_report.as_dict()
             signals.update(await self.ocr_signals(crop_path))
             bounds = {
                 "x": detection.x,
@@ -326,13 +648,24 @@ class FlatbedService:
                 "width": detection.width,
                 "height": detection.height,
                 "angle": detection.angle,
-                "points": [
-                    {"x": point[0], "y": point[1]} for point in detection.points or ()
-                ],
-                "crop_padding_ratio": CROP_SHORT_AXIS_PADDING_RATIO,
+                "points": [{"x": point[0], "y": point[1]} for point in detection.points or ()],
+                "source_crop_points": (
+                    [
+                        {"x": float(point[0] / width), "y": float(point[1] / height)}
+                        for point in ordered
+                    ]
+                    if detection.points
+                    else []
+                ),
+                "crop_padding_ratio": crop_padding_ratio if detection.points else 0.0,
+                "output_border_ratio": (
+                    CROP_OUTPUT_BORDER_RATIO
+                    if detection.failure != "card_outline_unresolved"
+                    else 0.0
+                ),
                 "crop_padding_axes": {
-                    "short_trailing": CROP_SHORT_AXIS_PADDING_RATIO,
-                    "short_leading_inset": CROP_SHORT_AXIS_LEADING_INSET_RATIO,
+                    "short_leading": crop_padding_ratio if detection.points else 0.0,
+                    "short_trailing": crop_padding_ratio if detection.points else 0.0,
                     "long": CROP_LONG_AXIS_PADDING_RATIO,
                 },
             }
@@ -357,6 +690,7 @@ class FlatbedService:
                     "bounds": bounds,
                     "confidence": detection.confidence,
                     "failure_reason": detection.failure,
+                    "crop_quality": quality_report.as_dict(),
                 }
             )
         status = "front_scanned" if side == "front" else "back_scanned"
@@ -383,7 +717,15 @@ class FlatbedService:
             "revision": revision,
             "regions": regions,
             "failures": detection_failures,
-            "layout_hypothesis": layout.as_dict(),
+            "layout_hypothesis": {
+                **layout.as_dict(),
+                "manual_override": detections_override is not None,
+                "ml_refinement": ml_refinement,
+                "slot_refinement": slot_refinement,
+                "crop_quality": crop_quality_summary,
+                "source_resolution": resolution,
+                "object_integrity": object_integrity,
+            },
             "requires_review": bool(detection_failures),
         }
 
@@ -404,6 +746,7 @@ class FlatbedService:
                 b["height"],
                 row["confidence"],
                 row["signals"] or {},
+                row["failure_reason"],
             )
 
         proposal = propose_pairs(

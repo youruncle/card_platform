@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import StrEnum
+import re
 from typing import Any
 
 from card_platform.domain.identity_review import ConfirmedIdentity
@@ -65,6 +66,84 @@ def validate_candidate(candidate: dict[str, Any]) -> tuple[bool, list[str]]:
         return False, [str(error)]
     reasons = identity_review_reasons(candidate)
     return not reasons, reasons
+
+
+def automatic_candidate_decision(
+    candidates: list[dict[str, Any]],
+    *,
+    minimum_confidence: Decimal = Decimal("0.94"),
+) -> tuple[dict[str, Any] | None, list[str]]:
+    """Select one identity without creating another human review queue.
+
+    The vision/research pipeline is allowed to resolve an identity only when it
+    produced one unambiguous, schema-valid, high-confidence candidate and its
+    own quality gate did not request more research.  Everything else is a
+    durable ``unable_to_identify`` outcome with machine-readable reasons.
+    """
+    if not candidates:
+        return None, ["no_identity_candidate"]
+    valid = [candidate for candidate in candidates if candidate.get("is_valid")]
+    if not valid:
+        reasons = ["no_schema_valid_candidate"]
+        reasons.extend(
+            str(reason)
+            for candidate in candidates
+            for reason in candidate.get("validation_reasons") or []
+        )
+        return None, list(dict.fromkeys(reasons))
+    if len(valid) != 1:
+        return None, ["multiple_valid_identity_candidates"]
+    candidate = valid[0]
+    confidence = Decimal(str(candidate.get("confidence") or "0"))
+    if confidence < minimum_confidence:
+        return None, [
+            "identity_confidence_below_automatic_threshold",
+            f"confidence:{confidence}",
+            f"required:{minimum_confidence}",
+        ]
+    visual_reasons = [str(reason) for reason in candidate.get("visual_reasons") or []]
+    quality_failures = [
+        reason
+        for reason in visual_reasons
+        if reason.startswith("quality_issue:")
+        or reason == "tiered_recognition_status:research_required"
+    ]
+    if quality_failures:
+        return None, ["vision_quality_gate_failed", *quality_failures]
+    identity = candidate.get("identity") or {}
+    visual_text = " ".join(visual_reasons).casefold()
+    self_conflicts = []
+    card_number = str(identity.get("card_number") or "").strip().casefold()
+    if card_number and re.search(
+        rf"{re.escape(card_number)}[^。.;；]{{0,40}}(?:非|不是|并非|not)"
+        rf"[^。.;；]{{0,20}}(?:卡号|card\s*number)",
+        visual_text,
+    ):
+        self_conflicts.append("candidate_card_number_denied_by_own_rationale")
+    serial_number = identity.get("serial_number")
+    serial_total = identity.get("serial_total")
+    if serial_number is not None and serial_total is not None:
+        serial = rf"0*{int(serial_number)}\s*/\s*0*{int(serial_total)}"
+        if re.search(
+            rf"{serial}[^。.;；]{{0,60}}(?:非|不是|并非|not)"
+            rf"[^。.;；]{{0,30}}(?:限编|序列|serial|numbered)",
+            visual_text,
+        ):
+            self_conflicts.append("candidate_serial_denied_by_own_rationale")
+    if self_conflicts:
+        return None, ["candidate_self_conflict", *self_conflicts]
+    provenance = candidate.get("field_provenance") or {}
+    missing_provenance = [
+        field
+        for field in ("player_name", "season_start", "product_name", "card_number")
+        if not provenance.get(field)
+    ]
+    if missing_provenance:
+        return None, [
+            "critical_field_provenance_missing",
+            *(f"missing_provenance:{field}" for field in missing_provenance),
+        ]
+    return candidate, ["single_valid_high_confidence_candidate"]
 
 
 def generate_candidates(

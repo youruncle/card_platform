@@ -159,3 +159,13 @@ $("#saveSettings").addEventListener("click", () => saveSettings().catch((error) 
 $("#scan").addEventListener("click", () => scan().catch((error) => setStatus(error.message, true)));
 $("#confirm").addEventListener("click", () => confirmImport().catch((error) => setStatus(error.message, true)));
 loadSettings();
+
+$("#costExport").addEventListener("click",async()=>{
+  try {
+    const [tab]=await chrome.tabs.query({active:true,currentWindow:true});
+    if(!/^https:\/\/(www\.)?cardhobby\.com\.cn\/order\/myorders/i.test(tab?.url || "")) throw new Error("请先打开卡淘购买订单页");
+    await chrome.scripting.executeScript({target:{tabId:tab.id},files:["cost-capture.js"]});
+    await chrome.tabs.sendMessage(tab.id,{type:"CARDHOBBY_COST_EXPORT"});
+    window.close();
+  } catch(error) {setStatus(error.message,true);}
+});

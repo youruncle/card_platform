@@ -82,9 +82,12 @@ export function GlobalImageViewer() {
     pointerY: number;
     panX: number;
     panY: number;
+    startedOnEmptyStage: boolean;
+    moved: boolean;
   } | null>(null);
 
   const resetView = useCallback(() => {
+    drag.current = null;
     setZoom(1);
     setRotation(0);
     setPan({ x: 0, y: 0 });
@@ -158,27 +161,34 @@ export function GlobalImageViewer() {
       <div className="image-viewer-toolbar">
         <strong>{image.alt}</strong>
         <div>
-          <button type="button" title="缩小" onClick={() => setZoom((value) => Math.max(0.5, value - 0.25))}>
+          <button type="button" aria-label="缩小" title="缩小" onClick={() => setZoom((value) => Math.max(0.5, value - 0.25))}>
             <ZoomOut size={17} />
           </button>
-          <span>{Math.round(zoom * 100)}%</span>
-          <button type="button" title="放大" onClick={() => setZoom((value) => Math.min(6, value + 0.25))}>
+          <span aria-live="polite">{Math.round(zoom * 100)}%</span>
+          <button type="button" aria-label="放大" title="放大" onClick={() => setZoom((value) => Math.min(6, value + 0.25))}>
             <ZoomIn size={17} />
           </button>
-          <button type="button" title="向左旋转" onClick={() => setRotation((value) => value - 90)}>
+          <button type="button" aria-label="向左旋转" title="向左旋转" onClick={() => setRotation((value) => value - 90)}>
             <RotateCcw size={17} />
           </button>
-          <button type="button" title="向右旋转" onClick={() => setRotation((value) => value + 90)}>
+          <button type="button" aria-label="向右旋转" title="向右旋转" onClick={() => setRotation((value) => value + 90)}>
             <RotateCw size={17} />
           </button>
-          <button type="button" className={hoverMagnifier ? "active" : ""} title="切换悬停局部放大" onClick={() => setHoverMagnifier((value) => !value)}>
+          <button
+            type="button"
+            className={hoverMagnifier ? "active" : ""}
+            aria-label="切换悬停局部放大"
+            aria-pressed={hoverMagnifier}
+            title="切换悬停局部放大"
+            onClick={() => setHoverMagnifier((value) => !value)}
+          >
             <Maximize2 size={17} />
           </button>
-          <button type="button" title="还原视图（快捷键 0）" onClick={resetView}>还原</button>
-          <a href={image.url} target="_blank" rel="noreferrer" title="在新窗口打开原图">
+          <button type="button" aria-label="还原视图" title="还原视图（快捷键 0）" onClick={resetView}>还原</button>
+          <a href={image.url} target="_blank" rel="noreferrer" aria-label="在新窗口打开原图" title="在新窗口打开原图">
             <Download size={17} />
           </a>
-          <button type="button" title="关闭（Esc）" onClick={() => setViewer(null)}>
+          <button type="button" aria-label="关闭图片查看器" title="关闭（Esc）" onClick={() => setViewer(null)}>
             <X size={18} />
           </button>
         </div>
@@ -197,6 +207,8 @@ export function GlobalImageViewer() {
             pointerY: event.clientY,
             panX: pan.x,
             panY: pan.y,
+            startedOnEmptyStage: event.target === event.currentTarget,
+            moved: false,
           };
           setDragging(true);
           event.currentTarget.setPointerCapture(event.pointerId);
@@ -204,9 +216,12 @@ export function GlobalImageViewer() {
         onPointerMove={(event) => {
           const activeDrag = drag.current;
           if (activeDrag) {
+            const deltaX = event.clientX - activeDrag.pointerX;
+            const deltaY = event.clientY - activeDrag.pointerY;
+            if (deltaX * deltaX + deltaY * deltaY > 100) activeDrag.moved = true;
             setPan({
-              x: activeDrag.panX + event.clientX - activeDrag.pointerX,
-              y: activeDrag.panY + event.clientY - activeDrag.pointerY,
+              x: activeDrag.panX + deltaX,
+              y: activeDrag.panY + deltaY,
             });
             return;
           }
@@ -218,21 +233,27 @@ export function GlobalImageViewer() {
           setStageSize({ width: bounds.width, height: bounds.height });
         }}
         onPointerUp={(event) => {
+          const shouldClose = Boolean(
+            drag.current?.startedOnEmptyStage && !drag.current.moved,
+          );
           drag.current = null;
           setDragging(false);
           if (event.currentTarget.hasPointerCapture(event.pointerId)) {
             event.currentTarget.releasePointerCapture(event.pointerId);
           }
+          if (shouldClose) setViewer(null);
         }}
         onPointerCancel={() => {
+          drag.current = null;
+          setDragging(false);
+        }}
+        onLostPointerCapture={() => {
           drag.current = null;
           setDragging(false);
         }}
         onPointerEnter={() => setHovering(true)}
         onPointerLeave={() => {
           setHovering(false);
-          drag.current = null;
-          setDragging(false);
         }}
       >
         {hasGallery && (
@@ -302,7 +323,7 @@ export function GlobalImageViewer() {
       </div>
       <small className="image-viewer-help">
         {hasGallery ? `${viewer.index + 1} / ${viewer.images.length} · 左右方向键切换 · ` : ""}
-        悬停放大镜不会移动原图 · 按住鼠标左键拖拽平移 · 滚轮缩放 · Esc 关闭
+        点击空白区域关闭 · 悬停放大镜不会移动原图 · 按住鼠标左键拖拽平移 · 滚轮缩放 · Esc 关闭
       </small>
     </div>
   );

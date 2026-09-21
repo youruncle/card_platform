@@ -6,6 +6,8 @@ import shutil
 import tempfile
 from pathlib import Path
 
+from card_platform.domain.serial_evidence import unique_visible_serial
+
 
 SCRIPT_PATH = Path(__file__).resolve().parents[4] / "scripts" / "ocr_card_images.swift"
 
@@ -43,6 +45,9 @@ def extract_anchors(lines: list[str]) -> dict:
             for marker in ("drafted", "born:", "nba record", "career", "year team")
         ):
             continue
+        if re.search(r"\bin\s+(?:19|20)\d{2}\s*[-/]\s*\d{2,4}\b", normalized):
+            # Narrative basketball seasons are not product-release anchors.
+            continue
         for match in re.finditer(r"\b((?:19|20)\d{2})\s*[-/]\s*(\d{2,4})\b", line):
             start = int(match.group(1))
             raw_end = match.group(2)
@@ -76,42 +81,55 @@ def extract_anchors(lines: list[str]) -> dict:
             season_evidence=evidence,
         )
 
-    for index, line in enumerate(lines):
+    labeled_card_numbers: dict[str, str] = {}
+    for line in lines:
         match = re.search(
-            r"(?:\bNO\.\s*|\bNO\s+|N[º°]\s*|#\s*)([A-Z0-9][A-Z0-9-]{0,24})\b",
+            r"(?:\bNO\.\s*|\bNO\s+|N[º°]\s*|#\s*)"
+            r"([A-Z0-9][A-Z0-9-]{0,24})\b(?!\s*[/／∕⁄])",
             line,
             re.I,
         )
-        if match:
-            anchors["card_number"] = match.group(1).upper()
-            anchors["card_number_evidence"] = line
-            break
-        if re.fullmatch(r"\s*[A-Z]{0,4}-?\d{1,4}\s*", line, re.I):
-            nearby = " ".join(lines[max(0, index - 1):index + 3]).casefold()
+        # Topps prints CODE#CMP... in the legal footer. The # is not a
+        # checklist label; accepting it also suppressed the real bare number.
+        if match and not re.fullmatch(r"CMP\d+|\d{6,}", match.group(1), re.I):
+            labeled_card_numbers.setdefault(match.group(1).upper(), line)
+    if len(labeled_card_numbers) == 1:
+        card_number, evidence = next(iter(labeled_card_numbers.items()))
+        anchors["card_number"] = card_number
+        anchors["card_number_evidence"] = evidence
+        anchors["card_number_evidence_strength"] = "explicit_label"
+    elif not labeled_card_numbers:
+        contextual_card_numbers: dict[str, str] = {}
+        for index, line in enumerate(lines):
+            if not re.fullmatch(r"\s*[A-Z]{0,4}-?\d{1,4}\s*", line, re.I):
+                continue
+            nearby = " ".join(lines[max(0, index - 2):index + 3]).casefold()
             if any(marker in nearby for marker in (
                 "flagship", "prizm", "mosaic", "chrome", "hoops", "donruss",
                 "select", "topps", "panini",
             )):
-                anchors["card_number"] = line.strip().upper()
-                anchors["card_number_evidence"] = line
-                break
+                contextual_card_numbers.setdefault(line.strip().upper(), line)
+        if len(contextual_card_numbers) == 1:
+            card_number, evidence = next(iter(contextual_card_numbers.items()))
+            anchors["card_number"] = card_number
+            anchors["card_number_evidence"] = evidence
+            anchors["card_number_evidence_strength"] = "contextual_unlabeled"
 
-    serial_candidates = []
-    for line in lines:
-        for match in re.finditer(r"\b0*(\d{1,4})\s*/\s*0*(\d{1,4})\b", line):
-            number, total = int(match.group(1)), int(match.group(2))
-            if 0 < number <= total <= 1000:
-                serial_candidates.append((total, number, line))
-    if serial_candidates:
-        total, number, evidence = min(serial_candidates)
+    visible_serial = unique_visible_serial(lines, source_is_physical=True)
+    if visible_serial is not None:
         anchors.update(
             is_numbered=True,
-            serial_number=number,
-            serial_total=total,
-            serial_evidence=evidence,
+            serial_number=visible_serial.number,
+            serial_total=visible_serial.total,
+            serial_evidence=visible_serial.evidence,
         )
 
     text = "\n".join(lines)
+    social_line = next((line for line in lines if re.search(
+        r"\bX\b.{0,20}@\s*(?:TOPPS|PANINI)\b", line, re.I
+    )), None)
+    if social_line:
+        anchors["social_mark_evidence"] = social_line
     if re.search(r"(?:^|\W)(?:RC|ROOKIE)(?:\W|$)", text, re.I):
         anchors["is_rookie"] = True
         anchors["rookie_evidence"] = next(

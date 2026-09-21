@@ -1,0 +1,434 @@
+{
+  "version": "cardhobby-valuation-20260921-v1",
+  "selection": "mandatory diagnosed examples; hash-sorted strata; value-tail singleton risks; group holdout by card_definition",
+  "counts": {
+    "never_valued": 20,
+    "insufficient_history": 20,
+    "price_risk": 10,
+    "normal_candidate": 10
+  },
+  "holdout_count": 20,
+  "notes": "normal_candidate is not a gold label; strengthen grouping after identity review; all current fully supported reference intervals unknown",
+  "items": [
+    {
+      "display_id": 82,
+      "stratum": "never_valued",
+      "split": "development",
+      "manual_review": "completed_with_limitations",
+      "reference_status": "undetermined"
+    },
+    {
+      "display_id": 102,
+      "stratum": "never_valued",
+      "split": "development",
+      "manual_review": "completed_with_limitations",
+      "reference_status": "undetermined"
+    },
+    {
+      "display_id": 135,
+      "stratum": "never_valued",
+      "split": "development",
+      "manual_review": "completed_with_limitations",
+      "reference_status": "undetermined"
+    },
+    {
+      "display_id": 329,
+      "stratum": "never_valued",
+      "split": "holdout",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 290,
+      "stratum": "never_valued",
+      "split": "holdout",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 517,
+      "stratum": "never_valued",
+      "split": "holdout",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 463,
+      "stratum": "never_valued",
+      "split": "holdout",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 266,
+      "stratum": "never_valued",
+      "split": "holdout",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 417,
+      "stratum": "never_valued",
+      "split": "holdout",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 327,
+      "stratum": "never_valued",
+      "split": "holdout",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 413,
+      "stratum": "never_valued",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 310,
+      "stratum": "never_valued",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 435,
+      "stratum": "never_valued",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 493,
+      "stratum": "never_valued",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 312,
+      "stratum": "never_valued",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 223,
+      "stratum": "never_valued",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 425,
+      "stratum": "never_valued",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 460,
+      "stratum": "never_valued",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 201,
+      "stratum": "never_valued",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 423,
+      "stratum": "never_valued",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 4,
+      "stratum": "insufficient_history",
+      "split": "development",
+      "manual_review": "completed_with_limitations",
+      "reference_status": "undetermined"
+    },
+    {
+      "display_id": 97,
+      "stratum": "insufficient_history",
+      "split": "development",
+      "manual_review": "completed_with_limitations",
+      "reference_status": "undetermined"
+    },
+    {
+      "display_id": 486,
+      "stratum": "insufficient_history",
+      "split": "development",
+      "manual_review": "completed_with_limitations",
+      "reference_status": "undetermined"
+    },
+    {
+      "display_id": 355,
+      "stratum": "insufficient_history",
+      "split": "holdout",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 20,
+      "stratum": "insufficient_history",
+      "split": "holdout",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 276,
+      "stratum": "insufficient_history",
+      "split": "holdout",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 87,
+      "stratum": "insufficient_history",
+      "split": "holdout",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 503,
+      "stratum": "insufficient_history",
+      "split": "holdout",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 51,
+      "stratum": "insufficient_history",
+      "split": "holdout",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 31,
+      "stratum": "insufficient_history",
+      "split": "holdout",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 58,
+      "stratum": "insufficient_history",
+      "split": "holdout",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 54,
+      "stratum": "insufficient_history",
+      "split": "holdout",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 67,
+      "stratum": "insufficient_history",
+      "split": "holdout",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 226,
+      "stratum": "insufficient_history",
+      "split": "holdout",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 52,
+      "stratum": "insufficient_history",
+      "split": "holdout",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 107,
+      "stratum": "insufficient_history",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 47,
+      "stratum": "insufficient_history",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 85,
+      "stratum": "insufficient_history",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 162,
+      "stratum": "insufficient_history",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 248,
+      "stratum": "insufficient_history",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 60,
+      "stratum": "price_risk",
+      "split": "development",
+      "manual_review": "completed_with_limitations",
+      "reference_status": "undetermined"
+    },
+    {
+      "display_id": 116,
+      "stratum": "price_risk",
+      "split": "development",
+      "manual_review": "completed_with_limitations",
+      "reference_status": "undetermined"
+    },
+    {
+      "display_id": 383,
+      "stratum": "price_risk",
+      "split": "development",
+      "manual_review": "completed_with_limitations",
+      "reference_status": "undetermined"
+    },
+    {
+      "display_id": 456,
+      "stratum": "price_risk",
+      "split": "development",
+      "manual_review": "completed_with_limitations",
+      "reference_status": "undetermined"
+    },
+    {
+      "display_id": 91,
+      "stratum": "price_risk",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 63,
+      "stratum": "price_risk",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 136,
+      "stratum": "price_risk",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 458,
+      "stratum": "price_risk",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 511,
+      "stratum": "price_risk",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 140,
+      "stratum": "price_risk",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 6,
+      "stratum": "normal_candidate",
+      "split": "development",
+      "manual_review": "completed_with_limitations",
+      "reference_status": "undetermined"
+    },
+    {
+      "display_id": 305,
+      "stratum": "normal_candidate",
+      "split": "development",
+      "manual_review": "completed_with_limitations",
+      "reference_status": "undetermined"
+    },
+    {
+      "display_id": 335,
+      "stratum": "normal_candidate",
+      "split": "development",
+      "manual_review": "completed_with_limitations",
+      "reference_status": "undetermined"
+    },
+    {
+      "display_id": 519,
+      "stratum": "normal_candidate",
+      "split": "development",
+      "manual_review": "completed_with_limitations",
+      "reference_status": "undetermined"
+    },
+    {
+      "display_id": 392,
+      "stratum": "normal_candidate",
+      "split": "holdout",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 506,
+      "stratum": "normal_candidate",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 344,
+      "stratum": "normal_candidate",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 165,
+      "stratum": "normal_candidate",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 230,
+      "stratum": "normal_candidate",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    },
+    {
+      "display_id": 179,
+      "stratum": "normal_candidate",
+      "split": "development",
+      "manual_review": "pending",
+      "reference_status": "not_reviewed"
+    }
+  ]
+}

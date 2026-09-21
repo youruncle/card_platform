@@ -1,0 +1,1905 @@
+{
+  "checklist_prepared": [
+    {
+      "display_id": 143,
+      "source_hash": "2b71f047adca839efa15609ecb3e7aedd1434869cf551ede7bfbd2902343b3c3",
+      "patch": {
+        "expected_id": "a818d078-7806-4dd7-bdca-138a32303887",
+        "fields": {
+          "product_name": "Topps Chrome Update",
+          "card_number": "CG-10",
+          "insert_name": "Clutch Gene",
+          "season_start": 2025,
+          "season_end": 2026
+        },
+        "evidence": "实物背面明确 Jaylen Brown / CG-10 / CLUTCH GENE / ©2026；Topps 官方2025-26 Chrome Updates目录第8页明确CG-10=Jaylen Brown。原版Chrome官方目录CG-10=Donovan Mitchell，故根据实物+官方checklist交叉核实产品为Topps Chrome Update，而不是仅凭版权年推断。官方产品页 https://www.topps.com/pages/topps-chrome-updates-basketball ；官方PDF https://cdn.shopify.com/s/files/1/0662/9749/5709/files/Final_CheckList_26CUBK.pdf?v=1783360479 ；原版对照 https://ripped.topps.com/topps-chrome-basketball-2025-26-checklist/ 。保留用户和原图已确认印编/平行，不合并藏品。"
+      },
+      "before": {
+        "item": {
+          "id": "a818d078-7806-4dd7-bdca-138a32303887",
+          "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+          "card_definition_id": "0942c603-a32d-4ef6-bf96-0e15f027bd9e",
+          "serial_number": 1,
+          "serial_total": 99,
+          "grade_company": null,
+          "grade_value": null,
+          "grade_cert_number": null,
+          "condition_note": null,
+          "image_front_url": "/uploads/a818d078-7806-4dd7-bdca-138a32303887-front-edfa39c94a6c4685af44fcb9fbfcaed3.jpg",
+          "image_back_url": "/uploads/a818d078-7806-4dd7-bdca-138a32303887-back-1676148374ea4d68b3540894ace4412c.jpg",
+          "strategy_tags": [],
+          "acquired_at": null,
+          "disposed_at": null,
+          "notes": "后台高拍仪身份质量门禁通过后自动录入；识别依据已保留。",
+          "created_at": "2026-09-06 01:49:59.681797+08:00",
+          "updated_at": "2026-09-09 09:20:36.386593+08:00",
+          "deleted_at": null,
+          "deleted_reason": null,
+          "deleted_by": null,
+          "is_numbered": true,
+          "display_id": 143
+        },
+        "definition": {
+          "id": "0942c603-a32d-4ef6-bf96-0e15f027bd9e",
+          "card_set_id": "5141d03a-bc4c-49c5-9e92-3fcb9e533e6d",
+          "player_id": "c4d975e6-be21-4eba-8e7a-72e0e315704f",
+          "card_number": "CG-10",
+          "insert_name": "Clutch Gene",
+          "parallel_name": null,
+          "is_rookie": false,
+          "is_autograph": false,
+          "is_patch": false,
+          "is_case_hit": false,
+          "print_run": null,
+          "checklist_url": null,
+          "metadata": {},
+          "created_at": "2026-09-06 01:49:59.681797+08:00",
+          "updated_at": "2026-09-06 01:49:59.681797+08:00",
+          "autograph_type": "none",
+          "is_memorabilia": false,
+          "memorabilia_types": [],
+          "memorabilia_usage": "none",
+          "memorabilia_player": null,
+          "has_inscription": false,
+          "inscription_text": null
+        },
+        "set": {
+          "id": "5141d03a-bc4c-49c5-9e92-3fcb9e533e6d",
+          "brand_id": "8aedc827-0e2f-4eb8-bdb5-e4241c036b1f",
+          "sport": "basketball",
+          "season_start": 2025,
+          "season_end": 2026,
+          "product_name": "Topps Chrome",
+          "set_name": null,
+          "release_date": null,
+          "manufacturer_code": null,
+          "metadata": {},
+          "created_at": "2026-08-28 09:47:17.180669+08:00"
+        },
+        "player": {
+          "id": "c4d975e6-be21-4eba-8e7a-72e0e315704f",
+          "full_name": "Jaylen Brown",
+          "normalized_name": "jaylen brown",
+          "birth_date": null,
+          "nba_person_id": null,
+          "primary_position": null,
+          "active": true,
+          "hall_of_fame": false,
+          "metadata": {},
+          "created_at": "2026-08-31 01:33:50.512897+08:00",
+          "updated_at": "2026-08-31 01:33:50.512897+08:00"
+        },
+        "brand": {
+          "name": "Topps"
+        },
+        "scanner": {
+          "id": "dcaab172-082e-4c31-83c5-f159c3ca2fe2",
+          "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+          "status": "succeeded",
+          "front_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/dcaab172-082e-4c31-83c5-f159c3ca2fe2/front.jpg",
+          "back_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/dcaab172-082e-4c31-83c5-f159c3ca2fe2/back.jpg",
+          "front_content_type": "image/jpeg",
+          "back_content_type": "image/jpeg",
+          "front_crop_confidence": "1.0000",
+          "back_crop_confidence": "1.0000",
+          "front_transformed": false,
+          "back_transformed": false,
+          "result": {
+            "caveats": [
+              "正面右上角显示 '86/99'，背面卡号为 'CG-10'，二者不一致；根据OCR与背面文字，以背面卡号和限编为准，正面数字应为限编编号而非卡号",
+              "正面右上角 '86/99' 易被误读为卡号，但OCR与背面文字已确认其为限编编号；卡号唯一且明确为 'CG-10'（背面顶部）",
+              "Clutch Gene 系列在 2025 Topps Chrome 中包含多个平行版本（Chrome / Red / Blue / Black 等），但本卡正面与背面均无红色/蓝色边框、无 'Red' / 'Blue' 字样，亦无对应色块标识，仅呈现标准 Chrome 银闪基底，故 parallel_name = 'Chrome' 为最保守且证据最强判定",
+              "未检索到该卡的高清官方图鉴直链（如 Topps 官网产品页或 Beckett 原图），故所有 candidates 的 image_url = null；source_urls 均为权威第三方目录页，可验证条目存在性与字段一致性",
+              "发行赛季仅有推断性证据，已清空并等待卡背或目录核验",
+              "Topps NBA 赛季产品已按版权结束年归一为跨年发行赛季",
+              "产品Logo不能作为具体平行版本，已清空并等待颜色/纹理证据",
+              "is_rookie=false 缺少字段级图片证据，已改为未知"
+            ],
+            "is_patch": false,
+            "is_rookie": null,
+            "brand_name": "Topps",
+            "confidence": "0.83",
+            "image_role": "front",
+            "season_end": 2026,
+            "card_number": "CG-10",
+            "grade_value": null,
+            "insert_name": "Clutch Gene",
+            "is_numbered": true,
+            "player_name": "JAYLEN BROWN",
+            "is_autograph": false,
+            "product_name": "Topps Chrome",
+            "season_start": 2025,
+            "serial_total": 99,
+            "grade_company": null,
+            "parallel_name": null,
+            "serial_number": 1,
+            "autograph_type": "none",
+            "copyright_year": 2026,
+            "field_evidence": {
+              "brand_name": [
+                "联网候选：正面左上角 'Topps Chrome' Logo；背面中央 'Topps' 标识"
+              ],
+              "season_end": [
+                "联网候选：同上，'OCTOBER 31, 2025' 属2025–26赛季初，故 season_end = 2025 符合NBA赛季命名惯例（如 '2025 Topps Chrome' 指2025–26赛季）"
+              ],
+              "card_number": [
+                "联网候选：背面顶部清晰印有 'CG-10'；Apple Vision OCR与多轮OCR均确认；'86/99' 位于右上角且格式为限编，非卡号"
+              ],
+              "insert_name": [
+                "联网候选：正面与背面左侧竖排大字 'CLUTCH GENE'"
+              ],
+              "is_numbered": [
+                "Apple Vision 实卡正面 OCR，旋转 90°，full，区域 [0.705049483095697, 0.20427803338962014, 0.03132808654288932, 0.10375919186972027]：01/99"
+              ],
+              "player_name": [
+                "联网候选：正面底部与背面均明确印有 'JAYLEN BROWN'"
+              ],
+              "is_autograph": [
+                "联网候选：无签名区域、无签名笔迹、无 'Authentic Auto' 或类似文字；autograph_type = 'none' 经OCR与视觉双重确认"
+              ],
+              "product_name": [
+                "联网候选：正面左上角 'Topps Chrome'；官方产品线命名一致"
+              ],
+              "season_start": [
+                "联网候选：背面标注事件日期 'OCTOBER 31, 2025'，属2025–26 NBA赛季起始阶段"
+              ],
+              "serial_total": [
+                "Apple Vision 实卡正面 OCR，旋转 90°，full，区域 [0.705049483095697, 0.20427803338962014, 0.03132808654288932, 0.10375919186972027]：01/99"
+              ],
+              "parallel_name": [
+                "联网候选：正面与背面均无其他平行标识（如 'Red', 'Blue'），且 'Clutch Gene' 系Chrome主产品内独立子系列，其基础版本即称 'Chrome' 平行"
+              ],
+              "serial_number": [
+                "Apple Vision 实卡正面 OCR，旋转 90°，full，区域 [0.705049483095697, 0.20427803338962014, 0.03132808654288932, 0.10375919186972027]：01/99"
+              ],
+              "copyright_year": [
+                "联网候选：背面三处版权行均含 '© 2026'（Topps、NBA Properties、NBPA）"
+              ],
+              "is_memorabilia": [
+                "联网候选：无布料/球衣/球皮等材质特征；无 'Game Used' / 'Patch' / 'Relic' 字样；memorabilia_usage = 'none'"
+              ]
+            },
+            "is_memorabilia": false,
+            "search_queries": [
+              "JAYLEN BROWN 2025 Topps Chrome Clutch Gene Chrome #CG-10 basketball card checklist",
+              "\"JAYLEN BROWN\" \"CG-10\" card checklist",
+              "JAYLEN BROWN 2025 Topps Chrome Clutch Gene Chrome #CG-10 parallel print run"
+            ],
+            "web_candidates": [
+              {
+                "title": "2025 Topps Chrome Clutch Gene Chrome #CG-10 (86/99) - Jaylen Brown",
+                "identity": {
+                  "is_patch": false,
+                  "is_rookie": false,
+                  "brand_name": "Topps",
+                  "season_end": 2025,
+                  "card_number": "CG-10",
+                  "grade_value": null,
+                  "insert_name": "Clutch Gene",
+                  "is_numbered": true,
+                  "player_name": "JAYLEN BROWN",
+                  "is_autograph": false,
+                  "product_name": "Chrome",
+                  "season_start": 2025,
+                  "serial_total": 99,
+                  "grade_company": null,
+                  "parallel_name": "Chrome",
+                  "serial_number": 86,
+                  "autograph_type": "none",
+                  "is_memorabilia": false,
+                  "has_inscription": false,
+                  "rookie_evidence": [],
+                  "inscription_text": null,
+                  "memorabilia_types": [],
+                  "memorabilia_usage": "none",
+                  "memorabilia_player": null
+                },
+                "conflicts": [],
+                "image_url": null,
+                "source_urls": [],
+                "matching_fields": [
+                  "player_name",
+                  "season_start",
+                  "brand_name",
+                  "product_name",
+                  "insert_name",
+                  "card_number",
+                  "serial_number",
+                  "serial_total"
+                ],
+                "match_confidence": "0.98"
+              },
+              {
+                "title": "2025 Topps Chrome Clutch Gene Red #CG-10 (86/99) - Jaylen Brown",
+                "identity": {
+                  "is_patch": false,
+                  "is_rookie": false,
+                  "brand_name": "Topps",
+                  "season_end": 2025,
+                  "card_number": "CG-10",
+                  "grade_value": null,
+                  "insert_name": "Clutch Gene",
+                  "is_numbered": true,
+                  "player_name": "JAYLEN BROWN",
+                  "is_autograph": false,
+                  "product_name": "Chrome",
+                  "season_start": 2025,
+                  "serial_total": 99,
+                  "grade_company": null,
+                  "parallel_name": "Red",
+                  "serial_number": 86,
+                  "autograph_type": "none",
+                  "is_memorabilia": false,
+                  "has_inscription": false,
+                  "rookie_evidence": [],
+                  "inscription_text": null,
+                  "memorabilia_types": [],
+                  "memorabilia_usage": "none",
+                  "memorabilia_player": null
+                },
+                "conflicts": [
+                  "parallel_name"
+                ],
+                "image_url": null,
+                "source_urls": [],
+                "matching_fields": [
+                  "player_name",
+                  "season_start",
+                  "brand_name",
+                  "product_name",
+                  "insert_name",
+                  "card_number",
+                  "serial_number",
+                  "serial_total"
+                ],
+                "match_confidence": "0.72"
+              },
+              {
+                "title": "2025 Topps Chrome Clutch Gene Blue #CG-10 (86/99) - Jaylen Brown",
+                "identity": {
+                  "is_patch": false,
+                  "is_rookie": false,
+                  "brand_name": "Topps",
+                  "season_end": 2025,
+                  "card_number": "CG-10",
+                  "grade_value": null,
+                  "insert_name": "Clutch Gene",
+                  "is_numbered": true,
+                  "player_name": "JAYLEN BROWN",
+                  "is_autograph": false,
+                  "product_name": "Chrome",
+                  "season_start": 2025,
+                  "serial_total": 99,
+                  "grade_company": null,
+                  "parallel_name": "Blue",
+                  "serial_number": 86,
+                  "autograph_type": "none",
+                  "is_memorabilia": false,
+                  "has_inscription": false,
+                  "rookie_evidence": [],
+                  "inscription_text": null,
+                  "memorabilia_types": [],
+                  "memorabilia_usage": "none",
+                  "memorabilia_player": null
+                },
+                "conflicts": [
+                  "parallel_name"
+                ],
+                "image_url": null,
+                "source_urls": [],
+                "matching_fields": [
+                  "player_name",
+                  "season_start",
+                  "brand_name",
+                  "product_name",
+                  "insert_name",
+                  "card_number",
+                  "serial_number",
+                  "serial_total"
+                ],
+                "match_confidence": "0.72"
+              }
+            ],
+            "has_inscription": false,
+            "rookie_evidence": [],
+            "inscription_text": null,
+            "memorabilia_types": [],
+            "memorabilia_usage": "none",
+            "recognition_model": "qwen3-vl-flash",
+            "recognition_route": [
+              {
+                "tier": "local_ocr",
+                "model": "apple_vision",
+                "reason": "free_local_anchor_pass",
+                "status": "succeeded",
+                "latency_ms": 903,
+                "anchored_fields": [
+                  "card_number"
+                ],
+                "estimated_cost_cny": "0"
+              },
+              {
+                "tier": "flash",
+                "model": "qwen3-vl-flash",
+                "reason": "default_low_cost_route",
+                "status": "succeeded",
+                "confidence": "0.95",
+                "latency_ms": 8683,
+                "prompt_tokens": 3348,
+                "quality_issues": [],
+                "completion_tokens": 715,
+                "estimated_cost_cny": "0.001575"
+              },
+              {
+                "tier": "serial_recovery",
+                "model": "apple_vision",
+                "before": {
+                  "fields": {
+                    "is_numbered": null,
+                    "serial_total": null,
+                    "serial_number": null
+                  },
+                  "caveats": [
+                    "正面右上角显示 '86/99'，背面卡号为 'CG-10'，二者不一致；根据OCR与背面文字，以背面卡号和限编为准，正面数字应为限编编号而非卡号",
+                    "正面右上角 '86/99' 易被误读为卡号，但OCR与背面文字已确认其为限编编号；卡号唯一且明确为 'CG-10'（背面顶部）",
+                    "Clutch Gene 系列在 2025 Topps Chrome 中包含多个平行版本（Chrome / Red / Blue / Black 等），但本卡正面与背面均无红色/蓝色边框、无 'Red' / 'Blue' 字样，亦无对应色块标识，仅呈现标准 Chrome 银闪基底，故 parallel_name = 'Chrome' 为最保守且证据最强判定",
+                    "未检索到该卡的高清官方图鉴直链（如 Topps 官网产品页或 Beckett 原图），故所有 candidates 的 image_url = null；source_urls 均为权威第三方目录页，可验证条目存在性与字段一致性",
+                    "发行赛季仅有推断性证据，已清空并等待卡背或目录核验",
+                    "Topps NBA 赛季产品已按版权结束年归一为跨年发行赛季",
+                    "限编缺少图片中可见的 x/y 分数证据，已清空",
+                    "产品Logo不能作为具体平行版本，已清空并等待颜色/纹理证据",
+                    "is_rookie=false 缺少字段级图片证据，已改为未知"
+                  ],
+                  "field_evidence": {
+                    "is_numbered": [
+                      "联网候选：'86/99' 格式符合标准限编标识，且为官方印刷，非手写或贴纸"
+                    ],
+                    "serial_total": [
+                      "联网候选：正面右上角 '86/99' —— '99' 明确为总发行量"
+                    ],
+                    "serial_number": [
+                      "联网候选：正面右上角 '86/99' —— '86' 明确为序列编号"
+                    ]
+                  }
+                },
+                "source": "source_bound_visual_review",
+                "status": "succeeded",
+                "version": "2026-09-09-v2",
+                "repaired_at": "2026-09-09T01:20:36.398257+00:00",
+                "observations": [
+                  {
+                    "bbox": [
+                      0.705049483095697,
+                      0.20427803338962014,
+                      0.03132808654288932,
+                      0.10375919186972027
+                    ],
+                    "side": "front",
+                    "text": "01/99",
+                    "context": "BROWN\n01/99",
+                    "read_pass": "full",
+                    "confidence": 0.3,
+                    "image_index": 0,
+                    "source_sha256": "e11fa0522a284f61b035bbc4b91dd9d4b69d31b787216d34af00e7ef55b75e74",
+                    "orientation_degrees": 90,
+                    "accepted_as_visible_serial": true
+                  }
+                ],
+                "source_images": [
+                  {
+                    "side": "front",
+                    "sha256": "e11fa0522a284f61b035bbc4b91dd9d4b69d31b787216d34af00e7ef55b75e74",
+                    "available": true,
+                    "byte_count": 365954,
+                    "source_kind": "scanner_original",
+                    "relative_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/dcaab172-082e-4c31-83c5-f159c3ca2fe2/front-original.jpg"
+                  },
+                  {
+                    "side": "back",
+                    "sha256": "05a0b0a4eec0cbbc1d32700c98efd9192b1afe749572f00331478bcf91583f4c",
+                    "available": true,
+                    "byte_count": 166639,
+                    "source_kind": "scanner_original",
+                    "relative_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/dcaab172-082e-4c31-83c5-f159c3ca2fe2/back-original.jpg"
+                  }
+                ],
+                "manual_visual_only": false,
+                "visual_review_note": "已核对完整原图，正面独立印编清晰显示01/99，不是年份、卡号、评级标签或统计分数。",
+                "manual_visual_proof": null,
+                "resolved_conflicting_observations": false
+              }
+            ],
+            "memorabilia_player": null,
+            "recognition_status": "resolved",
+            "reference_image_back_url": null,
+            "reference_image_provider": null,
+            "reference_image_front_url": null,
+            "recognition_quality_issues": [],
+            "reference_image_source_url": null,
+            "recognition_estimated_cost_cny": "0.001575",
+            "reference_image_match_confidence": null
+          },
+          "error_message": null,
+          "attempt_count": 1,
+          "started_at": "2026-09-06 01:49:59.670637+08:00",
+          "finished_at": "2026-09-06 01:49:59.681797+08:00",
+          "created_at": "2026-09-06 01:49:03.033147+08:00",
+          "updated_at": "2026-09-09 09:20:36.386593+08:00",
+          "front_original_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/dcaab172-082e-4c31-83c5-f159c3ca2fe2/front-original.jpg",
+          "back_original_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/dcaab172-082e-4c31-83c5-f159c3ca2fe2/back-original.jpg",
+          "front_rotation_degrees": 0,
+          "back_rotation_degrees": 0,
+          "front_orientation_confidence": "0.9583",
+          "back_orientation_confidence": "0.8909",
+          "front_orientation_method": "vision_model",
+          "back_orientation_method": "apple_vision_text",
+          "front_orientation_corrected_at": "2026-09-06 01:49:59.681797+08:00",
+          "back_orientation_corrected_at": "2026-09-06 01:49:59.681797+08:00",
+          "front_raw_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/dcaab172-082e-4c31-83c5-f159c3ca2fe2/front-raw.jpg",
+          "back_raw_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/dcaab172-082e-4c31-83c5-f159c3ca2fe2/back-raw.jpg",
+          "collection_item_id": "a818d078-7806-4dd7-bdca-138a32303887",
+          "imported_at": "2026-09-06 01:49:59.681797+08:00"
+        },
+        "images": {
+          "front": {
+            "url": "/uploads/a818d078-7806-4dd7-bdca-138a32303887-front-edfa39c94a6c4685af44fcb9fbfcaed3.jpg",
+            "sha256": "7bf2c3e07c8fe306bfe595ccc4c3cf012c70fa11eabc52c9fa82e8e7d6cb5b48"
+          },
+          "back": {
+            "url": "/uploads/a818d078-7806-4dd7-bdca-138a32303887-back-1676148374ea4d68b3540894ace4412c.jpg",
+            "sha256": "b045a7cc325f68ee48166b5ad898a7b4e9c35d7c43f30ec20687d25fcb7e46d7"
+          }
+        }
+      }
+    },
+    {
+      "display_id": 249,
+      "source_hash": "241db2a29e854828783ac8fcdaa100cc631015e25ac197b653d61ed6e6138112",
+      "patch": {
+        "expected_id": "9b4732b8-0603-4285-8b66-3c0bbeecef76",
+        "fields": {
+          "product_name": "Topps Chrome Update",
+          "card_number": "CG-10",
+          "insert_name": "Clutch Gene",
+          "season_start": 2025,
+          "season_end": 2026
+        },
+        "evidence": "实物背面明确 Jaylen Brown / CG-10 / CLUTCH GENE / ©2026；Topps 官方2025-26 Chrome Updates目录第8页明确CG-10=Jaylen Brown。原版Chrome官方目录CG-10=Donovan Mitchell，故根据实物+官方checklist交叉核实产品为Topps Chrome Update，而不是仅凭版权年推断。官方产品页 https://www.topps.com/pages/topps-chrome-updates-basketball ；官方PDF https://cdn.shopify.com/s/files/1/0662/9749/5709/files/Final_CheckList_26CUBK.pdf?v=1783360479 ；原版对照 https://ripped.topps.com/topps-chrome-basketball-2025-26-checklist/ 。保留用户和原图已确认印编/平行，不合并藏品。"
+      },
+      "before": {
+        "item": {
+          "id": "9b4732b8-0603-4285-8b66-3c0bbeecef76",
+          "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+          "card_definition_id": "8aef2032-c58f-4590-bcc4-656a7260c2cc",
+          "serial_number": 82,
+          "serial_total": 150,
+          "grade_company": null,
+          "grade_value": null,
+          "grade_cert_number": null,
+          "condition_note": null,
+          "image_front_url": "/uploads/9b4732b8-0603-4285-8b66-3c0bbeecef76-front-9be5f0a973e6443f9a82cef819ae0887.jpg",
+          "image_back_url": "/uploads/9b4732b8-0603-4285-8b66-3c0bbeecef76-back-d63d88ecb35e46c4b8a7769f6b5a596c.jpg",
+          "strategy_tags": [],
+          "acquired_at": null,
+          "disposed_at": null,
+          "notes": "后台扫描自动录入；识别置信度 83%；待核对：model_reported_conflict。识别依据已保留，可编辑并参与估值。",
+          "created_at": "2026-09-06 23:40:12.374727+08:00",
+          "updated_at": "2026-09-09 08:54:11.028196+08:00",
+          "deleted_at": null,
+          "deleted_reason": null,
+          "deleted_by": null,
+          "is_numbered": true,
+          "display_id": 249
+        },
+        "definition": {
+          "id": "8aef2032-c58f-4590-bcc4-656a7260c2cc",
+          "card_set_id": "7a2fab44-b373-441c-a5fd-44fa420261a6",
+          "player_id": "c4d975e6-be21-4eba-8e7a-72e0e315704f",
+          "card_number": "ALIA1",
+          "insert_name": "Clutch Gene",
+          "parallel_name": "Chrome",
+          "is_rookie": false,
+          "is_autograph": false,
+          "is_patch": false,
+          "is_case_hit": false,
+          "print_run": null,
+          "checklist_url": null,
+          "metadata": {},
+          "created_at": "2026-09-06 23:40:12.374727+08:00",
+          "updated_at": "2026-09-06 23:40:12.374727+08:00",
+          "autograph_type": "none",
+          "is_memorabilia": false,
+          "memorabilia_types": [],
+          "memorabilia_usage": "none",
+          "memorabilia_player": null,
+          "has_inscription": false,
+          "inscription_text": null
+        },
+        "set": {
+          "id": "7a2fab44-b373-441c-a5fd-44fa420261a6",
+          "brand_id": "8aedc827-0e2f-4eb8-bdb5-e4241c036b1f",
+          "sport": "basketball",
+          "season_start": 2025,
+          "season_end": 2025,
+          "product_name": "Chrome Basketball",
+          "set_name": null,
+          "release_date": null,
+          "manufacturer_code": null,
+          "metadata": {},
+          "created_at": "2026-09-06 23:40:12.374727+08:00"
+        },
+        "player": {
+          "id": "c4d975e6-be21-4eba-8e7a-72e0e315704f",
+          "full_name": "Jaylen Brown",
+          "normalized_name": "jaylen brown",
+          "birth_date": null,
+          "nba_person_id": null,
+          "primary_position": null,
+          "active": true,
+          "hall_of_fame": false,
+          "metadata": {},
+          "created_at": "2026-08-31 01:33:50.512897+08:00",
+          "updated_at": "2026-08-31 01:33:50.512897+08:00"
+        },
+        "brand": {
+          "name": "Topps"
+        },
+        "scanner": {
+          "id": "4f94d583-02e9-4556-9a33-a644b7a01735",
+          "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+          "status": "succeeded",
+          "front_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/4f94d583-02e9-4556-9a33-a644b7a01735/front.jpg",
+          "back_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/4f94d583-02e9-4556-9a33-a644b7a01735/back.jpg",
+          "front_content_type": "image/jpeg",
+          "back_content_type": "image/jpeg",
+          "front_crop_confidence": "1.0000",
+          "back_crop_confidence": "1.0000",
+          "front_transformed": false,
+          "back_transformed": false,
+          "result": {
+            "caveats": [
+              "正面卡号为 ALIa1，背面编号为 CG-10；两者不一致，但背面编号更可能为产品序列号（因包含 'CG-10' 且与插画风格匹配），正面 ALIa1 更可能是插画/系列代号；未确认是否为同一张卡的前后面编号冲突。",
+              "正面 OCR 识别的 'ALIA1' 与背面 'CG-10' 冲突；经 Topps 官网及 Beckett、TCDB 多源交叉验证，'CG-10' 是该 Clutch Gene Chrome 插卡唯一有效卡号，'ALIA1' 为 OCR 误识（疑似将 'CG' 误读为 'ALI'，'10' 误读为 'a1'），已弃用。",
+              "正面 '0122/150' 中前导零是 Topps 序列号标准格式，对应 serial_number = 122；非年份或版本代码。",
+              "版权年份为 2026，但赛季标识为 2025–26（如 'OCTOBER 31, 2025' 开赛），属常规跨年赛季命名惯例；resolved_fields 中 season_end 采用行业通用表述 2026，但视觉字段中 season_end=2025 已按官方产品线统一修正为 2026。",
+              "未检索到该卡的高清官方图鉴直链（reference_image_front_url / back_url），所有候选均基于权威 checklist 文本核验，暂无图像级确认。",
+              "is_autograph=false 缺少字段级图片证据，已改为未知",
+              "is_memorabilia=false 缺少字段级图片证据，已改为未知",
+              "is_rookie=false 缺少字段级图片证据，已改为未知"
+            ],
+            "is_patch": null,
+            "is_rookie": null,
+            "brand_name": "Topps",
+            "confidence": "0.83",
+            "image_role": "front",
+            "season_end": 2025,
+            "card_number": "ALIA1",
+            "grade_value": null,
+            "insert_name": "Clutch Gene",
+            "is_numbered": true,
+            "player_name": "Jaylen Brown",
+            "is_autograph": null,
+            "product_name": "Chrome Basketball",
+            "season_start": 2025,
+            "serial_total": 150,
+            "grade_company": null,
+            "parallel_name": "Chrome",
+            "serial_number": 82,
+            "autograph_type": null,
+            "copyright_year": 2026,
+            "field_evidence": {
+              "brand_name": [
+                "联网候选：背面 'Topps' 标志",
+                "联网候选：正面 'Topps Chrome' Logo"
+              ],
+              "season_end": [
+                "联网候选：背面正文 'OCTOBER 31, 2025'"
+              ],
+              "card_number": [
+                "联网候选：背面清晰印有 'CG-10'（格式为 CG-XX，符合 Topps Chrome 插卡编号惯例）",
+                "联网候选：正面右下角 '0122/150' 是序列号而非卡号；Apple Vision OCR 误识 'ALIa1' 为卡号，但 Topps 官方 checklist 中无 ALIA1 或 ALIa1 编号"
+              ],
+              "insert_name": [
+                "联网候选：正面 'CLUTCH GENE'",
+                "联网候选：背面 'CLUTCH GENE'"
+              ],
+              "is_numbered": [
+                "Apple Vision 实卡正面 OCR，旋转 90°，full，区域 [0.6978402899576132, 0.1151709281787161, 0.04937010072471626, 0.1801407968896067]：082/150；相邻文字：BROWN\n082/150",
+                "Apple Vision 实卡正面 OCR，旋转 90°，padded_roi_rotation_180，区域 [0.6978402899576132, 0.1151709281787161, 0.04937010072471626, 0.1801407968896067]：082/150；相邻文字：BROWN\n082/150\n局部 OCR：082/150"
+              ],
+              "player_name": [
+                "联网候选：正面左侧竖排文字 'JAYLEN BROWN'",
+                "联网候选：背面中央姓名 'JAYLEN BROWN'"
+              ],
+              "product_name": [
+                "联网候选：正面 'CHROME BASKETBALL'",
+                "联网候选：背面 'CHROME BASKETBALL'"
+              ],
+              "season_start": [
+                "联网候选：背面正文 'OCTOBER 31, 2025'"
+              ],
+              "serial_total": [
+                "Apple Vision 实卡正面 OCR，旋转 90°，full，区域 [0.6978402899576132, 0.1151709281787161, 0.04937010072471626, 0.1801407968896067]：082/150；相邻文字：BROWN\n082/150",
+                "Apple Vision 实卡正面 OCR，旋转 90°，padded_roi_rotation_180，区域 [0.6978402899576132, 0.1151709281787161, 0.04937010072471626, 0.1801407968896067]：082/150；相邻文字：BROWN\n082/150\n局部 OCR：082/150"
+              ],
+              "parallel_name": [
+                "联网候选：正面 'CHROME' 标识",
+                "联网候选：背面无其他平行名，仅 'CHROME BASKETBALL' 主产品线标识"
+              ],
+              "serial_number": [
+                "Apple Vision 实卡正面 OCR，旋转 90°，full，区域 [0.6978402899576132, 0.1151709281787161, 0.04937010072471626, 0.1801407968896067]：082/150；相邻文字：BROWN\n082/150",
+                "Apple Vision 实卡正面 OCR，旋转 90°，padded_roi_rotation_180，区域 [0.6978402899576132, 0.1151709281787161, 0.04937010072471626, 0.1801407968896067]：082/150；相邻文字：BROWN\n082/150\n局部 OCR：082/150"
+              ],
+              "copyright_year": [
+                "联网候选：背面底部版权行 '© 2026 THE TOPPS COMPANY, INC.'",
+                "联网候选：背面底部版权行 '© 2026 THE NATIONAL BASKETBALL PLAYERS ASSOCIATION.'"
+              ]
+            },
+            "is_memorabilia": null,
+            "search_queries": [
+              "Jaylen Brown 2025 Topps Chrome Basketball Clutch Gene Chrome #ALIA1 basketball card checklist",
+              "\"Jaylen Brown\" \"ALIA1\" card checklist",
+              "Jaylen Brown 2025 Topps Chrome Basketball Clutch Gene Chrome #ALIA1 parallel print run"
+            ],
+            "web_candidates": [
+              {
+                "title": "2025-26 Topps Chrome Basketball Clutch Gene Chrome #CG-10 Jaylen Brown (122/150)",
+                "identity": {
+                  "is_patch": false,
+                  "is_rookie": false,
+                  "brand_name": "Topps",
+                  "season_end": 2026,
+                  "card_number": "CG-10",
+                  "grade_value": null,
+                  "insert_name": "Clutch Gene",
+                  "is_numbered": true,
+                  "player_name": "Jaylen Brown",
+                  "is_autograph": false,
+                  "product_name": "Chrome Basketball",
+                  "season_start": 2025,
+                  "serial_total": 150,
+                  "grade_company": null,
+                  "parallel_name": "Chrome",
+                  "serial_number": 122,
+                  "autograph_type": "none",
+                  "is_memorabilia": false,
+                  "has_inscription": false,
+                  "rookie_evidence": [],
+                  "inscription_text": null,
+                  "memorabilia_types": [],
+                  "memorabilia_usage": "none",
+                  "memorabilia_player": null
+                },
+                "conflicts": [],
+                "image_url": null,
+                "source_urls": [],
+                "matching_fields": [
+                  "player_name",
+                  "season_start",
+                  "brand_name",
+                  "product_name",
+                  "insert_name",
+                  "parallel_name",
+                  "card_number",
+                  "serial_number",
+                  "serial_total",
+                  "is_numbered"
+                ],
+                "match_confidence": "0.98"
+              },
+              {
+                "title": "2025-26 Topps Chrome Basketball Base Set #10 Jaylen Brown",
+                "identity": {
+                  "is_patch": false,
+                  "is_rookie": false,
+                  "brand_name": "Topps",
+                  "season_end": 2026,
+                  "card_number": "10",
+                  "grade_value": null,
+                  "insert_name": null,
+                  "is_numbered": null,
+                  "player_name": "Jaylen Brown",
+                  "is_autograph": false,
+                  "product_name": "Chrome Basketball",
+                  "season_start": 2025,
+                  "serial_total": null,
+                  "grade_company": null,
+                  "parallel_name": null,
+                  "serial_number": null,
+                  "autograph_type": "none",
+                  "is_memorabilia": false,
+                  "has_inscription": false,
+                  "rookie_evidence": [],
+                  "inscription_text": null,
+                  "memorabilia_types": [],
+                  "memorabilia_usage": "none",
+                  "memorabilia_player": null
+                },
+                "conflicts": [
+                  "insert_name",
+                  "parallel_name",
+                  "serial_number",
+                  "serial_total"
+                ],
+                "image_url": null,
+                "source_urls": [],
+                "matching_fields": [
+                  "player_name",
+                  "season_start",
+                  "brand_name",
+                  "product_name",
+                  "card_number"
+                ],
+                "match_confidence": "0.72"
+              },
+              {
+                "title": "2025-26 Topps Chrome Basketball Clutch Gene Blue #CG-10 Jaylen Brown (122/150)",
+                "identity": {
+                  "is_patch": false,
+                  "is_rookie": false,
+                  "brand_name": "Topps",
+                  "season_end": 2026,
+                  "card_number": "CG-10",
+                  "grade_value": null,
+                  "insert_name": "Clutch Gene",
+                  "is_numbered": true,
+                  "player_name": "Jaylen Brown",
+                  "is_autograph": false,
+                  "product_name": "Chrome Basketball",
+                  "season_start": 2025,
+                  "serial_total": 150,
+                  "grade_company": null,
+                  "parallel_name": "Blue",
+                  "serial_number": 122,
+                  "autograph_type": "none",
+                  "is_memorabilia": false,
+                  "has_inscription": false,
+                  "rookie_evidence": [],
+                  "inscription_text": null,
+                  "memorabilia_types": [],
+                  "memorabilia_usage": "none",
+                  "memorabilia_player": null
+                },
+                "conflicts": [
+                  "parallel_name"
+                ],
+                "image_url": null,
+                "source_urls": [],
+                "matching_fields": [
+                  "player_name",
+                  "season_start",
+                  "brand_name",
+                  "product_name",
+                  "insert_name",
+                  "card_number",
+                  "serial_number",
+                  "serial_total",
+                  "is_numbered"
+                ],
+                "match_confidence": "0.85"
+              }
+            ],
+            "has_inscription": null,
+            "rookie_evidence": [],
+            "inscription_text": null,
+            "memorabilia_types": [],
+            "memorabilia_usage": null,
+            "recognition_model": "qwen3-vl-flash",
+            "recognition_route": [
+              {
+                "tier": "local_ocr",
+                "model": "apple_vision",
+                "reason": "free_local_anchor_pass",
+                "status": "succeeded",
+                "latency_ms": 896,
+                "anchored_fields": [
+                  "card_number"
+                ],
+                "estimated_cost_cny": "0"
+              },
+              {
+                "tier": "flash",
+                "model": "qwen3-vl-flash",
+                "reason": "default_low_cost_route",
+                "status": "succeeded",
+                "confidence": "0.95",
+                "latency_ms": 7090,
+                "prompt_tokens": 3273,
+                "quality_issues": [
+                  "invalid_serial_fraction",
+                  "model_reported_conflict"
+                ],
+                "completion_tokens": 635,
+                "estimated_cost_cny": "0.001443"
+              },
+              {
+                "tier": "plus",
+                "model": "qwen3-vl-plus",
+                "reason": "flash_quality_gate_failed",
+                "status": "succeeded",
+                "confidence": "0.92",
+                "latency_ms": 21468,
+                "prompt_tokens": 3898,
+                "quality_issues": [
+                  "invalid_serial_fraction",
+                  "model_reported_conflict"
+                ],
+                "completion_tokens": 949,
+                "estimated_cost_cny": "0.013388"
+              },
+              {
+                "tier": "max",
+                "model": "qwen3.8-max",
+                "reason": "plus_hard_identity_gate_failed",
+                "status": "succeeded",
+                "confidence": "0.95",
+                "latency_ms": 19621,
+                "prompt_tokens": 4057,
+                "quality_issues": [
+                  "missing_season_start",
+                  "missing_season_end",
+                  "model_reported_conflict"
+                ],
+                "completion_tokens": 947,
+                "estimated_cost_cny": "0.082776"
+              },
+              {
+                "tier": "serial_recovery",
+                "model": "apple_vision",
+                "before": {
+                  "fields": {
+                    "is_numbered": null,
+                    "serial_total": null,
+                    "serial_number": null
+                  },
+                  "caveats": [
+                    "正面卡号为 ALIa1，背面编号为 CG-10；两者不一致，但背面编号更可能为产品序列号（因包含 'CG-10' 且与插画风格匹配），正面 ALIa1 更可能是插画/系列代号；未确认是否为同一张卡的前后面编号冲突。",
+                    "正面 OCR 识别的 'ALIA1' 与背面 'CG-10' 冲突；经 Topps 官网及 Beckett、TCDB 多源交叉验证，'CG-10' 是该 Clutch Gene Chrome 插卡唯一有效卡号，'ALIA1' 为 OCR 误识（疑似将 'CG' 误读为 'ALI'，'10' 误读为 'a1'），已弃用。",
+                    "正面 '0122/150' 中前导零是 Topps 序列号标准格式，对应 serial_number = 122；非年份或版本代码。",
+                    "版权年份为 2026，但赛季标识为 2025–26（如 'OCTOBER 31, 2025' 开赛），属常规跨年赛季命名惯例；resolved_fields 中 season_end 采用行业通用表述 2026，但视觉字段中 season_end=2025 已按官方产品线统一修正为 2026。",
+                    "未检索到该卡的高清官方图鉴直链（reference_image_front_url / back_url），所有候选均基于权威 checklist 文本核验，暂无图像级确认。",
+                    "限编缺少图片中可见的 x/y 分数证据，已清空",
+                    "is_autograph=false 缺少字段级图片证据，已改为未知",
+                    "is_memorabilia=false 缺少字段级图片证据，已改为未知",
+                    "is_rookie=false 缺少字段级图片证据，已改为未知"
+                  ],
+                  "field_evidence": {
+                    "is_numbered": [
+                      "联网候选：正面右下角 '0122/150' 明确标注限量编号"
+                    ],
+                    "serial_total": [
+                      "联网候选：正面右下角 '0122/150' —— 分母明确为 150"
+                    ],
+                    "serial_number": [
+                      "联网候选：正面右下角 '0122/150' —— 数字前导零格式常见于 Topps 序列号，'0122' 即 122"
+                    ]
+                  }
+                },
+                "source": "source_bound_visual_review",
+                "status": "succeeded",
+                "version": "2026-09-09-v1",
+                "repaired_at": "2026-09-09T00:54:11.032412+00:00",
+                "observations": [
+                  {
+                    "bbox": [
+                      0.6978402899576132,
+                      0.1151709281787161,
+                      0.04937010072471626,
+                      0.1801407968896067
+                    ],
+                    "side": "front",
+                    "text": "082/150",
+                    "context": "BROWN\n082/150",
+                    "read_pass": "full",
+                    "confidence": 0.3,
+                    "image_index": 0,
+                    "source_sha256": "327e34eb10dbfbe4def167e8f17c2fa68cf737d2c356b2acf54faf0f71a3cfa7",
+                    "orientation_degrees": 90,
+                    "accepted_as_visible_serial": true
+                  },
+                  {
+                    "bbox": [
+                      0.6978402899576132,
+                      0.1151709281787161,
+                      0.04937010072471626,
+                      0.1801407968896067
+                    ],
+                    "side": "front",
+                    "text": "082/150",
+                    "context": "BROWN\n082/150\n局部 OCR：082/150",
+                    "read_pass": "padded_roi_rotation_180",
+                    "confidence": 0.3,
+                    "image_index": 0,
+                    "source_sha256": "327e34eb10dbfbe4def167e8f17c2fa68cf737d2c356b2acf54faf0f71a3cfa7",
+                    "orientation_degrees": 90,
+                    "accepted_as_visible_serial": true
+                  }
+                ],
+                "source_images": [
+                  {
+                    "side": "front",
+                    "sha256": "327e34eb10dbfbe4def167e8f17c2fa68cf737d2c356b2acf54faf0f71a3cfa7",
+                    "available": true,
+                    "byte_count": 347117,
+                    "source_kind": "scanner_original",
+                    "relative_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/4f94d583-02e9-4556-9a33-a644b7a01735/front-original.jpg"
+                  },
+                  {
+                    "side": "back",
+                    "sha256": "13139c57abda39bcd7095bf6297b35735300ccc292cd24e464f4bdace9008fdd",
+                    "available": true,
+                    "byte_count": 164480,
+                    "source_kind": "scanner_original",
+                    "relative_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/4f94d583-02e9-4556-9a33-a644b7a01735/back-original.jpg"
+                  }
+                ],
+                "visual_review_note": "已核对完整原图及OCR对应区域，正面卡面独立印编082/150；未据此猜测卡片产品或平行名称。"
+              }
+            ],
+            "memorabilia_player": null,
+            "recognition_status": "research_required",
+            "reference_image_back_url": null,
+            "reference_image_provider": null,
+            "reference_image_front_url": null,
+            "recognition_quality_issues": [
+              "model_reported_conflict"
+            ],
+            "reference_image_source_url": null,
+            "recognition_estimated_cost_cny": "0.097607",
+            "reference_image_match_confidence": null
+          },
+          "error_message": null,
+          "attempt_count": 1,
+          "started_at": "2026-09-06 01:49:03.855592+08:00",
+          "finished_at": "2026-09-06 01:49:03.858427+08:00",
+          "created_at": "2026-09-06 01:49:03.033147+08:00",
+          "updated_at": "2026-09-09 08:54:11.028196+08:00",
+          "front_original_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/4f94d583-02e9-4556-9a33-a644b7a01735/front-original.jpg",
+          "back_original_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/4f94d583-02e9-4556-9a33-a644b7a01735/back-original.jpg",
+          "front_rotation_degrees": 90,
+          "back_rotation_degrees": 0,
+          "front_orientation_confidence": "0.3058",
+          "back_orientation_confidence": "0.8893",
+          "front_orientation_method": "apple_vision_text",
+          "back_orientation_method": "apple_vision_text",
+          "front_orientation_corrected_at": "2026-09-06 01:49:03.858427+08:00",
+          "back_orientation_corrected_at": "2026-09-06 01:49:03.858427+08:00",
+          "front_raw_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/4f94d583-02e9-4556-9a33-a644b7a01735/front-raw.jpg",
+          "back_raw_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/4f94d583-02e9-4556-9a33-a644b7a01735/back-raw.jpg",
+          "collection_item_id": "9b4732b8-0603-4285-8b66-3c0bbeecef76",
+          "imported_at": "2026-09-06 23:40:12.374727+08:00"
+        },
+        "images": {
+          "front": {
+            "url": "/uploads/9b4732b8-0603-4285-8b66-3c0bbeecef76-front-9be5f0a973e6443f9a82cef819ae0887.jpg",
+            "sha256": "4166566eb6eeebe77a055e9946e6db753a47c1f2bb2e5400246d3b7bb6231d70"
+          },
+          "back": {
+            "url": "/uploads/9b4732b8-0603-4285-8b66-3c0bbeecef76-back-d63d88ecb35e46c4b8a7769f6b5a596c.jpg",
+            "sha256": "a881ec8d91582e788397c34cccc1d7f0a35acf259de5ac3a7811db282014d315"
+          }
+        }
+      }
+    }
+  ],
+  "checklist_applied": [
+    {
+      "display_id": 143,
+      "item_id": "a818d078-7806-4dd7-bdca-138a32303887",
+      "old_definition_id": "0942c603-a32d-4ef6-bf96-0e15f027bd9e",
+      "new_definition_id": "fe07d890-d677-4b9c-ac48-8f663841ab2d",
+      "version_id": "5ca38c6d-9ddf-498f-a1cf-d47dec39b9bf",
+      "changed_fields": {
+        "product_name": "Topps Chrome Update",
+        "card_number": "CG-10",
+        "insert_name": "Clutch Gene",
+        "season_start": 2025,
+        "season_end": 2026
+      },
+      "evidence": "实物背面明确 Jaylen Brown / CG-10 / CLUTCH GENE / ©2026；Topps 官方2025-26 Chrome Updates目录第8页明确CG-10=Jaylen Brown。原版Chrome官方目录CG-10=Donovan Mitchell，故根据实物+官方checklist交叉核实产品为Topps Chrome Update，而不是仅凭版权年推断。官方产品页 https://www.topps.com/pages/topps-chrome-updates-basketball ；官方PDF https://cdn.shopify.com/s/files/1/0662/9749/5709/files/Final_CheckList_26CUBK.pdf?v=1783360479 ；原版对照 https://ripped.topps.com/topps-chrome-basketball-2025-26-checklist/ 。保留用户和原图已确认印编/平行，不合并藏品。",
+      "prior_automatic_snapshots_flagged": [
+        "cd728bde-0de2-4913-a18c-54ac3dcc89bc"
+      ]
+    },
+    {
+      "display_id": 249,
+      "item_id": "9b4732b8-0603-4285-8b66-3c0bbeecef76",
+      "old_definition_id": "8aef2032-c58f-4590-bcc4-656a7260c2cc",
+      "new_definition_id": "7d990a8e-2b2d-4186-acd2-31767e5d49c8",
+      "version_id": "d04d2037-d36f-40c2-bbae-d54bf8c5ac57",
+      "changed_fields": {
+        "product_name": "Topps Chrome Update",
+        "card_number": "CG-10",
+        "insert_name": "Clutch Gene",
+        "season_start": 2025,
+        "season_end": 2026
+      },
+      "evidence": "实物背面明确 Jaylen Brown / CG-10 / CLUTCH GENE / ©2026；Topps 官方2025-26 Chrome Updates目录第8页明确CG-10=Jaylen Brown。原版Chrome官方目录CG-10=Donovan Mitchell，故根据实物+官方checklist交叉核实产品为Topps Chrome Update，而不是仅凭版权年推断。官方产品页 https://www.topps.com/pages/topps-chrome-updates-basketball ；官方PDF https://cdn.shopify.com/s/files/1/0662/9749/5709/files/Final_CheckList_26CUBK.pdf?v=1783360479 ；原版对照 https://ripped.topps.com/topps-chrome-basketball-2025-26-checklist/ 。保留用户和原图已确认印编/平行，不合并藏品。",
+      "prior_automatic_snapshots_flagged": []
+    }
+  ],
+  "card443_prepared": {
+    "source_hash": "33530fda692bf09c00d0c341f5283a0916ad2543b4d350b306e4ee93363e03fb",
+    "before": {
+      "item": {
+        "id": "63836aa8-c0e4-4ae7-9f6b-2228981db752",
+        "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+        "card_definition_id": "57119137-7f8b-46a9-9475-88a96bc5dc05",
+        "serial_number": 114,
+        "serial_total": 199,
+        "grade_company": null,
+        "grade_value": null,
+        "grade_cert_number": null,
+        "condition_note": null,
+        "image_front_url": "/uploads/63836aa8-c0e4-4ae7-9f6b-2228981db752-front-ed915db03ec04951a94c74d8d21fd4cf.jpg",
+        "image_back_url": "/uploads/63836aa8-c0e4-4ae7-9f6b-2228981db752-back-257c0e8a2a6d449196ed1f0320cc3093.jpg",
+        "strategy_tags": [],
+        "acquired_at": null,
+        "disposed_at": null,
+        "notes": "后台扫描自动录入；识别置信度 88%。识别依据已保留，可编辑并参与估值。",
+        "created_at": "2026-09-09 08:14:31.934823+08:00",
+        "updated_at": "2026-09-09 09:11:09.052703+08:00",
+        "deleted_at": null,
+        "deleted_reason": null,
+        "deleted_by": null,
+        "is_numbered": true,
+        "display_id": 443
+      },
+      "definition": {
+        "id": "57119137-7f8b-46a9-9475-88a96bc5dc05",
+        "card_set_id": "d683b810-dc91-4bca-be95-de7bb032bcc8",
+        "player_id": "77db516f-8fc9-4b45-a3b3-75a379e96970",
+        "card_number": "TOP-LEFT",
+        "insert_name": "Factions",
+        "parallel_name": null,
+        "is_rookie": false,
+        "is_autograph": false,
+        "is_patch": false,
+        "is_case_hit": false,
+        "print_run": null,
+        "checklist_url": null,
+        "metadata": {},
+        "created_at": "2026-09-09 08:14:31.934823+08:00",
+        "updated_at": "2026-09-09 08:14:31.934823+08:00",
+        "autograph_type": "none",
+        "is_memorabilia": false,
+        "memorabilia_types": [],
+        "memorabilia_usage": "none",
+        "memorabilia_player": null,
+        "has_inscription": false,
+        "inscription_text": null
+      },
+      "set": {
+        "id": "d683b810-dc91-4bca-be95-de7bb032bcc8",
+        "brand_id": "046ef2e6-0f6d-4522-8bed-c63aabc77ae1",
+        "sport": "basketball",
+        "season_start": 2017,
+        "season_end": 2018,
+        "product_name": "Status",
+        "set_name": null,
+        "release_date": null,
+        "manufacturer_code": null,
+        "metadata": {},
+        "created_at": "2026-09-09 08:14:31.934823+08:00"
+      },
+      "player": {
+        "id": "77db516f-8fc9-4b45-a3b3-75a379e96970",
+        "full_name": "Jason Kidd, Jason Terry, Dirk Nowitzki",
+        "normalized_name": "jason kidd, jason terry, dirk nowitzki",
+        "birth_date": null,
+        "nba_person_id": null,
+        "primary_position": null,
+        "active": true,
+        "hall_of_fame": false,
+        "metadata": {},
+        "created_at": "2026-09-09 08:14:31.934823+08:00",
+        "updated_at": "2026-09-09 08:14:31.934823+08:00"
+      },
+      "brand": {
+        "name": "Panini"
+      },
+      "scanner": {
+        "id": "bc8d31ae-7ed4-4580-9ebb-c19885843446",
+        "owner_id": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc",
+        "status": "succeeded",
+        "front_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/bc8d31ae-7ed4-4580-9ebb-c19885843446/front.jpg",
+        "back_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/bc8d31ae-7ed4-4580-9ebb-c19885843446/back.jpg",
+        "front_content_type": "image/jpeg",
+        "back_content_type": "image/jpeg",
+        "front_crop_confidence": "0.8929",
+        "back_crop_confidence": "0.9480",
+        "front_transformed": false,
+        "back_transformed": false,
+        "result": {
+          "caveats": [
+            "OCR 'FACTIOIE' corrected to 'FACTIONS' based on visual evidence on front.",
+            "Back text mentions 'championship in 2010-11' and player career stats; these are descriptive and do not affect the 2017-18 season determination derived from the product title.",
+            "No official Panini checklist explicitly labels this as 'Blue' parallel — that label appears only in third-party marketplace listings; TCDB/Beckett list it as base Factions #22 without parallel name.",
+            "The triple-player configuration (Kidd/Terry/Nowitzki) is unique to Factions #22 in 2017-18 Status — no other card in the set features this exact trio.",
+            "Back text references '2010–11 Championship', confirming these are legacy players featured thematically — consistent with Status Factions insert concept.",
+            "已将卡背厂内 CODE/CMP 编码或球衣数字替换为可核验的字母前缀清单卡号",
+            "is_autograph=false 缺少字段级图片证据，已改为未知",
+            "is_memorabilia=false 缺少字段级图片证据，已改为未知",
+            "is_rookie=false 缺少字段级图片证据，已改为未知"
+          ],
+          "is_patch": null,
+          "is_rookie": null,
+          "brand_name": "Panini",
+          "confidence": "0.88",
+          "image_role": "unknown",
+          "season_end": 2018,
+          "card_number": "TOP-LEFT",
+          "grade_value": null,
+          "insert_name": "Factions",
+          "is_numbered": true,
+          "player_name": "Jason Kidd, Jason Terry, Dirk Nowitzki",
+          "is_autograph": null,
+          "product_name": "Status",
+          "season_start": 2017,
+          "serial_total": 199,
+          "grade_company": null,
+          "parallel_name": null,
+          "serial_number": 114,
+          "autograph_type": null,
+          "copyright_year": 2018,
+          "field_evidence": {
+            "brand_name": [
+              "联网候选：Back displays Panini logo and copyright © 2018 Panini America, Inc."
+            ],
+            "season_end": [
+              "联网候选：Back explicitly states '2017-18 PANINI - STATUS BASKETBALL'"
+            ],
+            "card_number": [
+              "联网候选：Back top-left corner: 'No. 22'; Apple Vision OCR confirms 'No. 22'"
+            ],
+            "insert_name": [
+              "联网候选：Front prominently displays 'FACTIONS' in center (OCR 'FACTIOIE' corrected visually)"
+            ],
+            "is_numbered": [
+              "Apple Vision 实卡正面 OCR，旋转 0°，full，区域 [0.6709886540402871, 0.2160356343779828, 0.13614262560777957, 0.05122494432071267]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 0°，padded_roi_rotation_180，区域 [0.6709886540402871, 0.2160356343779828, 0.13614262560777957, 0.05122494432071267]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 0°，padded_roi_rotation_270，区域 [0.6709886540402871, 0.2160356343779828, 0.13614262560777957, 0.05122494432071267]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 90°，full，区域 [0.21510724222699, 0.193665384637689, 0.05443939599799688, 0.13637531595832908]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 90°，padded_roi_rotation_0，区域 [0.21510724222699, 0.193665384637689, 0.05443939599799688, 0.13637531595832908]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 90°，padded_roi_rotation_180，区域 [0.21510724222699, 0.193665384637689, 0.05443939599799688, 0.13637531595832908]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 90°，padded_roi_rotation_270，区域 [0.21510724222699, 0.193665384637689, 0.05443939599799688, 0.13637531595832908]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 180°，padded_roi_rotation_0，区域 [0.19426473235186842, 0.7336645063988594, 0.13335060107263597, 0.047147602174754666]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 270°，full，区域 [0.7349665837924336, 0.6693679098122636, 0.046770618328272895, 0.13776337115072945]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 270°，padded_roi_rotation_90，区域 [0.7349665837924336, 0.6693679098122636, 0.046770618328272895, 0.13776337115072945]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 270°，padded_roi_rotation_180，区域 [0.7349665837924336, 0.6693679098122636, 0.046770618328272895, 0.13776337115072945]：114/199"
+            ],
+            "player_name": [
+              "联网候选：Front clearly lists 'JASON KIDD • G, JASON TERRY • G, DIRK NOWITZKI • F'; back repeats full names with positions"
+            ],
+            "product_name": [
+              "联网候选：Back states '2017-18 PANINI - STATUS BASKETBALL'; front features stylized 'S' Status logo"
+            ],
+            "season_start": [
+              "联网候选：Back explicitly states '2017-18 PANINI - STATUS BASKETBALL'"
+            ],
+            "serial_total": [
+              "Apple Vision 实卡正面 OCR，旋转 0°，full，区域 [0.6709886540402871, 0.2160356343779828, 0.13614262560777957, 0.05122494432071267]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 0°，padded_roi_rotation_180，区域 [0.6709886540402871, 0.2160356343779828, 0.13614262560777957, 0.05122494432071267]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 0°，padded_roi_rotation_270，区域 [0.6709886540402871, 0.2160356343779828, 0.13614262560777957, 0.05122494432071267]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 90°，full，区域 [0.21510724222699, 0.193665384637689, 0.05443939599799688, 0.13637531595832908]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 90°，padded_roi_rotation_0，区域 [0.21510724222699, 0.193665384637689, 0.05443939599799688, 0.13637531595832908]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 90°，padded_roi_rotation_180，区域 [0.21510724222699, 0.193665384637689, 0.05443939599799688, 0.13637531595832908]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 90°，padded_roi_rotation_270，区域 [0.21510724222699, 0.193665384637689, 0.05443939599799688, 0.13637531595832908]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 180°，padded_roi_rotation_0，区域 [0.19426473235186842, 0.7336645063988594, 0.13335060107263597, 0.047147602174754666]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 270°，full，区域 [0.7349665837924336, 0.6693679098122636, 0.046770618328272895, 0.13776337115072945]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 270°，padded_roi_rotation_90，区域 [0.7349665837924336, 0.6693679098122636, 0.046770618328272895, 0.13776337115072945]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 270°，padded_roi_rotation_180，区域 [0.7349665837924336, 0.6693679098122636, 0.046770618328272895, 0.13776337115072945]：114/199"
+            ],
+            "serial_number": [
+              "Apple Vision 实卡正面 OCR，旋转 0°，full，区域 [0.6709886540402871, 0.2160356343779828, 0.13614262560777957, 0.05122494432071267]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 0°，padded_roi_rotation_180，区域 [0.6709886540402871, 0.2160356343779828, 0.13614262560777957, 0.05122494432071267]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 0°，padded_roi_rotation_270，区域 [0.6709886540402871, 0.2160356343779828, 0.13614262560777957, 0.05122494432071267]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 90°，full，区域 [0.21510724222699, 0.193665384637689, 0.05443939599799688, 0.13637531595832908]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 90°，padded_roi_rotation_0，区域 [0.21510724222699, 0.193665384637689, 0.05443939599799688, 0.13637531595832908]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 90°，padded_roi_rotation_180，区域 [0.21510724222699, 0.193665384637689, 0.05443939599799688, 0.13637531595832908]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 90°，padded_roi_rotation_270，区域 [0.21510724222699, 0.193665384637689, 0.05443939599799688, 0.13637531595832908]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 180°，padded_roi_rotation_0，区域 [0.19426473235186842, 0.7336645063988594, 0.13335060107263597, 0.047147602174754666]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 270°，full，区域 [0.7349665837924336, 0.6693679098122636, 0.046770618328272895, 0.13776337115072945]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 270°，padded_roi_rotation_90，区域 [0.7349665837924336, 0.6693679098122636, 0.046770618328272895, 0.13776337115072945]：114/199",
+              "Apple Vision 实卡正面 OCR，旋转 270°，padded_roi_rotation_180，区域 [0.7349665837924336, 0.6693679098122636, 0.046770618328272895, 0.13776337115072945]：114/199"
+            ],
+            "copyright_year": [
+              "Back: © 2018 Panini America, Inc. © 2018 NBA Properties, Inc."
+            ]
+          },
+          "is_memorabilia": null,
+          "search_queries": [
+            "Jason Kidd, Jason Terry, Dirk Nowitzki 2017 Panini Status Factions #22 basketball card checklist",
+            "\"Jason Kidd, Jason Terry, Dirk Nowitzki\" \"22\" card checklist",
+            "Jason Kidd, Jason Terry, Dirk Nowitzki 2017 Panini Status Factions #22 parallel print run"
+          ],
+          "web_candidates": [
+            {
+              "title": "2017-18 Panini Status Factions #22 Jason Kidd / Jason Terry / Dirk Nowitzki (114/199)",
+              "identity": {
+                "is_patch": false,
+                "is_rookie": false,
+                "brand_name": "Panini",
+                "season_end": 2018,
+                "card_number": "22",
+                "grade_value": null,
+                "insert_name": "Factions",
+                "is_numbered": true,
+                "player_name": "Jason Kidd, Jason Terry, Dirk Nowitzki",
+                "is_autograph": false,
+                "product_name": "Status",
+                "season_start": 2017,
+                "serial_total": 199,
+                "grade_company": null,
+                "parallel_name": null,
+                "serial_number": 114,
+                "autograph_type": "none",
+                "is_memorabilia": false,
+                "has_inscription": false,
+                "rookie_evidence": [],
+                "inscription_text": null,
+                "memorabilia_types": [],
+                "memorabilia_usage": "none",
+                "memorabilia_player": null
+              },
+              "conflicts": [],
+              "image_url": null,
+              "source_urls": [],
+              "matching_fields": [
+                "player_name",
+                "season_start",
+                "season_end",
+                "brand_name",
+                "product_name",
+                "insert_name",
+                "card_number",
+                "serial_number",
+                "serial_total",
+                "is_numbered"
+              ],
+              "match_confidence": "0.99"
+            },
+            {
+              "title": "2017-18 Panini Status Factions #22 (114/199) – Triple Player Card: Kidd/Terry/Nowitzki",
+              "identity": {
+                "is_patch": false,
+                "is_rookie": false,
+                "brand_name": "Panini",
+                "season_end": 2018,
+                "card_number": "22",
+                "grade_value": null,
+                "insert_name": "Factions",
+                "is_numbered": true,
+                "player_name": "Jason Kidd, Jason Terry, Dirk Nowitzki",
+                "is_autograph": false,
+                "product_name": "Status",
+                "season_start": 2017,
+                "serial_total": 199,
+                "grade_company": null,
+                "parallel_name": null,
+                "serial_number": 114,
+                "autograph_type": "none",
+                "is_memorabilia": false,
+                "has_inscription": false,
+                "rookie_evidence": [],
+                "inscription_text": null,
+                "memorabilia_types": [],
+                "memorabilia_usage": "none",
+                "memorabilia_player": null
+              },
+              "conflicts": [],
+              "image_url": null,
+              "source_urls": [],
+              "matching_fields": [
+                "player_name",
+                "season_start",
+                "season_end",
+                "brand_name",
+                "product_name",
+                "insert_name",
+                "card_number",
+                "serial_number",
+                "serial_total",
+                "is_numbered"
+              ],
+              "match_confidence": "0.98"
+            },
+            {
+              "title": "2017-18 Panini Status Factions #22 Jason Kidd / Jason Terry / Dirk Nowitzki – Blue Parallel (114/199)",
+              "identity": {
+                "is_patch": false,
+                "is_rookie": false,
+                "brand_name": "Panini",
+                "season_end": 2018,
+                "card_number": "22",
+                "grade_value": null,
+                "insert_name": "Factions",
+                "is_numbered": true,
+                "player_name": "Jason Kidd, Jason Terry, Dirk Nowitzki",
+                "is_autograph": false,
+                "product_name": "Status",
+                "season_start": 2017,
+                "serial_total": 199,
+                "grade_company": null,
+                "parallel_name": "Blue",
+                "serial_number": 114,
+                "autograph_type": "none",
+                "is_memorabilia": false,
+                "has_inscription": false,
+                "rookie_evidence": [],
+                "inscription_text": null,
+                "memorabilia_types": [],
+                "memorabilia_usage": "none",
+                "memorabilia_player": null
+              },
+              "conflicts": [
+                "parallel_name"
+              ],
+              "image_url": null,
+              "source_urls": [],
+              "matching_fields": [
+                "player_name",
+                "season_start",
+                "season_end",
+                "brand_name",
+                "product_name",
+                "insert_name",
+                "card_number",
+                "serial_number",
+                "serial_total",
+                "is_numbered"
+              ],
+              "match_confidence": "0.85"
+            }
+          ],
+          "has_inscription": null,
+          "rookie_evidence": [],
+          "inscription_text": null,
+          "memorabilia_types": [],
+          "memorabilia_usage": null,
+          "recognition_model": "qwen3.8-max",
+          "recognition_route": [
+            {
+              "tier": "local_ocr",
+              "model": "apple_vision",
+              "reason": "free_local_anchor_pass",
+              "status": "succeeded",
+              "latency_ms": 1186,
+              "anchored_fields": [
+                "card_number",
+                "is_numbered",
+                "season_end",
+                "season_start",
+                "serial_number",
+                "serial_total"
+              ],
+              "estimated_cost_cny": "0"
+            },
+            {
+              "tier": "flash",
+              "model": "qwen3-vl-flash",
+              "reason": "default_low_cost_route",
+              "status": "succeeded",
+              "confidence": "0.95",
+              "latency_ms": 10699,
+              "prompt_tokens": 3983,
+              "quality_issues": [
+                "model_reported_conflict"
+              ],
+              "completion_tokens": 674,
+              "estimated_cost_cny": "0.001608"
+            },
+            {
+              "tier": "plus",
+              "model": "qwen3-vl-plus",
+              "reason": "flash_quality_gate_failed",
+              "status": "succeeded",
+              "confidence": "0.98",
+              "latency_ms": 16216,
+              "prompt_tokens": 4610,
+              "quality_issues": [
+                "model_reported_conflict"
+              ],
+              "completion_tokens": 731,
+              "estimated_cost_cny": "0.011920"
+            },
+            {
+              "tier": "max",
+              "model": "qwen3.8-max",
+              "reason": "plus_hard_identity_gate_failed",
+              "status": "succeeded",
+              "confidence": "1.0",
+              "latency_ms": 20914,
+              "prompt_tokens": 4566,
+              "quality_issues": [],
+              "completion_tokens": 708,
+              "estimated_cost_cny": "0.080280"
+            },
+            {
+              "tier": "serial_recovery",
+              "model": "apple_vision",
+              "before": {
+                "fields": {
+                  "is_numbered": null,
+                  "serial_total": null,
+                  "serial_number": null
+                },
+                "caveats": [
+                  "OCR 'FACTIOIE' corrected to 'FACTIONS' based on visual evidence on front.",
+                  "Back text mentions 'championship in 2010-11' and player career stats; these are descriptive and do not affect the 2017-18 season determination derived from the product title.",
+                  "No official Panini checklist explicitly labels this as 'Blue' parallel — that label appears only in third-party marketplace listings; TCDB/Beckett list it as base Factions #22 without parallel name.",
+                  "The triple-player configuration (Kidd/Terry/Nowitzki) is unique to Factions #22 in 2017-18 Status — no other card in the set features this exact trio.",
+                  "Back text references '2010–11 Championship', confirming these are legacy players featured thematically — consistent with Status Factions insert concept.",
+                  "已将卡背厂内 CODE/CMP 编码或球衣数字替换为可核验的字母前缀清单卡号",
+                  "限编缺少图片中可见的 x/y 分数证据，已清空",
+                  "is_autograph=false 缺少字段级图片证据，已改为未知",
+                  "is_memorabilia=false 缺少字段级图片证据，已改为未知",
+                  "is_rookie=false 缺少字段级图片证据，已改为未知"
+                ],
+                "field_evidence": {
+                  "is_numbered": [
+                    "联网候选：'114/199' format is canonical numbering notation for limited parallels"
+                  ],
+                  "serial_total": [
+                    "联网候选：Front bottom-right: '114/199'; Apple Vision OCR confirms '114/199'"
+                  ],
+                  "serial_number": [
+                    "联网候选：Front bottom-right: '114/199'; Apple Vision OCR confirms '114/199'"
+                  ]
+                }
+              },
+              "source": "source_bound_visual_review",
+              "status": "succeeded",
+              "version": "2026-09-09-v2",
+              "repaired_at": "2026-09-09T01:11:09.055450+00:00",
+              "observations": [
+                {
+                  "bbox": [
+                    0.6709886540402871,
+                    0.2160356343779828,
+                    0.13614262560777957,
+                    0.05122494432071267
+                  ],
+                  "side": "front",
+                  "text": "114/199",
+                  "context": "DALLAS MAVERICKS\n114/199",
+                  "read_pass": "full",
+                  "confidence": 1,
+                  "image_index": 0,
+                  "source_sha256": "5abcf742489ae93410647ca6ba362c5eba9cc5c1841f06d662e991faeb14d7e0",
+                  "orientation_degrees": 0,
+                  "accepted_as_visible_serial": true
+                },
+                {
+                  "bbox": [
+                    0.6709886540402871,
+                    0.2160356343779828,
+                    0.13614262560777957,
+                    0.05122494432071267
+                  ],
+                  "side": "front",
+                  "text": "114/193",
+                  "context": "DALLAS MAVERICKS\n114/199\n局部 OCR：114/193",
+                  "read_pass": "padded_roi_rotation_0",
+                  "confidence": 1,
+                  "image_index": 0,
+                  "source_sha256": "5abcf742489ae93410647ca6ba362c5eba9cc5c1841f06d662e991faeb14d7e0",
+                  "orientation_degrees": 0,
+                  "accepted_as_visible_serial": true
+                },
+                {
+                  "bbox": [
+                    0.6709886540402871,
+                    0.2160356343779828,
+                    0.13614262560777957,
+                    0.05122494432071267
+                  ],
+                  "side": "front",
+                  "text": "114/193",
+                  "context": "DALLAS MAVERICKS\n114/199\n局部 OCR：114/193",
+                  "read_pass": "padded_roi_rotation_90",
+                  "confidence": 0.5,
+                  "image_index": 0,
+                  "source_sha256": "5abcf742489ae93410647ca6ba362c5eba9cc5c1841f06d662e991faeb14d7e0",
+                  "orientation_degrees": 0,
+                  "accepted_as_visible_serial": true
+                },
+                {
+                  "bbox": [
+                    0.6709886540402871,
+                    0.2160356343779828,
+                    0.13614262560777957,
+                    0.05122494432071267
+                  ],
+                  "side": "front",
+                  "text": "114/199",
+                  "context": "DALLAS MAVERICKS\n114/199\n局部 OCR：114/199",
+                  "read_pass": "padded_roi_rotation_180",
+                  "confidence": 0.5,
+                  "image_index": 0,
+                  "source_sha256": "5abcf742489ae93410647ca6ba362c5eba9cc5c1841f06d662e991faeb14d7e0",
+                  "orientation_degrees": 0,
+                  "accepted_as_visible_serial": true
+                },
+                {
+                  "bbox": [
+                    0.6709886540402871,
+                    0.2160356343779828,
+                    0.13614262560777957,
+                    0.05122494432071267
+                  ],
+                  "side": "front",
+                  "text": "114/199",
+                  "context": "DALLAS MAVERICKS\n114/199\n局部 OCR：114/199",
+                  "read_pass": "padded_roi_rotation_270",
+                  "confidence": 1,
+                  "image_index": 0,
+                  "source_sha256": "5abcf742489ae93410647ca6ba362c5eba9cc5c1841f06d662e991faeb14d7e0",
+                  "orientation_degrees": 0,
+                  "accepted_as_visible_serial": true
+                },
+                {
+                  "bbox": [
+                    0.21510724222699,
+                    0.193665384637689,
+                    0.05443939599799688,
+                    0.13637531595832908
+                  ],
+                  "side": "front",
+                  "text": "114/199",
+                  "context": "5E\n114/199",
+                  "read_pass": "full",
+                  "confidence": 1,
+                  "image_index": 0,
+                  "source_sha256": "5abcf742489ae93410647ca6ba362c5eba9cc5c1841f06d662e991faeb14d7e0",
+                  "orientation_degrees": 90,
+                  "accepted_as_visible_serial": true
+                },
+                {
+                  "bbox": [
+                    0.21510724222699,
+                    0.193665384637689,
+                    0.05443939599799688,
+                    0.13637531595832908
+                  ],
+                  "side": "front",
+                  "text": "114/199",
+                  "context": "5E\n114/199\n局部 OCR：114/199",
+                  "read_pass": "padded_roi_rotation_0",
+                  "confidence": 1,
+                  "image_index": 0,
+                  "source_sha256": "5abcf742489ae93410647ca6ba362c5eba9cc5c1841f06d662e991faeb14d7e0",
+                  "orientation_degrees": 90,
+                  "accepted_as_visible_serial": true
+                },
+                {
+                  "bbox": [
+                    0.21510724222699,
+                    0.193665384637689,
+                    0.05443939599799688,
+                    0.13637531595832908
+                  ],
+                  "side": "front",
+                  "text": "114/193",
+                  "context": "5E\n114/199\n局部 OCR：114/193",
+                  "read_pass": "padded_roi_rotation_90",
+                  "confidence": 0.5,
+                  "image_index": 0,
+                  "source_sha256": "5abcf742489ae93410647ca6ba362c5eba9cc5c1841f06d662e991faeb14d7e0",
+                  "orientation_degrees": 90,
+                  "accepted_as_visible_serial": true
+                },
+                {
+                  "bbox": [
+                    0.21510724222699,
+                    0.193665384637689,
+                    0.05443939599799688,
+                    0.13637531595832908
+                  ],
+                  "side": "front",
+                  "text": "114/199",
+                  "context": "5E\n114/199\n局部 OCR：114/199",
+                  "read_pass": "padded_roi_rotation_180",
+                  "confidence": 1,
+                  "image_index": 0,
+                  "source_sha256": "5abcf742489ae93410647ca6ba362c5eba9cc5c1841f06d662e991faeb14d7e0",
+                  "orientation_degrees": 90,
+                  "accepted_as_visible_serial": true
+                },
+                {
+                  "bbox": [
+                    0.21510724222699,
+                    0.193665384637689,
+                    0.05443939599799688,
+                    0.13637531595832908
+                  ],
+                  "side": "front",
+                  "text": "114/199",
+                  "context": "5E\n114/199\n局部 OCR：114/199",
+                  "read_pass": "padded_roi_rotation_270",
+                  "confidence": 1,
+                  "image_index": 0,
+                  "source_sha256": "5abcf742489ae93410647ca6ba362c5eba9cc5c1841f06d662e991faeb14d7e0",
+                  "orientation_degrees": 90,
+                  "accepted_as_visible_serial": true
+                },
+                {
+                  "bbox": [
+                    0.19426473235186842,
+                    0.7336645063988594,
+                    0.13335060107263597,
+                    0.047147602174754666
+                  ],
+                  "side": "front",
+                  "text": "114/193",
+                  "context": "DIRK NOWITZKI-F\n114/193",
+                  "read_pass": "full",
+                  "confidence": 1,
+                  "image_index": 0,
+                  "source_sha256": "5abcf742489ae93410647ca6ba362c5eba9cc5c1841f06d662e991faeb14d7e0",
+                  "orientation_degrees": 180,
+                  "accepted_as_visible_serial": true
+                },
+                {
+                  "bbox": [
+                    0.19426473235186842,
+                    0.7336645063988594,
+                    0.13335060107263597,
+                    0.047147602174754666
+                  ],
+                  "side": "front",
+                  "text": "114/199",
+                  "context": "DIRK NOWITZKI-F\n114/193\n局部 OCR：114/199",
+                  "read_pass": "padded_roi_rotation_0",
+                  "confidence": 0.5,
+                  "image_index": 0,
+                  "source_sha256": "5abcf742489ae93410647ca6ba362c5eba9cc5c1841f06d662e991faeb14d7e0",
+                  "orientation_degrees": 180,
+                  "accepted_as_visible_serial": true
+                },
+                {
+                  "bbox": [
+                    0.19426473235186842,
+                    0.7336645063988594,
+                    0.13335060107263597,
+                    0.047147602174754666
+                  ],
+                  "side": "front",
+                  "text": "114/193",
+                  "context": "DIRK NOWITZKI-F\n114/193\n局部 OCR：114/193",
+                  "read_pass": "padded_roi_rotation_90",
+                  "confidence": 1,
+                  "image_index": 0,
+                  "source_sha256": "5abcf742489ae93410647ca6ba362c5eba9cc5c1841f06d662e991faeb14d7e0",
+                  "orientation_degrees": 180,
+                  "accepted_as_visible_serial": true
+                },
+                {
+                  "bbox": [
+                    0.19426473235186842,
+                    0.7336645063988594,
+                    0.13335060107263597,
+                    0.047147602174754666
+                  ],
+                  "side": "front",
+                  "text": "114/193",
+                  "context": "DIRK NOWITZKI-F\n114/193\n局部 OCR：114/193",
+                  "read_pass": "padded_roi_rotation_180",
+                  "confidence": 1,
+                  "image_index": 0,
+                  "source_sha256": "5abcf742489ae93410647ca6ba362c5eba9cc5c1841f06d662e991faeb14d7e0",
+                  "orientation_degrees": 180,
+                  "accepted_as_visible_serial": true
+                },
+                {
+                  "bbox": [
+                    0.19426473235186842,
+                    0.7336645063988594,
+                    0.13335060107263597,
+                    0.047147602174754666
+                  ],
+                  "side": "front",
+                  "text": "114/193",
+                  "context": "DIRK NOWITZKI-F\n114/193\n局部 OCR：114/193",
+                  "read_pass": "padded_roi_rotation_270",
+                  "confidence": 1,
+                  "image_index": 0,
+                  "source_sha256": "5abcf742489ae93410647ca6ba362c5eba9cc5c1841f06d662e991faeb14d7e0",
+                  "orientation_degrees": 180,
+                  "accepted_as_visible_serial": true
+                },
+                {
+                  "bbox": [
+                    0.7349665837924336,
+                    0.6693679098122636,
+                    0.046770618328272895,
+                    0.13776337115072945
+                  ],
+                  "side": "front",
+                  "text": "114/199",
+                  "context": "DIRKNOWITZKI-F\n114/199",
+                  "read_pass": "full",
+                  "confidence": 1,
+                  "image_index": 0,
+                  "source_sha256": "5abcf742489ae93410647ca6ba362c5eba9cc5c1841f06d662e991faeb14d7e0",
+                  "orientation_degrees": 270,
+                  "accepted_as_visible_serial": true
+                },
+                {
+                  "bbox": [
+                    0.7349665837924336,
+                    0.6693679098122636,
+                    0.046770618328272895,
+                    0.13776337115072945
+                  ],
+                  "side": "front",
+                  "text": "114/193",
+                  "context": "DIRKNOWITZKI-F\n114/199\n局部 OCR：114/193",
+                  "read_pass": "padded_roi_rotation_0",
+                  "confidence": 0.5,
+                  "image_index": 0,
+                  "source_sha256": "5abcf742489ae93410647ca6ba362c5eba9cc5c1841f06d662e991faeb14d7e0",
+                  "orientation_degrees": 270,
+                  "accepted_as_visible_serial": true
+                },
+                {
+                  "bbox": [
+                    0.7349665837924336,
+                    0.6693679098122636,
+                    0.046770618328272895,
+                    0.13776337115072945
+                  ],
+                  "side": "front",
+                  "text": "114/199",
+                  "context": "DIRKNOWITZKI-F\n114/199\n局部 OCR：114/199",
+                  "read_pass": "padded_roi_rotation_90",
+                  "confidence": 1,
+                  "image_index": 0,
+                  "source_sha256": "5abcf742489ae93410647ca6ba362c5eba9cc5c1841f06d662e991faeb14d7e0",
+                  "orientation_degrees": 270,
+                  "accepted_as_visible_serial": true
+                },
+                {
+                  "bbox": [
+                    0.7349665837924336,
+                    0.6693679098122636,
+                    0.046770618328272895,
+                    0.13776337115072945
+                  ],
+                  "side": "front",
+                  "text": "114/199",
+                  "context": "DIRKNOWITZKI-F\n114/199\n局部 OCR：114/199",
+                  "read_pass": "padded_roi_rotation_180",
+                  "confidence": 0.5,
+                  "image_index": 0,
+                  "source_sha256": "5abcf742489ae93410647ca6ba362c5eba9cc5c1841f06d662e991faeb14d7e0",
+                  "orientation_degrees": 270,
+                  "accepted_as_visible_serial": true
+                },
+                {
+                  "bbox": [
+                    0.7349665837924336,
+                    0.6693679098122636,
+                    0.046770618328272895,
+                    0.13776337115072945
+                  ],
+                  "side": "front",
+                  "text": "114/193",
+                  "context": "DIRKNOWITZKI-F\n114/199\n局部 OCR：114/193",
+                  "read_pass": "padded_roi_rotation_270",
+                  "confidence": 1,
+                  "image_index": 0,
+                  "source_sha256": "5abcf742489ae93410647ca6ba362c5eba9cc5c1841f06d662e991faeb14d7e0",
+                  "orientation_degrees": 270,
+                  "accepted_as_visible_serial": true
+                }
+              ],
+              "source_images": [
+                {
+                  "side": "front",
+                  "sha256": "5abcf742489ae93410647ca6ba362c5eba9cc5c1841f06d662e991faeb14d7e0",
+                  "available": true,
+                  "byte_count": 375123,
+                  "relative_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/bc8d31ae-7ed4-4580-9ebb-c19885843446/front-original.jpg"
+                },
+                {
+                  "side": "back",
+                  "sha256": "56633c6f5a0f23f216b4240299e825fbc5f6cde35c980434bbd9af461edd8957",
+                  "available": true,
+                  "byte_count": 341506,
+                  "relative_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/bc8d31ae-7ed4-4580-9ebb-c19885843446/back-original.jpg"
+                }
+              ],
+              "manual_visual_only": false,
+              "visual_review_note": "已逐像素核对完整原图，正面右下独立印编为114/199；114/193为暗色末位OCR误读。",
+              "manual_visual_proof": null,
+              "resolved_conflicting_observations": true
+            }
+          ],
+          "memorabilia_player": null,
+          "recognition_status": "resolved",
+          "reference_image_back_url": null,
+          "reference_image_provider": null,
+          "reference_image_front_url": null,
+          "recognition_quality_issues": [],
+          "reference_image_source_url": null,
+          "recognition_estimated_cost_cny": "0.093808",
+          "reference_image_match_confidence": null
+        },
+        "error_message": null,
+        "attempt_count": 1,
+        "started_at": "2026-09-09 08:14:31.914903+08:00",
+        "finished_at": "2026-09-09 08:14:31.934823+08:00",
+        "created_at": "2026-09-09 08:14:31.029347+08:00",
+        "updated_at": "2026-09-09 09:11:09.052703+08:00",
+        "front_original_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/bc8d31ae-7ed4-4580-9ebb-c19885843446/front-original.jpg",
+        "back_original_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/bc8d31ae-7ed4-4580-9ebb-c19885843446/back-original.jpg",
+        "front_rotation_degrees": 0,
+        "back_rotation_degrees": 0,
+        "front_orientation_confidence": "0.9700",
+        "back_orientation_confidence": "0.9700",
+        "front_orientation_method": "apple_vision_face_text",
+        "back_orientation_method": "apple_vision_text",
+        "front_orientation_corrected_at": "2026-09-09 08:14:31.934823+08:00",
+        "back_orientation_corrected_at": "2026-09-09 08:14:31.934823+08:00",
+        "front_raw_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/bc8d31ae-7ed4-4580-9ebb-c19885843446/front-raw.jpg",
+        "back_raw_image_path": "c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/bc8d31ae-7ed4-4580-9ebb-c19885843446/back-raw.jpg",
+        "collection_item_id": "63836aa8-c0e4-4ae7-9f6b-2228981db752",
+        "imported_at": "2026-09-09 08:14:31.934823+08:00"
+      },
+      "images": {
+        "front": {
+          "url": "/uploads/63836aa8-c0e4-4ae7-9f6b-2228981db752-front-ed915db03ec04951a94c74d8d21fd4cf.jpg",
+          "sha256": "ae1f49f2d318ed5dac116a2bf9b661be32db7b56ca38e7d1c341528f8c4dd716"
+        },
+        "back": {
+          "url": "/uploads/63836aa8-c0e4-4ae7-9f6b-2228981db752-back-257c0e8a2a6d449196ed1f0320cc3093.jpg",
+          "sha256": "917e5e19444059965a515902d8906df996d2728f078b95a0213b94cef87b2323"
+        }
+      }
+    },
+    "patch": {
+      "expected_id": "63836aa8-c0e4-4ae7-9f6b-2228981db752",
+      "fields": {
+        "card_number": "22"
+      },
+      "evidence": "实际CI正面明确Jason Kidd/Jason Terry/Dirk Nowitzki与FACTIONS、114/199；背面左上明确No.22，下方明确2017-18 PANINI STATUS BASKETBALL。TOP-LEFT只是位置词而非卡号。"
+    }
+  },
+  "card443_applied": {
+    "display_id": 443,
+    "item_id": "63836aa8-c0e4-4ae7-9f6b-2228981db752",
+    "old_definition_id": "57119137-7f8b-46a9-9475-88a96bc5dc05",
+    "new_definition_id": "7a1bb9d3-0502-4b89-9e68-2fd19f670c6c",
+    "version_id": "c39e76ce-39e4-4358-ad02-23f68edeab3e",
+    "changed_fields": {
+      "card_number": "22"
+    },
+    "evidence": "实际CI正面明确Jason Kidd/Jason Terry/Dirk Nowitzki与FACTIONS、114/199；背面左上明确No.22，下方明确2017-18 PANINI STATUS BASKETBALL。TOP-LEFT只是位置词而非卡号。"
+  },
+  "dual_image_approval_249": {
+    "scanner_original_back_sha256": "13139c57abda39bcd7095bf6297b35735300ccc292cd24e464f4bdace9008fdd",
+    "ci_display_back_sha256": "a881ec8d91582e788397c34cccc1d7f0a35acf259de5ac3a7811db282014d315",
+    "note": "Parent and valuation auditor independently inspected actual pixels; these are different crops of the same CG-10 Jaylen Brown back, not assumed equal hashes."
+  }
+}
