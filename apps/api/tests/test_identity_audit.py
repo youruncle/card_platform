@@ -100,3 +100,47 @@ def test_single_slash_number_does_not_suggest_print_run() -> None:
         ],
     )
     assert all(item.field_name != "serial_total" for item in suggestions)
+
+
+def test_no_prefix_does_not_match_the_start_of_an_insert_word() -> None:
+    fields = extract_identity_fields(
+        "2023-24 Panini Mosaic Luka Doncic NOTORIETY 特卡",
+        lebron_identity(card_number="11"),
+    )
+
+    assert "card_number" not in fields
+
+
+def test_no_prefix_still_extracts_an_explicit_card_number() -> None:
+    fields = extract_identity_fields(
+        "2023-24 Panini Mosaic Luka Doncic No. 11 Give And Go",
+        lebron_identity(card_number=None),
+    )
+
+    assert fields["card_number"] == "11"
+
+
+def test_analog_comparable_cannot_suggest_exact_identity_changes() -> None:
+    suggestions = build_identity_suggestions(
+        {
+            "player_name": "Luka Doncic",
+            "season_start": 2023,
+            "product_name": "Mosaic",
+            "card_number": "11",
+            "insert_name": "Give And Go",
+            "parallel_name": None,
+        },
+        [
+            {
+                "id": "analog-sale",
+                "listing_title": (
+                    "2023-24 Panini Mosaic Luka Doncic NOTORIETY 特卡"
+                ),
+                "source_url": "https://cardhobby.com.cn/market/item/86826064",
+                "comparable_tier": "T2",
+                "classification": {"hard_conflicts": []},
+            }
+        ],
+    )
+
+    assert suggestions == []

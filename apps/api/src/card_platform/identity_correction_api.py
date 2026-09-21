@@ -48,7 +48,8 @@ async def scan_identity_corrections(
             comps_result = await connection.execute(
                 """
                 SELECT mc.id, mc.listing_title, mc.source_url,
-                       mc.source_reliability, mc.match_confidence
+                       mc.source_reliability, mc.match_confidence,
+                       mc.comparable_tier, mc.classification
                 FROM market_comp mc
                 JOIN collection_item ci ON ci.card_definition_id = mc.card_definition_id
                 WHERE ci.id = %s

@@ -25,3 +25,6 @@ data/benchmarks/*.dump
 data/flatbed-scans/
 data/flatbed-smoke/
 data/scanner-jobs/
+data/*.db
+data/valuation-audit-current.json
+docs/valuation-audit-current.md
