@@ -504,6 +504,20 @@ async def confirm_identity(item_id: UUID, payload: ConfirmIdentityRequest, reque
              latest["id"] if latest else None, market_identity.fingerprint),
         )
         version = await inserted.fetchone()
+        prior_valuations_marked_incompatible = 0
+        if old_fingerprint and old_fingerprint != market_identity.fingerprint:
+            invalidated = await connection.execute(
+                """UPDATE valuation_snapshot
+                   SET identity_compatibility = 'incompatible',
+                       identity_compatibility_reasons = %s
+                   WHERE collection_item_id = %s
+                     AND identity_compatibility <> 'incompatible'""",
+                (Jsonb([
+                    "superseded_by_confirmed_identity",
+                    f"confirmed_identity_version:{version['id']}",
+                ]), item_id),
+            )
+            prior_valuations_marked_incompatible = invalidated.rowcount
         await connection.execute(
             """UPDATE identity_research_case SET status = %s, updated_at = now()
                WHERE collection_item_id = %s AND status IN
@@ -515,6 +529,12 @@ async def confirm_identity(item_id: UUID, payload: ConfirmIdentityRequest, reque
                (collection_item_id, identity_version_id, actor_id, reason, before_state, after_state)
                VALUES (%s, %s, %s, %s, %s, %s)""",
             (item_id, version["id"], user.id, payload.reason, Jsonb(_identity(item)), Jsonb(identity)),
+        )
+        await connection.execute(
+            """UPDATE card_identity_correction
+               SET status = 'superseded', updated_at = now()
+               WHERE collection_item_id = %s AND status = 'open'""",
+            (item_id,),
         )
         rebind_payload = CollectionItemCreate(
             owner_id=user.id,
@@ -680,4 +700,5 @@ async def confirm_identity(item_id: UUID, payload: ConfirmIdentityRequest, reque
         return {"identity_version_id": version["id"], "version": version["version"],
                 "identity_fingerprint": market_identity.fingerprint, "accepted_count": accepted,
                 "rejected_count": rejected, "valuation_job_id": valuation_job_id,
+                "prior_valuations_marked_incompatible": prior_valuations_marked_incompatible,
                 "published_valuation_unchanged": True}
