@@ -55,4 +55,3 @@ async def test_twelve_weak_image_candidates_cannot_starve_explicit_insert_proxy(
     assert "cache_title_anchor:insert" in result.comparables[0].matching_fields
     assert unsafe.source_url not in [row.source_url for row in result.comparables]
     assert any(row["source_url"]==unsafe.source_url for row in result.rejected_candidates)
-

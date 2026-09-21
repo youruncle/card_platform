@@ -2,11 +2,11 @@
 
 > 后续执行者读取本目录 spec.md 与 tasks.md；用户确认后按 Superpowers executing-plans、systematic-debugging、test-driven-development、verification-before-completion 执行同一任务清单。2026-09-21用户已批准执行现有任务和达标后直接批量写回。
 
-**Goal**: 增加有可信同款证据支撑的合理估值，降低错卡及偏价。  
-**Architecture**: 保留现有识别、market_data、正式同款门禁、估值器；增加可回放的审计记录，在只读影子环境逐轮验证最小修改。  
-**Tech Stack**: Python≥3.12 / FastAPI / psycopg / PostgreSQL；现有Next.js界面本阶段不改。  
-**Spec**: [spec.md](spec.md)  
-**Branch**: 实际工作分支为codex/cardhobby-valuation-quality；Spec Kit逻辑feature为002-cardhobby-valuation-quality。  
+**Goal**: 增加有可信同款证据支撑的合理估值，降低错卡及偏价。
+**Architecture**: 保留现有识别、market_data、正式同款门禁、估值器；增加可回放的审计记录，在只读影子环境逐轮验证最小修改。
+**Tech Stack**: Python≥3.12 / FastAPI / psycopg / PostgreSQL；现有Next.js界面本阶段不改。
+**Spec**: [spec.md](spec.md)
+**Branch**: 实际工作分支为codex/cardhobby-valuation-quality；Spec Kit逻辑feature为002-cardhobby-valuation-quality。
 **Date**: 2026-09-21；**Status**: 实施中，验收未通过。
 
 ## Summary

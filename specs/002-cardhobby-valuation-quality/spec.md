@@ -1,8 +1,8 @@
 # Feature Specification: 卡淘估值覆盖率与证据质量优化
 
-**Feature Branch**: `codex/cardhobby-valuation-quality`；保留原工作目录全部既有修改  
-**Created**: 2026-09-21  
-**Status**: Approved — 已授权分轮实施；全部验收通过后直接批量写回  
+**Feature Branch**: `codex/cardhobby-valuation-quality`；保留原工作目录全部既有修改
+**Created**: 2026-09-21
+**Status**: Approved — 已授权分轮实施；全部验收通过后直接批量写回
 **Input**: 对当前账户未估值、证据不足、疑似价格异常及正常对照卡开展只读评估，提高合理估值覆盖率，降低错卡与价格偏差；仅使用卡淘。Spec Kit 与 Superpowers 共用本目录的 spec、plan、tasks。
 
 ## User Scenarios & Testing
