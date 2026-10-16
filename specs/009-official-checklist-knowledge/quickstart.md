@@ -1,0 +1,2 @@
+# Validation
+使用项目.venv运行pytest apps/api/tests/test_official_checklists.py apps/api/tests/test_knowledge_card_catalog.py；本地运行同步命令生成进度账本并验证重跑不重复。--apply后查询发布版本card实体数量与586的Roses补全。运行scripts/replay_official_knowledge.py读取持仓并输出报告。知识库管理入口显示账本百分比与错误；失败产品不得计入成功。

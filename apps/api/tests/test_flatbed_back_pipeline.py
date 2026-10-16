@@ -8,6 +8,7 @@ import pytest
 
 from card_platform.flatbed_detection import Detection, LayoutHypothesis
 from card_platform.flatbed_service import FlatbedService
+from card_platform.flatbed_object_quads import resolve_object_layout
 
 
 @pytest.mark.asyncio
@@ -37,12 +38,16 @@ async def test_back_pipeline_persists_current_geometry_and_honest_source_counts(
             image,
             (round(item.x * 1000), round(item.y * 1400)),
             (round((item.x + item.width) * 1000), round((item.y + item.height) * 1400)),
-            (30, 80, 120), -1,
+            (30, 80, 120),
+            -1,
         )
     ok, encoded = cv2.imencode(".png", image)
     assert ok
     prior = [
-        {"bounds": {"x": d.x, "y": d.y, "width": d.width, "height": d.height, "angle": 0}, "signals": {}}
+        {
+            "bounds": {"x": d.x, "y": d.y, "width": d.width, "height": d.height, "angle": 0},
+            "signals": {},
+        }
         for d in detections
     ]
     # The last prior is shifted; the pipeline must persist localized geometry,
@@ -63,7 +68,14 @@ async def test_back_pipeline_persists_current_geometry_and_honest_source_counts(
     connection.execute.side_effect = execute
     localized = detections[:-1] if missing else detections
     localizer = AsyncMock(side_effect=AssertionError("Front slots cannot crop backs"))
-    general_ml = AsyncMock(return_value=(localized, {"status": "accepted", "refined_count": len(localized)}))
+    resolved = list(
+        resolve_object_layout(
+            encoded.tobytes(), LayoutHypothesis(tuple(localized), 0.9, 4, 2)
+        ).detections
+    )
+    general_ml = AsyncMock(
+        return_value=(resolved, {"status": "accepted", "refined_count": len(localized)})
+    )
     monkeypatch.setattr("card_platform.flatbed_slot_refinement.refine_back_slots", localizer)
     monkeypatch.setattr("card_platform.flatbed_service.refine_with_sam2", general_ml)
     monkeypatch.setattr(
@@ -72,23 +84,33 @@ async def test_back_pipeline_persists_current_geometry_and_honest_source_counts(
     )
     service = FlatbedService(str(tmp_path), "bridge.swift", ml_enabled=True)
     service.orientation_classifier.classify = AsyncMock(return_value=None)
-    output = await service.store_sheet(connection, owner_id, session_id, "back", encoded.tobytes(), "image/png")
+    output = await service.store_sheet(
+        connection, owner_id, session_id, "back", encoded.tobytes(), "image/png"
+    )
 
     localizer.assert_not_called()
-    assert general_ml.call_args.args[1] == localized
+    assert general_ml.call_args.args[1] == resolved
     assert general_ml.call_args.kwargs["prompt_detections"] is None
     assert len(output["regions"]) == len(localized)
     assert ("front_back_count_mismatch" in output["failures"]) == missing
     ml = output["layout_hypothesis"]["ml_refinement"]
     assert ml["refined_count"] == len(localized)
-    inserts = [call.args for call in connection.execute.call_args_list if call.args[0].startswith("INSERT INTO flatbed_scan_region")]
+    inserts = [
+        call.args
+        for call in connection.execute.call_args_list
+        if call.args[0].startswith("INSERT INTO flatbed_scan_region")
+    ]
     assert len(inserts) == len(localized)
-    assert inserts[-1][1][4].obj["x"] == localized[-1].x
+    assert inserts[-1][1][4].obj["x"] == resolved[-1].x
     if not missing:
         assert inserts[-1][1][4].obj["crop_padding_ratio"] == 0
         assert inserts[-1][1][4].obj["output_border_ratio"] > 0
     assert "slot-local" not in inserts[-1][1][8].obj["detector_version"]
-    stored_sheet = next(call.args[1] for call in connection.execute.call_args_list if call.args[0].startswith("INSERT INTO flatbed_scan_sheet"))
+    stored_sheet = next(
+        call.args[1]
+        for call in connection.execute.call_args_list
+        if call.args[0].startswith("INSERT INTO flatbed_scan_sheet")
+    )
     assert stored_sheet[9].obj["ml_refinement"] == ml
     assert stored_sheet[10].obj["prior_role"] == "count_and_pairing_advisory_only"
     assert stored_sheet[10].obj["geometry_source"] == "current_image"

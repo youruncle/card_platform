@@ -106,7 +106,7 @@ async def list_scanner_jobs(
     result = await db.execute(
         """
         SELECT * FROM scanner_recognition_job
-        WHERE owner_id = %s
+        WHERE owner_id = %s AND front_image_path IS NOT NULL AND back_image_path IS NOT NULL
         ORDER BY created_at DESC LIMIT %s
         """,
         (user.id, limit),
@@ -127,6 +127,8 @@ async def get_scanner_job(
     row = await result.fetchone()
     if row is None:
         raise HTTPException(status_code=404, detail="扫描任务不存在")
+    if not row["front_image_path"] or not row["back_image_path"]:
+        raise HTTPException(409, "单面任务请升级客户端并使用 /v1/capture/jobs")
     return scanner_job_view(dict(row))
 
 
@@ -173,7 +175,7 @@ async def scanner_job_image(
         (job_id, user.id),
     )
     row = await result.fetchone()
-    if row is None:
+    if row is None or not row["image_path"]:
         raise HTTPException(status_code=404, detail="扫描图片不存在")
     try:
         path = ScannerQueueService(get_settings()).image_path(row["image_path"])
@@ -181,7 +183,9 @@ async def scanner_job_image(
         raise HTTPException(status_code=404, detail="扫描图片不存在") from error
     if not path.is_file():
         raise HTTPException(status_code=404, detail="扫描图片不存在")
-    return FileResponse(path, media_type=row["content_type"])
+    return FileResponse(path, media_type=row["content_type"], headers={
+        "Cache-Control": "private, no-store", "Vary": "Cookie, Authorization",
+    })
 
 
 @router.post("/jobs/{job_id}/retry", response_model=ScannerRecognitionJob)
@@ -196,7 +200,7 @@ async def retry_scanner_job(
         SET status = 'queued', error_message = NULL, result = NULL,
             started_at = NULL, finished_at = NULL, updated_at = now()
         WHERE id = %s AND owner_id = %s AND status = 'failed'
-          AND attempt_count < %s
+          AND attempt_count < %s AND front_image_path IS NOT NULL AND back_image_path IS NOT NULL
         RETURNING *
         """,
         (job_id, user.id, get_settings().scanner_job_max_attempts),
@@ -204,4 +208,6 @@ async def retry_scanner_job(
     row = await result.fetchone()
     if row is None:
         raise HTTPException(status_code=409, detail="该任务当前不能重试")
+    if not row["front_image_path"] or not row["back_image_path"]:
+        raise HTTPException(409, "单面任务请升级客户端并使用 /v1/capture/jobs")
     return scanner_job_view(dict(row))

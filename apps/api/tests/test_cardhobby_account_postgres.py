@@ -56,11 +56,41 @@ def row(owner, sql=None):
 
 def test_account_authentication_and_private_validation(client, remote):
     assert client.get(BASE+'/status').status_code == 401
+    assert client.get(BASE+'/verification').status_code == 401
+    assert client.post(BASE+'/send-sms').status_code == 401
     owner = register(client)
     invalid = client.post(BASE+'/login', json={'username':'test','password':{'secret':'must-not-echo'}})
     assert invalid.status_code == 422 and 'must-not-echo' not in invalid.text
     assert row(owner) is None
     assert client.post(BASE+'/search', json={'keywords':['Test'], 'owner_id':owner}).status_code == 422
+
+
+def test_sms_challenge_send_cooldown_and_owner_isolation(client, remote):
+    register(client)
+    remote.challenge = True
+    sms_requests = []
+    handle = remote.handle
+
+    def with_sms(request):
+        if request.url.path == '/Verify/SendSMS/':
+            sms_requests.append(request)
+            return httpx.Response(200, json={'status': '1'})
+        return handle(request)
+
+    remote.handle = with_sms
+    result = client.post(BASE+'/login', json={**CREDENTIALS, 'username': '13800000000'})
+    assert result.json()['detail']['code'] == 'VERIFICATION_REQUIRED'
+    assert client.get(BASE+'/verification').json()['sms_sent'] is False
+    assert not sms_requests
+    result = client.post(BASE+'/send-sms')
+    assert result.status_code == 200 and result.json()['sms_sent'] is True
+    assert client.get(BASE+'/verification').json()['sms_sent'] is True
+    assert client.post(BASE+'/send-sms').json()['detail']['code'] == 'RATE_LIMITED'
+    client.cookies.clear()
+    register(client)
+    assert client.get(BASE+'/verification').json()['detail']['code'] == 'LOGIN_REQUIRED'
+    assert client.post(BASE+'/send-sms').json()['detail']['code'] == 'LOGIN_REQUIRED'
+    assert len(sms_requests) == 1
 
 
 def test_bind_encrypted_reuse_expired_session_relogin_and_forget(client, remote):
@@ -127,6 +157,31 @@ def test_failed_verification_cooldown_and_bounded_attempts(client, remote):
         assert result.json()['detail']['code'] == ('LOGIN_REJECTED' if attempt == 2 else 'VERIFICATION_REQUIRED')
         assert client.post(BASE+'/verify', json={'code':'000000'}).json()['detail']['code'] == 'RATE_LIMITED'
     assert row(owner)['pending_enc'] is None and row(owner)['credentials_enc'] is None
+
+
+def test_expired_challenge_can_restart_without_reentering_credentials(client, remote):
+    owner = register(client)
+    remote.challenge = True
+    client.post(BASE+'/login', json={**CREDENTIALS, 'username': '13800000000'})
+    service = api.account_service()
+
+    pending = service.cipher.decrypt(owner, 'pending', row(owner)['pending_enc'])
+
+    async def expire():
+        async with await AsyncConnection.connect(os.environ['TEST_DATABASE_URL']) as conn:
+            pending['expires'] = '2020-01-01T00:00:00+00:00'
+            await conn.execute('UPDATE cardhobby_account SET pending_enc=%s WHERE owner_id=%s',
+                               (service.cipher.encrypt(owner, 'pending', pending), owner))
+
+    asyncio.run(expire())
+    assert client.get(BASE+'/verification').json()['detail']['code'] == 'VERIFICATION_EXPIRED'
+    result = client.post(BASE+'/restart-verification')
+    assert result.json()['detail']['code'] == 'VERIFICATION_REQUIRED'
+    details = client.get(BASE+'/verification')
+    assert details.status_code == 200 and details.json()['sms_sent'] is False
+    assert len(remote.posts) == 2
+    assert remote.posts[1]['password'] == [CREDENTIALS['password']]
+    assert row(owner)['credentials_enc'] is None
 
 
 def test_bad_page_preserves_credentials_and_does_not_relogin(client, remote):

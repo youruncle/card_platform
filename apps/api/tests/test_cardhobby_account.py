@@ -267,3 +267,84 @@ def test_cancellation_during_retry_is_not_swallowed(monkeypatch):
                 await CardHobbySession(client).request('/order/myorders')
         assert len(requests) == 1
     asyncio.run(scenario())
+
+
+def test_account_session_ignores_unavailable_global_proxy(monkeypatch):
+    """A global proxy for overseas providers must not route CardHobby login."""
+    from card_platform.cardhobby_account import new_client
+
+    for name in ('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY'):
+        monkeypatch.setenv(name, 'http://127.0.0.1:1')
+        monkeypatch.delenv(name.lower(), raising=False)
+    monkeypatch.setenv('NO_PROXY', '')
+    monkeypatch.delenv('no_proxy', raising=False)
+    seen = []
+
+    async def transport_request(transport, request):
+        # Exercise HTTPX's actual environment routing, without external traffic.
+        seen.append(type(transport._pool).__name__)
+        if 'Proxy' in seen[-1]:
+            raise httpx.ConnectError('unavailable proxy', request=request)
+        if request.url.path.lower().startswith('/order/'):
+            return httpx.Response(302, headers={'location': '/Verify'}, request=request)
+        return httpx.Response(200, text=LOGIN, request=request)
+
+    monkeypatch.setattr(httpx.AsyncHTTPTransport, 'handle_async_request', transport_request)
+
+    async def scenario():
+        async with new_client() as client:
+            assert await CardHobbySession(client).check() is False
+    asyncio.run(scenario())
+    assert seen == ['AsyncConnectionPool', 'AsyncConnectionPool']
+
+
+@pytest.mark.parametrize('pager', [
+    '<a disabled="disabled">»</a>',
+    '<span disabled="disabled"><a href="?searchTxt=Test&pageindex=2">»</a></span>',
+    '<a aria-disabled="true" href="?searchTxt=Test&pageindex=2">»</a>',
+])
+def test_disabled_terminal_pager_is_complete_without_repeating_page(pager):
+    async def scenario():
+        remote = Remote()
+        remote.orders = ORDER + pager
+        async with remote.client() as client:
+            session = CardHobbySession(client)
+            await session.login(CREDENTIALS)
+            remote.requests.clear()
+            result = await session.read_orders(['Test'])
+            assert result['complete'] is True
+            assert len(result['orders']) == 1
+            assert sum(r.url.path.lower() == '/order/myorders' for r in remote.requests) == 1
+    asyncio.run(scenario())
+
+
+def test_live_order_read_preserves_collect_method_and_online_total():
+    class CollectRemote(Remote):
+        def handle(self, request):
+            if request.url.path.lower().startswith('/order/detail/'):
+                return httpx.Response(200, text='<li><div>运费：</div><div>顺丰到付</div></li><li>实付总额：￥30.00</li>')
+            return super().handle(request)
+    async def scenario():
+        remote = CollectRemote()
+        remote.orders = ORDER.replace('30.10', '30.00')
+        async with remote.client() as client:
+            session = CardHobbySession(client)
+            assert await session.login(CREDENTIALS) is None
+            result = await session.read_orders(['Test Player'])
+            assert result['complete']
+            captured = result['orders'][0]
+            assert captured['shipping_method'] == 'sf_collect'
+            assert captured['shipping'] is None
+            assert captured['paid_total'] == '30.00'
+            assert captured['displayed_total'] == '30.00'
+    asyncio.run(scenario())
+
+
+def test_detail_service_fee_with_help_dialog_is_captured_as_extra_fee():
+    doc = Document('<li><div>服务费?：</div><div>￥2.00<div>服务费说明 '
+                   + '支付规则。' * 30 + '</div></div></li><li>实付总额：￥8.01</li>')
+    parsed = detail_amounts(doc)
+    assert parsed['extra_fee'] == '2.00'
+    assert parsed['paid_total'] == '8.01'
+    unrelated = detail_amounts(Document('<div>服务费说明：每笔另收￥2.00</div><li>实付总额：￥6.01</li>'))
+    assert unrelated['extra_fee'] is None

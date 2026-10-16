@@ -1,0 +1,450 @@
+{
+  "apply": {
+    "apply": true,
+    "tables": {
+      "brand": {
+        "inserted": 3,
+        "updated": 0,
+        "unchanged": 16,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "player": {
+        "inserted": 59,
+        "updated": 0,
+        "unchanged": 256,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "card_set": {
+        "inserted": 100,
+        "updated": 7,
+        "unchanged": 280,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "card_definition": {
+        "inserted": 357,
+        "updated": 18,
+        "unchanged": 475,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "data_source": {
+        "inserted": 0,
+        "updated": 0,
+        "unchanged": 2,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "scoring_model": {
+        "inserted": 0,
+        "updated": 0,
+        "unchanged": 0,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "collection_item": {
+        "inserted": 258,
+        "updated": 136,
+        "unchanged": 491,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "card_transaction": {
+        "inserted": 45,
+        "updated": 0,
+        "unchanged": 308,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "card_identity_version": {
+        "inserted": 406,
+        "updated": 0,
+        "unchanged": 950,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 1,
+        "skipped_card_conflict": 0
+      },
+      "card_catalog_snapshot": {
+        "inserted": 7,
+        "updated": 0,
+        "unchanged": 45,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "card_identity_correction": {
+        "inserted": 175,
+        "updated": 12,
+        "unchanged": 163,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "card_identity_change_audit": {
+        "inserted": 165,
+        "updated": 0,
+        "unchanged": 316,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "card_image_orientation_correction": {
+        "inserted": 0,
+        "updated": 0,
+        "unchanged": 0,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "valuation_job": {
+        "inserted": 2376,
+        "updated": 0,
+        "unchanged": 4147,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "valuation_snapshot": {
+        "inserted": 394,
+        "updated": 0,
+        "unchanged": 942,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "valuation_shadow_result": {
+        "inserted": 1725,
+        "updated": 0,
+        "unchanged": 2252,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "card_analysis_job": {
+        "inserted": 1,
+        "updated": 0,
+        "unchanged": 818,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "card_analysis_snapshot": {
+        "inserted": 1,
+        "updated": 0,
+        "unchanged": 176,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 642,
+        "skipped_card_conflict": 0
+      },
+      "analysis_request": {
+        "inserted": 0,
+        "updated": 0,
+        "unchanged": 0,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "card_score": {
+        "inserted": 0,
+        "updated": 0,
+        "unchanged": 0,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "recommendation": {
+        "inserted": 0,
+        "updated": 0,
+        "unchanged": 0,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "identity_research_case": {
+        "inserted": 18,
+        "updated": 19,
+        "unchanged": 100,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "identity_research_candidate": {
+        "inserted": 18,
+        "updated": 0,
+        "unchanged": 83,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "cardhobby_purchase_order": {
+        "inserted": 9,
+        "updated": 82,
+        "unchanged": 10,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "cardhobby_purchase_unit": {
+        "inserted": 25,
+        "updated": 0,
+        "unchanged": 269,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 1,
+        "skipped_card_conflict": 0
+      },
+      "cardhobby_order_evidence": {
+        "inserted": 19,
+        "updated": 0,
+        "unchanged": 122,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "cardhobby_cost_assignment": {
+        "inserted": 42,
+        "updated": 0,
+        "unchanged": 253,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "cardhobby_cost_refresh_history": {
+        "inserted": 0,
+        "updated": 0,
+        "unchanged": 4,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "cardhobby_cost_visual_inference": {
+        "inserted": 59,
+        "updated": 0,
+        "unchanged": 201,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "market_identity_cache": {
+        "inserted": 423,
+        "updated": 0,
+        "unchanged": 610,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 101,
+        "skipped_card_conflict": 0
+      },
+      "market_evidence": {
+        "inserted": 9066,
+        "updated": 0,
+        "unchanged": 5948,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 1830,
+        "skipped_card_conflict": 0
+      },
+      "market_comp": {
+        "inserted": 9409,
+        "updated": 0,
+        "unchanged": 3147,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 793,
+        "skipped_card_conflict": 0
+      },
+      "market_evidence_discovery": {
+        "inserted": 11933,
+        "updated": 0,
+        "unchanged": 0,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 4862,
+        "skipped_card_conflict": 0
+      },
+      "market_identity_binding": {
+        "inserted": 258,
+        "updated": 253,
+        "unchanged": 374,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      },
+      "market_evidence_identity_decision": {
+        "inserted": 1433,
+        "updated": 9,
+        "unchanged": 2407,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0,
+        "skipped_inactive_identity": 0
+      },
+      "market_identity_rebind_audit": {
+        "inserted": 163,
+        "updated": 0,
+        "unchanged": 300,
+        "skipped_newer": 0,
+        "skipped_shared": 0,
+        "skipped_immutable": 0,
+        "skipped_card_conflict": 0
+      }
+    },
+    "archive_boundary": "Card library only; flatbed projects, scanner source images, workers, accounts, credentials, sessions, secrets and knowledge workspaces are excluded. Scanner records are excluded; existing cloud capture records remain untouched. New cards do not include scanning history or scanner-derived confidence/status. Unavailable local evidence references are marked local-only://.",
+    "natural_key_aliases": {
+      "card_identity_correction": 0
+    },
+    "cloud_only_cards_retained": 0,
+    "files": 1771,
+    "file_bytes": 584005250,
+    "installed_new_files": 517,
+    "card_counts": {
+      "total": 885,
+      "active": 876
+    },
+    "seconds": 43.2
+  },
+  "verification": {
+    "card_counts": {
+      "total": 885,
+      "active": 876,
+      "recycle": 9
+    },
+    "table_counts": {
+      "brand": 19,
+      "player": 315,
+      "card_set": 387,
+      "card_definition": 850,
+      "data_source": 2,
+      "scoring_model": 0,
+      "collection_item": 885,
+      "card_transaction": 353,
+      "card_identity_version": 1357,
+      "card_catalog_snapshot": 52,
+      "card_identity_correction": 350,
+      "card_identity_change_audit": 481,
+      "card_image_orientation_correction": 0,
+      "valuation_job": 6523,
+      "valuation_snapshot": 1336,
+      "valuation_shadow_result": 3977,
+      "card_analysis_job": 819,
+      "card_analysis_snapshot": 819,
+      "analysis_request": 0,
+      "card_score": 0,
+      "recommendation": 0,
+      "identity_research_case": 137,
+      "identity_research_candidate": 101,
+      "cardhobby_purchase_order": 101,
+      "cardhobby_purchase_unit": 295,
+      "cardhobby_order_evidence": 141,
+      "cardhobby_cost_assignment": 295,
+      "cardhobby_cost_refresh_history": 4,
+      "cardhobby_cost_visual_inference": 260,
+      "market_identity_cache": 1188,
+      "market_evidence": 16824,
+      "market_comp": 13349,
+      "market_evidence_discovery": 16866,
+      "market_identity_binding": 885,
+      "market_evidence_identity_decision": 3849,
+      "market_identity_rebind_audit": 463
+    },
+    "source_primary_keys_present": {
+      "brand": 19,
+      "player": 315,
+      "card_set": 387,
+      "card_definition": 850,
+      "data_source": 2,
+      "scoring_model": 0,
+      "collection_item": 885,
+      "card_transaction": 353,
+      "card_identity_version": 1357,
+      "card_catalog_snapshot": 52,
+      "card_identity_correction": 350,
+      "card_identity_change_audit": 481,
+      "card_image_orientation_correction": 0,
+      "valuation_job": 6523,
+      "valuation_snapshot": 1336,
+      "valuation_shadow_result": 3977,
+      "card_analysis_job": 819,
+      "card_analysis_snapshot": 819,
+      "analysis_request": 0,
+      "card_score": 0,
+      "recommendation": 0,
+      "identity_research_case": 137,
+      "identity_research_candidate": 101,
+      "cardhobby_purchase_order": 101,
+      "cardhobby_purchase_unit": 295,
+      "cardhobby_order_evidence": 141,
+      "cardhobby_cost_assignment": 295,
+      "cardhobby_cost_refresh_history": 4,
+      "cardhobby_cost_visual_inference": 260,
+      "market_identity_cache": 1134,
+      "market_evidence": 16844,
+      "market_comp": 13349,
+      "market_evidence_discovery": 16795,
+      "market_identity_binding": 885,
+      "market_evidence_identity_decision": 3849,
+      "market_identity_rebind_audit": 463
+    },
+    "source_integrity": {
+      "collection_item": true,
+      "card_definition": true,
+      "card_transaction": true,
+      "market_evidence_identity_decision": true
+    },
+    "verified_images": 1771,
+    "image_bytes": 584005250,
+    "readable_by_api_user": true
+  },
+  "protected_unchanged": {
+    "app_user": true,
+    "user_credential": true,
+    "auth_session": true,
+    "scanner_recognition_job": true,
+    "other_owner_cards": true
+  },
+  "runtime_read": {
+    "portfolio_items": 876,
+    "recycle": 9,
+    "summary_schema_valid": true,
+    "owner_scope_valid": true
+  }
+}

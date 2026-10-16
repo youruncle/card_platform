@@ -1,6 +1,9 @@
 import re
 from dataclasses import dataclass, field
 from decimal import Decimal
+from card_platform.domain.finish_evidence import VisualMatchFacts, finish_state
+from card_platform.domain.scoped_parallel_names import parallel_match_text
+from card_platform.domain.reviewed_catalog_identity import reviewed_unnumbered_card_anchor
 from enum import StrEnum
 
 from card_platform.domain.card_identity import (
@@ -17,21 +20,25 @@ from card_platform.domain.listing_title import (
     has_named_card_variant_marker,
     is_explicit_base_listing,
     is_graded_listing,
-    is_memorabilia_listing,
     is_multi_card_listing,
     title_without_inventory_hash_tail,
 )
 from card_platform.domain.product_identity import (
     ProductMatchStatus,
-    assess_product_match,
+    assess_identity_product_match,
+    reviewed_parent_product_confirmation,
     product_matches_title,
     named_child_product_for_parent,
+    has_ambiguous_child_product_shorthand,
 )
-from card_platform.domain.season import explicit_seasons as parse_explicit_seasons
+from card_platform.domain.season import explicit_seasons as parse_explicit_seasons, matches_abbreviated_season
 from card_platform.domain.redemption import redemption_conflict
-from card_platform.domain.listing_attributes import title_claims_autograph
+from card_platform.domain.listing_attributes import autograph_claim, memorabilia_claim
 from card_platform.knowledge import KnowledgeResolver
+from card_platform.domain.entity_roles import identity_has_entity_role_collision
+from card_platform.domain.collector_number import ordinal_collector_number_matches, ordinal_collector_number_conflicts, numeric_card_number_key
 from card_platform.marketplace_aliases import seller_aliases
+from card_platform.domain.subject_aliases import published_subject_aliases, published_subject_matches
 from card_platform.domain.player_aliases import (
     PLAYER_MATCH_ALIAS_EXCLUSIONS,
     matching_player_aliases,
@@ -57,6 +64,7 @@ class ComparableInput:
     visual_verdict: str | None = None
     visual_confidence: Decimal | None = None
     visual_reasons: tuple[str, ...] = ()
+    visual_facts: VisualMatchFacts | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,7 +72,7 @@ class Classification:
     tier: ComparableTier
     similarity: Decimal
     source_reliability: Decimal
-    field_matches: dict[str, bool | None] = field(default_factory=dict)
+    field_matches: dict[str, bool | str | None] = field(default_factory=dict)
     hard_conflicts: list[str] = field(default_factory=list)
 
 
@@ -115,7 +123,7 @@ def _weak_insert_alias(alias: object, canonical: object) -> bool:
     )
 
 
-def _contains_player(text: str, value: object, *, minimum_matches: int | None = None) -> bool:
+def _contains_player(text: str, value: object, *, minimum_matches: int | None = None, resolver=None) -> bool:
     player = str(value or "").strip()
     parts = player_roster_components(player)
     aliases = {
@@ -152,14 +160,16 @@ def _contains_player(text: str, value: object, *, minimum_matches: int | None = 
 
     def contains_part(part: str) -> bool:
         normalized_part = normalize_text(part)
+        published = {normalize_text(a) for a in published_subject_aliases(part, resolver)}
         # Initial punctuation varies across labels and seller titles (C.J./CJ).
         # Collapse only adjacent one-letter initials, not arbitrary name words.
         compact_part = re.sub(r"\b([a-z])\s+([a-z])\b", r"\1\2", normalized_part)
         compact_title = re.sub(r"\b([a-z])\s+([a-z])\b", r"\1\2", normalize_text(text))
         return (
-            _contains(text, part)
+            published_subject_matches(text, part, resolver)
+            or (normalized_part not in published and _contains(text, part))
             or bool(
-                re.search(
+                normalized_part not in published and re.search(
                     r"(?<![0-9a-z])" + re.escape(compact_part) + r"(?![0-9a-z])",
                     compact_title,
                 )
@@ -171,9 +181,12 @@ def _contains_player(text: str, value: object, *, minimum_matches: int | None = 
                     *matching_player_aliases(normalized_part),
                 )
                 if alias not in PLAYER_MATCH_ALIAS_EXCLUSIONS.get(normalized_part, set())
+                and normalize_text(alias) not in published
             )
         )
 
+    if len(parts) > 1 and published_subject_matches(text, player, resolver):
+        return True
     if len(parts) <= 1:
         return contains_part(player)
     required = len(parts) if minimum_matches is None else min(len(parts), minimum_matches)
@@ -182,26 +195,30 @@ def _contains_player(text: str, value: object, *, minimum_matches: int | None = 
 
 def _normalize_card_number(value: object) -> str:
     normalized = normalize_text(value)
-    return re.sub(r"^no\s*", "", normalized).strip()
+    return numeric_card_number_key(re.sub(r"^no\s*", "", normalized).strip())
 
 
-def has_partial_multi_player_match(title: str, player_name: str) -> bool:
+def has_partial_multi_player_match(title: str, player_name: str, *, resolver=None) -> bool:
     """Two distinct subjects on a 3+ subject card justify image review only."""
     return bool(
         len(player_roster_components(player_name)) >= 3
-        and _contains_player(title, player_name, minimum_matches=2)
+        and _contains_player(title, player_name, minimum_matches=2, resolver=resolver)
     )
 
 
 def _contains_card_number(text: str, value: object) -> bool:
+    ordinal_match = ordinal_collector_number_matches(text, value)
+    if ordinal_match is not None:
+        return ordinal_match
     target = _normalize_card_number(value)
     if not target:
         return False
     if target.isdigit():
+        raw_target = re.sub(r"^no\s*", "", normalize_text(value)).strip()
         if (
-            len(target) > 1
-            and target.startswith("0")
-            and re.search(rf"(?<!\d){re.escape(target)}(?!\d)", text)
+            len(raw_target) > 1
+            and raw_target.startswith("0")
+            and re.search(rf"(?<!\d){re.escape(raw_target)}(?!\d)", text)
         ):
             return True
         return bool(
@@ -252,6 +269,7 @@ _PARALLEL_COLORS = {
     "silver": "银",
 }
 _SPECIFIC_PARALLEL_TECHNOLOGIES = {
+    "geometric": ("geometric", "几何", "幾何"),
     "cracked ice": ("cracked ice", "碎冰", "冰裂"),
     "diamond": ("diamond", "钻石"),
     "laser": ("laser", "镭射"),
@@ -373,6 +391,19 @@ def parallel_title_has_conflicting_specificity(
     translation of a checklist ``Blue Prizm``; that one audited spelling is a
     synonym of *Prizm*, while an English ``Blue Laser`` remains a distinct card.
     """
+    target_normalized = normalize_text(target)
+    if target_normalized in {'refractor', 'chrome refractor', 'silver refractor', 'silver'}:
+        # A generic Refractor alias occurs inside Red/Lava Refractor too.
+        # Require an explicit finish phrase so player/team colour words alone
+        # do not turn into version conflicts.
+        colors = '|'.join(re.escape(c) for c in _PARALLEL_COLORS if c != 'silver')
+        technologies = '|'.join(re.escape(alias) for aliases_ in
+            _SPECIFIC_PARALLEL_TECHNOLOGIES.values() for alias in aliases_
+            if re.search(r'[a-z]', alias))
+        if re.search(rf'(?<![a-z0-9])(?:(?:{colors})\s+(?:(?:{technologies})\s+)?'
+                     rf'|(?:{technologies})\s+)(?:refractor|parallel)(?![a-z0-9])',
+                     normalize_text(text)):
+            return True
     target_color = _parallel_color(target)
     if target_color is None:
         return False
@@ -447,6 +478,33 @@ def parallel_matches_title(
     )
 
 
+def shortened_refractor_color_claim(text: str, target: object) -> bool:
+    """A matching Chinese colour alone omits finish detail; it proves no version."""
+    normalized = normalize_text(target)
+    color = _parallel_color(target)
+    if color is None or normalized != f'{color[0]} refractor':
+        return False
+    phrase = color[1] + '折'
+    if phrase not in text:
+        return False
+    if re.search(r'(?:非|无|無|不是|并非|並非|不含|\bnot\s+|\bwithout\s+|\bnon[-\s]*)\s*'
+                 + re.escape(phrase), text, re.I):
+        return False
+    # Specific technologies elsewhere in the same title still contradict a
+    # plain finish. Geometric is included even when the older colour parser
+    # does not recognize the Chinese spelling.
+    if _target_parallel_technologies(text) or re.search(r'\bgeometric\b|几何|幾何', text, re.I):
+        return False
+    # Conflict vocabulary is wider than the supported target shorthand. Match
+    # colour-plus-finish phrases, not a player's surname such as Brown.
+    conflict_colors = dict(_PARALLEL_COLORS, white='白', yellow='黄', brown='棕')
+    chinese_claims = set(re.findall('([' + ''.join(set(conflict_colors.values()))
+                                    + '])(?:色)?(?:折|平行)', text))
+    english_claims = set(re.findall(r'\b(' + '|'.join(conflict_colors)
+                                   + r')\s+(?:parallel|refractor)\b', text, re.I))
+    return chinese_claims == {color[1]} and all(c.casefold() == color[0] for c in english_claims)
+
+
 def _contains_parallel(text: str, value: object) -> bool:
     target = normalize_text(value)
     aliases = {
@@ -517,6 +575,14 @@ def _contains_parallel(text: str, value: object) -> bool:
 def _contains_other_parallel(text: str, target: object) -> bool:
     target_text = normalize_text(target)
     normalized = normalize_text(text)
+    # Named foil families have no colour token; colour-only checks miss an
+    # explicit different version even when the back supplies a valid stamp.
+    named_foils = {'astro', 'cosmic', 'fractal', 'galactic', 'impact', 'lava', 'cubic', 'sunburst'}
+    if target_text in named_foils and any(
+        re.search(rf'\b{re.escape(name)}\b', normalized)
+        for name in named_foils - {target_text}
+    ):
+        return True
     if parallel_title_has_conflicting_specificity(text, target):
         return True
     parallel_aliases = {
@@ -628,90 +694,79 @@ class ComparableClassifier:
         ):
             conflicts.append("grade_conflict")
         target_material = target.is_memorabilia or target.is_patch
-        comp_material = bool(
-            is_memorabilia_listing(text)
-            or re.search(r"\bmem(?:orabilia)?\b|\bgu\b", text, re.I)
-            or any(
-                normalize_text(alias) in normalized
-                for canonical in ("sweet stroke", "hardcourt heroics", "gu jersey")
-                for alias in INSERT_ALIASES[canonical]
-            )
-        )
-        if target_material != comp_material:
+        material_state = memorabilia_claim(text)
+        comp_material = material_state is True
+        attribute_omissions = []
+        if target_material and material_state is None:
+            attribute_omissions.append('material')
+        elif material_state is not None and target_material != material_state:
             conflicts.append("material_conflict")
         target_autograph = target.is_autograph
-        comp_autograph = title_claims_autograph(text)
-        if target_autograph != comp_autograph:
+        from card_platform.domain.sketch_identity import is_sketch_card, without_artist_signature, SKETCH_ALIASES
+        autograph_state = autograph_claim(without_artist_signature(text)
+            if is_sketch_card(target.insert) else text)
+        if target_autograph and autograph_state is None:
+            attribute_omissions.append('autograph')
+        elif autograph_state is not None and target_autograph != autograph_state:
             conflicts.append("autograph_conflict")
 
-        player = _contains_player(text, target.player_name)
-        normalized_player = normalize_text(target.player_name)
-        player_role_collision = bool(
-            normalized_player
-            and any(
-                normalized_player == role
-                or (
-                    len(normalized_player) >= 4
-                    and bool(
-                        re.search(
-                            rf"(?<![0-9a-z]){re.escape(normalized_player)}"
-                            rf"(?![0-9a-z])",
-                            role,
-                        )
-                    )
-                )
-                for value in (
-                    target.brand_name,
-                    target.product_name,
-                    target.set_name,
-                    target.insert,
-                )
-                if (role := normalize_text(value))
-            )
+        player = _contains_player(text, target.player_name, resolver=self.resolver)
+        player_role_collision = identity_has_entity_role_collision(
+            target.as_dict(), resolver=self.resolver
         )
         if player_role_collision:
             player = False
             conflicts.append("identity_role_conflict")
-        product_status = assess_product_match(
-            text,
-            target.product_name,
-            target_set=target.set_name,
-            target_insert=target.insert,
-            target_parallel=target.parallel,
-        )
-        product = product_status == ProductMatchStatus.MATCH
+        product_status = assess_identity_product_match(text, target.as_dict(), resolver=self.resolver)
+        from card_platform.domain.reviewed_source_back import reviewed_source_back_matches, reviewed_source_back_fields, reviewed_front_serial_digest
+        reviewed_back = reviewed_source_back_matches(target, text, comp.visual_facts)
+        reviewed_back_fields = reviewed_source_back_fields(target, text, comp.visual_facts)
+        from card_platform.domain.reviewed_catalog_back import reviewed_cover_subject, reviewed_copyright_year_label
+        reviewed_work = reviewed_cover_subject(target.as_dict(), text, comp.visual_facts, resolver=self.resolver)
+        player = player or (reviewed_work and not player_role_collision)
+        front_serial_digest = reviewed_front_serial_digest(target, text, comp.visual_facts)
+        reviewed_product = reviewed_parent_product_confirmation(
+            text, target.as_dict(), comp.visual_facts, resolver=self.resolver)
+        from card_platform.domain.reviewed_reference_product import reviewed_reference_product_evidence
+        reference_product = reviewed_reference_product_evidence(
+            text, target.as_dict(), comp.visual_facts, resolver=self.resolver)
+        product = product_status == ProductMatchStatus.MATCH or reviewed_product or reviewed_back or bool(reference_product)
+        from card_platform.domain.entity_roles import title_without_catalog_subject
+        attribute_text = title_without_catalog_subject(text, target.as_dict(), resolver=self.resolver)
         season_tokens = (
             {
                 str(target.season_start),
                 str(target.season_end),
                 f"{target.season_start}-{str(target.season_end)[-2:]}",
-                f"{str(target.season_start)[-2:]}-{str(target.season_end)[-2:]}",
             }
             if target.season_start and target.season_end
             else {str(target.season_start)}
             if target.season_start
             else set()
         )
-        explicit_seasons = parse_explicit_seasons(text)
+        explicit_seasons = parse_explicit_seasons(attribute_text)
         target_season = (
             (int(target.season_start), int(target.season_end))
             if target.season_start and target.season_end
             else None
         )
-        short_season_token = (
-            f"{str(target.season_start)[-2:]} {str(target.season_end)[-2:]}"
-            if target.season_start and target.season_end
-            else ""
-        )
         season = (
             target_season in explicit_seasons
             if explicit_seasons and target_season
             else not season_tokens
-            or any(token in text for token in season_tokens)
-            or bool(short_season_token and short_season_token in normalized)
+            or any(token in attribute_text for token in season_tokens)
+            or matches_abbreviated_season(attribute_text, target.season_start, target.season_end)
         )
         normalized_target_number = _normalize_card_number(target.card_number)
-        card_number = _contains_card_number(text, target.card_number)
+        if not season and reviewed_copyright_year_label(target.as_dict(), text, comp.visual_facts, resolver=self.resolver):
+            season = True
+        if (reviewed_back and not explicit_seasons
+                and not re.search(r'(?<![\d/])(?:19|20)\d{2}(?!\d)', attribute_text)):
+            season = True
+        card_number = _contains_card_number(attribute_text, target.card_number)
+        card_number = card_number or 'card_number' in reviewed_back_fields
+        if ordinal_collector_number_conflicts(attribute_text, target.card_number):
+            conflicts.append("card_number_conflict")
         target_card_number = normalized_target_number
         raw_target_number = str(target.card_number or "").strip()
         prefixed_number = re.fullmatch(r"([A-Za-z]+)[#\s-]*(\d+)", raw_target_number)
@@ -720,7 +775,7 @@ class ComparableClassifier:
             explicit_same_family = set(
                 re.findall(
                     rf"(?<![0-9A-Za-z])#?{re.escape(prefix)}[\s-]*(\d+)(?!\d)",
-                    text,
+                    attribute_text,
                     re.IGNORECASE,
                 )
             )
@@ -729,7 +784,7 @@ class ComparableClassifier:
         elif raw_target_number.isdigit():
             explicit_numeric_numbers = set(
                 re.findall(
-                    r"(?:#|\bno\.?\s*)(\d+)(?!\d)", title_without_inventory_hash_tail(text), re.I
+                    r"(?:#|\bno\.?\s*)(\d+)(?!\d)", title_without_inventory_hash_tail(attribute_text), re.I
                 )
             )
             if (
@@ -753,6 +808,7 @@ class ComparableClassifier:
             dict.fromkeys(
                 (
                     *seller_aliases("insert", target.insert),
+                    *(SKETCH_ALIASES if is_sketch_card(target.insert) else ()),
                     *(
                         knowledge_insert_aliases
                         or INSERT_ALIASES.get(normalize_text(target.insert), (target.insert or "",))
@@ -786,7 +842,14 @@ class ComparableClassifier:
             else target.parallel
         )
         target_parallel = normalize_text(target_parallel_value)
-        parallel = _contains_parallel(text, target_parallel_value)
+        unknown_finish = finish_state(target) == 'unknown'
+        paired_finish = bool(comp.visual_facts and comp.visual_facts.valid_for_target(target, text))
+        attributes_image_confirmed = bool(
+            paired_finish and comp.visual_verdict == 'same' and visual_confidence >= Decimal('.95'))
+        if not attributes_image_confirmed:
+            conflicts.extend(f'{attribute}_confirmation_required' for attribute in attribute_omissions)
+        parallel_text = parallel_match_text(text, target.as_dict(), resolver=self.resolver)
+        parallel = _contains_parallel(parallel_text, target_parallel_value)
         explicitly_described_base = is_explicit_base_listing(text)
         totals = explicit_print_runs(text)
         explicit_base_ambiguous_finish = bool(
@@ -835,6 +898,11 @@ class ComparableClassifier:
             and not (comp.visual_verdict == "same" and visual_confidence >= Decimal("0.95"))
         )
         target_total = target.serial_total or target.print_run
+        shortened_parallel = bool(
+            target_total and totals == {int(target_total)}
+            and (target.card_number or target.insert)
+            and shortened_refractor_color_claim(parallel_text, target_parallel_value)
+        )
         intrinsic_holofoil_base = False
         if normalize_text(target.insert) == "starquest":
             star_tiers = {
@@ -852,30 +920,9 @@ class ComparableClassifier:
                 if name != target_parallel
             ):
                 conflicts.append("parallel_conflict")
-        if target_parallel == "base":
-            named_parallel = bool(
-                material_parallel_marker
-                or re.search(
-                    r"(?:\bred\b|\bblue\b|\bgold\b|\bgreen\b|\bpurple\b|"
-                    r"\bblack\b|\bsilver\b|\bbronze\b|红折|蓝折|金折|绿折|"
-                    r"紫折|黑折|银折|铜折)",
-                    text,
-                    re.I,
-                )
-            )
-            if visual_confirms_ambiguous_base_finish or explicit_base_ambiguous_finish:
-                named_parallel = False
-            elif named_parallel and unresolved_ambiguous_finish:
-                # Refractor/foil wording alone is ambiguous in seller titles:
-                # it can describe ordinary shiny stock rather than a checklist
-                # parallel.  Preserve the real sale as a low-confidence
-                # comparable, while explicit colour, technology and serial
-                # markers above remain hard version conflicts.
-                named_parallel = False
-            parallel = not named_parallel
-            if named_parallel:
-                conflicts.append("parallel_conflict")
-        elif not target_parallel and not (target.serial_total or target.print_run):
+        # Base and unknown share product-intrinsic stock vocabulary, but only
+        # an explicit Base identity can conflict with a named source finish.
+        if target_parallel in {"", "base"} and not (target.serial_total or target.print_run):
             optic_base_insert = bool(
                 "contenders optic" in normalize_text(target.product_name) and target.insert
             )
@@ -1002,28 +1049,57 @@ class ComparableClassifier:
                 # finish word as the target insert's stock, but explicit
                 # colours, technologies and serial totals remain conflicts.
                 named_parallel = False
-            if named_parallel:
+            # A named source finish is not a contradiction of an unknown
+            # target finish. It remains pending paired-front evidence.
+            if named_parallel and not unknown_finish:
                 conflicts.append("parallel_conflict")
-        elif target_parallel and not parallel:
+        elif target_parallel and not parallel and not shortened_parallel:
             if (
                 (explicitly_described_base and not (target_total and int(target_total) in totals))
-                or _contains_other_parallel(text, target_parallel_value)
+                or _contains_other_parallel(parallel_text, target_parallel_value)
                 or material_parallel_marker
             ):
                 conflicts.append("parallel_conflict")
+        if target_parallel == 'base' and target_total and material_parallel_marker:
+            conflicts.append('parallel_conflict')
         serial_total = bool(target_total and int(target_total) in totals)
         if (
             serial_total
             and target_parallel
             and target_parallel != "base"
-            and not _contains_other_parallel(text, target_parallel_value)
+            and not shortened_parallel
+            and not _contains_other_parallel(parallel_text, target_parallel_value)
         ):
             parallel = True
         if totals and target_total and int(target_total) not in totals:
             conflicts.append("serial_total_conflict")
+        original_art_singleton = (is_sketch_card(target.insert) and is_sketch_card(text) and totals == {1})
+        if (unknown_finish or target_parallel == 'base') and totals and not target_total and not original_art_singleton:
+            conflicts.append('target_serial_total_unknown')
+        # Preserve all explicit title conflicts before supplying omitted fields.
+        serial_total = serial_total or 'serial_total' in reviewed_back_fields or bool(front_serial_digest)
+        parallel = parallel or 'parallel_name' in reviewed_back_fields
+        child_product_shorthand_visual_confirmation = bool(
+            product_status == ProductMatchStatus.UNKNOWN
+            and comp.source_code == "cardhobby"
+            and has_ambiguous_child_product_shorthand(text, target.product_name)
+            and normalize_text(target.brand_name) == "panini"
+            and re.search(r"\bpanini\b", text, re.I)
+            and player
+            and target_season
+            and explicit_seasons == {target_season}
+            and (card_number or serial_total)
+            and (not target_total or serial_total)
+            and (target_parallel in {"", "base"} or parallel)
+            and comp.visual_verdict == "same"
+            and visual_confidence >= Decimal("0.95")
+            and geometry_same_template
+        )
+        if child_product_shorthand_visual_confirmation:
+            product = True
         partial_multi_player_verified = bool(
             not player
-            and has_partial_multi_player_match(text, target.player_name)
+            and has_partial_multi_player_match(text, target.player_name, resolver=self.resolver)
             and product
             and season
             and (
@@ -1040,7 +1116,7 @@ class ComparableClassifier:
             not player
             and comp.source_code == "cardhobby"
             and len(player_roster_components(target.player_name)) >= 2
-            and _contains_player(text, target.player_name, minimum_matches=1)
+            and _contains_player(text, target.player_name, minimum_matches=1, resolver=self.resolver)
             and re.search(
                 r"双人|三人|四人|多人|\bduals?\b|\bduos?\b|\btriple\b", text, re.I
             )
@@ -1126,6 +1202,7 @@ class ComparableClassifier:
             # component are contradictory.
             known_other_insert = any(
                 match.entity_id != target_resolution.entity_id
+                and _contains_insert_name(text, match.matched_alias or match.canonical_value)
                 and normalize_text(match.canonical_value) != "gu jersey"
                 and normalize_text(match.canonical_value) not in target_component_names
                 and normalize_text(match.matched_alias or "") not in target_player_aliases
@@ -1161,7 +1238,7 @@ class ComparableClassifier:
         }
         legacy_other_insert = any(
             any(
-                normalize_text(alias) in normalized
+                _contains_insert_name(text, alias)
                 and normalize_text(alias) not in target_player_aliases
                 and normalize_text(alias) not in target_legacy_insert_aliases
                 and normalize_text(alias) not in target_component_names
@@ -1222,10 +1299,15 @@ class ComparableClassifier:
             )
 
         fields = {
+            "finish_evidence_status": ('paired_front_verified' if paired_finish else 'pending')
+                if unknown_finish else 'named_or_base',
             "player": player,
             "partial_multi_player_visual_confirmation": partial_multi_player_verified,
             "season": season,
             "product": product if product else None,
+            "reviewed_parent_product_confirmation": reviewed_product,
+            "reviewed_source_back_identity": reviewed_back,
+            "child_product_shorthand_visual_confirmation": child_product_shorthand_visual_confirmation,
             "card_number": card_number,
             "insert": insert,
             "parallel": parallel,
@@ -1241,18 +1323,53 @@ class ComparableClassifier:
             "ambiguous_finish_softened": ambiguous_finish_softened,
         }
         serial_requirement_met = target_total is None or serial_total
+        if front_serial_digest:
+            fields['reviewed_front_serial_sha256'] = front_serial_digest
+        if reference_product:
+            fields['reviewed_reference_product_confirmation'] = True
+            fields['reviewed_reference_product_evidence'] = reference_product
+        if reviewed_back_fields:
+            from card_platform.valuation_trace import content_hash
+            # Freeze the exact sealed supplement into stored classifications
+            # and publication drafts. Serialized hashes confer no authority.
+            fields['reviewed_source_back_identity_sha256'] = content_hash(
+                comp.visual_facts._reviewed_proof.source_back_json.encode())
         visual_chrome_auto_base_finish = bool(
             target_parallel in {"silver", "silver refractor", "refractor"}
             and target.is_autograph
             and "chrome" in normalize_text(target.product_name)
             and not totals
-            and not _contains_other_parallel(text, target_parallel_value)
+            and not _contains_other_parallel(parallel_text, target_parallel_value)
             and comp.visual_verdict == "same"
             and visual_confidence >= Decimal("0.90")
         )
         parallel_requirement_met = (
             target_parallel in {"", "base"} or parallel or visual_chrome_auto_base_finish
         )
+        if parallel_text != text:
+            # Marketplace terminology is a scoped naming clue, not proof of
+            # the source's physical surface. Require the same current paired
+            # image authority used for unknown finishes before granting T0/T1.
+            parallel_requirement_met = parallel_requirement_met and paired_finish
+            fields['scoped_parallel_term_used'] = True
+        # A current independent paired-original review can establish the same
+        # finish when its name is omitted. All explicit conflicts above still
+        # reject; neither model confidence nor geometry alone grants authority.
+        reviewed_named_finish = bool(
+            target_parallel not in {"", "base"} and not unknown_finish and not parallel
+            and paired_finish and comp.visual_facts._reviewed_proof is not None
+            and comp.visual_verdict == "same" and visual_confidence >= Decimal(".95")
+            and player and season and product and (card_number or insert)
+            and serial_requirement_met
+        )
+        if reviewed_named_finish:
+            from card_platform.valuation_trace import content_hash
+            parallel_requirement_met = True
+            fields["reviewed_named_finish_omission"] = True
+            fields["reviewed_named_finish_sha256"] = content_hash(
+                comp.visual_facts._reviewed_proof.review_json.encode())
+        if unknown_finish:
+            parallel_requirement_met = paired_finish
         identity_anchor = insert if target.insert else card_number or serial_total
         visual_exact_template = geometry_same_template
         explicit_base_title = is_explicit_base_listing(text)
@@ -1272,9 +1389,17 @@ class ComparableClassifier:
             and comp.visual_verdict in {"same", "compatible"}
             and visual_confidence >= Decimal("0.90")
         )
+        reviewed_number_anchor = reviewed_unnumbered_card_anchor(
+            target, text, comp.visual_facts, resolver=self.resolver,
+        )
+        fields["reviewed_catalog_number_anchor"] = reviewed_number_anchor
         visual_explicit_base_anchor = bool(
             visual_base_anchor
-            and (explicit_base_title or intrinsic_holofoil_base)
+            # Numeric IDs are often omitted even without the word "base".
+            # Measured geometry plus a same-version image decision can supply
+            # that missing anchor; text alone and explicit variants cannot.
+            and (explicit_base_title or intrinsic_holofoil_base or geometry_same_template
+                 or reviewed_number_anchor)
             and player
             and season
             and product
@@ -1339,13 +1464,16 @@ class ComparableClassifier:
             and comp.visual_verdict == "same" and visual_confidence >= Decimal("0.95")
             and geometry_same_template
         )
-        fields["visual_same_template_anchor"] = bool(
+        fields["visual_same_template_anchor"] = (not unknown_finish or paired_finish) and bool(
             visual_numbered_anchor
             or visual_insert_anchor
             or visual_typed_card_anchor
             or visual_explicit_base_anchor
             or visual_chrome_auto_base_finish
             or visual_parallel_anchor
+            or reviewed_named_finish
+            or ((unknown_finish or reviewed_product or reviewed_back or reference_product) and paired_finish and player and product and season
+                and (card_number or insert) and serial_requirement_met)
         )
         if (
             product
@@ -1374,6 +1502,9 @@ class ComparableClassifier:
             )
         else:
             tier, similarity = ComparableTier.T3, Decimal("0.42")
+        if parallel_text != text and not paired_finish and tier in {ComparableTier.T0, ComparableTier.T1}:
+            tier, similarity = ComparableTier.T2, min(similarity, Decimal('.55'))
+            fields['scoped_parallel_visual_pending'] = True
         if ambiguous_finish_softened and tier in {
             ComparableTier.T0,
             ComparableTier.T1,
@@ -1409,4 +1540,21 @@ class ComparableClassifier:
             fields["parent_child_image_verified_proxy"] = True
             fields["product_lineage_unverified"] = True
             tier, similarity = ComparableTier.T2, Decimal(".55")
+        if attribute_omissions and attributes_image_confirmed:
+            fields['image_confirmed_attribute_omissions'] = attribute_omissions
+            if tier == ComparableTier.T0:
+                tier, similarity = ComparableTier.T1, min(similarity, Decimal('.86'))
+        if (child_product_shorthand_visual_confirmation or reviewed_product or reference_product) and tier == ComparableTier.T0:
+            # Image-confirmed lineage remains below an explicitly named child.
+            tier, similarity = ComparableTier.T1, Decimal(".86")
+        if (tier == ComparableTier.T0 and visual_explicit_base_anchor and not card_number
+                and (reviewed_number_anchor or (not explicit_base_title and not intrinsic_holofoil_base))):
+            # Geometry supplies the omitted numeric anchor, not a photographed
+            # candidate-back number or complete reverse-side identity.
+            fields["card_number_image_supported_only"] = True
+            tier, similarity = ComparableTier.T1, Decimal(".86")
+        if unknown_finish and not paired_finish:
+            tier, similarity = ComparableTier.T2, min(similarity, Decimal('.45'))
+        if (reviewed_back or reviewed_work or front_serial_digest or reviewed_named_finish) and tier == ComparableTier.T0:
+            tier, similarity = ComparableTier.T1, min(similarity, Decimal('.86'))
         return Classification(tier, similarity, comp.source_reliability, fields)

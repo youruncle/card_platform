@@ -96,6 +96,8 @@ def validate_manifest(manifest: dict[str, Any]) -> ManifestReport:
         if kind not in ALLOWED_ENTITY_TYPES:
             conflicts.append({"code": "invalid_entity_type", "entity": key, "value": kind})
         identity = (kind, normalize_knowledge_text(entity["canonical_name"]))
+        if not identity[1]:
+            conflicts.append({"code": "empty_canonical_key", "entity": key})
         if previous := normalized.get(identity):
             conflicts.append({"code": "duplicate_canonical", "entity": key, "other": previous})
         normalized[identity] = key
@@ -108,6 +110,8 @@ def validate_manifest(manifest: dict[str, Any]) -> ManifestReport:
                     {"code": "invalid_alias_type", "entity": key, "alias": alias["value"]}
                 )
             alias_key = (kind, normalize_knowledge_text(alias["value"]))
+            if not alias_key[1]:
+                conflicts.append({"code": "empty_alias_key", "entity": key, "alias": alias["value"]})
             if previous := aliases.get(alias_key):
                 if previous != key:
                     conflicts.append(

@@ -35,7 +35,8 @@ class CardHobbyMarketDataProvider(MarketDataProvider):
         """Keep direct and background retrieval on the same evidence contract."""
         fetched_at = datetime.now(timezone.utc)
         evidence = []
-        for sale in result.sales:
+        candidates = result.candidate_pool if result.candidate_pool is not None else result.sales
+        for sale in candidates:
             # SearchCommodity returns a bounded relevance snapshot, not an
             # incremental event feed. Re-ingest the full snapshot so matcher,
             # alias or identity-version upgrades can backfill older exact sales;
@@ -64,12 +65,14 @@ class CardHobbyMarketDataProvider(MarketDataProvider):
                         "conflicts": sale.conflicts,
                         "source_reliability": str(sale.source_reliability),
                     },
-                    raw_payload=sale.model_dump(mode="json"),
+                    raw_payload=sale.model_dump(mode="json",
+                        exclude={'source_gallery'} if not sale.source_gallery else None),
                     fetched_at=fetched_at,
                 )
             )
         return ProviderFetchResult(
             provider_code=cls.code,
+            public_image_sources=result.public_source_pool,
             evidence=evidence,
             notes=result.notes,
             query_diagnostics=[item.model_dump(mode="json") for item in result.query_diagnostics],

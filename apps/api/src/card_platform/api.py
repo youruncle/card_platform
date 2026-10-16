@@ -1,11 +1,13 @@
 from collections.abc import AsyncIterator
 from uuid import UUID
+from typing import Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 from pydantic import ValidationError
 
+from card_platform.portfolio_sort import SortBy, SortOrder, SortedPortfolioPage, sorted_page
 from card_platform.portfolio_search import SearchFilters, search_item_ids
 
 from card_platform.analysis_repository import AnalysisRepository
@@ -164,15 +166,22 @@ async def list_items(
     return await repository.list_items(connection, user.id)
 
 
-@router.get("/portfolio/items/page", response_model=PortfolioPage)
+@router.get("/portfolio/items/page", response_model=SortedPortfolioPage)
 async def list_items_page(
     owner_id: UUID | None = None,
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=30, ge=1, le=30),
+    page_size: int = Query(default=30, ge=1, le=100),
     user: AuthenticatedUser = Depends(current_user),
     connection: AsyncConnection = Depends(get_connection),
     search: str | None = None,
+    sort_by: SortBy | None = None,
+    order: SortOrder = "desc",
+    snapshot: bool = False,
+    snapshot_token: str | None = None,
+    include_summary: bool = False,
+    snapshot_mode: Literal["full", "membership"] = "full",
 ) -> PortfolioPage:
+    filters = None
     if search is not None:
         if len(search) > 12000:
             raise HTTPException(422, "搜索条件过长")
@@ -180,6 +189,14 @@ async def list_items_page(
             filters = SearchFilters.model_validate_json(search)
         except ValidationError:
             raise HTTPException(422, "搜索条件无效，请检查字段、数字范围和格式") from None
+    if sort_by is not None or order != "desc" or snapshot or snapshot_token or include_summary:
+        ids = None
+        if not snapshot_token and filters and filters.model_dump(exclude_defaults=True):
+            ids = await search_item_ids(connection, user.id, filters)
+        return await sorted_page(connection, repository, user, filters=filters, candidate_ids=ids,
+            sort_by=sort_by or ("relevance" if filters and filters.q else "created_at"), order=order, page=page, page_size=page_size,
+            snapshot=snapshot, snapshot_token=snapshot_token, include_summary=include_summary, snapshot_mode=snapshot_mode)
+    if filters is not None:
         if filters.model_dump(exclude_defaults=True):
             ids = await search_item_ids(connection, user.id, filters)
             total_pages = max(1, (len(ids) + page_size - 1) // page_size)
@@ -189,6 +206,8 @@ async def list_items_page(
                 await repository.list_items(connection, user.id, item_ids=selected)
                 if selected else []
             )
+            rank = {item_id: index for index, item_id in enumerate(selected)}
+            items.sort(key=lambda item: rank[item.id])
             return PortfolioPage(
                 items=items, total=len(ids), page=current_page,
                 page_size=page_size, total_pages=total_pages,

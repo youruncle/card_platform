@@ -1,0 +1,17 @@
+# Repo-root build context: only web sources and the shared TypeScript module.
+**
+!apps/
+!apps/web/
+!apps/web/**
+!packages/
+!packages/card-core/
+!packages/card-core/src/
+!packages/card-core/src/**
+**/node_modules
+**/.next*
+**/dist
+**/.env*
+**/*.log
+**/tsconfig.tsbuildinfo
+**/test-results
+**/playwright-report

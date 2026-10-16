@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import { actCostJob, confirmCost, createCostJob, finishCostSearchStep, getCostAudit, getCostJob, getCostSearchPlan, listCostJobs, resolveCostSearch, type CostAudit, type CostJob, type CostSearchResult, type CostCandidate } from "../lib/api";
-import { CardHobbyConnectionError, CardHobbyLoginError, connectCostSearch, searchCardHobbyOrders } from "../lib/cardhobby-cost-search";
+import { actCostJob, confirmCost, createCostJob, finishCostSearchStep, getCostAudit, getCostJob, getCostSearchPlan, listCostJobs, type CostAudit, type CostJob, type CostSearchResult, type CostCandidate } from "../lib/api";
+import { CardHobbyConnectionError, CardHobbyLoginError, connectCostSearch, searchCardHobbyOrders, resolveCostSearchWithFallback } from "../lib/cardhobby-cost-search";
 import { CardHobbyAccountForm } from "./cardhobby-account-form";
 
 const errorText = (error: unknown) => error instanceof Error ? error.message : "处理失败，请重试";
@@ -79,7 +79,8 @@ export function PurchaseCostPanel({ itemId, onClose, onRecorded, initialResult, 
         const capture = await searchCardHobbyOrders(plan.keywords, controller.signal);
         if (!alive) return;
         setMessage("正在核对商品与运费…");
-        const result = await resolveCostSearch(currentItem, capture);
+        const result = await resolveCostSearchWithFallback(currentItem, capture, plan, controller.signal,
+          {keepWriteResponseOnClose: true});
         // A confirmed write still refreshes the collection if the modal was closed.
         if (result.status === "recorded") recordedRef.current();
         if (!alive) return;
@@ -112,7 +113,7 @@ export function PurchaseCostPanel({ itemId, onClose, onRecorded, initialResult, 
         const plan = await getCostSearchPlan(item);
         if (!alive) return;
         setMessage(`正在搜索 ${job.scanned + 1} / ${job.item_ids?.length}：${plan.label}`);
-        const capture = plan.status === "skipped" ? {orders:[], complete:true} : await searchCardHobbyOrders(plan.keywords, controller.signal);
+        const capture = plan.status === "skipped" ? {orders:[], complete:true} : await searchCardHobbyOrders(plan.keywords, controller.signal, plan.fallback_keywords);
         if (!alive) return;
         const next = await finishCostSearchStep(job.id, item, capture);
         if (next.succeeded > job.succeeded) recordedRef.current();
@@ -259,11 +260,12 @@ export function PurchaseCostPanel({ itemId, onClose, onRecorded, initialResult, 
 export function OrderEvidenceSnapshot({candidate}: {candidate:CostCandidate}) {
   return <section className="cost-order-snapshot">
     <strong>{candidate.title}</strong>
-    <p>{candidate.match_method === "inferred" ? "推测匹配（请核对）" : "严格匹配 / 已核验来源"} · 匹配置信度 {Math.round(Number(candidate.confidence)*100)}%</p>
+    <p>{candidate.match_method === "image_title_correction" ? "图片核验纠正卖家标题（请核对）" : candidate.match_method === "inferred" ? "推测匹配（请核对）" : candidate.match_method === "bundle_equal_split" ? "打包订单按实体张数均摊" : "严格匹配 / 已核验来源"} · 匹配置信度 {Math.round(Number(candidate.confidence)*100)}%</p>
     {(candidate.inference_warnings ?? []).length > 0 && <p role="note">{candidate.inference_warnings?.join("；")}</p>}
     <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>{candidate.image_urls.map(url=><a key={url} href={url} target="_blank" rel="noreferrer"><img src={url} alt="订单商品快照" referrerPolicy="no-referrer" style={{maxWidth:200,maxHeight:280,objectFit:"contain"}}/></a>)}</div>
     {!candidate.image_urls.length && <p>该订单没有商品图片，标题和价格证据仍保留。</p>}
     <p>卡价 ¥{candidate.card_price} + 分摊运费 ¥{candidate.shipping} = 总成本 ¥{candidate.total_cost}</p>
+    {candidate.shipping_basis === "owner_default" && <p role="note">顺丰到付运费按本账户指定的整单默认金额、依实物卡张数均摊；不是卡淘线上实付运费，实际到付金额尚未核实。</p>}
     <p>{candidate.ordered_at} · {candidate.seller} · {candidate.status}</p>
     {candidate.visual_inference && <p>图片模型推测（可能有误，不代表人工核验）：{candidate.visual_inference.reasons.join("；")}</p>}
     <p>标题、价格与图片链接按录入时保存；点击图片查看原图，远端图片失效时不影响已保存的金额与标题。</p>

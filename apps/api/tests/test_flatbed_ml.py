@@ -64,9 +64,7 @@ async def test_sam2_refinement_accepts_same_count_safe_geometry(tmp_path: Path) 
 async def test_sam2_soft_prompt_falls_back_to_current_side_geometry(
     tmp_path: Path,
 ) -> None:
-    current = [
-        Detection(0.5, 0.5, 0.5, 0.25, 0, 0.46, "card_outline_unresolved")
-    ]
+    current = [Detection(0.5, 0.5, 0.5, 0.25, 0, 0.46, "card_outline_unresolved")]
     prompt = [Detection(0.54, 0.48, 0.46, 0.27, 0, 0.46)]
     script, checkpoint = worker(
         tmp_path,
@@ -305,3 +303,81 @@ async def test_unresolved_grid_fallback_is_low_confidence_and_explainable(
     assert metadata["fallback_count"] == 1
     assert detections[0].confidence == 0.49
     assert detections[0].failure == "card_outline_unresolved"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("has_quad", [False, True])
+async def test_unresolved_search_requires_mask_corners_and_counts_success(tmp_path, has_quad):
+    original = [
+        Detection(
+            0.1,
+            0.1,
+            0.6,
+            0.6,
+            0,
+            0.49,
+            "card_outline_unresolved",
+            evidence=("quad_unresolved", "search_region_only"),
+        )
+    ]
+    raw = dict(x=0.2, y=0.2, width=0.45, height=0.4, confidence=0.97, refined=True)
+    if has_quad:
+        raw["points"] = [[0.2, 0.2], [0.65, 0.2], [0.65, 0.6], [0.2, 0.6]]
+    script, checkpoint = worker(tmp_path, {"detections": [raw]})
+    detections, metadata = await refine_with_sam2(
+        b"image",
+        original,
+        python_path=sys.executable,
+        worker_script=script,
+        checkpoint=checkpoint,
+        timeout_seconds=2,
+    )
+    if has_quad:
+        assert metadata["status"] == "accepted"
+        assert metadata["refined_count"] == 1
+        assert "quad_unresolved" not in detections[0].evidence
+        assert "search_region_only" not in detections[0].evidence
+    else:
+        assert metadata["status"] == "fallback"
+        assert "quad_unresolved" in detections[0].evidence
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "bad_points",
+    [
+        [],
+        [[0.2, 0.2]],
+        "invalid",
+        [[0.2, 0.2]] * 4,
+        [[0.2, 0.2], [0.3, 0.3], [0.4, 0.4], [0.5, 0.5]],
+        [[0.2, 0.2], [0.6, 0.2], [0.3, 0.3], [0.2, 0.6]],
+    ],
+)
+async def test_invalid_mask_corners_cannot_resolve_search_region(tmp_path, bad_points):
+    original = [
+        Detection(
+            0.1,
+            0.1,
+            0.6,
+            0.6,
+            0,
+            0.49,
+            "card_outline_unresolved",
+            evidence=("quad_unresolved", "search_region_only"),
+        )
+    ]
+    raw = dict(
+        x=0.2, y=0.2, width=0.45, height=0.4, confidence=0.97, refined=True, points=bad_points
+    )
+    script, checkpoint = worker(tmp_path, {"detections": [raw]})
+    detections, metadata = await refine_with_sam2(
+        b"image",
+        original,
+        python_path=sys.executable,
+        worker_script=script,
+        checkpoint=checkpoint,
+        timeout_seconds=2,
+    )
+    assert metadata["status"] == "fallback"
+    assert "quad_unresolved" in detections[0].evidence

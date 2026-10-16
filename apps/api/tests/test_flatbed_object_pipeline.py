@@ -51,16 +51,16 @@ async def test_service_audits_final_geometry_against_pre_sam_object_not_model_sc
 
     assert len(result["regions"]) == 1  # Preserve the editable output.
     assert not result["regions"][0]["crop_quality"]["usable"]
-    assert "crop_quality_incomplete_card_object" in result["failures"]
-    audit = result["layout_hypothesis"]["object_integrity"]
+    assert "crop_quality_unexplained_card_content" in result["failures"]
+    audit = result["layout_hypothesis"]["original_content_integrity"]
     assert audit["status"] == "requires_review"
-    assert audit["minimum_object_coverage"] == pytest.approx(0.5)
+    assert 0.47 <= audit["minimum_content_coverage"] <= 0.52
     stored_sheet = next(
         call.args[1]
         for call in db.execute.call_args_list
         if call.args[0].startswith("INSERT INTO flatbed_scan_sheet")
     )
-    assert stored_sheet[9].obj["object_integrity"] == audit
+    assert stored_sheet[9].obj["original_content_integrity"] == audit
     assert stored_sheet[11] is True
 
 
@@ -120,22 +120,128 @@ async def test_complete_back_objects_bypass_old_front_slot_cropping(
             },
         ),
     )
-    stale_slots = AsyncMock(side_effect=AssertionError("Old slots must not override complete objects"))
-    refiner = AsyncMock(return_value=([obj], {"status": "accepted", "refined_count": 1}))
+    stale_slots = AsyncMock(
+        side_effect=AssertionError("Old slots must not override complete objects")
+    )
+
+    async def preserve_quads(content, detections, **kwargs):
+        return detections, {"status": "accepted", "refined_count": 1}
+
+    refiner = AsyncMock(side_effect=preserve_quads)
     monkeypatch.setattr("card_platform.flatbed_slot_refinement.refine_back_slots", stale_slots)
     monkeypatch.setattr("card_platform.flatbed_service.refine_with_sam2", refiner)
     service = FlatbedService(str(tmp_path), "bridge.swift", ml_enabled=True)
     service.orientation_classifier.classify = AsyncMock(return_value=None)
-    result = await service.store_sheet(db, owner_id, session_id, "back", encoded.tobytes(), "image/png")
+    result = await service.store_sheet(
+        db, owner_id, session_id, "back", encoded.tobytes(), "image/png"
+    )
 
     stale_slots.assert_not_called()
-    assert refiner.call_args.args[1] == [obj]
+    assert len(refiner.call_args.args[1]) == 1
+    assert "current_pixel_quad" in refiner.call_args.args[1][0].evidence
     assert refiner.call_args.kwargs["prompt_detections"] is None
     assert len(result["regions"]) == 1
-    assert result["regions"][0]["bounds"]["height"] == obj.height
-    assert result["layout_hypothesis"]["object_integrity"]["status"] == "accepted"
+    assert result["regions"][0]["bounds"]["height"] >= obj.height
+    assert result["layout_hypothesis"]["original_content_integrity"]["status"] in {"accepted", "search_content_checked"}
     assert result["layout_hypothesis"]["slot_refinement"]["reason"] == "independent_back_geometry"
     assert ("front_back_count_mismatch" in result["failures"]) == (old_front_count == 2)
     assert "front_layout_splits_current_cards" not in result["failures"]
     assert "front_layout_merges_current_cards" not in result["failures"]
     assert "front_layout_conflicts_current_objects" not in result["failures"]
+
+
+@pytest.mark.asyncio
+async def test_unresolved_search_region_keeps_editor_but_writes_no_crop(tmp_path, monkeypatch):
+    image = np.full((600, 600, 3), 245, np.uint8)
+    _, encoded = cv2.imencode(".png", image)
+    obj = Detection(0.1, 0.1, 0.8, 0.8, 0, 0.9, evidence=("cell_extent_fallback",))
+    monkeypatch.setattr(
+        "card_platform.flatbed_service.detect_layout",
+        lambda *a, **k: LayoutHypothesis((obj,), 0.9, 1, 1),
+    )
+    owner, session = uuid4(), uuid4()
+
+    async def execute(sql, params=None):
+        result = AsyncMock()
+        if sql.startswith("SELECT * FROM flatbed_scan_session"):
+            result.fetchone.return_value = {"id": session, "owner_id": owner, "dpi": 300}
+        elif sql.startswith("SELECT COALESCE"):
+            result.fetchone.return_value = {"revision": 1}
+        return result
+
+    db = AsyncMock()
+    db.execute.side_effect = execute
+    service = FlatbedService(str(tmp_path), "bridge.swift", ml_enabled=False)
+    service.ocr_signals = AsyncMock()
+    result = await service.store_sheet(db, owner, session, "front", encoded.tobytes(), "image/png")
+    assert len(result["regions"]) == 1
+    assert result["requires_review"]
+    assert not result["regions"][0]["crop_quality"]["usable"]
+    assert result["regions"][0]["failure_reason"] == "card_outline_unresolved"
+    assert not list(tmp_path.glob("*/*/*/region-*.jpg"))
+    service.ocr_signals.assert_not_called()
+    inserted = next(
+        call.args[1]
+        for call in db.execute.call_args_list
+        if call.args[0].startswith("INSERT INTO flatbed_scan_region")
+    )
+    assert inserted[7] is None
+
+
+@pytest.mark.asyncio
+async def test_service_rejects_wrong_resolver_quad_using_frozen_original_content(tmp_path,monkeypatch):
+    owner_id,session_id=uuid4(),uuid4()
+    obj=Detection(.1,.1,.6,.8,0,.9,evidence=('multi_route_instance_corroboration','independent_source_object'))
+    wrong=replace(obj,y=.5,height=.4,points=((.1,.5),(.7,.5),(.7,.9),(.1,.9)),
+                  evidence=('current_pixel_quad','physical_object_envelope'))
+    image=np.full((1000,700,3),240,np.uint8)
+    cv2.rectangle(image,(70,100),(490,900),(70,90,140),-1)
+    _,encoded=cv2.imencode('.png',image)
+    async def execute(sql,params=None):
+        result=AsyncMock()
+        if sql.startswith('SELECT * FROM flatbed_scan_session'):
+            result.fetchone.return_value={'id':session_id,'owner_id':owner_id,'dpi':300}
+        elif sql.startswith('SELECT COALESCE'):
+            result.fetchone.return_value={'revision':1}
+        return result
+    db=AsyncMock();db.execute.side_effect=execute
+    monkeypatch.setattr('card_platform.flatbed_service.detect_layout',lambda *a,**k: LayoutHypothesis((obj,),.9,1,1))
+    monkeypatch.setattr('card_platform.flatbed_service.resolve_object_layout',lambda *a,**k:
+        LayoutHypothesis((wrong,),.9,1,1,object_references=(obj,)))
+    service=FlatbedService(str(tmp_path),'bridge.swift',ml_enabled=False)
+    service.orientation_classifier.classify=AsyncMock(return_value=None)
+    result=await service.store_sheet(db,owner_id,session_id,'front',encoded.tobytes(),'image/png')
+    assert not result['regions'][0]['crop_quality']['usable']
+    assert 'crop_quality_original_card_content_missing' in result['failures']
+    assert not list(tmp_path.rglob('region-*.jpg'))
+    service.orientation_classifier.classify.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_service_correct_tilt_is_not_rejected_for_axis_background(tmp_path,monkeypatch):
+    owner,session=uuid4(),uuid4()
+    image=np.full((1000,1000,3),240,np.uint8)
+    corners=cv2.boxPoints(((500,500),(500,350),7))
+    cv2.fillConvexPoly(image,np.rint(corners).astype(np.int32),(60,80,120))
+    _,encoded=cv2.imencode('.png',image)
+    lo,hi=corners.min(axis=0)/1000,corners.max(axis=0)/1000
+    ref=Detection(*lo,*(hi-lo),0,.9,evidence=('multi_route_instance_corroboration','independent_source_object'))
+    axis=replace(ref,evidence=('physical_object_envelope','current_pixel_quad','original_content_verified'))
+    rotated=replace(axis,points=tuple(tuple(map(float,p)) for p in corners/1000))
+    async def execute(sql,params=None):
+        result=AsyncMock()
+        if sql.startswith('SELECT * FROM flatbed_scan_session'):
+            result.fetchone.return_value={'id':session,'owner_id':owner,'dpi':300}
+        elif sql.startswith('SELECT COALESCE'):
+            result.fetchone.return_value={'revision':1}
+        return result
+    db=AsyncMock();db.execute.side_effect=execute
+    monkeypatch.setattr('card_platform.flatbed_service.detect_layout',lambda *a,**k: LayoutHypothesis((ref,),.9,1,1))
+    monkeypatch.setattr('card_platform.flatbed_service.resolve_object_layout',lambda *a,**k:
+        LayoutHypothesis((axis,),.9,1,1,object_references=(ref,)))
+    monkeypatch.setattr('card_platform.flatbed_service.refine_with_sam2',AsyncMock(return_value=([rotated],{'status':'accepted'})))
+    service=FlatbedService(str(tmp_path),'bridge.swift',ml_enabled=True)
+    service.orientation_classifier.classify=AsyncMock(return_value=None)
+    result=await service.store_sheet(db,owner,session,'front',encoded.tobytes(),'image/png')
+    assert result['regions'][0]['crop_quality']['usable']
+    assert 'crop_quality_incomplete_card_object' not in result['failures']

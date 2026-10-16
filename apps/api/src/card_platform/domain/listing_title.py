@@ -26,16 +26,24 @@ HARD_LOT_PATTERN = re.compile(
 )
 AMBIGUOUS_SET_CARD_PATTERN = re.compile(r"套卡", re.IGNORECASE)
 MEMORABILIA_PATTERN = re.compile(r"球衣|物料|切割|patch|jersey|relic|\brpa\b", re.I)
+GRADING_COMPANIES = (
+    r"PSA|BGS|BCCG|SGC|CGC|CSG|AICCG|RFE|BEM|CBA|GMA|BGN|GBTC|"
+    r"HGA|TAG|ISA|KSA|MNT|AP|PCG|CCG|BCTC|JBH|WCG|BYCC"
+)
 GRADING_DETAIL_PATTERN = re.compile(
-    r"(?<![A-Za-z])(PSA|BGS|SGC|CGC|CSG|AICCG|RFE|BEM|CBA|GMA|BGN|GBTC|"
-    r"HGA|TAG|ISA|KSA|MNT|AP)(?![A-Za-z])[\s:_-]*"
-    r"(?:(?:GEM|MINT|NM|MT|EX|VG|GOOD|FAIR|POOR|PRISTINE)[\s-]*){0,3}"
+    rf"(?<![A-Za-z])({GRADING_COMPANIES})(?![A-Za-z])[\s:_-]*"
+    r"(?:(?:GEM|MINT|NM|MT|EX|VG|GOOD|FAIR|POOR|PRISTINE|"
+    r"评分|評分|金标|金標|银标|銀標|黑标|黑標|金|满分|滿分)[\s-]*){0,3}"
     r"(10(?:\.0)?|[1-9](?:\.\d+)?)(?![\d.])",
     re.IGNORECASE,
 )
 GRADING_COMPANY_PATTERN = re.compile(
     GRADING_DETAIL_PATTERN.pattern
-    + r"|(?:公博|国评|华夏|保粹|爱藏)\s*(?:10|[1-9](?:\.\d+)?)(?![\d.])|评级",
+    + r"|(?:公博|国评|华夏|保粹|爱藏)\s*(?:10|[1-9](?:\.\d+)?)(?![\d.])|评级"
+    # Authentication and autograph-only grades are not raw-card evidence, but
+    # they must not be parsed as the card's numeric condition grade above.
+    + rf"|(?<![A-Za-z])(?:{GRADING_COMPANIES})(?![A-Za-z])\s*"
+    + r"(?:鉴真|鑒真|认证|認證|(?:签字|簽字|双|雙)\s*(?:10|[1-9](?:\.\d+)?)(?![\d.]))",
     re.IGNORECASE,
 )
 STRONG_MEMORABILIA_PATTERN = re.compile(
@@ -222,6 +230,36 @@ def explicit_print_runs(title: str) -> set[int]:
 def is_explicit_base_listing(title: str) -> bool:
     """Recognize Base next to Chinese text without relying on Unicode ``\b``."""
     return bool(EXPLICIT_BASE_PATTERN.search(title))
+
+
+def is_explicit_nonparallel_listing(title: str) -> bool:
+    """BASE with a finish can identify its checklist subset; no-finish claims cannot."""
+    if re.search(r'无折|無折|普卡|基础卡|正\s*base|non[- ]?refractor|无平行', title, re.I):
+        return True
+    return is_explicit_base_listing(title) and not (
+        MATERIAL_PARALLEL_PATTERN.search(title) or AMBIGUOUS_FINISH_PATTERN.search(title)
+    )
+
+
+def is_broad_three_color_visual_lead(title: str) -> bool:
+    """Only an underspecified descriptor, never a canonical parallel alias."""
+    stripped, count = re.subn(r'三色折(?:射)?', '', title)
+    if not count or is_explicit_nonparallel_listing(title):
+        return False
+    return not (
+        MATERIAL_PARALLEL_PATTERN.search(stripped)
+        or AMBIGUOUS_FINISH_PATTERN.search(stripped)
+        or re.search(r'红|蓝|金|绿|紫|黑|橙|粉|银|青|白|黄|铜|'
+                     r'(?<![a-z])(?:red|blue|gold|green|purple|black|orange|pink|silver|'
+                     r'aqua|teal|white|yellow|bronze)(?![a-z])', stripped, re.I)
+    )
+
+
+def has_three_color_pattern_claim(title: str) -> bool:
+    # Plain RWB and Select Tri-Color do not imply wave/disco/other technologies.
+    return bool(re.search(
+        r'(?:红白蓝|三色|red[ ,]+white(?:[ ,]+and)?[ ,]+blue|rwb|tri[- ]?color)'
+        r'\s*(?:波纹|泡泡|碎冰|镭射|龙鳞|scope|wave|disco|ice|laser|shimmer|mojo)', title, re.I))
 
 
 def is_memorabilia_listing(title: str) -> bool:

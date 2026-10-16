@@ -1,3 +1,5 @@
+from card_platform.domain.listing_condition import condition_rejection_reasons, disclose_minor_condition
+from contextlib import nullcontext
 from card_platform.valuation_trace import traced_completion, content_hash
 import asyncio
 import base64
@@ -27,6 +29,7 @@ from card_platform.comparable_image_verifier import (
 from card_platform.db import Database
 from card_platform.domain.adjustments import Adjustment
 from card_platform.domain.card_identity import CardIdentityResolver, normalize_text
+from card_platform.domain.identity_review import is_tcg_collector_number
 from card_platform.domain.comparables import (
     Classification,
     ComparableClassifier,
@@ -46,6 +49,7 @@ from card_platform.domain.listing_title import (
     has_material_parallel_marker,
 )
 from card_platform.domain.valuation import ComparableSale, estimate_from_comps
+from card_platform.domain.parallel_valuation import (PARALLEL_BASIS, PARALLEL_MODEL, estimate_parallel_fallback)
 from card_platform.domain.valuation_quality import (
     EvidenceGrade,
     ShadowSale,
@@ -57,7 +61,13 @@ from card_platform.evidence_reasoning import (
     DeepSeekEvidenceReviewer,
     enforce_conservative_rejections,
 )
-from card_platform.formal_cardhobby_gate import enforce_formal_cardhobby_identity
+from card_platform.formal_cardhobby_gate import (
+    enforce_formal_cardhobby_identity, title_discloses_damage, title_disclaims_card_condition,
+)
+from card_platform.visual_source_eligibility import visual_source_rejection_reasons
+from card_platform.ingestion.cardhobby_public_item import public_item_urls_from_notes
+from card_platform.purchase_source_roles import PURCHASE_SOURCE_LATERAL, validated_purchase_sources
+from card_platform.domain.finish_evidence import build_visual_match_facts
 from card_platform.domain.identity_research import (
     ACE_BAILEY_FIXTURE_VISUAL,
     ANDREW_NEMBHARD_FIXTURE_VISUAL,
@@ -108,6 +118,7 @@ def revalidated_cardhobby_assessment(
     identity: dict,
     provider_payload: dict | None,
     matching_fields: list[str] | tuple[str, ...] = (),
+    *, resolver=None,
 ) -> tuple[str | None, tuple[str, ...]]:
     """Re-run the complete CardHobby identity contract for a durable row.
 
@@ -128,7 +139,7 @@ def revalidated_cardhobby_assessment(
                     "matching_fields": [],
                 }
             )
-            score, conflicts, tier = assess_cardhobby_candidate(identity, sale)
+            score, conflicts, tier = assess_cardhobby_candidate(identity, sale, **({"resolver": resolver} if resolver else {}))
             if tier and score > 0:
                 return tier, ()
             return None, tuple(conflicts or ["卡淘成交未通过当前身份契约"])
@@ -242,6 +253,10 @@ def reconcile_cardhobby_classification(
     if (
         provider_tier == "same_player_product_analog"
         and classification.tier in {ComparableTier.T0, ComparableTier.T1}
+        and classification.field_matches.get("reviewed_parent_product_confirmation") is not True
+        and classification.field_matches.get("reviewed_reference_product_confirmation") is not True
+        and classification.field_matches.get("reviewed_source_back_identity") is not True
+        and classification.field_matches.get("reviewed_named_finish_omission") is not True
     ):
         return (
             Classification(
@@ -264,6 +279,7 @@ def comparable_reaches_search_floor(comp: "DiscoveredComparable") -> bool:
         "cardhobby_tier:exact_or_near_exact",
         "cardhobby_tier:image_review_candidate",
         "cardhobby_tier:same_player_product_analog",
+        "cardhobby_tier:numbered_parallel_analogue",
     }
     provider_contract = bool(
         comp.source_code in {"cardhobby", "cardhobby_provider"}
@@ -581,7 +597,12 @@ def recognition_candidate_overrides(current: dict, recognized) -> dict:
         )
     }
     card_number = recognized.card_number or current.get("card_number")
-    if re.fullmatch(r"0*\d+\s*/\s*0*\d+", str(card_number or "").strip()):
+    if (re.fullmatch(r"0*\d+\s*/\s*0*\d+", str(card_number or "").strip())
+            and not is_tcg_collector_number({
+                "card_number": card_number,
+                "brand_name": recognized.brand_name or current.get("brand_name"),
+                "product_name": recognized.product_name or current.get("product_name"),
+            })):
         card_number = None
     is_autograph = (
         recognized.is_autograph
@@ -742,7 +763,8 @@ def valuation_identity_specificity(identity: dict) -> tuple[bool, list[str]]:
     if not has_card_anchor:
         missing.append("card_number_or_insert_name")
     card_number = str(identity.get("card_number") or "").strip()
-    if re.fullmatch(r"0*\d+\s*/\s*0*\d+", card_number):
+    if (re.fullmatch(r"0*\d+\s*/\s*0*\d+", card_number)
+            and not is_tcg_collector_number(identity)):
         missing.append("card_number_is_serial_fraction")
     brand_token = normalize_text(identity.get("brand_name"))
     product_token = normalize_text(identity.get("product_name"))
@@ -775,11 +797,15 @@ class DiscoveredComparable(BaseModel):
     visual_confidence: Decimal | None = Field(default=None, ge=0, le=1)
     visual_reasons: list[str] = Field(default_factory=list)
     visual_evidence_binding: dict | None = None
+    visual_condition_review: dict | None = None
+    visual_independent_confirmation: dict | None = None
+    visual_match_evidence: list[dict] = Field(default_factory=list)
     matching_fields: list[str] = Field(default_factory=list)
     conflicts: list[str] = Field(default_factory=list)
     evidence_level: str = "aggregated_sale"
     source_code: str = "public_market_research"
     source_tier: int = Field(default=3, ge=1, le=3)
+    provider_payload: dict = Field(default_factory=dict)
     sale_status: str | None = None
     sale_status_evidence: str | None = None
     price_basis: str | None = None
@@ -824,8 +850,61 @@ def cached_candidate_needs_image_review(
     comp: DiscoveredComparable,
     hard_conflicts: list[str],
     provider_tier: str | None = None,
+    *, resolver=None,
 ) -> bool:
-    """Defer only image-backed insert/finish ambiguity to visual verification."""
+    """Defer bounded title omissions to images without approving a price."""
+    if comp.source_code == 'cardhobby' and provider_tier == 'numbered_parallel_analogue':
+        from card_platform.domain.parallel_valuation import assess_parallel_analogue
+        try:
+            sale = CardHobbySale.model_validate(comp.provider_payload)
+            if (sale.title, sale.source_url, sale.image_url) == (comp.title, comp.source_url, comp.image_url):
+                return assess_parallel_analogue(identity, sale, resolver=resolver) is not None
+        except (TypeError, ValueError):
+            pass
+        return False
+    if (comp.source_code == 'cardhobby' and comp.image_url
+            and identity.get('season_start')
+            and provider_tier in {'exact_or_near_exact', 'image_review_candidate'}
+            and 'season_conflict' in hard_conflicts
+            and set(hard_conflicts) <= {
+                'season_conflict', 'parallel_conflict', 'insert_conflict',
+                'image_review_unconfirmed', 'material_confirmation_required',
+                'autograph_confirmation_required',
+            }
+            # A missing year can request research. Even a matching explicit
+            # year does not authorize this branch to erase a season conflict.
+            and not re.search(r'(?<!\d)(?:19|20)\d{2}(?!\d)|'
+                              r'(?<!\d)\d{2}\s*[-‐‑‒–—−/]\s*\d{2}(?!\d)',
+                              comp.title)):
+        try:
+            sale = CardHobbySale.model_validate(comp.provider_payload).model_copy(
+                update={'conflicts': [], 'matching_fields': []})
+            bound_source = (sale.title, sale.source_url, sale.image_url) == (
+                comp.title, comp.source_url, comp.image_url)
+            if bound_source and not visual_source_rejection_reasons(identity, comp.provider_payload):
+                score, _, current_tier = assess_cardhobby_candidate(identity, sale, resolver=resolver)
+                if score >= Decimal('.35') and current_tier in {
+                        'exact_or_near_exact', 'image_review_candidate'}:
+                    return True
+        except (TypeError, ValueError):
+            pass
+    if (comp.image_url and comp.source_code == 'cardhobby'
+            and provider_tier == 'image_review_candidate'
+            and 'player_conflict' in hard_conflicts
+            and set(hard_conflicts) <= {'player_conflict', 'season_conflict'}
+            and resolver is not None):
+        # Recompute the official work-role lead. Stored markers or another
+        # identity's classification are not authority to defer a conflict.
+        try:
+            sale = CardHobbySale.model_validate(comp.provider_payload).model_copy(
+                update={'conflicts': [], 'matching_fields': []})
+            if (sale.title, sale.source_url, sale.image_url) == (comp.title, comp.source_url, comp.image_url):
+                _, _, tier = assess_cardhobby_candidate(identity, sale, resolver=resolver)
+                if (tier == 'image_review_candidate'
+                        and 'cardhobby_checklist_work_subject_image_required' in sale.matching_fields):
+                    return True
+        except (TypeError, ValueError):
+            pass
     if (comp.image_url and set(hard_conflicts)=={'player_conflict'}
         and provider_tier=='image_review_candidate'
         and 'cardhobby_partial_roster_image_required' in comp.matching_fields):
@@ -837,7 +916,7 @@ def cached_candidate_needs_image_review(
     if (
         comp.image_url
         and set(hard_conflicts) == {"player_conflict"}
-        and has_partial_multi_player_match(comp.title, str(identity.get("player_name") or ""))
+        and has_partial_multi_player_match(comp.title, str(identity.get("player_name") or ""), resolver=resolver)
         and provider_tier in {"exact_or_near_exact", "image_review_candidate"}
     ):
         return True
@@ -861,8 +940,12 @@ def cached_candidate_needs_image_review(
             "parallel_conflict",
             "insert_conflict",
             "image_review_unconfirmed",
+            "material_confirmation_required",
+            "autograph_confirmation_required",
         }
         and (soft_provider_ambiguity or ambiguous_base_finish)
+        and (soft_provider_ambiguity or not set(hard_conflicts).intersection({
+            'material_confirmation_required', 'autograph_confirmation_required'}))
     )
 
 
@@ -944,6 +1027,7 @@ class ComparableSearchResult(BaseModel):
     player_adjustments: list[PlayerAdjustment] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
     rejected_candidates: list[dict] = Field(default_factory=list)
+    visual_progress: dict = Field(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod
@@ -1148,6 +1232,8 @@ class AutomatedValuationWorker:
 
     async def _process(self, job_id: UUID) -> None:
         try:
+            if getattr(self, "knowledge_runtime", None):
+                await self.knowledge_runtime.refresh()
             identity = await self._load_identity(job_id)
             specific, missing_fields = valuation_identity_specificity(identity)
             if identity.get("latest_identity_review_status") == "rejected":
@@ -1202,6 +1288,12 @@ class AutomatedValuationWorker:
                 # conditional defer. Read its result once; a completed empty
                 # search must become a truthful terminal outcome, not a loop.
                 search = await self._search(identity)
+            if search.visual_progress:
+                async with self.database.connection() as connection:
+                    await connection.execute(
+                        "UPDATE valuation_job SET result_summary = COALESCE(result_summary, '{}'::jsonb) || %s WHERE id = %s",
+                        (Jsonb({"visual_progress": search.visual_progress}), job_id),
+                    )
             await self._store_comparables(identity, search)
             await self._set_status(job_id, "calculating")
             await self._calculate(job_id, identity, search)
@@ -1242,7 +1334,7 @@ class AutomatedValuationWorker:
     async def _load_identity(self, job_id: UUID) -> dict:
         async with self.database.connection() as connection:
             result = await connection.execute(
-                """
+                f"""
                 SELECT vj.collection_item_id, ci.card_definition_id, u.base_currency,
                        ci.owner_id,
                        COALESCE(canonical_player.full_name, p.full_name) AS player_name,
@@ -1262,6 +1354,7 @@ class AutomatedValuationWorker:
                        purchase.notes AS purchase_context,
                        purchase.venue AS purchase_venue,
                        purchase.unit_price AS purchase_price,
+                       purchase_sources.sources AS purchase_source_rows,
                        confirmed.identity AS confirmed_identity,
                        confirmed.id AS confirmed_identity_version_id,
                        latest_identity.review_status AS latest_identity_review_status,
@@ -1296,6 +1389,7 @@ class AutomatedValuationWorker:
                     WHERE collection_item_id = ci.id AND transaction_type = 'buy'
                     ORDER BY transacted_at DESC LIMIT 1
                 ) purchase ON true
+                {PURCHASE_SOURCE_LATERAL}
                 LEFT JOIN LATERAL (
                     SELECT confirmed_version.id, confirmed_version.identity
                     FROM card_identity_version confirmed_version
@@ -1318,6 +1412,13 @@ class AutomatedValuationWorker:
                     SELECT result
                     FROM scanner_recognition_job
                     WHERE collection_item_id = ci.id AND result IS NOT NULL
+                      AND NOT require_confirmation
+                      AND NOT EXISTS (
+                          SELECT 1 FROM scanner_recognition_job human_capture
+                          WHERE human_capture.collection_item_id = ci.id
+                            AND human_capture.require_confirmation
+                            AND human_capture.imported_at IS NOT NULL
+                      )
                     ORDER BY created_at DESC LIMIT 1
                 ) scanner ON true
                 WHERE vj.id = %s
@@ -1328,6 +1429,10 @@ class AutomatedValuationWorker:
             if row is None:
                 raise RuntimeError("valuation job item not found")
             identity = self.resolve_identity_row(dict(row))
+            identity['public_source_urls'] = public_item_urls_from_notes(row.get('notes'))
+            identity.pop('purchase_source_rows', None)
+            identity['purchase_sources'] = validated_purchase_sources(row.get('purchase_source_rows'),
+                owner_id=row.get('owner_id'), collection_item_id=row.get('collection_item_id'))
             identity['image_content_hashes'] = {}
             verifier = getattr(self, 'image_verifier', None)
             for side in ('front','back'):
@@ -1409,6 +1514,17 @@ class AutomatedValuationWorker:
                 stored["is_redemption"] = True
                 if not confirmed_identity or not confirmed_identity.get("is_redemption"):
                     stored["redemption_status"] = physical.redemption_status
+        if self.knowledge_runtime:
+            stored, knowledge_changes = self.knowledge_runtime.resolver.card_catalog.enrich(
+                stored, player_aliases=self.knowledge_runtime.resolver.aliases_for("player", stored.get("player_name"))
+            )
+            stored["knowledge_identity_evidence"] = knowledge_changes
+            stored["knowledge_version"] = self.knowledge_runtime.resolver.version
+            reference_candidates = self.knowledge_runtime.resolver.reference_catalog.research_candidates(stored)
+            if reference_candidates:
+                stored["knowledge_reference_candidates"] = reference_candidates
+            if stored.get("serial_total") and not (stored.get("parallel_name") or stored.get("parallel")):
+                stored["knowledge_parallel_candidates"] = self.knowledge_runtime.resolver.card_catalog.parallel_candidates(stored)
         resolved = CardIdentityResolver().resolve(stored)
         valuation_identity = {
             **stored,
@@ -1894,11 +2010,25 @@ class AutomatedValuationWorker:
 
     async def _search(self, identity: dict) -> ComparableSearchResult:
         market_identity = MarketIdentity.model_validate(identity)
+        image_discovery = None
+        index_path = getattr(self.settings, 'valuation_public_image_index_path', None)
+        if index_path:
+            target = self.image_verifier._target_path(identity.get('image_front_url'))
+            if target is not None:
+                from card_platform.public_image_discovery import query_public_images
+                image_discovery = await query_public_images(index_path, target,
+                    expected_sha=(identity.get('image_content_hashes') or {}).get('front'))
+        image_leads = (image_discovery or {}).get('leads') or []
         cached = await self.market_data.get(
             market_identity,
             collection_item_id=identity["collection_item_id"],
             card_definition_id=identity["card_definition_id"],
+            confirmed_identity_version_id=identity.get("confirmed_identity_version_id"),
+            **({'public_image_leads': image_leads} if image_leads else {}),
         )
+        if image_discovery is not None:
+            cached.notes.append('本地公开图片索引：' + image_discovery['status']
+                                + f'，发现 {len(image_leads)} 条图片候选')
         comparables = [
             DiscoveredComparable(
                 title=item.raw_title,
@@ -1922,6 +2052,7 @@ class AutomatedValuationWorker:
                 evidence_level=item.evidence_level,
                 source_code=item.provider_code,
                 source_tier=self._source_tier(item.provider_code),
+                provider_payload=item.raw_payload,
             )
             for item in cached.evidence
         ]
@@ -1935,6 +2066,8 @@ class AutomatedValuationWorker:
         for item, comp in zip(cached.evidence, comparables, strict=True):
             reviewed_identity_accepted = (
                 item.identity_classification.get("reviewed_identity_accepted") is True
+                and item.identity_classification.get("reviewed_identity_scope") == "identity"
+                and item.identity_classification.get("reviewed_visual_accepted") is not True
                 and item.identity_classification.get("reviewed_collection_item_id")
                 == str(identity["collection_item_id"])
                 and item.identity_classification.get("reviewed_identity_version_id")
@@ -1958,6 +2091,7 @@ class AutomatedValuationWorker:
                     identity,
                     item.raw_payload,
                     comp.matching_fields,
+                    resolver=self.knowledge_runtime.resolver if self.knowledge_runtime else None,
                 )
                 if comp.source_code == "cardhobby"
                 else (None, ())
@@ -1974,6 +2108,7 @@ class AutomatedValuationWorker:
                     identity,
                     item.raw_payload,
                     classification,
+                    resolver=self.knowledge_runtime.resolver if self.knowledge_runtime else None,
                     identity_rejected=(
                         item.identity_classification.get("reviewed_identity_rejected") is True
                     ),
@@ -1999,10 +2134,10 @@ class AutomatedValuationWorker:
                 comp,
                 classification.hard_conflicts,
                 provider_tier,
+                resolver=self.knowledge_runtime.resolver if self.knowledge_runtime else None,
             )
             if (
                 classification.hard_conflicts
-                and not reviewed_identity_accepted
                 and not image_reviewable
             ):
                 rejected_cached_candidates.append(
@@ -2079,7 +2214,7 @@ class AutomatedValuationWorker:
                 if diagnostic.get("provider") == "cardhobby"
                 for query in diagnostic.get("query_diagnostics", [])
             ],
-            comparables=comparables[:12],
+            comparables=comparables,
             notes=notes,
             rejected_candidates=rejected_cached_candidates,
         )
@@ -2114,7 +2249,7 @@ class AutomatedValuationWorker:
             by_url.update({comp.source_url: comp for comp in external.comparables})
             result = external.model_copy(
                 update={
-                    "comparables": list(by_url.values())[:12],
+                    "comparables": rank_cached_comparables(list(by_url.values())),
                     "pending_refresh_job_id": cached.refresh_job_id,
                     "notes": self._truthful_source_availability_notes(
                         [*notes, *external.notes], cached.provider_diagnostics
@@ -2125,14 +2260,16 @@ class AutomatedValuationWorker:
                     ],
                 }
             )
-        result = await self._verify_comparable_images(identity, result)
-        return await self._review_comparable_evidence(identity, result)
+        reviewed_urls: set[str] = set()
+        result = await self._verify_comparable_images(identity, result, reviewed_urls=reviewed_urls)
+        return await self._review_comparable_evidence(identity, result, reviewed_urls=reviewed_urls)
 
     async def _review_comparable_evidence(
-        self, identity: dict, search: ComparableSearchResult
+        self, identity: dict, search: ComparableSearchResult, *, reviewed_urls: set[str] | None = None,
     ) -> ComparableSearchResult:
         if self.evidence_reviewer is None or not search.comparables:
             return search
+        reviewed_urls = reviewed_urls if reviewed_urls is not None else set()
         evidence = [
             {
                 "evidence_id": comp.source_url,
@@ -2141,8 +2278,13 @@ class AutomatedValuationWorker:
                 "grade_company": comp.grade_company,
                 "grade_value": str(comp.grade_value) if comp.grade_value is not None else None,
             }
-            for comp in search.comparables
+            for comp in sorted(
+                (comp for comp in search.comparables if comp.source_url not in reviewed_urls),
+                key=lambda c: c.visual_verdict == "same", reverse=True,
+            )[:12]
         ]
+        if not evidence:
+            return search
         confirmed = {
             key: identity.get(key)
             for key in (
@@ -2158,6 +2300,7 @@ class AutomatedValuationWorker:
                 *search.notes,
                 f"DeepSeek 证据复核失败，已保留确定性门禁结果：{str(error)[:160]}",
             ]})
+        reviewed_urls.update(item["evidence_id"] for item in evidence)
         rejected = enforce_conservative_rejections(review)
         if not rejected:
             return search.model_copy(update={"notes": [
@@ -2171,104 +2314,211 @@ class AutomatedValuationWorker:
         return search.model_copy(update={
             "comparables": accepted,
             "notes": [*search.notes, *rejection_notes],
+            "rejected_candidates": [*search.rejected_candidates, *[
+                {"source_url": url, "reason_codes": reasons}
+                for url, reasons in rejected.items()
+            ]],
         })
 
+    def _visual_candidate_can_stop(self, identity, comp, decision) -> bool:
+        """Only a formally admissible same-card lead ends further image discovery.
+
+        Final publication still revalidates persisted source facts and decisions.
+        This predicate never approves an evidence row or a price.
+        """
+        if (decision.verdict != "same" or decision.confidence < Decimal(".90")
+                or decision.design_match != "same" or decision.finish_match != "same"
+                or not 0 <= (datetime.now(UTC) - comp.occurred_at).days <= 730
+                or evidence_grade(comp.evidence_level) not in {EvidenceGrade.E0, EvidenceGrade.E1, EvidenceGrade.E2}):
+            return False
+        classifier = ComparableClassifier(
+            resolver=self.knowledge_runtime.resolver if self.knowledge_runtime else None
+        )
+        visual_facts = build_visual_match_facts(identity, comp.source_url, comp.title, comp.image_url, {
+            "visual_verdict": decision.verdict, "visual_confidence": decision.confidence,
+            "visual_reasons": decision.reasons, "visual_evidence_binding": decision.evidence_binding,
+            "visual_independent_confirmation": decision.independent_confirmation,
+            "visual_condition_review": decision.condition_review.model_dump(mode="json") if decision.condition_review else None,
+            "visual_match_evidence": [item.model_dump(mode="json") for item in decision.match_evidence],
+            "visual_conflict_evidence": [item.model_dump(mode="json") for item in decision.conflict_evidence],
+        }, reviewed_proof=decision._reviewed_proof)
+        judged = classifier.classify(CardIdentityResolver().resolve(identity), ComparableInput(
+            title=comp.title, source_code=comp.source_code,
+            grade_company=comp.grade_company, grade_value=comp.grade_value,
+            visual_verdict=decision.verdict, visual_confidence=decision.confidence,
+            visual_reasons=tuple(decision.reasons), visual_facts=visual_facts,
+        ))
+        if comp.source_code == "cardhobby":
+            tier, reasons = revalidated_cardhobby_assessment(identity, comp.provider_payload,
+                resolver=self.knowledge_runtime.resolver if self.knowledge_runtime else None)
+            judged, _ = reconcile_cardhobby_classification(judged, tier, provider_rejection_reasons=reasons)
+            judged = enforce_formal_cardhobby_identity(
+                identity, comp.provider_payload, judged, visual_verdict=decision.verdict,
+                visual_facts=visual_facts,
+                resolver=self.knowledge_runtime.resolver if self.knowledge_runtime else None,
+            )
+        return judged.tier in {ComparableTier.T0, ComparableTier.T1} and not judged.hard_conflicts
+
     async def _verify_comparable_images(
-        self,
-        identity: dict,
-        search: ComparableSearchResult,
+        self, identity: dict, search: ComparableSearchResult, *, reviewed_urls: set[str] | None = None,
     ) -> ComparableSearchResult:
+        reviewed_urls = reviewed_urls if reviewed_urls is not None else set()
         reviewed = {}
+        denied_urls = set()
         if identity.get("collection_item_id") and identity.get("confirmed_identity_version_id"):
             async with self.database.connection() as connection:
                 result = await connection.execute(
-                    """SELECT evidence.source_url, decision.decision,
+                    """SELECT evidence.source_url, decision.decision, decision.id,
+                              decision.collection_item_id, decision.identity_version_id,
                               decision.classification->'visual_review' AS visual_review
                        FROM market_evidence_identity_decision decision
                        JOIN market_evidence evidence ON evidence.id = decision.market_evidence_id
-                       WHERE decision.collection_item_id = %s AND decision.identity_version_id = %s
-                         AND decision.classification ? 'visual_review'""",
+                       WHERE decision.collection_item_id = %s AND decision.identity_version_id = %s""",
                     (identity["collection_item_id"], identity["confirmed_identity_version_id"]),
                 )
                 for row in await result.fetchall():
-                    comp = next((item for item in search.comparables if item.source_url == row["source_url"]), None)
-                    if comp is None or not comp.image_url:
-                        continue
-                    reviewed[comp.source_url] = {'decision':row['decision'], 'review':row['visual_review'] or {}}
-        candidates = [
-            VisualCandidate(
-                id=comp.source_url,
-                title=comp.title,
-                image_url=comp.image_url,
-            )
-            for comp in search.comparables
-            if comp.image_url
-        ]
-        if not candidates:
-            return search
-        try:
-            # Image hosts and the vision provider are both remote dependencies.
-            # Do not let an optional visual cross-check hold an otherwise valid
-            # valuation job in `searching` indefinitely.
-            async with asyncio.timeout(
-                min(self.settings.valuation_search_timeout_seconds, 65.0)
-            ):
-                decisions = await self.image_verifier.verify(
-                    identity.get("image_front_url"),
-                    candidates,
-                    target_back_image_url=identity.get("image_back_url"),
-                    reviewed_assets=reviewed, identity=identity,
-                    requires_parallel_match=(
-                        str(identity.get("parallel_name") or identity.get("parallel") or "")
-                        .strip()
-                        .casefold()
-                        not in {"", "base"}
-                    ),
-                )
-        except TimeoutError:
-            return search.model_copy(
-                update={
-                    "notes": [
-                        *search.notes,
-                        "图片同卡核验超时，已使用严格文字身份匹配继续估值",
-                    ]
-                }
-            )
-        except Exception as error:
-            return search.model_copy(
-                update={
-                    "notes": [
-                        *search.notes,
-                        f"图片同卡核验失败，已降级为文字分层：{str(error)[:160]}",
-                    ]
-                }
-            )
-        if not decisions:
-            return search.model_copy(
-                update={
-                    "notes": [
-                        *search.notes,
-                        "图片同卡核验未返回可用结论，候选仅按文字分层",
-                    ]
-                }
-            )
-        comparables = []
-        for comp in search.comparables:
-            decision = decisions.get(comp.source_url)
-            if decision is None:
-                comparables.append(comp)
-                continue
-            comparables.append(
-                comp.model_copy(
-                    update={
-                        "visual_verdict": decision.verdict,
-                        "visual_confidence": decision.confidence,
-                        "visual_reasons": decision.reasons,
-                        "visual_evidence_binding": decision.evidence_binding,
+                    if row["decision"] == "rejected":
+                        denied_urls.add(row["source_url"])
+                    reviewed[row["source_url"]] = {
+                        'decision': row['decision'], 'review': row['visual_review'] or {},
+                        'database_record': dict(row),
                     }
-                )
+        denied_items = {cardhobby_item_id(url) for url in denied_urls} - {None}
+        denied = [comp for comp in search.comparables if comp.source_url in denied_urls
+                  or cardhobby_item_id(comp.source_url) in denied_items]
+        comparables = [comp for comp in search.comparables if comp not in denied]
+        by_url = {comp.source_url: comp for comp in comparables}
+        skipped_sources = []
+        skipped_source_reasons: dict[str, int] = {}
+        candidates = []
+        for comp in comparables:
+            if not comp.image_url:
+                continue
+            source_reasons = (
+                visual_source_rejection_reasons(identity, comp.provider_payload)
+                if comp.source_code == "cardhobby" else []
             )
-        return search.model_copy(update={"comparables": comparables})
+            if source_reasons:
+                skipped_sources.append({"source_url": comp.source_url, "reason_codes": source_reasons})
+                for reason in source_reasons:
+                    skipped_source_reasons[reason] = skipped_source_reasons.get(reason, 0) + 1
+                continue
+            candidates.append(VisualCandidate(comp.source_url, comp.title, comp.image_url))
+        parallel_check = bool(identity.get("serial_total")) or (
+            str(identity.get("parallel_name") or identity.get("parallel") or "")
+            .strip().casefold() not in {"", "base"}
+        )
+        candidates = self.image_verifier.order_candidates(
+            identity.get("image_front_url"), candidates, identity=identity,
+            target_back_image_url=identity.get("image_back_url"),
+            requires_parallel_match=parallel_check,
+        )
+        decisions = {}
+        attempted = set()
+        new_count = 0
+        evidence_review_attempt_count = 0
+        post_review_rejected = {}
+        stop_reason = "candidate_pool_exhausted"
+        notes = list(search.notes)
+
+        async def completed(decision):
+            if decision.candidate_id in by_url:
+                decisions[decision.candidate_id] = decision
+
+        try:
+            admission = getattr(self.image_verifier, 'card_admission', nullcontext) if candidates else nullcontext
+            async with admission():
+                stage_seconds = getattr(self.settings, 'valuation_visual_stage_timeout_seconds', 180.0)
+                async with asyncio.timeout(stage_seconds):
+                    offset = 0
+                    while offset < len(candidates):
+                        if new_count + evidence_review_attempt_count >= 36:
+                            stop_reason = "candidate_budget_exhausted"
+                            break
+                        batch = candidates[offset:offset + 1]
+                        offset += len(batch)
+                        attempted.update(candidate.id for candidate in batch)
+                        try:
+                            result = await self.image_verifier.verify(
+                                identity.get("image_front_url"), batch,
+                                target_back_image_url=identity.get("image_back_url"),
+                                reviewed_assets=reviewed, identity=identity, on_decision=completed,
+                                requires_parallel_match=parallel_check,
+                            )
+                            for decision in result.values():
+                                await completed(decision)
+                        finally:
+                            # A failed/unfinished remote attempt consumes budget;
+                            # a local bound checkpoint or cooldown does not.
+                            new_count += sum(
+                                not ({"visual_checkpoint_reused", "visual_retry_deferred"}
+                                     & set(decisions[c.id].reasons)) if c.id in decisions else True
+                                for c in batch
+                            )
+                        stop_candidate = next((c for c in batch if c.id in decisions
+                            and self._visual_candidate_can_stop(identity, by_url[c.id], decisions[c.id])), None)
+                        if stop_candidate is not None:
+                            if (getattr(self, 'evidence_reviewer', None) is not None
+                                    and stop_candidate.id not in reviewed_urls):
+                                # A same-looking subcard can occur in a lot. Reuse
+                                # the existing source reviewer before stopping,
+                                # charging its call to this stage's work budget.
+                                if new_count + evidence_review_attempt_count >= 36:
+                                    stop_reason = "candidate_budget_exhausted"
+                                    break
+                                evidence_review_attempt_count += 1
+                                checked = await self._review_comparable_evidence(
+                                    identity, ComparableSearchResult(comparables=[by_url[stop_candidate.id]]),
+                                    reviewed_urls=reviewed_urls,
+                                )
+                                notes.extend(checked.notes)
+                                if not checked.comparables:
+                                    post_review_rejected[stop_candidate.id] = next(
+                                        (item for item in checked.rejected_candidates
+                                         if item.get('source_url') == stop_candidate.id),
+                                        {'source_url': stop_candidate.id, 'reason_codes': ['source_review_rejected']},
+                                    )
+                                    continue
+                            stop_reason = "same_card_candidate_confirmed"
+                            break
+        except TimeoutError:
+            stop_reason = "time_budget_exhausted"
+            notes.append("图片同卡核验达到时限；已保存完成结果，剩余候选待恢复核验")
+        except Exception as error:
+            stop_reason = "verification_failed"
+            notes.append(f"图片同卡核验部分失败，已保留完成结果：{type(error).__name__}")
+        updated = []
+        for comp in comparables:
+            if comp.source_url in post_review_rejected:
+                continue
+            decision = decisions.get(comp.source_url)
+            updated.append(comp if decision is None else comp.model_copy(update={
+                "visual_verdict": decision.verdict,
+                "visual_confidence": decision.confidence,
+                "visual_reasons": decision.reasons,
+                "visual_evidence_binding": decision.evidence_binding,
+                "visual_independent_confirmation": decision.independent_confirmation,
+                "visual_condition_review": decision.condition_review.model_dump(mode="json") if decision.condition_review else None,
+                "visual_match_evidence": [e.model_dump(mode="json") for e in decision.match_evidence],
+            }))
+        observed = {url for url, d in decisions.items() if d.confidence > 0}
+        progress = {
+            "candidate_count": len(candidates), "attempted_count": len(attempted),
+            "observed_count": len(observed), "new_candidate_count": new_count,
+            "evidence_review_attempt_count": evidence_review_attempt_count,
+            "pending_count": len(candidates) - len(observed), "stop_reason": stop_reason,
+            "pending_source_urls": [c.id for c in candidates if c.id not in observed],
+            "skipped_source_count": len(skipped_sources),
+            "skipped_source_reasons": skipped_source_reasons,
+            "skipped_sources": skipped_sources,
+        }
+        return search.model_copy(update={
+            "comparables": updated, "notes": notes, "visual_progress": progress,
+            "rejected_candidates": [*search.rejected_candidates, *post_review_rejected.values(), *[
+                {"source_url": c.source_url, "reason_codes": ["current_identity_evidence_explicitly_rejected"]}
+                for c in denied
+            ]],
+        })
 
     async def _search_external_legacy(
         self, identity: dict, *, include_cardhobby: bool = True
@@ -2315,7 +2565,7 @@ class AutomatedValuationWorker:
                         for comp in direct_result.comparables
                         if comparable_reaches_search_floor(comp)
                         and self._comparable_grade_matches(identity, comp)
-                    ][:12]
+                    ]
                 }
             )
             if (
@@ -2637,6 +2887,7 @@ class AutomatedValuationWorker:
         return [
             DiscoveredComparable(
                 title=sale.title,
+                provider_payload=sale.model_dump(mode="json"),
                 source_url=sale.source_url,
                 occurred_at=sale.occurred_at,
                 sale_price=sale.sale_price,
@@ -2657,7 +2908,7 @@ class AutomatedValuationWorker:
                 source_code="cardhobby_provider",
                 source_tier=1,
             )
-            for sale in result.sales
+            for sale in (result.candidate_pool if result.candidate_pool is not None else result.sales)
         ]
 
     @staticmethod
@@ -3122,6 +3373,9 @@ class AutomatedValuationWorker:
                                 ),
                                 "visual_reasons": comp.visual_reasons,
                                 "visual_evidence_binding": comp.visual_evidence_binding,
+                                "visual_match_evidence": comp.visual_match_evidence,
+                                "visual_independent_confirmation": comp.visual_independent_confirmation,
+                                "visual_condition_review": comp.visual_condition_review,
                                 "evidence_level": comp.evidence_level,
                                 "sale_status": comp.sale_status,
                                 "sale_status_evidence": comp.sale_status_evidence,
@@ -3156,6 +3410,68 @@ class AutomatedValuationWorker:
             for key, value in diagnostic.items()
         }
 
+    def _classify_pricing_source(self, identity, row, visual, visual_facts):
+        """Review authority never rewrites the source title or clears its conflicts."""
+        classifier = ComparableClassifier(
+            resolver=self.knowledge_runtime.resolver if self.knowledge_runtime else None)
+        title = row.get('listing_title') or ''
+        reliability = row.get('source_reliability') or (
+            Decimal('.70') if row['source_code'] == 'cardhobby' else Decimal('.75'))
+        classified = classifier.classify(CardIdentityResolver().resolve(identity), ComparableInput(
+            title=title, grade_company=row.get('grade_company'), grade_value=row.get('grade_value'),
+            source_reliability=reliability, source_code=row['source_code'],
+            visual_verdict=visual.get('visual_verdict'),
+            visual_confidence=Decimal(str(visual['visual_confidence'])) if visual.get('visual_confidence') is not None else None,
+            visual_reasons=tuple(visual.get('visual_reasons') or []), visual_facts=visual_facts))
+        reasons = list(classified.hard_conflicts)
+        if row.get('reviewed_identity_rejected') is True:
+            reasons.append('current_identity_evidence_explicitly_rejected')
+        reasons.extend(condition_rejection_reasons(identity, title, visual_facts,
+            source_url=row.get('source_url'), image_url=(row.get('raw_payload') or {}).get('image_url')))
+        if reasons:
+            return Classification(ComparableTier.REJECTED, Decimal('0'), classified.source_reliability,
+                field_matches=classified.field_matches, hard_conflicts=list(dict.fromkeys(reasons)))
+        return disclose_minor_condition(classified, title)
+
+    def _current_visual_evidence(self, identity: dict, row: dict, search=None):
+        """Only the separate current DB review column can restore review authority."""
+        visual = row.get('raw_payload') or {}
+        candidate = VisualCandidate(row['source_url'], row['listing_title'] or '',
+                                    visual.get('image_url') or '')
+        # A market_comp row belongs to a card definition, not a held copy.
+        # Another copy may have replaced its image binding since this search.
+        # Use this search's exact-source observation without changing shared
+        # sale facts or treating serialized review markers as review authority.
+        matches = [comp for comp in search.comparables
+                   if tuple(getattr(comp, key, None) for key in ('source_url', 'title', 'image_url')) ==
+                   (candidate.id, candidate.title, candidate.image_url)] if search else []
+        if len(matches) == 1:
+            fields = ('visual_verdict', 'visual_confidence', 'visual_reasons',
+                      'visual_evidence_binding', 'visual_match_evidence',
+                      'visual_independent_confirmation', 'visual_condition_review')
+            observed = {**visual, **{key: getattr(matches[0], key, None) for key in fields}}
+            observed['visual_reasons'] = observed.get('visual_reasons') or []
+            if observed.get('visual_confidence') is not None:
+                observed['visual_confidence'] = str(observed['visual_confidence'])
+            current = current_persisted_visual(identity, candidate, observed)
+            if current.get('visual_verdict') is not None:
+                visual = current
+        verifier = getattr(self, 'image_verifier', None)
+        loader = getattr(verifier, 'reviewed_decision_from_cached_assets', None)
+        manual = loader(identity, candidate, row.get('accepted_visual_review')) if loader else None
+        if manual is not None:
+            visual = {**visual, 'visual_verdict': manual.verdict,
+                'visual_confidence': str(manual.confidence), 'visual_reasons': manual.reasons,
+                'visual_evidence_binding': manual.evidence_binding,
+                'visual_match_evidence': [e.model_dump(mode='json') for e in manual.match_evidence],
+                'visual_reviewed_record_id': manual._reviewed_proof.record_id,
+                'visual_condition_review': manual.condition_review.model_dump(mode='json') if manual.condition_review else visual.get('visual_condition_review')}
+        if row['source_code'] == 'cardhobby':
+            visual = current_persisted_visual(identity, candidate, visual)
+        facts = build_visual_match_facts(identity, candidate.id, candidate.title, candidate.image_url,
+            visual, reviewed_proof=manual._reviewed_proof if manual else None)
+        return visual, facts
+
     async def _calculate(
         self, job_id: UUID, identity: dict, search: ComparableSearchResult
     ) -> None:
@@ -3179,6 +3495,7 @@ class AutomatedValuationWorker:
                              AND decision.collection_item_id = %s
                              AND decision.identity_version_id = %s
                              AND decision.decision = 'accepted'
+                             AND NOT (decision.classification ? 'visual_review')
                        ) AS reviewed_identity_accepted,
                        EXISTS (
                            SELECT 1
@@ -3188,6 +3505,19 @@ class AutomatedValuationWorker:
                              AND decision.identity_version_id = %s
                              AND decision.decision = 'rejected'
                        ) AS reviewed_identity_rejected,
+                       (
+                           SELECT jsonb_build_object(
+                               'id', decision.id, 'collection_item_id', decision.collection_item_id,
+                               'identity_version_id', decision.identity_version_id,
+                               'decision', decision.decision, 'source_url', me.source_url,
+                               'visual_review', decision.classification->'visual_review')
+                           FROM market_evidence_identity_decision decision
+                           WHERE decision.market_evidence_id = me.id
+                             AND decision.collection_item_id = %s
+                             AND decision.identity_version_id = %s
+                             AND decision.decision = 'accepted'
+                             AND decision.classification ? 'visual_review'
+                       ) AS accepted_visual_review,
                        COALESCE(
                            me.evidence_level,
                            market_comp.raw_payload->>'evidence_level',
@@ -3210,6 +3540,8 @@ class AutomatedValuationWorker:
                 ORDER BY market_comp.occurred_at DESC
                 """,
                 (
+                    identity["collection_item_id"],
+                    identity.get("confirmed_identity_version_id"),
                     identity["collection_item_id"],
                     identity.get("confirmed_identity_version_id"),
                     identity["collection_item_id"],
@@ -3418,68 +3750,15 @@ class AutomatedValuationWorker:
                     ),
                 )
                 return
-            resolved_identity = CardIdentityResolver().resolve(identity)
             resolver = self.knowledge_runtime.resolver if self.knowledge_runtime else None
-            classifier = ComparableClassifier(resolver=resolver)
             classified: list[ClassifiedSale] = []
             shadow_sales: list[ShadowSale] = []
             rejected: list[dict] = []
             rows_by_id = {str(row["id"]): dict(row) for row in rows}
             for row in rows:
-                visual = row.get('raw_payload') or {}
-                if row['source_code'] == 'cardhobby':
-                    visual = current_persisted_visual(identity,
-                        VisualCandidate(row['source_url'],row['listing_title'] or '',visual.get('image_url') or ''),visual)
-                    rows_by_id[str(row['id'])]['raw_payload'] = visual
-                source_reliability = row["source_reliability"] or (
-                    Decimal("0.70") if row["source_code"] == "cardhobby" else Decimal("0.75")
-                )
-                classification = classifier.classify(
-                    resolved_identity,
-                    ComparableInput(
-                        title=(
-                            " ".join(
-                                str(value)
-                                for value in (
-                                    resolved_identity.player_name,
-                                    (
-                                        f"{resolved_identity.season_start}-"
-                                        f"{str(resolved_identity.season_end)[-2:]}"
-                                        if resolved_identity.season_start
-                                        and resolved_identity.season_end
-                                        else resolved_identity.season_start
-                                    ),
-                                    resolved_identity.product_name,
-                                    resolved_identity.insert,
-                                    resolved_identity.parallel,
-                                    "Redemption" if resolved_identity.is_redemption else "",
-                                    "AUTO" if resolved_identity.is_autograph else "",
-                                    (
-                                        "MEMORABILIA"
-                                        if resolved_identity.is_memorabilia
-                                        or resolved_identity.is_patch
-                                        else ""
-                                    ),
-                                    (
-                                        f"#{resolved_identity.card_number}"
-                                        if resolved_identity.card_number
-                                        else ""
-                                    ),
-                                )
-                                if value
-                            )
-                            if row.get("reviewed_identity_accepted")
-                            else row["listing_title"] or ""
-                        ),
-                        grade_company=row["grade_company"],
-                        grade_value=row["grade_value"],
-                        source_reliability=source_reliability,
-                        source_code=row["source_code"],
-                        visual_verdict=visual.get('visual_verdict'),
-                        visual_confidence=Decimal(str(visual['visual_confidence'])) if visual.get('visual_confidence') is not None else None,
-                        visual_reasons=tuple(visual.get('visual_reasons') or []),
-                    ),
-                )
+                visual, visual_facts = self._current_visual_evidence(identity, row, search)
+                rows_by_id[str(row['id'])]['raw_payload'] = visual
+                classification = self._classify_pricing_source(identity, row, visual, visual_facts)
                 matching_fields = list(
                     (row.get("provider_identity_classification") or {}).get(
                         "matching_fields", []
@@ -3488,6 +3767,7 @@ class AutomatedValuationWorker:
                 )
                 reviewed_identity_accepted = bool(
                     row.get("reviewed_identity_accepted")
+                    and not row.get("accepted_visual_review")
                 )
                 provider_tier, provider_rejection_reasons = (
                     (None, ())
@@ -3497,6 +3777,7 @@ class AutomatedValuationWorker:
                         identity,
                         row.get("provider_raw_payload"),
                         matching_fields,
+                        resolver=resolver,
                     )
                     if row["source_code"] == "cardhobby"
                     else (None, ())
@@ -3514,7 +3795,9 @@ class AutomatedValuationWorker:
                         visual_verdict=visual.get("visual_verdict"),
                         visual_review_required=visual.get('visual_review_required') is True,
                         identity_rejected=bool(row.get("reviewed_identity_rejected")),
-                        identity_accepted=bool(row.get("reviewed_identity_accepted")),
+                        identity_accepted=reviewed_identity_accepted,
+                        visual_facts=visual_facts, resolver=resolver,
+                        visual_observation=visual,
                     )
                 await connection.execute(
                     """
@@ -3610,6 +3893,19 @@ class AutomatedValuationWorker:
             shadow = ShadowValuationEstimator().estimate(
                 shadow_sales, identity, require_same_card=True,
             )
+            shadow, parallel_details = estimate_parallel_fallback(
+                identity, list(rows_by_id.values()), shadow, resolver=resolver,
+            )
+            for comp_id, detail in parallel_details.items():
+                selected = rows_by_id[comp_id]
+                selected['same_card_classification'] = selected['classification']
+                selected['comparable_tier'] = ComparableTier.T2.value
+                selected['parallel_adjustment'] = detail
+                selected['classification'] = {
+                    'field_matches': {'pricing_basis': PARALLEL_BASIS},
+                    'analogue_differences': detail['differences'],
+                    'same_card_classification': selected['same_card_classification'],
+                }
             await self._store_shadow_result(connection, job_id, identity, shadow)
             if shadow.fair is not None:
                 valuation_id = await self._publish_relative_valuation(
@@ -3625,7 +3921,7 @@ class AutomatedValuationWorker:
                                 "valuation_id": str(valuation_id),
                                 "evidence_count": len(shadow.used_ids),
                                 "confidence": str(shadow.confidence),
-                                "valuation_tier": "best_relative_candidate",
+                                "valuation_tier": (PARALLEL_BASIS if parallel_details else "best_relative_candidate"),
                                 "risk_flags": list(shadow.review_reasons),
                             }
                         ),
@@ -3633,6 +3929,34 @@ class AutomatedValuationWorker:
                     ),
                 )
                 return
+            # Classification can succeed while strict price selection rejects a
+            # typed basis. Keep those later-stage reasons in the public failure
+            # receipt instead of reporting an empty rejected list.
+            rejected_by_id = {str(item["id"]): item for item in rejected}
+            basis_by_id = {sale.id: sale.pricing_basis for sale in shadow_sales}
+            raw_basis_missing_grade = False
+            for item in shadow.rejected:
+                key = str(item["id"])
+                row = rows_by_id.get(key, {})
+                entry = rejected_by_id.setdefault(key, {
+                    "id": key, "tier": row.get("comparable_tier"),
+                    "hard_conflicts": [], "raw_weight": "0", "final_weight": "0",
+                })
+                entry["title"] = row.get("listing_title")
+                entry["source_url"] = row.get("source_url")
+                entry["hard_conflicts"] = list(dict.fromkeys([
+                    *entry.get("hard_conflicts", []), *item.get("reasons", []),
+                ]))
+                if (basis_by_id.get(key) == UNGRADED_SAME_CARD_BASIS
+                        and "formal_price_requires_same_card_and_grade" in item.get("reasons", [])):
+                    raw_basis_missing_grade = True
+            rejected = list(rejected_by_id.values())
+            failure_codes = list(dict.fromkeys([
+                *shadow.review_reasons,
+                *(reason for entry in rejected for reason in entry.get("hard_conflicts", [])),
+                *(["same_card_raw_source_without_matching_grade_sale"] if raw_basis_missing_grade else []),
+            ]))
+            raw_basis_failure_reason = "有同款裸卡来源，但缺少同公司同分数成交；未发布正式估值"
             if identity.get("confirmed_identity_version_id"):
                 if search.fallback_valuation is not None:
                     await self._store_model_fallback_shadow(
@@ -3655,6 +3979,7 @@ class AutomatedValuationWorker:
                         Jsonb(
                             {
                                 "reason": (
+                                    raw_basis_failure_reason if raw_basis_missing_grade else
                                     "只有模型回退或存在硬冲突的类比，未发布正式估值"
                                 ),
                                 "published_value_unchanged": True,
@@ -3676,7 +4001,7 @@ class AutomatedValuationWorker:
                                     "query_count": len(search.search_queries),
                                     "recalled_candidate_count": len(rows),
                                     "rejected_candidate_count": len(rejected),
-                                    "root_cause_codes": list(shadow.review_reasons),
+                                    "root_cause_codes": failure_codes,
                                 },
                             }
                         ),
@@ -3734,7 +4059,8 @@ class AutomatedValuationWorker:
                     (
                         Jsonb(
                             {
-                                "reason": "没有通过全部身份硬门槛的同卡成交",
+                                "reason": (raw_basis_failure_reason if raw_basis_missing_grade else
+                                           "没有通过全部身份硬门槛的同卡成交"),
                                 "search_queries": search.search_queries,
                                 "notes": search.notes,
                                 "rejected_comparables": rejected,
@@ -3746,9 +4072,9 @@ class AutomatedValuationWorker:
                                     "recalled_candidate_count": len(rows),
                                     "accepted_non_t0_count": len(classified),
                                     "rejected_candidate_count": len(rejected),
-                                    "root_cause_codes": [
-                                        "no_exact_t0_candidate"
-                                    ],
+                                    "root_cause_codes": list(dict.fromkeys([
+                                        "no_exact_t0_candidate", *failure_codes,
+                                    ])),
                                 },
                             }
                         ),
@@ -3760,6 +4086,10 @@ class AutomatedValuationWorker:
             evidence = Explainability.build(resolved_identity, estimate, rows_by_id)
             evidence.update(
                 {
+                    "identity_version_id": (
+                        str(identity["confirmed_identity_version_id"])
+                        if identity.get("confirmed_identity_version_id") else None
+                    ),
                     "knowledge_version": (
                         self.knowledge_runtime.resolver.version
                         if self.knowledge_runtime
@@ -3824,6 +4154,7 @@ class AutomatedValuationWorker:
                 "title": rows_by_id.get(comp_id, {}).get("listing_title"),
                 "source_url": rows_by_id.get(comp_id, {}).get("source_url"),
                 "tier": rows_by_id.get(comp_id, {}).get("comparable_tier"),
+                "parallel_adjustment": rows_by_id.get(comp_id, {}).get("parallel_adjustment"),
                 "classification": rows_by_id.get(comp_id, {}).get("classification") or {},
                 "visual_verdict": (
                     rows_by_id.get(comp_id, {}).get("raw_payload") or {}
@@ -3832,6 +4163,9 @@ class AutomatedValuationWorker:
                     rows_by_id.get(comp_id, {}).get("raw_payload") or {}
                 ).get("visual_confidence"),
                 "visual_evidence_binding": (rows_by_id.get(comp_id, {}).get("raw_payload") or {}).get("visual_evidence_binding"),
+                "visual_match_evidence": (rows_by_id.get(comp_id, {}).get("raw_payload") or {}).get("visual_match_evidence", []),
+                "visual_independent_confirmation": (rows_by_id.get(comp_id, {}).get("raw_payload") or {}).get("visual_independent_confirmation"),
+                "visual_condition_review": (rows_by_id.get(comp_id, {}).get("raw_payload") or {}).get("visual_condition_review"),
                 "visual_reasons": (
                     rows_by_id.get(comp_id, {}).get("raw_payload") or {}
                 ).get("visual_reasons", []),
@@ -3839,19 +4173,42 @@ class AutomatedValuationWorker:
             for comp_id in shadow.used_ids
         ]
         proxy_basis = "cardhobby_same_type_proxy_range" in shadow.review_reasons
+        parallel_basis = PARALLEL_BASIS in shadow.review_reasons
         proxy_notes = []
-        if proxy_basis:
+        corroborated_basis = any((item.get('classification', {}).get('field_matches') or {}).get('corroborated_same_card')
+                                 for item in used)
+        if corroborated_basis:
+            proxy_notes.append('依据人物/画师、产品、年份、卡号或总限编及当前图片模板匹配综合判断为同款；'
+                               '平行版本细节及品相未完整核验，已降低证据权重。保留卖家瑕疵披露和原成交价，'
+                               '未换算完美品相价格，也未将反光差异或裁边单独作为拒绝理由。')
+        if any((item.get('classification', {}).get('field_matches') or {}).get('condition_basis') == 'visible_front_minor_comparable'
+               for item in used):
+            proxy_notes.append('含卖家明确披露微瑕的成交，已核验可见正面品相可比并降低证据权重；'
+                               '保留原成交价，未换算完美品相价格，背面及细微隐蔽缺陷仍不确定。')
+        if proxy_basis and not parallel_basis:
             proxy_notes.append("卡淘同类型卡片的低置信参考区间，不代表已核实的精确同版成交；保留可编辑估值。")
             if identity.get("serial_total") or identity.get("print_run"):
                 proxy_notes.append("参考记录未充分证实相同限编或平行版本，限编/平行溢价未知，未凭空加价。")
+        if parallel_basis:
+            proxy_notes.append('未找到可用同款成交，采用同底卡不同限编的低置信类比估值。'
+                '限编倍率使用有上下限的平方根暂定模型，尚未经过市场成对成交校准；'
+                '未证明平行颜色溢价或同等品相，置信度不超过18%，运费不计入卡价。')
+            for item in used:
+                detail = item['parallel_adjustment']
+                if detail:
+                    proxy_notes.append(f"参考 /{detail['source_serial_total']} 原价 {detail['original_price']}，"
+                        f"推算目标 /{detail['target_serial_total']} 为 {detail['adjusted_price']}；"
+                        f"倍率 {Decimal(detail['multiplier']):.4f}。"
+                        + ('卖家披露微瑕，未换算完美品相价。' if detail['minor_condition_disclosed'] else '品相溢价未调整。'))
+        model_version = PARALLEL_MODEL if parallel_basis else "relative-multimodal-comps-1.0"
         result = await connection.execute(
-            """
+            f"""
             INSERT INTO valuation_snapshot (
                 collection_item_id, method, currency, low_value, fair_value,
                 high_value, confidence, evidence, model_version
             ) VALUES (
                 %s, 'ai_estimate', %s, %s, %s, %s, %s, %s,
-                'relative-multimodal-comps-1.0'
+                '{model_version}'
             ) RETURNING id
             """,
             (
@@ -3863,7 +4220,12 @@ class AutomatedValuationWorker:
                 shadow.confidence,
                 Jsonb(
                     {
-                        "selection_policy": "strongest_non_conflicting_relative_tier",
+                        "selection_policy": ("exact_then_same_base_print_run_fallback" if parallel_basis
+                                             else "strongest_non_conflicting_relative_tier"),
+                        "identity_version_id": (
+                            str(identity["confirmed_identity_version_id"])
+                            if identity.get("confirmed_identity_version_id") else None
+                        ),
                         "used_comparables": used,
                         "rejected_comparables": list(shadow.rejected),
                         "risk_flags": list(shadow.review_reasons),
@@ -3878,11 +4240,20 @@ class AutomatedValuationWorker:
                             "pricing_basis": UNGRADED_SAME_CARD_BASIS,
                             "grade_premium_applied": False,
                         } if UNGRADED_SAME_CARD_BASIS in shadow.review_reasons else {}),
+                        **({'pricing_basis': PARALLEL_BASIS,
+                            'adjustment_model': PARALLEL_MODEL,
+                            'exact_version_verified': False,
+                            'market_calibrated': False,
+                            'numbered_premium_applied': True,
+                            'confidence_cap': '0.18'} if parallel_basis else {}),
                         "automatic_publication": True,
+                        **({'pricing_basis': 'corroborated_same_card',
+                            'exact_version_verified': False, 'condition_fully_verified': False}
+                           if corroborated_basis else {}),
                         **({"pricing_basis": (UNGRADED_SAME_CARD_BASIS
                               if UNGRADED_SAME_CARD_BASIS in shadow.review_reasons else "same_type_proxy"),
                             "exact_version_verified": False,
-                            "numbered_premium_applied": False} if proxy_basis else {}),
+                            "numbered_premium_applied": False} if proxy_basis and not parallel_basis else {}),
                     }
                 ),
             ),

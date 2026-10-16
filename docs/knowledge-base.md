@@ -70,3 +70,43 @@ National Treasures 等未完成逐赛季 checklist 的产品明确保留为 `pen
 3. 历史批次：Upper Deck、Fleer、SkyBox、Leaf、Bowman，按 manufacturer、brand、
    license 和年代分段录入。
 4. 卡片级：checklist card identity、正反面参考图、图片来源、可解释视觉特征与图像校验。
+
+## NBA 球员别名目录（2026-09）
+
+`nba-player-aliases-v1` 是知识库管理可导入的独立批次，覆盖 nba_api 历史球员目录与
+新浪近期阵容中的新增球员。可发布清单位于 API 包内
+`card_platform/data/nba_player_aliases_v1.json`，因此部署后的离线兼容路径使用同一份数据。
+原始事实摘录固定在 `data/knowledge_sources/nba_aliases_20260923.json.gz`，补充核验在
+`nba_aliases_reviewed.json`；`scripts/build_nba_player_aliases.py` 可离线重建。
+构建需要 `opencc-python-reimplemented` 做繁简转换，运行服务不依赖该库。
+
+身份别名只保留无跨球员冲突的完整姓名/已审核名称。姓氏、重名，以及会被另一球员中文
+全名包含的形式（例如父亲姓名包含在“二世”姓名中），只写入 `attributes.query_aliases`。
+这些词用于扩大候选搜索，不进入 `KnowledgeResolver` 身份索引。大陆阵容译名作为
+`preferred_query_aliases` 优先使用；明确卡片别名和人工知识优先于新目录的通用变体。
+
+覆盖分母、缺失中文来源及冲突清单记录在 `data/knowledge_sources/nba_aliases_coverage.json`。
+“目录全量扫描”不表示所有历史球员已有中文译名，也不表示昵称已穷尽；未取得可靠来源的
+条目保留 `missing_source`。active_at_source 是来源快照字段，不作实时合同/阵容断言。
+实体的 `alias_evidence` 保存中文资料的 Wikidata、中文维基条目、Sina 阵容及补充核验链接；
+实体主来源 nba_api 只代表英文目录，不能据此声称中文译名来自 NBA 官方。
+
+更新时替换/增加来源摘录并重建，验证同名、父子、多球员卡及真实中文订单，然后通过原有
+批次预检、审核发布路径生效；不直接改写历史快照或自动覆盖已有购入交易。
+
+
+## 官方篮球清单自动录入（2026-10）
+
+入口 `/knowledge` 显示工程进度、已发现候选的发布比例、逐产品来源和解析异常。
+自动同步执行 `.venv/bin/python scripts/sync_official_checklists.py --apply`；
+只读持仓验证执行 `.venv/bin/python scripts/replay_official_knowledge.py`。
+本次范围为2025-10-04至2026-10-04，仅篮球；发行日期未知独立计数，不能以赛季代替。
+数据账本位于 `data/official-checklists/status.json`，目录与原始证据保存在同目录。
+
+官方事实自动批准，先通过结构化检查，再按来源原子替换和发布，无人工审核步骤。
+无法可靠解析的行保留原文并自动隔离，不作为卡片身份事实。独立发布保留其他来源的草稿和已发布事实。
+查询和估价按产品、年份、球员、卡号组合读取已发布知识；唯一一致的缺失特卡名称可自动补全并附官方页码。
+发行清单不等于成交证据，不直接产生市场价格，也不据此猜测实物平行、限编或签字。
+
+完整记录见 `specs/009-official-checklist-knowledge/verification.md`。当前任务尚未全量完成：Panini来源访问受限，
+部分产品发行日期未知，部分PDF行仍待自动恢复。工程完成率与目录覆盖率分开显示，不把受阻任务记为完成。

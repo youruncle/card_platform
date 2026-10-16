@@ -662,3 +662,82 @@ def test_soft_mismatch_visual_inference_and_duplicate_snapshot(client,monkeypatc
             audit=client.get(f'/v1/purchase-cost/items/{item_id}/audit').json()
             assert audit['evidence']['title']==orders[0]['lines'][0]['title']
             assert audit['evidence']['match_method']=='inferred'
+
+
+def test_live_lookup_only_scores_orders_from_this_complete_search(client, monkeypatch):
+    """A growing private order archive must not multiply each live lookup's work."""
+    import card_platform.purchase_cost_service as costs
+
+    owner = register(client)
+    card = item(client, owner)
+    stale = order(item_id='900003', external_order_id='900004', title='Unrelated archived order')
+    assert client.post('/v1/purchase-cost/sync', json={'orders': [stale]}).status_code == 200
+    scored = []
+    original = costs.score_match
+
+    def fresh_only(card, line, *args, **kwargs):
+        scored.append(line['item_id'])
+        assert line['item_id'] == '900002', 'Live lookup evaluated an unrelated archived order'
+        return original(card, line, *args, **kwargs)
+
+    monkeypatch.setattr(costs, 'score_match', fresh_only)
+    response = client.post(f'/v1/purchase-cost/items/{card}/search-result',
+                          json={'orders': [order()], 'complete': True})
+    assert response.status_code == 200
+    assert response.json()['status'] == 'recorded'
+    assert scored
+
+
+def test_collect_default_owner_isolation_and_recorded_audit(client):
+    owner = register(client)
+    card = item(client, owner)
+    async def policy():
+        async with await AsyncConnection.connect(os.environ['TEST_DATABASE_URL']) as conn:
+            await conn.execute('INSERT INTO cardhobby_account(owner_id,collect_shipping_default) VALUES(%s,18)', (owner,))
+    asyncio.run(policy())
+    payload = order()
+    payload.update(shipping=None,shipping_method='sf_collect',displayed_total='10.00',paid_total='10.00')
+    response = client.post('/v1/purchase-cost/sync',json={'orders':[payload]})
+    assert response.status_code == 200, response.text
+    assert response.json()['orders'][0]['errors'] == []
+    candidate = preview(client,card)['candidates'][0]
+    assert candidate['shipping'] == '18.00' and candidate['total_cost'] == '28.00'
+    assert candidate['shipping_basis'] == 'owner_default'
+    assert confirm(client,card,candidate).status_code == 200
+    assert confirm(client,card,candidate).json()['status'] == 'already_recorded'
+    audit = client.get(f'/v1/purchase-cost/items/{card}/audit').json()
+    assert audit['evidence']['shipping_method'] == 'sf_collect'
+    assert audit['manual_override'] is False
+    other = register(client)
+    other_card = item(client,other)
+    response = client.post('/v1/purchase-cost/sync',json={'orders':[payload]})
+    assert response.json()['orders'][0]['errors']
+    assert not preview(client,other_card)['candidates']
+
+
+def test_full_archive_prefilter_preserves_duplicate_candidates_and_linked_unknown_names(client, monkeypatch):
+    import card_platform.purchase_cost_service as costs
+
+    owner = register(client)
+    card_id = item(client, owner)
+    captures = [order(), order(item_id='900003', external_order_id='900004')]
+    captures += [order(item_id=str(910000+i), external_order_id=str(920000+i),
+                       title='2025 Topps Unrelated Player') for i in range(12)]
+    assert client.post('/v1/purchase-cost/sync', json={'orders': captures}).status_code == 200
+    scored = []
+    original = costs.score_match
+
+    def tracked(card, line, *args, **kwargs):
+        scored.append(line['item_id'])
+        return original(card, line, *args, **kwargs)
+
+    monkeypatch.setattr(costs, 'score_match', tracked)
+    result = preview(client, card_id)
+    assert {c['item_id'] for c in result['candidates']} == {'900002', '900003'}
+    assert set(scored) == {'900002', '900003'}
+    assert len(result['candidates']) == 2  # prefilter cannot manufacture uniqueness
+    scored.clear()
+    captures[0]['lines'][0]['title'] = '2025 Topps 商品名称缺失'
+    assert client.post('/v1/purchase-cost/sync', json={'orders': captures[:1]}).status_code == 200
+    preview(client, card_id)
+    assert '900002' in scored  # exact source remains recallable without a name alias

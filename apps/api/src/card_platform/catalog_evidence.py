@@ -4,6 +4,27 @@ from __future__ import annotations
 
 import re
 
+from card_platform.domain.serial_evidence import serial_field_evidence, unique_visible_serial
+
+
+def normalize_team_parallel(result):
+    """Reject team text used as a parallel, without guessing a replacement."""
+    token = re.sub(r"[^a-z]", "", str(result.parallel_name or "").casefold())
+    evidence = " ".join(result.field_evidence.get("parallel_name") or [])
+    # Specific labels (Gold, Golden Treasures, etc.) are not bare team text.
+    if token not in {"golden", "goldenstate", "goldenstatewarriors"} or not (
+        token != "golden"
+        or re.search(r"golden\s+state|球队|队名|球衣[^。;；]{0,40}(?:暗示|推断)", evidence, re.I)
+    ):
+        return result
+    updates = {"parallel_name": None, "caveats": list(dict.fromkeys([
+        *result.caveats,
+        "team_text_not_parallel: 球队/球衣文字不能确认平行版本，已留空待核对",
+    ]))}
+    if result.serial_total is None and unique_visible_serial(serial_field_evidence(result.field_evidence)) is None:
+        updates["is_numbered"] = None
+    return result.model_copy(update=updates)
+
 
 def is_biography_insert(value: object) -> bool:
     text = str(value or "").strip()
@@ -20,6 +41,7 @@ def normalize_catalog_evidence(result):
     Whole-card text is not an identity catalogue: prose stays in field_evidence
     and the warning explains why the search anchor was removed.
     """
+    result = normalize_team_parallel(result)
     if re.fullmatch(r"(?:(?:top|upper|bottom|lower)[\s_-]*(?:left|right)|[左右][上下](?:角)?)", str(result.card_number or '').strip(), re.I):
         original = result.card_number
         result = result.model_copy(update={

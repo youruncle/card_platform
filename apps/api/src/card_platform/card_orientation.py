@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 import sys
@@ -7,6 +6,8 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+
+from card_platform.local_vision_process import LocalVisionCircuitOpen, run_local_vision
 
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,7 @@ class OrientationDecision:
     method: str
     text_count: int = 0
     face_count: int = 0
+    local_vision: dict | None = None
 
 
 def fuse_apple_vision_orientation(
@@ -100,27 +102,31 @@ class AppleVisionOrientationClassifier:
         resolved = configured.resolve()
         repository_copy = Path(__file__).resolve().parents[4] / "scripts" / configured.name
         self.script_path = resolved if resolved.is_file() else repository_copy
+        self._timed_out = False
+        self.last_outcome = {"status": "not_started"}
 
     @property
     def available(self) -> bool:
         return sys.platform == "darwin" and self.script_path.is_file()
 
     async def classify(self, image_path: Path) -> OrientationDecision | None:
-        if not self.available:
+        if not self.available or self._timed_out:
+            self.last_outcome = {"status": "skipped", "reason": "previous_timeout" if self._timed_out else "unavailable"}
             return None
         try:
-            process = await asyncio.create_subprocess_exec(
+            stdout, stderr, returncode = await run_local_vision(
                 "swift",
                 str(self.script_path),
                 str(image_path),
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=20)
-            if process.returncode != 0:
+            if returncode != 0:
+                self.last_outcome = {"status": "failed", "reason": "process_failed"}
                 logger.warning("Apple Vision orientation failed: %s", stderr.decode()[:300])
                 return None
             payload = json.loads(stdout)[0]
+            if payload.get("error"):
+                self.last_outcome = {"status": "failed", "reason": "process_image_failed"}
+                return None
             rotation = payload.get("rotationDegrees")
             text_count = int(payload.get("textCount") or 0)
             raw_confidence = float(payload.get("confidence") or 0)
@@ -128,6 +134,7 @@ class AppleVisionOrientationClassifier:
             # semantic baseline are a strong signal; a lone logo is not.
             evidence_factor = min(1.0, text_count / 2)
             text_confidence = min(0.97, raw_confidence * evidence_factor)
+            self.last_outcome = {"status": "succeeded"}
             return fuse_apple_vision_orientation(
                 text_rotation=rotation,
                 text_confidence=text_confidence,
@@ -136,7 +143,16 @@ class AppleVisionOrientationClassifier:
                 face_confidence=float(payload.get("faceConfidence") or 0),
                 face_count=int(payload.get("faceCount") or 0),
             )
-        except (OSError, TimeoutError, ValueError, KeyError, json.JSONDecodeError) as error:
+        except LocalVisionCircuitOpen:
+            self.last_outcome = {"status": "skipped", "reason": "local_vision_cooldown"}
+            return None
+        except TimeoutError:
+            self._timed_out = True
+            self.last_outcome = {"status": "failed", "reason": "local_vision_timeout"}
+            logger.warning("Apple Vision orientation timed out; remaining images use fallback")
+            return None
+        except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
+            self.last_outcome = {"status": "failed", "reason": "invalid_or_unavailable"}
             logger.warning("Apple Vision orientation unavailable: %s", error)
             return None
 

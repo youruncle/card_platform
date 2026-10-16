@@ -1,6 +1,6 @@
 {
   "name": "@card-platform/web",
-  "version": "0.5.0",
+  "version": "0.6.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,7 +9,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:dashboard-refresh": "node --import tsx --test tests/dashboard-refresh.test.cjs",
-    "test:purchase-cost": "node --import tsx --test tests/purchase-cost.test.cjs tests/purchase-cost-background.test.cjs"
+    "test:purchase-cost": "node --import tsx --test tests/purchase-cost.test.cjs tests/purchase-cost-background.test.cjs tests/purchase-cost-values.test.cjs"
   },
   "dependencies": {
     "next": "^15.1.0",

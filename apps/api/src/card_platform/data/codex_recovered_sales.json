@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "description": "公开来源重新核验记录；不是按卡片硬编码的估值。仅对引用对应URL且身份匹配的历史分析生效。",
+  "sources": {
+    "https://www.ebay.com/itm/355333714800": {
+      "price": "9.25",
+      "currency": "USD",
+      "sold_at": "2026-07-30",
+      "checked_at": "2026-09-25",
+      "sale_confirmed": true,
+      "actual_price_known": true,
+      "title": "2023 Topps Chrome Disney 100 Stitch In Costume Clock Strikes Snack Time #SC-6",
+      "identity": {
+        "player_name": "Stitch",
+        "season_start": 2023,
+        "product_name": "Topps Chrome",
+        "card_number": "SC-6",
+        "insert_name": "Stitch in Costume",
+        "parallel_name": "Base",
+        "is_autograph": false,
+        "is_memorabilia": false,
+        "serial_total": null,
+        "grade_company": null
+      },
+      "scope": "重新打开原成交页：Sold、金额、日期、未评级及卡号已核验；未完成实物品相逐图比对；运费11.86美元排除",
+      "identity_confirmed": true
+    },
+    "https://www.ebay.com/itm/377274132986": {
+      "price": "76.00",
+      "currency": "USD",
+      "sold_at": "2026-06-23",
+      "checked_at": "2026-09-25",
+      "sale_confirmed": true,
+      "actual_price_known": true,
+      "title": "2025-26 Topps Signature Class Stephen Curry Star Cast #SC-1 Warriors",
+      "identity": {
+        "player_name": "Stephen Curry",
+        "season_start": 2025,
+        "product_name": "Signature Class",
+        "card_number": "SC-1",
+        "insert_name": "Star Cast",
+        "parallel_name": "Base",
+        "is_autograph": false,
+        "is_memorabilia": false,
+        "serial_total": null,
+        "grade_company": null
+      },
+      "scope": "重新打开原拍卖页：已售、8次出价、76美元、日期、未评级；候选图加载失败，平行及品相仍需复核，不得消除目标卡已有版本疑问",
+      "identity_confirmed": false
+    },
+    "https://www.ebay.com/itm/278299282996": {
+      "price": "7.00",
+      "currency": "USD",
+      "sold_at": "2026-08-27",
+      "checked_at": "2026-09-25",
+      "sale_confirmed": true,
+      "actual_price_known": true,
+      "title": "JAMES HARDEN 2025-26 TOPPS CHROME NEGATIVE REFRACTOR #33 CLIPPERS",
+      "identity": {
+        "player_name": "James Harden",
+        "season_start": 2025,
+        "product_name": "Topps Chrome",
+        "card_number": "33",
+        "parallel_name": "Negative Refractor",
+        "is_autograph": false,
+        "is_memorabilia": false,
+        "serial_total": null,
+        "grade_company": null
+      },
+      "scope": "重新打开原拍卖页：已售、7次出价、7美元、日期、Negative Refractor、未评级Excellent；运费6美元排除，目标卡品相未确认",
+      "identity_confirmed": true
+    }
+  },
+  "fx": {
+    "base": "USD",
+    "quote": "CNY",
+    "rate": "6.7132",
+    "date": "2026-09-25",
+    "url": "https://api.frankfurter.dev/v1/latest?from=USD&to=CNY"
+  },
+  "identity_reviews": {
+    "679443835ef5c8a54f6fcca7f5e41cd3905ef3a0df76235c3b3531356a9f6919:512d04b6a6bee9ffb688af37d54b4139e319443450605143976ef9ed5291326b": {
+      "fields": {
+        "insert_name": null
+      },
+      "checked_at": "2026-09-25",
+      "reason": "本任务直接查看当前正反面原图：正面James Harden负片反色、Topps Chrome、Clippers字样；背面33、2026版权及CMP144022。未见Stars插卡标识，原Stars字段缺乏依据；结合历史Codex身份用于当前估值，卡库原字段不覆盖。"
+    }
+  }
+}

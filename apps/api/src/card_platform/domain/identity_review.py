@@ -9,6 +9,40 @@ from card_platform.domain.card_identity import normalize_text
 GENERIC_PARALLELS = {"prizm", "refractor", "parallel", "折射", "折射版", "普卡"}
 
 
+def is_scoped_standard_refractor(identity: dict[str, Any]) -> bool:
+    """Topps Chrome's named Refractor is distinct from a generic finish claim.
+
+    Sapphire is a separate product/finish scope. This admits an explicit name;
+    it does not infer that name from a photograph, serial total or seller title.
+    """
+    product = normalize_text(identity.get('product_name'))
+    scope = ' '.join(normalize_text(identity.get(field))
+                     for field in ('product_name', 'set_name', 'insert_name'))
+    return (normalize_text(identity.get('brand_name')) == 'topps'
+            and 'chrome' in product.split()
+            and normalize_text(identity.get('parallel_name') or identity.get('parallel')) == 'refractor'
+            and not re.search(r'sapphire|蓝宝石|藍寶石', scope))
+
+
+def is_tcg_collector_number(identity: dict[str, Any]) -> bool:
+    """Recognize a catalog fraction only within an explicit Pokémon scope.
+
+    The denominator is the checklist size, never evidence of a print run.
+    Other TCG formats can be added when their product scope is verified.
+    """
+    number = re.fullmatch(r"(\d{1,4})\s*/\s*(\d{1,4})", str(identity.get("card_number") or "").strip())
+    if not number or not all(int(value) > 0 for value in number.groups()):
+        return False
+    brand = normalize_text(identity.get("brand_name"))
+    if brand in {"panini", "topps", "upper deck", "fleer", "skybox", "leaf"}:
+        return False
+    pokemon_brands = {"pokemon", "pokémon", "the pokemon company", "the pokémon company", "宝可梦", "寶可夢", "ポケモン"}
+    return brand in pokemon_brands or bool(re.search(
+        r"\bpok[eé]mon\b|宝可梦|寶可夢|ポケモン",
+        str(identity.get("product_name") or ""), re.I,
+    ))
+
+
 class ConfirmedIdentity(BaseModel):
     player_name: str = Field(min_length=1)
     season_start: int = Field(ge=1940, le=2200)
@@ -43,9 +77,10 @@ class ConfirmedIdentity(BaseModel):
             raise ValueError("serial_number cannot exceed serial_total")
         card_number = (self.card_number or "").strip()
         fraction = re.fullmatch(r"0*(\d+)\s*/\s*0*(\d+)", card_number)
-        if fraction:
+        if fraction and not is_tcg_collector_number(self.model_dump()):
             raise ValueError("card_number must not contain a serial fraction")
-        if normalize_text(self.parallel_name) in GENERIC_PARALLELS:
+        if (normalize_text(self.parallel_name) in GENERIC_PARALLELS
+                and not is_scoped_standard_refractor(self.model_dump())):
             raise ValueError("generic Prizm/Refractor cannot be confirmed as a parallel")
         has_numbered_anchor = bool(self.card_number or self.insert_name or self.set_name)
         if self.serial_total and not self.parallel_name and not has_numbered_anchor:
@@ -63,7 +98,7 @@ def structured_evidence_decision(
     classification: dict[str, Any], evidence_level: str, *, identity_changed: bool = False,
 ) -> tuple[str, list[str]]:
     if identity_changed:
-        return "rejected", ["identity_changed_requires_evidence_revalidation"]
+        return "needs_review", ["identity_changed_requires_evidence_revalidation"]
     reasons = list(classification.get("hard_conflicts") or [])
     tier = classification.get("comparable_tier") or classification.get("tier")
     if tier != "T0":

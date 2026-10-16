@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getCostSearchPlan, resolveCostSearch, type CostSearchResult } from "./api";
-import { CardHobbyConnectionError, CardHobbyLoginError, searchCardHobbyOrders } from "./cardhobby-cost-search";
+import { getCostSearchPlan, type CostSearchResult } from "./api";
+import { CardHobbyConnectionError, CardHobbyLoginError, searchCardHobbyOrders, resolveCostSearchWithFallback } from "./cardhobby-cost-search";
 
 export type CostLookupState = {
   status: "loading" | "needs_confirmation" | "connection_required" | "login_required" | "recorded" | "not_found" | "incomplete" | "unmatched" | "skipped" | "error";
@@ -76,7 +76,7 @@ export function usePurchaseCostLookup(ownerId: string | null, onRecorded: (itemI
         const capture = await searchCardHobbyOrders(plan.keywords, controller.signal);
         if (!current()) return;
         update({status: "loading", message: "正在核对卡价与运费…", label});
-        const received = await resolveCostSearch(itemId, capture, controller.signal);
+        const received = await resolveCostSearchWithFallback(itemId, capture, plan, controller.signal);
         if (!current()) return;
         const eligible = received.candidates.filter(candidate => candidate.automatic);
         const status: CostLookupState["status"] = received.status === "needs_confirmation"

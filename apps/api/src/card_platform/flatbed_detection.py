@@ -18,7 +18,7 @@ class Detection:
     evidence: tuple[str, ...] = ()
 
 
-DETECTOR_VERSION = "physical-object-layout-v20"
+DETECTOR_VERSION = "object-quad-layout-v30"
 
 GRID_INK_LOW_QUANTILE = 0.008
 GRID_INK_HIGH_QUANTILE = 0.992
@@ -53,7 +53,6 @@ GRID_SHAPE_INSTANCE_MIN_SUPPORTED_CELLS = 3
 GRID_SHAPE_INSTANCE_MIN_COVERAGE = 0.50
 GRID_SHAPE_INSTANCE_SCORE_WEIGHT = 0.36
 OBJECT_LAYOUT_MIN_GRID_CELL_EXPLANATION = 0.25
-OBJECT_LAYOUT_MIN_GRID_AREA_COVERAGE = 0.50
 OBJECT_ENVELOPE_MARGIN_RATIO = 0.06
 PRIOR_TOPOLOGY_MIN_CURRENT_SUPPORT_RATIO = 0.50
 PRIOR_TOPOLOGY_MIN_CHILD_CONTAINMENT = 0.78
@@ -85,6 +84,8 @@ class LayoutHypothesis:
     transform: str = "independent"
     signals: dict[str, float | int | str | list[float]] = field(default_factory=dict)
     rejected_reasons: tuple[str, ...] = ()
+    object_references: tuple[Detection, ...] = ()
+    search_regions: tuple[Detection, ...] = ()
 
     def as_dict(self) -> dict:
         return {
@@ -95,6 +96,10 @@ class LayoutHypothesis:
             "transform": self.transform,
             "signals": self.signals,
             "rejected_reasons": list(self.rejected_reasons),
+            "independent_object_references": [
+                {"bounds": [float(d.x), float(d.y), float(d.width), float(d.height)],
+                 "points": d.points, "evidence": list(d.evidence)} for d in self.object_references
+            ],
         }
 
 
@@ -1749,28 +1754,36 @@ def _grid_shape_instance_support(
 def _physical_object_envelopes(
     image: np.ndarray,
     instances: list[Detection],
+    *,
+    margin_ratio: float = OBJECT_ENVELOPE_MARGIN_RATIO,
 ) -> list[Detection]:
     """Add a small, neighbour-isolated margin around complete object evidence."""
     image_height, image_width = image.shape[:2]
 
     completed: list[Detection] = []
     for item in instances:
-        # A multi-panel envelope backed by an independent outer route already
-        # describes the complete physical boundary. Expanding it a second time
-        # can cross a real inter-card gap and pull the neighbouring holder into
-        # the crop. Label/body unions and structural observations without that
-        # outer-envelope proof still receive the ordinary safety margin because
-        # their coordinates can hug printed content inside a clear holder.
+        # Independent routes can agree on an inner frame rather than the card
+        # border. Expand corroborated envelopes only when their safety collar
+        # still contains unexplained structure; peer boundaries below constrain
+        # expansion so the margin cannot enter another observed card.
         has_complete_boundary = "independent_outer_envelope_support" in item.evidence
         has_structural_boundary = (
             has_complete_boundary or "structural_edge_envelope" in item.evidence
         )
         pixel_margin = (
-            0.0
-            if has_complete_boundary
-            else min(item.width * image_width, item.height * image_height)
-            * OBJECT_ENVELOPE_MARGIN_RATIO
+            min(item.width * image_width, item.height * image_height)
+            * margin_ratio
         )
+        collar_left = max(0.0, item.x - pixel_margin / image_width)
+        collar_top = max(0.0, item.y - pixel_margin / image_height)
+        collar_right = min(1.0, item.x + item.width + pixel_margin / image_width)
+        collar_bottom = min(1.0, item.y + item.height + pixel_margin / image_height)
+        collar = Detection(
+            collar_left, collar_top, collar_right - collar_left,
+            collar_bottom - collar_top, 0.0, 1.0,
+        )
+        if has_complete_boundary and not _cell_has_unexplained_object(image, collar, instances):
+            pixel_margin = 0.0
         left = max(0.0, item.x - pixel_margin / image_width)
         right = min(1.0, item.x + item.width + pixel_margin / image_width)
         top = max(0.0, item.y - pixel_margin / image_height)
@@ -1926,12 +1939,15 @@ def _object_layout_overrides_grid(
         return None
 
     objects = _physical_object_envelopes(image, instances)
+    if _layout_conflicts(objects):
+        # A protective collar is optional. Overlapping collars must not veto
+        # independently observed, non-conflicting objects and restore grid cuts.
+        # Keep actual object boundaries; the residual audit still checks recall.
+        objects = _physical_object_envelopes(image, instances, margin_ratio=0.0)
     if len(objects) != len(instances) or _layout_conflicts(objects):
         return None
-    grid_area = sum(item.width * item.height for item in grid)
-    object_area = sum(item.width * item.height for item in objects)
-    if object_area / max(grid_area, 1e-9) < OBJECT_LAYOUT_MIN_GRID_AREA_COVERAGE:
-        return None
+    # Scanner capacity includes empty bed. Completeness is established below
+    # by residual object structure, never by the area of obsolete grid cells.
 
     explained_counts = [0] * len(objects)
     for cell in grid:
@@ -1959,7 +1975,29 @@ def _object_layout_overrides_grid(
 
     if not all(count >= 1 for count in explained_counts):
         return None
-    if not any(count >= 2 for count in explained_counts):
+    # An offset card can lose a substantial corner in a neighbouring cell
+    # without explaining 25% of that cell. Measure coverage of the object,
+    # rather than requiring two large capacity-cell fragments.
+    # Check the original instances here: a safety margin crossing a grid seam
+    # alone does not prove that the grid cuts a card.
+    object_cell_shares = [
+        sorted(
+            [
+                max(0.0, min(item.x + item.width, cell.x + cell.width) - max(item.x, cell.x))
+                * max(0.0, min(item.y + item.height, cell.y + cell.height) - max(item.y, cell.y))
+                / max(item.width * item.height, 1e-9)
+                for cell in grid
+            ],
+            reverse=True,
+        )
+        for item in instances
+    ]
+    has_cut_object = any(
+        len(shares) >= 2 and shares[0] < 0.97 and shares[1] >= 0.05
+        and sum(shares) >= 0.85
+        for shares in object_cell_shares
+    )
+    if not any(count >= 2 for count in explained_counts) and not has_cut_object:
         return None
 
     mixed_orientation = (
@@ -2300,11 +2338,96 @@ def _refine_grid_cell_to_ink_extent(
     )
 
 
+def _separated_rotated_objects(image: np.ndarray) -> list[Detection]:
+    """Keep stable, complete tilted components ahead of scanner capacity grids.
+
+    Axis-aligned aspect ratios approach one when a card is tilted. Measure
+    shape in the object's own axes, require two threshold observations and
+    reject the entire route if any substantial foreground remains unexplained.
+    Axis-aligned components may be touching rows with a card-like combined
+    aspect ratio; leave those sheets to the existing structural/grid routes.
+    """
+    height, width = image.shape[:2]
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    passes: list[list[tuple[np.ndarray, float]]] = []
+    for threshold in (185, 205):
+        mask = (gray < threshold).astype(np.uint8) * 255
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        objects = []
+        covered = np.zeros_like(mask)
+        for contour in contours:
+            rect = cv2.minAreaRect(contour)
+            short, long = sorted(rect[1])
+            area = short * long
+            if area < gray.size * 0.015:
+                continue
+            if (
+                area > gray.size * 0.35
+                or not 1.25 <= long / max(short, 1) <= 1.85
+                or cv2.contourArea(contour) / max(area, 1) < 0.90
+            ):
+                continue
+            points = cv2.boxPoints(rect)
+            # A fitted rectangle can extend slightly beyond a rounded holder
+            # touching the scanner edge. Keep that whole object; the public
+            # source clamp clips its corners and preserves the edge warning.
+            # Reject material extrapolation rather than invent missing pixels.
+            normalized = points / (width, height)
+            if (normalized < -SOURCE_BOUNDS_SEVERE_OVERFLOW_RATIO).any() or (
+                normalized > 1 + SOURCE_BOUNDS_SEVERE_OVERFLOW_RATIO
+            ).any():
+                continue
+            objects.append((points, rect[2]))
+            cv2.fillConvexPoly(covered, np.rint(points).astype(np.int32), 255)
+        if not objects or np.count_nonzero(mask & ~covered) > max(
+            gray.size * 0.002, np.count_nonzero(mask) * 0.02
+        ):
+            return []
+        passes.append(objects)
+    inner, outer = passes
+    if len(inner) != len(outer) or not all(10 <= angle % 90 <= 80 for _, angle in outer):
+        return []
+    detections = []
+    matched = set()
+    for points, angle in outer:
+        area = cv2.contourArea(points)
+        matches = []
+        for index, (reference, _) in enumerate(inner):
+            intersection, _ = cv2.intersectConvexConvex(points, reference)
+            union = area + cv2.contourArea(reference) - intersection
+            if intersection / max(union, 1) >= 0.90:
+                matches.append(index)
+        if len(matches) != 1 or matches[0] in matched:
+            return []
+        matched.add(matches[0])
+        left, top = points.min(axis=0)
+        right, bottom = points.max(axis=0)
+        detections.append(Detection(
+            float(left / width), float(top / height),
+            float((right - left) / width), float((bottom - top) / height),
+            float(angle), 0.94,
+            points=tuple((float(x / width), float(y / height)) for x, y in points),
+            evidence=("separated_rotated_object", "threshold_185", "threshold_205",
+                      "physical_object_envelope", "current_object_layout",
+                      "grid_oversegmentation_rejected",
+                      *(("source_edge_contact",) if (
+                          (points.min(axis=0) <= 2).any()
+                          or (points.max(axis=0) >= (width - 2, height - 2)).any()
+                      ) else ())),
+        ))
+    if _layout_conflicts(detections):
+        return []
+    return sorted(detections, key=lambda item: (item.y, item.x))
+
+
 def _local_candidates(content: bytes, *, dpi: int = 300) -> list[Detection]:
     image = cv2.imdecode(np.frombuffer(content, np.uint8), cv2.IMREAD_COLOR)
     if image is None:
         raise ValueError("无法解码扫描图像")
     height, width = image.shape[:2]
+    rotated_objects = _separated_rotated_objects(image)
+    if rotated_objects:
+        return rotated_objects
     irregular = _irregular_slab_detections(image)
     associated_labels = sum("grading_label_association" in item.evidence for item in irregular)
     single_slab_mixed_is_complete = _single_slab_mixed_layout_is_complete(image, irregular)
@@ -2439,9 +2562,14 @@ def _local_candidates(content: bytes, *, dpi: int = 300) -> list[Detection]:
     # greedily merged here: the global layout layer compares signals, while
     # contour-level containment would let repeated threshold boxes suppress a
     # stronger perspective/connected-component observation.
+    # Similar-sized foreground boxes do not prove every object was found:
+    # pale backs can leave distributed text/holder edges outside those boxes.
     full_bed_grid = (
         None
         if _foreground_layout_is_complete(foreground)
+        and not _cell_has_unexplained_object(
+            image, Detection(0, 0, 1, 1, 0, 1), foreground
+        )
         else _full_bed_grid_detections(
             image,
             foreground,

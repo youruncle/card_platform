@@ -1,0 +1,46 @@
+{
+  "corpus_files": 2,
+  "unique_files": 1,
+  "duplicate_revisions_removed": 1,
+  "passed": 1,
+  "metrics": {
+    "standalone_count_recall": 1.0,
+    "duplicate_free_rate": 1.0,
+    "whole_sheet_rejection_rate": 1.0,
+    "usable_region_rate": 1.0,
+    "critical_geometry_pass_rate": 1.0
+  },
+  "regressions": [],
+  "methodology": {
+    "deduplicated_by_sha256": true,
+    "deduplication_key_includes_expected_count_and_dpi": true,
+    "detector_receives_expected_count": false,
+    "detector_receives_generated_prior": false,
+    "detector_receives_recorded_dpi": true,
+    "pinned_sources_verified_before_detection": true,
+    "crop_quality_independent_of_detector_confidence": true
+  },
+  "results": [
+    {
+      "path": "data/flatbed-scans/c6e6987e-eec0-40a0-a9de-92ce5d51a7cc/c8f1d7f1-34ba-40ce-9d78-8d414f46541d/b2b70de5-b4c4-447d-9f0a-c21bb71abb29/original.png",
+      "sheet_ids": [
+        "b2b70de5-b4c4-447d-9f0a-c21bb71abb29",
+        "eb670aba-74aa-47e7-81d8-38cca6a65695"
+      ],
+      "sha256": "2c7529d369e98e93922c41b91a01de6bddbdcd5293d74d5cb90e89d3c6fae82d",
+      "equivalent_revision_count": 2,
+      "count": 4,
+      "expected": 4,
+      "dpi": 300,
+      "score": 0.9225,
+      "transform": "independent",
+      "duplicates": 0,
+      "whole_sheet_candidate": false,
+      "unusable_regions": 0,
+      "crop_quality_errors": [],
+      "boundary_continuity_warnings": 0,
+      "geometry_failures": [],
+      "passed": true
+    }
+  ]
+}

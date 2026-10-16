@@ -31,7 +31,7 @@ const item = page => ({ id: `card-${page}`, player_name: `Fixture Page ${page}`,
   recognition_quality_issues: [], valuation_status: 'queued' });
 const pageData = page => ({ items: [item(page)], page, total: 108, total_pages: 4, page_size: 30 });
 function fixture(initialJobs = []) {
-  const state = { jobs: initialJobs, pages: [], queries: [], scannerCalls: 0, hold: null };
+  const state = { jobs: initialJobs, pages: [], sizes: [], queries: [], scannerCalls: 0, hold: null };
   global.fetch = async url => {
     const path = new URL(url, 'http://localhost');
     if (path.pathname === '/v1/auth/me') return response({ id: 'fixture-owner', display_name: 'Fixture' });
@@ -41,6 +41,7 @@ function fixture(initialJobs = []) {
     if (path.pathname === '/v1/portfolio/items/page') {
       const page = Number(path.searchParams.get('page'));
       state.pages.push(page);
+      state.sizes.push(Number(path.searchParams.get("page_size")));
       state.queries.push(path.searchParams.get('search'));
       if (state.pages.length > 12) throw new Error('Unbounded portfolio refresh');
       if (state.hold) return state.hold(page);
@@ -51,6 +52,24 @@ function fixture(initialJobs = []) {
   return state;
 }
 async function mount() { await act(async () => { render(React.createElement(Dashboard)); }); }
+test('manual cost entry is directly accessible and saves without contacting CardHobby',async()=>{
+  const state=fixture();const originalFetch=global.fetch;const writes=[];
+  global.fetch=async(url,options)=>{
+    if(new URL(url,'http://localhost').pathname === '/v1/portfolio/items/card-1' && options?.method === 'PATCH'){
+      writes.push(JSON.parse(options.body));
+      state.hold=page=>response({...pageData(page),items:[{...item(page),purchase_price:'25.50',purchase_currency:'CNY',purchase_total_cost:'25.50'}]});
+      return response({});
+    }
+    return originalFetch(url,options);
+  };
+  await mount();
+  fireEvent.click(screen.getByRole('button',{name:'人工录入'}));
+  const input=screen.getByRole('spinbutton',{name:'人工录入买入价'});
+  fireEvent.change(input,{target:{value:'25.50'}});
+  await act(async()=>{fireEvent.blur(input);});
+  assert.deepEqual(writes,[{purchase_price:25.5,purchase_currency:'CNY'}]);
+  assert.ok(screen.getByRole('button',{name:'修改成本'}));
+});
 async function tick(ms) {
   await act(async () => {
     for (const { fn, ms: delay } of [...intervals.values()]) if (delay === ms) await fn();
@@ -63,6 +82,143 @@ async function retry() {
 }
 const total = () => document.querySelector('.hero-metric strong').textContent;
 const next = () => screen.getByRole('button', { name: '下一页' });
+
+test('cards render without waiting for summary or correction counts', async () => {
+  fixture(); const original = global.fetch;
+  const held = deferred();
+  global.fetch = (url, options) => {
+    const path = new URL(url, 'http://localhost').pathname;
+    if (['/v1/portfolio/summary', '/v1/portfolio/identity-corrections'].includes(path)) return held.promise;
+    return original(url, options);
+  };
+  await mount();
+  assert.ok(screen.getByRole('button', {name:'Fixture Page 1'}));
+  assert.equal(next().disabled, false);
+});
+
+function detailFixture() {
+  const state = fixture(); const original = global.fetch;
+  const corrections = deferred(), review = deferred(), catalog = deferred();
+  global.fetch = (url, options) => {
+    const path = new URL(url,'http://localhost').pathname;
+    if (path === '/v1/portfolio/items/card-1/detail') return Promise.resolve(response({item:{...item(1),strategy_tags:[],quantity_held:'1',remaining_cost:'0'},transactions:[],valuations:[]}));
+    if (path.endsWith('/card-1/identity-corrections')) return corrections.promise;
+    if (path.endsWith('/identity-review/items/card-1')) return review.promise;
+    if (path.endsWith('/card-1/catalog-enrichment')) return catalog.promise;
+    if (path.includes('purchase-cost')) return Promise.resolve(response(null));
+    return original(url,options);
+  };
+  return Object.assign(state,{corrections,review,catalog});
+}
+
+test('core detail displays while review and catalog are pending, and auxiliary errors can retry', async()=>{
+  const state=detailFixture(); await mount();
+  await act(async()=>fireEvent.click(screen.getByRole('button',{name:'Fixture Page 1'})));
+  assert.ok(screen.getByText('CARD DOSSIER / 卡片档案'));
+  assert.ok(screen.getByText('正在读取纠错与身份复核…'));
+  await act(async()=>state.review.resolve({ok:false,status:503,json:async()=>({detail:'review unavailable'})}));
+  assert.ok(screen.getByRole('button',{name:'重试详情辅助信息'}));
+  assert.ok(screen.getByText('CARD DOSSIER / 卡片档案'));
+});
+
+test('closing detail invalidates late auxiliary responses',async()=>{
+  const state=detailFixture(); await mount();
+  await act(async()=>fireEvent.click(screen.getByRole('button',{name:'Fixture Page 1'})));
+  assert.ok(screen.getByText('CARD DOSSIER / 卡片档案'));
+  await act(async()=>fireEvent.click(screen.getByRole('button',{name:'关闭卡片详情'})));
+  await act(async()=>state.review.resolve({ok:false,status:503,json:async()=>({detail:'late review failure'})}));
+  assert.equal(screen.queryByText(/late review failure/),null);
+  assert.equal(screen.queryByText('CARD DOSSIER / 卡片档案'),null);
+});
+
+test('switching cards discards the previous card catalog and auxiliary failures',async()=>{
+ const state=detailFixture();state.hold=page=>response({...pageData(page),items:[item(1),item(2)]});
+ const original=global.fetch;
+ global.fetch=(url,options)=>{
+  const path=new URL(url,'http://localhost').pathname;
+  if(path.endsWith('/card-2/detail'))return Promise.resolve(response({item:{...item(2),strategy_tags:[],quantity_held:'1',remaining_cost:'0'},transactions:[],valuations:[]}));
+  if(path.endsWith('/card-2/identity-corrections'))return Promise.resolve(response([]));
+  if(path.endsWith('/identity-review/items/card-2'))return Promise.resolve(response(null));
+  if(path.endsWith('/card-2/catalog-enrichment'))return Promise.resolve(response({player_name:'CURRENT CATALOG'}));
+  return original(url,options);
+ };
+ await mount();
+ await act(async()=>fireEvent.click(screen.getByRole('button',{name:'Fixture Page 1'})));
+ await act(async()=>fireEvent.click(screen.getByRole('button',{name:'Fixture Page 2'})));
+ await act(async()=>{state.catalog.resolve(response({player_name:'OLD CATALOG'}));state.review.resolve({ok:false,status:503,json:async()=>({detail:'OLD REVIEW FAILURE'})});});
+ assert.ok(screen.getByText('CURRENT CATALOG'));
+ assert.equal(screen.queryByText('OLD CATALOG'),null);
+ assert.equal(screen.queryByText(/OLD REVIEW FAILURE/),null);
+});
+
+test('logout rejects a summary that completes after the session ended',async()=>{
+ fixture();const original=global.fetch;const held=deferred();
+ global.fetch=(url,options)=>{
+  const path=new URL(url,'http://localhost').pathname;
+  if(path==='/v1/portfolio/summary')return held.promise;
+  if(path==='/v1/auth/logout')return Promise.resolve(response({}));
+  return original(url,options);
+ };
+ await mount();
+ await act(async()=>fireEvent.click(screen.getByRole('button',{name:'退出登录'})));
+ await act(async()=>held.resolve(response({...summary,total_market_value:'987654'})));
+ assert.doesNotMatch(total(),/987,?654/);
+});
+
+test('session expiry clears account cards, amounts and correction state before another login',async()=>{
+ fixture();await mount();
+ assert.match(total(),/599/);
+ await act(async()=>window.dispatchEvent(new window.Event('card-platform:unauthorized')));
+ assert.doesNotMatch(total(),/599/);
+ assert.equal(screen.queryByRole('button',{name:'Fixture Page 1'}),null);
+});
+
+test('auxiliary failures do not erase cards and have a retry action', async () => {
+  fixture(); const original = global.fetch;
+  global.fetch = (url, options) => {
+    if (new URL(url,'http://localhost').pathname === '/v1/portfolio/identity-corrections') {
+      return Promise.resolve({ok:false,status:503,json:async()=>({detail:'correction count unavailable'})});
+    }
+    return original(url, options);
+  };
+  await mount();
+  assert.ok(screen.getByRole('button', {name:'Fixture Page 1'}));
+  assert.ok(screen.getByRole('button', {name:'重试汇总与纠错统计'}));
+});
+
+test('search, sorting and page size reuse metrics while an explicit refresh reloads them', async () => {
+  fixture(); const original = global.fetch; let summaries=0;
+  global.fetch = (url, options) => {
+    if (new URL(url,'http://localhost').pathname === '/v1/portfolio/summary') summaries++;
+    return original(url, options);
+  };
+  await mount(); assert.equal(summaries,1);
+  await act(async()=>{fireEvent.change(screen.getByLabelText('搜索全部卡片'),{target:{value:'杜兰特'}});fireEvent.click(screen.getByRole('button',{name:'搜索',exact:true}));});
+  await act(async()=>fireEvent.change(screen.getByLabelText('每页显示数量'),{target:{value:'50'}}));
+  await act(async()=>fireEvent.change(screen.getByLabelText('卡库排序'),{target:{value:'fair_value'}}));
+  assert.equal(summaries,1);
+  await tick(3000);
+  assert.equal(summaries,2);
+});
+
+test('unfiltered loading uses a combined projection once and background refresh replaces the frozen snapshot',async()=>{
+ const state=fixture();const original=global.fetch;const params=[];let summaryCalls=0;
+ global.fetch=async(url,options)=>{
+  const path=new URL(url,'http://localhost');
+  if(path.pathname==='/v1/portfolio/summary')summaryCalls++;
+  if(path.pathname==='/v1/portfolio/items/page'){
+   params.push(path.searchParams);
+   return response({...pageData(Number(path.searchParams.get('page'))),summary,snapshot_token:'frozen'});
+  }
+  return original(url,options);
+ };
+ await mount();
+ assert.equal(params[0].get('include_summary'),'true');
+ assert.equal(summaryCalls,0,'the full projection already contains the summary');
+ await tick(3000);
+ assert.equal(params.at(-1).get('snapshot_token'),null,'polling needs fresh valuations');
+ assert.equal(params.at(-1).get('include_summary'),'true');
+});
 
 test('collection search is beside holdings and queries the whole account, preserving filters across pagination',async()=>{
  const state=fixture(); await mount();
@@ -134,6 +290,35 @@ test('historical scanner imports on other pages refresh once without a fetch/ren
   assert.equal(state.pages.length, 3, 'the final completed import must refresh the collection');
   await retry();
   assert.equal(state.pages.length, 3);
+});
+
+test('portfolio metrics update automatically only after scanned cards are imported', async () => {
+  const state = fixture([{id:'pending',status:'running',collection_item_id:null}]);
+  const originalFetch = global.fetch;
+  let metrics = {...summary,item_count:845,valued_item_count:505,unvalued_item_count:340,
+    total_cost:'20994',total_market_value:'21724',unrealized_profit:'730'};
+  global.fetch = async (url, options) => {
+    const path = new URL(url,'http://localhost');
+    if (path.pathname === '/v1/portfolio/summary') return response(metrics);
+    if (path.pathname === '/v1/portfolio/items/page') {
+      await originalFetch(url,options);
+      return response({...pageData(Number(path.searchParams.get('page'))),
+        total:metrics.item_count,total_pages:29,summary:metrics,snapshot_token:'fixture-snapshot'});
+    }
+    return originalFetch(url,options);
+  };
+  await mount();
+  assert.ok(screen.getByText('845 张资产卡'));
+  await tick(2000);
+  assert.ok(screen.getByText('845 张资产卡'),'recognition drafts are not counted as holdings');
+  metrics = {...metrics,item_count:846,unvalued_item_count:341,
+    total_cost:'21004',total_market_value:'21734'};
+  state.jobs = [{id:'pending',status:'succeeded',collection_item_id:'new-card'}];
+  await tick(2000);
+  assert.ok(screen.getByText('846 张资产卡'));
+  assert.match(total(),/21,734/);
+  assert.ok(screen.getByText('341 张按成本暂估'));
+  assert.ok(screen.getByText('505 张已完成估值'));
 });
 
 test('background valuation keeps the total and pager stable; stale page response cannot undo navigation', async () => {
@@ -571,4 +756,64 @@ test('selected retry preserves duplicate choices and retries only the unmatched 
   await act(async () => { fireEvent.click(within(cardRow(1)).getByRole('button', { name: '选择对应订单' })); });
   assert.equal(within(screen.getByRole('dialog')).getAllByRole('radio').length, 2, 'batching must preserve the original duplicate evidence');
   assert.equal(searches(state).length, 3);
+});
+
+
+test('page size defaults to 30 and persists through filtered navigation and polling', async () => {
+  const state = fixture(); await mount();
+  assert.equal(state.sizes.at(-1), 30);
+  const size = screen.getByRole('combobox', { name: '每页显示数量' });
+  assert.equal(size.value, '30');
+  fireEvent.change(screen.getByRole('textbox', { name: '搜索全部卡片' }), { target: { value: '杜兰特' } });
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: '搜索' })); });
+  await act(async () => { fireEvent.click(next()); });
+  await act(async () => { fireEvent.change(size, { target: { value: '50' } }); });
+  assert.equal(state.pages.at(-1), 1);
+  assert.equal(state.sizes.at(-1), 50);
+  assert.deepEqual(JSON.parse(state.queries.at(-1)), { q: '杜兰特' });
+  await act(async () => { fireEvent.click(next()); });
+  await tick(3000);
+  assert.equal(state.sizes.at(-1), 50);
+  assert.equal(state.pages.at(-1), 2);
+  assert.deepEqual(JSON.parse(state.queries.at(-1)), { q: '杜兰特' });
+});
+
+test('size change supersedes older requests and failed size changes retry at page one', async () => {
+  const state = fixture(); await mount();
+  await act(async () => { fireEvent.click(next()); });
+  let release;
+  state.hold = () => new Promise(resolve => { release = resolve; });
+  await tick(3000);
+  state.hold = () => ({ ok: false, status: 503, json: async () => ({ detail: 'Temporary failure' }) });
+  await act(async () => { fireEvent.change(screen.getByRole('combobox', { name: '每页显示数量' }), { target: { value: '100' } }); });
+  await act(async () => { release(response(pageData(2))); });
+  assert.equal(screen.queryByText('Fixture Page 2'), null);
+  state.hold = null;
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: '重试搜索' })); });
+  assert.equal(state.pages.at(-1), 1);
+  assert.equal(state.sizes.at(-1), 100);
+  assert.ok(screen.getByText('Fixture Page 1'));
+});
+
+test('marking sold and restoring refresh both card state and portfolio metrics',async()=>{
+ const state=fixture(); const baseFetch=global.fetch; let status='held';const writes=[];
+ global.fetch=async(url,options)=>{
+   const path=new URL(url,'http://localhost').pathname;
+   if(path==='/v1/portfolio/items/card-1'&&options?.method==='PATCH'){
+     const payload=JSON.parse(options.body);writes.push(payload);status=payload.holding_status;
+     return response({});
+   }
+   if(path==='/v1/portfolio/summary')return response({...summary,total_market_value:status==='sold'?'0':'599',item_count:status==='sold'?0:1});
+   return baseFetch(url,options);
+ };
+ state.hold=page=>response({...pageData(page),items:[{...item(page),holding_status:status}]});
+ await mount();
+ const menu=document.querySelector('.row-more-menu');menu.open=true;
+ await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'标记为已卖出'}));});
+ assert.deepEqual(writes,[{holding_status:'sold'}]);
+ assert.match(total(),/0/);
+ assert.ok(screen.getByRole('button',{name:'恢复持有'}));
+ await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'恢复持有'}));});
+ assert.deepEqual(writes,[{holding_status:'sold'},{holding_status:'held'}]);
+ assert.match(total(),/599/);
 });

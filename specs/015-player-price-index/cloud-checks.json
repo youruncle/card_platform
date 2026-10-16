@@ -1,0 +1,1 @@
+{"checks": ["readiness_and_release_version", "anonymous_price_access_denied", "mobile_capabilities", "mobile_bearer_login", "existing_portfolio_hidden_from_test_accounts", "price_owner_scope", "refresh_and_date_validation", "session_revocation", "web_login_cookie"], "temporary_accounts_removed": 2, "existing_data_counts_unchanged": true, "local_data_uploaded": false}

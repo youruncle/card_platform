@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowLeft, Check, Database, GitBranch, Pencil, Plus, RefreshCw, RotateCcw, Search, Trash2 } from "lucide-react";
+import { OfficialChecklistProgressPanel } from "@/components/official-checklist-progress";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import {
@@ -177,6 +178,7 @@ export default function KnowledgePage() {
           </div>
         </div>
       </header>
+      <OfficialChecklistProgressPanel />
 
       {message && <div className="knowledge-message">{message}</div>}
 

@@ -330,6 +330,34 @@ def rectify_card_image(
         return RectifiedImage(content, content_type, False, confidence)
 
     ordered = _order_points(_expand_quad(points, image.shape[:2]))
+    return apply_card_quad(
+        content, content_type,
+        tuple((float(p[0]) / image.shape[1], float(p[1]) / image.shape[0]) for p in ordered),
+        standardize_ratio=standardize_ratio, orient_portrait=orient_portrait,
+        confidence=confidence,
+    )
+
+
+def apply_card_quad(
+    content: bytes,
+    content_type: str,
+    normalized_quad: tuple[tuple[float, float], ...],
+    *,
+    standardize_ratio: bool | None = False,
+    orient_portrait: bool = False,
+    confidence: float = 0,
+) -> RectifiedImage:
+    """Apply an already validated TL/TR/BR/BL quad using the shared perspective transform.
+
+    Manual recipes intentionally bypass detection confidence and safety expansion.
+    Callers validate geometry before invoking this primitive.
+    """
+    image = cv2.imdecode(np.frombuffer(content, dtype=np.uint8), cv2.IMREAD_COLOR)
+    if image is None:
+        raise ValueError("image cannot be decoded")
+    ordered = np.asarray(normalized_quad, dtype=np.float32).copy()
+    ordered[:, 0] *= image.shape[1]
+    ordered[:, 1] *= image.shape[0]
     horizontal_edges = (
         _distance(ordered[0], ordered[1]),
         _distance(ordered[3], ordered[2]),

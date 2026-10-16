@@ -7,6 +7,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from card_platform.news_alerts import NewsAlertView
+
 
 class ApiModel(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
@@ -131,6 +133,7 @@ class CollectionItemCreate(ApiModel):
 
 
 class PortfolioItemQuickUpdate(ApiModel):
+    holding_status: Literal["held", "sold"] = "held"
     purchase_price: Decimal | None = Field(default=None, ge=0, max_digits=18, decimal_places=2)
     purchase_currency: str | None = Field(default=None, min_length=3, max_length=3)
     is_rookie: bool | None = None
@@ -275,6 +278,8 @@ class AuthSessionView(ApiModel):
 
 
 class PortfolioItem(ApiModel):
+    holding_status: Literal["held", "sold"] = "held"
+    news_alerts: list[NewsAlertView] = Field(default_factory=list)
     is_redemption: bool = False
     redemption_status: Literal["unknown", "unredeemed", "redeemed", "expired"] = "unknown"
     id: UUID
@@ -318,6 +323,12 @@ class PortfolioItem(ApiModel):
     valuation_low: Decimal | None
     fair_value: Decimal | None
     valuation_high: Decimal | None
+    codex_analysis_version: int | None = None
+    valuation_synthesis: dict = Field(default_factory=dict)
+    codex_valuation_currency: str | None = None
+    codex_valuation_low: Decimal | None = None
+    codex_fair_value: Decimal | None = None
+    codex_valuation_high: Decimal | None = None
     shadow_valuation_currency: str | None = None
     shadow_valuation_low: Decimal | None = None
     shadow_fair_value: Decimal | None = None
@@ -342,7 +353,7 @@ class PortfolioPage(ApiModel):
     items: list[PortfolioItem]
     total: int = Field(ge=0)
     page: int = Field(ge=1)
-    page_size: int = Field(ge=1, le=30)
+    page_size: int = Field(ge=1, le=100)
     total_pages: int = Field(ge=1)
 
 
@@ -447,6 +458,17 @@ class ExpertAnalysisSnapshot(ApiModel):
     status: str
     error_message: str | None
     created_at: datetime
+
+    @field_validator("evidence_summary", mode="before")
+    @classmethod
+    def normalize_legacy_evidence(cls, value):
+        # Historical snapshots are immutable; adapt old text evidence only on read.
+        if isinstance(value, list):
+            return [
+                {"type": "legacy_text", "detail": entry} if isinstance(entry, str) else entry
+                for entry in value
+            ]
+        return value
 
 
 class ExpertAnalysisJobView(ApiModel):
@@ -773,6 +795,14 @@ class CardWebCandidate(ApiModel):
     match_confidence: Decimal = Field(ge=0, le=1)
 
 
+class RecognitionFieldAssessment(ApiModel):
+    value: str | int | bool | None = None
+    status: Literal["unknown", "proposed", "verified", "conflicted"] = "unknown"
+    source: Literal["none", "visual_model", "local_ocr", "catalog"] = "none"
+    evidence: list[str] = Field(default_factory=list)
+    issues: list[str] = Field(default_factory=list)
+
+
 class CardRecognitionResult(ApiModel):
     is_redemption: bool | None = None
     redemption_status: Literal["unknown", "unredeemed", "redeemed", "expired"] = "unknown"
@@ -817,6 +847,10 @@ class CardRecognitionResult(ApiModel):
     caveats: list[str] = Field(default_factory=list)
     search_queries: list[str] = Field(default_factory=list)
     field_evidence: dict[str, list[str]] = Field(default_factory=dict)
+    field_assessments: dict[str, RecognitionFieldAssessment] = Field(default_factory=dict)
+    identity_storage_binding: dict[str, object] = Field(default_factory=dict)
+    catalog_verified_fields: dict[str, str | int | bool] = Field(default_factory=dict)
+    local_ocr_observed_fields: dict[str, str | int | bool] = Field(default_factory=dict)
     web_candidates: list[CardWebCandidate] = Field(default_factory=list)
     reference_image_front_url: str | None = None
     reference_image_back_url: str | None = None
@@ -836,6 +870,11 @@ class CardRecognitionResult(ApiModel):
         if not isinstance(value, dict):
             return value
         normalized = dict(value)
+
+        # Providers use null for a status without visible evidence. Keep that
+        # uncertainty instead of rejecting the entire card recognition.
+        if normalized.get("redemption_status") is None:
+            normalized["redemption_status"] = "unknown"
 
         evidence = normalized.get("field_evidence")
         if isinstance(evidence, dict):
@@ -1054,3 +1093,25 @@ class SheetCardRecognitionResult(ApiModel):
             f"模型报告数量 {reported_count} 与实际返回卡片数量 {actual_count} 不一致，已按实际结果修正。",
         ]
         return normalized
+
+
+class CaptureImage(ApiModel):
+    url: str
+    revision: str
+    source_url: str | None = None
+    source_hash: str | None = None
+    crop_recipe: dict | None = None
+    thumb_url: str | None = None
+    preview_url: str | None = None
+    original_url: str | None = None
+
+
+class CaptureJob(ScannerRecognitionJob):
+    front_image_url: str | None = None
+    back_image_url: str | None = None
+    available_sides: list[Literal['front', 'back']]
+    images: dict[str, CaptureImage | None]
+    source: str
+    require_confirmation: bool
+    revision: int
+    target_item_id: UUID | None = None

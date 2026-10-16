@@ -115,6 +115,7 @@ async def refine_with_sam2(
     worker_script: str,
     checkpoint: str,
     timeout_seconds: float,
+    content_guarded: bool = False,
 ) -> tuple[list[Detection], dict]:
     """Refine classical boxes with box-prompted SAM 2, with an all-safe fallback."""
     if not detections:
@@ -204,6 +205,16 @@ async def refine_with_sam2(
             object_preservation_fallback = False
             label_preservation_fallback = False
             if was_refined:
+                if "quad_unresolved" in original.evidence:
+                    observed = np.asarray(raw.get("points"), dtype=np.float32)
+                    if (
+                        observed.shape != (4, 2)
+                        or not np.isfinite(observed).all()
+                        or (observed < 0).any() or (observed > 1).any()
+                        or len(cv2.convexHull(observed)) != 4
+                        or cv2.contourArea(cv2.convexHull(observed)) <= 1e-6
+                    ):
+                        raise ValueError("unresolved_quad_without_mask_corners")
                 x, y, width, height, points = _expanded_oriented_geometry(
                     raw.get("points"), (x, y, width, height)
                 )
@@ -220,7 +231,11 @@ async def refine_with_sam2(
                 protects_object = (
                     "physical_object_envelope" in original.evidence and not is_old_front_prompt
                 )
-                if protects_label or protects_object:
+                # The caller must run the independent original-pixel audit
+                # when opting in. An axis envelope's empty background is not
+                # a polygon-area preservation target in that guarded path.
+                independent_content_guard = content_guarded and "original_content_verified" in original.evidence
+                if (protects_label or protects_object) and not independent_content_guard:
                     coverage = _original_polygon_coverage(
                         original,
                         Detection(x, y, width, height, angle, mask_confidence, points=points),
@@ -286,7 +301,10 @@ async def refine_with_sam2(
                 confidence,
                 failure,
                 points,
-                original.evidence
+                tuple(
+                    signal for signal in original.evidence
+                    if not was_refined or signal not in {"quad_unresolved", "search_region_only"}
+                )
                 + (("front_prior_soft_prompt",) if prompt is not original else ())
                 + (
                     (
@@ -398,7 +416,12 @@ async def refine_with_sam2(
     ):
         return detections, {"status": "fallback", "reason": "overlap_gate", **preservation_metadata}
     refinement_evidence_by_item = [
-        candidate.evidence[len(original.evidence) :]
+        candidate.evidence[
+            len(original.evidence) - sum(
+                signal in {"quad_unresolved", "search_region_only"} and signal not in candidate.evidence
+                for signal in original.evidence
+            ) :
+        ]
         for original, candidate in zip(detections, refined, strict=True)
     ]
     refined_count = sum("sam2_box_prompt" in evidence for evidence in refinement_evidence_by_item)

@@ -1,0 +1,312 @@
+"""Resolve current-pixel card quads; search allocations are never object truth."""
+
+from __future__ import annotations
+
+from dataclasses import replace
+
+import cv2
+import numpy as np
+
+from card_platform.flatbed_detection import Detection, LayoutHypothesis
+
+
+def _polygon(item: Detection) -> np.ndarray:
+    return cv2.convexHull(
+        np.asarray(
+            item.points
+            or (
+                (item.x, item.y),
+                (item.x + item.width, item.y),
+                (item.x + item.width, item.y + item.height),
+                (item.x, item.y + item.height),
+            ),
+            np.float32,
+        )
+    ).reshape(-1, 2)
+
+
+def _intersection(left: np.ndarray, right: np.ndarray) -> float:
+    return max(0.0, float(cv2.intersectConvexConvex(left, right)[0]))
+
+
+def _iou(left: np.ndarray, right: np.ndarray) -> float:
+    intersection = _intersection(left, right)
+    return intersection / max(cv2.contourArea(left) + cv2.contourArea(right) - intersection, 1e-9)
+
+
+def _observations(image: np.ndarray, prompt: Detection):
+    height, width = image.shape[:2]
+    # These are search margins only; every accepted corner comes from pixels.
+    left = max(0, round((prompt.x - prompt.width * 0.08) * width))
+    top = max(0, round((prompt.y - prompt.height * 0.15) * height))
+    right = min(width, round((prompt.x + prompt.width * 1.08) * width))
+    bottom = min(height, round((prompt.y + prompt.height * 1.15) * height))
+    roi = image[top:bottom, left:right]
+    if roi.size == 0:
+        return []
+    scale = min(1.0, 900 / max(roi.shape[:2]))
+    small = cv2.resize(roi, None, fx=scale, fy=scale)
+    gray = cv2.GaussianBlur(cv2.cvtColor(small, cv2.COLOR_BGR2GRAY), (5, 5), 0)
+    masks = []
+    for low, high in ((20, 60), (35, 100), (50, 150), (80, 200)):
+        edge = cv2.Canny(gray, low, high)
+        masks.append(
+            (f"edge_{low}", cv2.morphologyEx(edge, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8)))
+        )
+    for value in (130, 165, 185, 205):
+        masks.append(
+            (f"threshold_{value}", cv2.threshold(gray, value, 255, cv2.THRESH_BINARY_INV)[1])
+        )
+    masks.append(("otsu", cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]))
+    observations = []
+    prompt_area = prompt.width * prompt.height
+    for route, mask in masks:
+        contours, _ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        for contour in contours:
+            bx, by, bw, bh = cv2.boundingRect(contour)
+            # A search-ROI cut is not a physical card edge. Source-image
+            # clipping is retained with a warning; internal ROI clipping is
+            # rejected so an allocation boundary cannot become a corner.
+            if (
+                (left > 0 and bx <= 1)
+                or (top > 0 and by <= 1)
+                or (right < width and bx + bw >= small.shape[1] - 1)
+                or (bottom < height and by + bh >= small.shape[0] - 1)
+            ):
+                continue
+            rect = cv2.minAreaRect(contour)
+            short, long = sorted(rect[1])
+            if short <= 0:
+                continue
+            area = short * long / (scale * scale * width * height)
+            if not (
+                0.015 <= area <= 0.40
+                and 0.20 <= area / max(prompt_area, 1e-9) <= 1.45
+                and 1.15 <= long / short <= 2.6
+            ):
+                continue
+            fill = cv2.contourArea(contour) / max(short * long, 1)
+            if not route.startswith("edge_") and fill < 0.80:
+                continue
+            raw = cv2.boxPoints(rect) / scale + [left, top]
+            raw = raw / [width, height]
+            if (raw < -0.06).any() or (raw > 1.06).any():
+                continue
+            center = raw.mean(axis=0)
+            if (
+                abs(center[0] - (prompt.x + prompt.width / 2)) > prompt.width * 0.32
+                or abs(center[1] - (prompt.y + prompt.height / 2)) > prompt.height * 0.32
+            ):
+                continue
+            # A four-sided contour gives perspective geometry; otherwise fit
+            # the observed rotated rectangle instead of a horizontal box.
+            approx = cv2.approxPolyDP(contour, 0.015 * cv2.arcLength(contour, True), True)
+            if (
+                len(approx) == 4
+                and cv2.isContourConvex(approx)
+                and cv2.contourArea(approx) >= cv2.contourArea(contour) * 0.95
+            ):
+                raw = (approx.reshape(4, 2) / scale + [left, top]) / [width, height]
+            points = cv2.convexHull(raw.astype(np.float32)).reshape(-1, 2)
+            if len(points) != 4:
+                continue
+            observations.append((points, route, area, fill))
+    return observations
+
+
+def resolve_object_layout(content: bytes, layout: LayoutHypothesis) -> LayoutHypothesis:
+    image = cv2.imdecode(np.frombuffer(content, np.uint8), cv2.IMREAD_COLOR)
+    if image is None:
+        raise ValueError("无法解码扫描图像")
+    resolved = []
+    candidate_sets = []
+    all_prompts = list(layout.detections)
+    for index, prompt in enumerate(all_prompts):
+        observations = _observations(image, prompt)
+        ranked = []
+        for points, route, area, fill in observations:
+            peers = [other for other in observations if _iou(points, other[0]) >= 0.75]
+            routes = {other[1] for other in peers}
+            if len(routes) < 2:
+                continue
+            # Reject contours belonging to a neighbouring search region, not
+            # merely rectangles whose axis-aligned boxes happen to overlap.
+            owns_neighbour = any(
+                peer_index != index
+                and cv2.pointPolygonTest(
+                    points, (float(peer.x + peer.width / 2), float(peer.y + peer.height / 2)), False
+                )
+                > 0
+                for peer_index, peer in enumerate(all_prompts)
+            )
+            if owns_neighbour:
+                continue
+            # Prefer the complete supported perimeter over nested art/text.
+            ranked.append((area + 0.0005 * len(routes) + 0.001 * min(fill, 1), points, routes))
+        # Existing multi-route outer-holder/label associations are current
+        # pixel object observations too. Preserve the whole multi-panel holder
+        # instead of selecting a closed contour from art printed inside it.
+        protected_outer = (
+            "independent_outer_envelope_support" in prompt.evidence
+            or "grading_label_association" in prompt.evidence
+            or ("structural_edge_envelope" in prompt.evidence and prompt.y + prompt.height >= 0.985)
+        )
+
+        def near_axis(points):
+            edges = (np.roll(points, -1, axis=0) - points) * [image.shape[1], image.shape[0]]
+            edge = edges[np.argmax(np.linalg.norm(edges, axis=1))]
+            angle = abs(float(np.degrees(np.arctan2(edge[1], edge[0])))) % 90
+            return min(angle, 90 - angle) < 3
+
+        # Distinguish the whole tilted perimeter from nested printed contours.
+        full_perimeters = [
+            choice
+            for choice in ranked
+            if np.ptp(choice[1][:, 0]) >= prompt.width * 0.85
+            and np.ptp(choice[1][:, 1]) >= prompt.height * 0.85
+        ]
+        tilted_perimeter = any(not near_axis(choice[1]) for choice in full_perimeters)
+        if protected_outer and tilted_perimeter:
+            ranked = [
+                (max(score, prompt.width * prompt.height + 0.03), points, routes)
+                if any(points is choice[1] for choice in full_perimeters) and not near_axis(points)
+                else (score, points, routes)
+                for score, points, routes in ranked
+            ]
+        corroborated = "multi_route_instance_corroboration" in prompt.evidence
+        axis_outer = (
+            corroborated
+            and "physical_object_envelope" in prompt.evidence
+            and full_perimeters
+            and not tilted_perimeter
+        )
+        if protected_outer or axis_outer or (not ranked and corroborated):
+            polygon = _polygon(prompt)
+            ranked.append(
+                (
+                    cv2.contourArea(polygon)
+                    + (0.2 if "grading_label_association" in prompt.evidence else 0.01),
+                    polygon,
+                    {"current_multiroute_outer_object"},
+                )
+            )
+        distinct = []
+        for choice in sorted(ranked, key=lambda item: item[0], reverse=True):
+            if not any(_iou(choice[1], other[1]) > 0.97 for other in distinct):
+                distinct.append(choice)
+        candidate_sets.append(distinct[:20])
+    beam = [(0.0, [])]
+    for index, choices in enumerate(candidate_sets):
+        next_beam = []
+        for score, selected in beam:
+            for choice in choices:
+                points = choice[1]
+                expanded = np.clip(
+                    points.mean(axis=0) + (points - points.mean(axis=0)) * 1.025, 0, 1
+                ).astype(np.float32)
+                if any(
+                    peer_index != index and _intersection(expanded, _polygon(peer)) > 1e-7
+                    for peer_index, peer in enumerate(all_prompts)
+                ):
+                    expanded = np.clip(points, 0, 1).astype(np.float32)
+                if any(
+                    _intersection(expanded, previous[1])
+                    / max(min(cv2.contourArea(expanded), cv2.contourArea(previous[1])), 1e-9)
+                    > (
+                        0.10
+                        if "current_multiroute_outer_object" in choice[2]
+                        and "current_multiroute_outer_object" in previous[2]
+                        else 0.025
+                    )
+                    for previous in selected
+                    if previous is not None
+                ):
+                    continue
+                next_beam.append((score + choice[0], selected + [(choice[0], expanded, choice[2])]))
+            # Unresolved search hints carry a score penalty and never cut cards.
+            next_beam.append((score - 0.5, selected + [None]))
+        beam = sorted(next_beam, key=lambda item: item[0], reverse=True)[:64]
+    selected = max(beam, key=lambda item: item[0])[1] if beam else []
+    for prompt, choice in zip(all_prompts, selected, strict=True):
+        if choice is None:
+            # Preserve already proven non-axis-aligned object geometry. Never
+            # turn an unresolved capacity cell into an automatic card crop.
+            polygon = _polygon(prompt)
+            edges = np.roll(polygon, -1, axis=0) - polygon
+            tilted = any(abs(e[0]) > 1e-4 and abs(e[1]) > 1e-4 for e in edges)
+            if tilted and "separated_rotated_object" in prompt.evidence:
+                resolved.append(replace(prompt, evidence=(*prompt.evidence, "current_pixel_quad")))
+            else:
+                evidence = tuple(
+                    e
+                    for e in prompt.evidence
+                    if e not in ("physical_object_envelope", "current_object_layout")
+                )
+                resolved.append(
+                    replace(
+                        prompt,
+                        confidence=min(prompt.confidence, 0.49),
+                        failure="card_outline_unresolved",
+                        evidence=(*evidence, "quad_unresolved", "search_region_only"),
+                    )
+                )
+            continue
+        _, points, routes = choice
+        points = cv2.convexHull(points).reshape(-1, 2)
+        if len(points) != 4:
+            resolved.append(
+                replace(
+                    prompt,
+                    failure="card_outline_unresolved",
+                    evidence=(*prompt.evidence, "quad_unresolved"),
+                )
+            )
+            continue
+        lo, hi = points.min(axis=0), points.max(axis=0)
+        edges = (np.roll(points, -1, axis=0) - points) * [image.shape[1], image.shape[0]]
+        long_edge = edges[np.argmax(np.linalg.norm(edges, axis=1))]
+        angle = float(np.degrees(np.arctan2(long_edge[1], long_edge[0])))
+        clipped = bool((points <= 0.002).any() or (points >= 0.998).any())
+        evidence = tuple(
+            e
+            for e in prompt.evidence
+            if e not in ("cell_extent_fallback", "ink_extent_refinement", "source_edge_contact")
+        )
+        resolved.append(
+            Detection(
+                float(lo[0]),
+                float(lo[1]),
+                float(hi[0] - lo[0]),
+                float(hi[1] - lo[1]),
+                angle,
+                0.92,
+                "source_edge_contact" if clipped else None,
+                tuple((float(x), float(y)) for x, y in points),
+                tuple(
+                    dict.fromkeys(
+                        (
+                            *evidence,
+                            "current_pixel_quad",
+                            "physical_object_envelope",
+                            "current_object_layout",
+                            "quad_routes:" + ",".join(sorted(routes)),
+                            *(("source_edge_contact",) if clipped else ()),
+                        )
+                    )
+                ),
+            )
+        )
+    # Preserve sequence/identity slots. The downstream polygon overlap and
+    # ownership audit will mark ambiguous candidates for human correction.
+    unresolved = sum("quad_unresolved" in d.evidence for d in resolved)
+    return replace(
+        layout,
+        detections=tuple(resolved),
+        signals={
+            **layout.signals,
+            "geometry_source": "current_pixel_quads",
+            "grid_role": "search_and_missing_object_advisory",
+            "resolved_quad_count": len(resolved) - unresolved,
+            "unresolved_quad_count": unresolved,
+        },
+    )

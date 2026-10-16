@@ -1,4 +1,3 @@
-import asyncio
 import json
 import platform
 import re
@@ -7,6 +6,7 @@ import tempfile
 from pathlib import Path
 
 from card_platform.domain.serial_evidence import unique_visible_serial
+from card_platform.local_vision_process import LocalVisionCircuitOpen, run_local_vision
 
 
 SCRIPT_PATH = Path(__file__).resolve().parents[4] / "scripts" / "ocr_card_images.swift"
@@ -26,6 +26,9 @@ def parse_ocr_output(payload: str) -> list[str]:
     for row in rows:
         if row.get("error"):
             continue
+        if lines:
+            # Preserve image boundaries for adjacent-line label parsing.
+            lines.append("")
         lines.extend(
             text.strip()
             for text in row.get("lines") or []
@@ -44,6 +47,10 @@ def extract_anchors(lines: list[str]) -> dict:
             marker in normalized
             for marker in ("drafted", "born:", "nba record", "career", "year team")
         ):
+            continue
+        if re.search(r'\b(?:college|biograph\w*|bio|statistics?)\b|传记|傳記|大学赛季|大學賽季', normalized):
+            # A local OCR observation proves the text was read, not that a
+            # biographical basketball season labels the card's release.
             continue
         if re.search(r"\bin\s+(?:19|20)\d{2}\s*[-/]\s*\d{2,4}\b", normalized):
             # Narrative basketball seasons are not product-release anchors.
@@ -82,17 +89,26 @@ def extract_anchors(lines: list[str]) -> dict:
         )
 
     labeled_card_numbers: dict[str, str] = {}
-    for line in lines:
-        match = re.search(
-            r"(?:\bNO\.\s*|\bNO\s+|N[º°]\s*|#\s*)"
-            r"([A-Z0-9][A-Z0-9-]{0,24})\b(?!\s*[/／∕⁄])",
-            line,
-            re.I,
-        )
-        # Topps prints CODE#CMP... in the legal footer. The # is not a
-        # checklist label; accepting it also suppressed the real bare number.
-        if match and not re.fullmatch(r"CMP\d+|\d{6,}", match.group(1), re.I):
-            labeled_card_numbers.setdefault(match.group(1).upper(), line)
+    label = r"(?:NO\.\s*|NO\s+|N[º°]\s*|#\s*)"
+    token = r"([A-Z0-9][A-Z0-9-]{0,24})"
+    for index, line in enumerate(lines):
+        # A standalone label is different from narrative "no matter" or
+        # CODE#CMP... in a legal footer, even when OCR misreads digits.
+        evidence = line
+        match = re.fullmatch(r"\s*" + label + token + r"\s*", line, re.I)
+        if re.fullmatch(r"\s*(?:NO\.?|N[º°]|#)\s*", line, re.I):
+            following = lines[index + 1] if index + 1 < len(lines) else ""
+            match = re.fullmatch(r"\s*" + token + r"\s*", following, re.I)
+            evidence = line + "\n" + following
+        if not match:
+            continue
+        number = match.group(1).upper()
+        # Checklist tokens need numeric or segmented structure. Plain words
+        # and publisher manufacturing codes are not trustworthy anchors.
+        if (not re.search(r"\d|[A-Z0-9]-[A-Z0-9]", number)
+                or number.startswith("CMP") or re.fullmatch(r"\d{6,}", number)):
+            continue
+        labeled_card_numbers.setdefault(number, evidence)
     if len(labeled_card_numbers) == 1:
         card_number, evidence = next(iter(labeled_card_numbers.items()))
         anchors["card_number"] = card_number
@@ -172,6 +188,15 @@ def extract_anchors(lines: list[str]) -> dict:
     return anchors
 
 
+class OCRLines(list[str]):
+    """Keep list compatibility while preserving execution status for timing."""
+
+    def __init__(self, lines=(), *, status: str, failure_reason: str | None = None):
+        super().__init__(lines)
+        self.status = status
+        self.failure_reason = failure_reason
+
+
 async def recognize_images(
     images: list[tuple[bytes, str]],
     *,
@@ -179,7 +204,7 @@ async def recognize_images(
 ) -> list[str]:
     """Read deterministic on-device OCR anchors without sending images elsewhere."""
     if not images or not available():
-        return []
+        return OCRLines(status="skipped", failure_reason="local_vision_unavailable")
     with tempfile.TemporaryDirectory(prefix="card-platform-ocr-") as directory:
         paths = []
         for index, (content, content_type) in enumerate(images):
@@ -187,24 +212,24 @@ async def recognize_images(
             path = Path(directory) / f"card-{index}{suffix}"
             path.write_bytes(content)
             paths.append(str(path))
-        process = await asyncio.create_subprocess_exec(
-            "swift",
-            str(SCRIPT_PATH),
-            *paths,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
         try:
-            stdout, _ = await asyncio.wait_for(
-                process.communicate(), timeout=timeout_seconds
+            stdout, _, returncode = await run_local_vision(
+                "swift", str(SCRIPT_PATH), *paths, timeout_seconds=timeout_seconds
             )
+        except LocalVisionCircuitOpen:
+            return OCRLines(status="skipped", failure_reason="local_vision_cooldown")
         except TimeoutError:
-            process.kill()
-            await process.communicate()
-            return []
-        if process.returncode != 0:
-            return []
+            return OCRLines(status="failed", failure_reason="local_vision_timeout")
+        except OSError:
+            return OCRLines(status="failed", failure_reason="local_vision_unavailable")
+        if returncode != 0:
+            return OCRLines(status="failed", failure_reason="local_vision_process_failed")
         try:
-            return parse_ocr_output(stdout.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError, TypeError):
-            return []
+            payload = stdout.decode("utf-8")
+            lines = parse_ocr_output(payload)
+            if any(row.get("error") for row in json.loads(payload)):
+                return OCRLines(lines, status="degraded" if lines else "failed",
+                                failure_reason="local_vision_image_failed")
+            return OCRLines(lines, status="succeeded" if lines else "not_observed")
+        except (UnicodeDecodeError, json.JSONDecodeError, TypeError, AttributeError):
+            return OCRLines(status="failed", failure_reason="local_vision_invalid_output")

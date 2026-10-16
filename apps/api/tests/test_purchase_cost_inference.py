@@ -85,3 +85,12 @@ def test_order_price_or_target_change_invalidates_cached_inference():
     assert key != inference_key(card, line, "order-price-v2")
     assert key != inference_key({**card, "image_front_url": "new-image"}, line, "order-price-v1")
     assert key != inference_key(card, {**line, "title": "different-title"}, "order-price-v1")
+
+
+def test_bound_image_rejection_blocks_even_exact_title_match():
+    card, line = pair()
+    match = {**score_match(card, line), 'automatic': True, 'missing': [], 'conflicts': []}
+    result = apply_inference(card, match, {'verdict': 'different', 'confidence': '.99',
+                                         'reasons': ['银色全幅与白边小图版式不同']})
+    assert not result['automatic']
+    assert '图片核心信息不一致' in result['conflicts']

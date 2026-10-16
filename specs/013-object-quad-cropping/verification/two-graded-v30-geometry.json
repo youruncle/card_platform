@@ -1,0 +1,78 @@
+{
+  "detector_version": "object-quad-layout-v30",
+  "source_sheet_id": "916c9c36-5059-4d40-b6e7-f0927aae47fe",
+  "file_sheet_id": "f56c2973-b3fb-4c14-ac7c-9d580d6e2c15",
+  "actual_source_crop_points_validated": true,
+  "gold_body_label_same_crop": true,
+  "errors": [],
+  "original_content_integrity": {
+    "status": "accepted",
+    "independent_reference_count": 2,
+    "search_reference_count": 0,
+    "coverage_scope": "observed_source_regions",
+    "minimum_content_coverage": 0.992544,
+    "minimum_partition_coverage": 0.965068,
+    "error_codes": [],
+    "objects": [
+      {
+        "source_index": 0,
+        "crop_index": 0,
+        "reference_role": "independent_object",
+        "preserved": true,
+        "minimum_panel_coverage": 1.0,
+        "panel_count": 0,
+        "content_coverage": 1.0,
+        "minimum_partition_coverage": 1.0,
+        "partition_count": 16,
+        "content_pixels": 168621
+      },
+      {
+        "source_index": 1,
+        "crop_index": 1,
+        "reference_role": "independent_object",
+        "preserved": true,
+        "minimum_panel_coverage": 1.0,
+        "panel_count": 0,
+        "content_coverage": 0.992544,
+        "minimum_partition_coverage": 0.965068,
+        "partition_count": 16,
+        "content_pixels": 175023
+      }
+    ]
+  },
+  "final_current_original_content_integrity": {
+    "status": "accepted",
+    "independent_reference_count": 2,
+    "search_reference_count": 0,
+    "coverage_scope": "observed_source_regions",
+    "minimum_content_coverage": 0.992544,
+    "minimum_partition_coverage": 0.965068,
+    "error_codes": [],
+    "objects": [
+      {
+        "source_index": 0,
+        "crop_index": 0,
+        "reference_role": "independent_object",
+        "preserved": true,
+        "minimum_panel_coverage": 1.0,
+        "panel_count": 0,
+        "content_coverage": 1.0,
+        "minimum_partition_coverage": 1.0,
+        "partition_count": 16,
+        "content_pixels": 168621
+      },
+      {
+        "source_index": 1,
+        "crop_index": 1,
+        "reference_role": "independent_object",
+        "preserved": true,
+        "minimum_panel_coverage": 1.0,
+        "panel_count": 0,
+        "content_coverage": 0.992544,
+        "minimum_partition_coverage": 0.965068,
+        "partition_count": 16,
+        "content_pixels": 175023
+      }
+    ]
+  }
+}

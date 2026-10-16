@@ -1,0 +1,25 @@
+const {test,afterEach}=require('node:test');
+const assert=require('node:assert/strict');
+const {JSDOM}=require('jsdom');
+const dom=new JSDOM('<html><body></body></html>');
+global.window=dom.window;global.document=dom.window.document;
+Object.defineProperty(global,'navigator',{value:dom.window.navigator,configurable:true});
+global.HTMLElement=dom.window.HTMLElement;global.React=require('react');
+const {render,screen,fireEvent,cleanup,waitFor}=require('@testing-library/react');
+const {HoldingStatusControl}=require('../components/holding-status-control.tsx');
+afterEach(cleanup);
+test('mark sold and restore request explicit states, with busy and failure feedback',async()=>{
+ let requested,finish;
+ const change=status=>{requested=status;return new Promise(resolve=>{finish=resolve;});};
+ const view=render(React.createElement(HoldingStatusControl,{status:'held',onChange:change}));
+ fireEvent.click(screen.getByRole('button',{name:'标记为已卖出'}));
+ assert.equal(requested,'sold');
+ assert.equal(screen.getByRole('button',{name:'保存中…'}).disabled,true);
+ finish();
+ await waitFor(()=>assert.equal(screen.getByRole('button',{name:'标记为已卖出'}).disabled,false));
+ view.rerender(React.createElement(HoldingStatusControl,{status:'sold',onChange:async status=>{requested=status;throw new Error('保存失败');}}));
+ fireEvent.click(screen.getByRole('button',{name:'恢复持有'}));
+ await waitFor(()=>assert.equal(screen.getByRole('alert').textContent,'保存失败'));
+ assert.equal(requested,'held');
+ assert.ok(screen.getByText('已卖出'));
+});

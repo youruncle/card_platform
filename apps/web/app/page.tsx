@@ -1,8 +1,16 @@
 "use client";
 
+import { DEFAULT_PORTFOLIO_SORT, PORTFOLIO_SORT_OPTIONS, type PortfolioSort, type PortfolioSortBy, type PortfolioSortOrder } from "../../../packages/card-core/src/sorting";
+
+import { confirmationPayload } from "../../../packages/card-core/src/confirmation";
+import { HoldingStatusControl } from "../components/holding-status-control";
+import { NewsRiskAlerts } from "../components/news-risk-alerts";
+
 import { PurchaseCostPanel, PurchaseCostAudit, PurchaseCostEvidenceModal } from "../components/purchase-cost-panel";
+import { PurchaseCostValues } from "../components/purchase-cost-values";
 import { usePurchaseCostLookup } from "../lib/use-purchase-cost-lookup";
 import { CollectionSearch } from "../components/collection-search";
+import {uploadItemImages} from "../lib/item-image-upload";
 import type { SearchFilters } from "../lib/portfolio-search";
 
 import {
@@ -26,11 +34,14 @@ import {
   ShieldCheck,
   Sparkles,
   Trash2,
+  TrendingUp,
   X,
 } from "lucide-react";
 import { FormEvent, MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { GlobalImageViewer, OpenableImage } from "@/components/image-viewer";
+import { CapturePanel } from "@/components/capture-panel";
+import { PortfolioImage } from "@/components/portfolio-image";
 import { FlatbedBatchPanel } from "@/components/flatbed-batch-panel";
 import {
   acceptedEvidenceComparableIds,
@@ -53,7 +64,9 @@ import {
   logoutUser,
   registerUser,
   revokeAuthSession,
-  getPortfolio,
+  ApiError,
+  getPortfolioPage,
+  getPortfolioSummary,
   getTrash,
   deleteItem,
   restoreItem,
@@ -261,18 +274,13 @@ const emptySummary: PortfolioSummary = {
   realized_profit: "0",
 };
 
-function money(value: string | number, currency = "CNY") {
+function money(value: string | number, currency = "CNY", fractionDigits = 0) {
   return new Intl.NumberFormat("zh-CN", {
     style: "currency",
     currency,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
   }).format(Number(value));
-}
-
-function purchaseMoney(value: string, currency = "CNY") {
-  const [whole, fraction = ""] = value.split(".");
-  const amount = `${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}.${fraction.replace(/0+$/, "").padEnd(2, "0")}`;
-  return `${currency === "CNY" ? "¥" : `${currency} `}${amount}`;
 }
 
 function season(item: PortfolioItem) {
@@ -289,12 +297,21 @@ export default function Dashboard() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [summary, setSummary] = useState(emptySummary);
+  const portfolioSummaryRef = useRef(emptySummary);
   const [items, setItems] = useState<PortfolioItem[]>([]);
   const [portfolioPage, setPortfolioPage] = useState(1);
+  const [portfolioPageSize, setPortfolioPageSize] = useState(30);
+  const portfolioPageSizeRef = useRef(30);
+  const [portfolioSort, setPortfolioSort] = useState<PortfolioSort>(DEFAULT_PORTFOLIO_SORT);
+  const portfolioSortRef = useRef<PortfolioSort>(DEFAULT_PORTFOLIO_SORT);
+  const portfolioSnapshotRef = useRef<string | null>(null);
+  const portfolioSnapshotOwnerRef = useRef<string | null>(null);
+  const [portfolioSnapshotAt, setPortfolioSnapshotAt] = useState<string | null>(null);
   const [portfolioTotal, setPortfolioTotal] = useState(0);
   const [portfolioTotalPages, setPortfolioTotalPages] = useState(1);
   const portfolioPageRef = useRef(1);
   const portfolioRequestRef = useRef(0);
+  const portfolioMetricsRequestRef = useRef(0);
   const portfolioBusyRef = useRef(false);
   const importedScannerItemsRef = useRef(new Set<string>());
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
@@ -304,6 +321,7 @@ export default function Dashboard() {
   const [emptyingTrash, setEmptyingTrash] = useState(false);
   const [loading, setLoading] = useState(true);
   const [portfolioError, setPortfolioError] = useState("");
+  const [portfolioAuxErrors, setPortfolioAuxErrors] = useState({summary: "", corrections: ""});
   const [error, setError] = useState("");
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({});
   const searchFiltersRef = useRef<SearchFilters>({});
@@ -343,6 +361,9 @@ export default function Dashboard() {
     null,
   );
   const [itemDetail, setItemDetail] = useState<ItemDetail | null>(null);
+  const detailRequestRef = useRef(0);
+  const [detailExtrasLoading, setDetailExtrasLoading] = useState(false);
+  const [detailExtrasError, setDetailExtrasError] = useState("");
   const [identityIssueCounts, setIdentityIssueCounts] = useState<
     Record<string, number>
   >({});
@@ -367,6 +388,8 @@ export default function Dashboard() {
   );
   const [imageItem, setImageItem] = useState<PortfolioItem | null>(null);
   const [showRecognition, setShowRecognition] = useState(false);
+  const [captureTarget, setCaptureTarget] = useState<PortfolioItem | null>(null);
+  const [showCapture, setShowCapture] = useState(false);
   const [recognitionResult, setRecognitionResult] =
     useState<CardRecognition | null>(null);
   const [recognitionFile, setRecognitionFile] = useState<File | null>(null);
@@ -389,10 +412,29 @@ export default function Dashboard() {
     serialTotal: string;
   } | null>(null);
 
+  const refreshMetrics = useCallback((id: string, summarySource?: Promise<PortfolioSummary>) => {
+    const version = ++portfolioMetricsRequestRef.current;
+    setPortfolioAuxErrors({summary: "", corrections: ""});
+    void (summarySource ?? getPortfolioSummary(id)).then(value => {
+      if (version !== portfolioMetricsRequestRef.current) return;
+      portfolioSummaryRef.current = value;
+      setSummary(value);
+    }).catch(reason => {
+      if (version === portfolioMetricsRequestRef.current) setPortfolioAuxErrors(current => ({...current, summary: reason instanceof Error ? reason.message : "汇总读取失败"}));
+    });
+    void getIdentityCorrectionCounts(id).then(value => {
+      if (version === portfolioMetricsRequestRef.current) setIdentityIssueCounts(value);
+    }).catch(reason => {
+      if (version === portfolioMetricsRequestRef.current) setPortfolioAuxErrors(current => ({...current, corrections: reason instanceof Error ? reason.message : "纠错统计读取失败"}));
+    });
+  }, []);
+
   const refresh = useCallback(async (
     id: string,
     requestedPage = portfolioPageRef.current,
     background = false,
+    paginate = false,
+    reloadMetrics = !paginate,
   ): Promise<boolean> => {
     // Polls must not overlap a pending load or change the visible loading state.
     if (background && portfolioBusyRef.current) return false;
@@ -405,20 +447,36 @@ export default function Dashboard() {
       setError("");
       setPortfolioError("");
     }
+    if (!paginate) portfolioSnapshotRef.current = null;
     try {
-      const [[nextSummary, nextPage], nextIssueCounts] = await Promise.all([
-        getPortfolio(id, requestedPage, searchFiltersRef.current),
-        getIdentityCorrectionCounts(id),
-      ]);
+      // If the page already projects the entire account, compute its summary once.
+      // Filtered lists stay independent of the account-wide summary request.
+      const combineSummary = reloadMetrics && Object.keys(searchFiltersRef.current).length === 0;
+      const loadPage = async () => {
+        try {
+          return await getPortfolioPage(id, requestedPage, searchFiltersRef.current, portfolioPageSizeRef.current,
+            portfolioSortRef.current, portfolioSnapshotRef.current, combineSummary);
+        } catch (reason) {
+          if (!(reason instanceof ApiError) || reason.code !== "snapshot_expired" || requestId !== portfolioRequestRef.current) throw reason;
+          portfolioSnapshotRef.current = null;
+          return getPortfolioPage(id, 1, searchFiltersRef.current, portfolioPageSizeRef.current, portfolioSortRef.current, null, combineSummary);
+        }
+      };
+      const pageRequest = loadPage();
+      if (reloadMetrics) refreshMetrics(id, combineSummary
+        ? pageRequest.then(result => result.summary ?? getPortfolioSummary(id))
+        : undefined);
+      const nextPage = await pageRequest;
       // A page change or session change supersedes any earlier response.
       if (requestId !== portfolioRequestRef.current) return false;
-      setSummary(nextSummary);
+      portfolioSnapshotOwnerRef.current = id;
+      portfolioSnapshotRef.current = nextPage.snapshot_token ?? null;
+      setPortfolioSnapshotAt(nextPage.snapshot_at ?? null);
       setItems(nextPage.items);
       setPortfolioPage(nextPage.page);
       setPortfolioTotal(nextPage.total);
       setPortfolioTotalPages(nextPage.total_pages);
       portfolioPageRef.current = nextPage.page;
-      setIdentityIssueCounts(nextIssueCounts);
       setPortfolioError("");
       return true;
     } catch (reason) {
@@ -437,9 +495,29 @@ export default function Dashboard() {
         if (!background) setLoading(false);
       }
     }
-  }, []);
+  }, [refreshMetrics]);
+
+  function changePortfolioSort(next: PortfolioSort) {
+    portfolioSortRef.current = next;
+    setPortfolioSort(next);
+    applyCollectionSearch(searchFiltersRef.current);
+  }
+
+  function changePortfolioPageSize(size: number) {
+    if (![10, 20, 30, 50, 100].includes(size)) return;
+    portfolioPageSizeRef.current = size;
+    setPortfolioPageSize(size);
+    applyCollectionSearch(searchFiltersRef.current);
+  }
 
   function applyCollectionSearch(filters: SearchFilters) {
+    if ((filters.q ?? '').trim() !== (searchFiltersRef.current.q ?? '').trim()) {
+      const next = filters.q?.trim() ? {sort_by: 'relevance' as const, order: 'desc' as const} : DEFAULT_PORTFOLIO_SORT;
+      portfolioSortRef.current = next;
+      setPortfolioSort(next);
+    }
+    portfolioSnapshotRef.current = null;
+    setPortfolioSnapshotAt(null);
     searchFiltersRef.current = filters;
     setSearchFilters(filters);
     setSelectedItemIds(new Set());
@@ -448,12 +526,18 @@ export default function Dashboard() {
     portfolioPageRef.current = 1;
     setPortfolioTotal(0);
     setPortfolioTotalPages(1);
-    if (ownerId) void refresh(ownerId, 1);
+    if (ownerId) void refresh(ownerId, 1, false, false, false);
   }
 
   useEffect(() => {
+    if (portfolioSnapshotOwnerRef.current !== ownerId) {
+      portfolioSnapshotRef.current = null;
+      setPortfolioSnapshotAt(null);
+    }
     searchFiltersRef.current = {};
     setSearchFilters({});
+    portfolioSortRef.current = DEFAULT_PORTFOLIO_SORT;
+    setPortfolioSort(DEFAULT_PORTFOLIO_SORT);
     setSelectedItemIds(new Set());
   }, [ownerId]);
 
@@ -464,6 +548,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!ownerId || !costRefreshVersion) return;
+    portfolioSnapshotRef.current = null;
     let alive = true;
     let timer: number | undefined;
     const updateCosts = async () => {
@@ -507,6 +592,8 @@ export default function Dashboard() {
     return () => {
       active = false;
       ++portfolioRequestRef.current;
+      ++portfolioMetricsRequestRef.current;
+      ++detailRequestRef.current;
       portfolioBusyRef.current = false;
     };
   }, [refresh]);
@@ -514,6 +601,24 @@ export default function Dashboard() {
   useEffect(() => {
     const expireSession = () => {
       ++portfolioRequestRef.current;
+      ++portfolioMetricsRequestRef.current;
+      ++detailRequestRef.current;
+      setItemDetail(null);
+      setItems([]);
+      setSummary(emptySummary);
+      portfolioSummaryRef.current = emptySummary;
+      portfolioSnapshotRef.current = null;
+      portfolioSnapshotOwnerRef.current = null;
+      setPortfolioSnapshotAt(null);
+      setPortfolioPage(1);
+      portfolioPageRef.current = 1;
+      setPortfolioTotal(0);
+      setPortfolioTotalPages(1);
+      setIdentityIssueCounts({});
+      setIdentityCorrections([]);
+      setIdentityReview(null);
+      setItemCatalog(null);
+      setPortfolioAuxErrors({summary: "", corrections: ""});
       portfolioBusyRef.current = false;
       setLoading(false);
       setScannerJobs([]);
@@ -569,6 +674,7 @@ export default function Dashboard() {
     let retryTimer: number | undefined;
     const refreshImports = async () => {
       if (receipts.every((id) => importedScannerItemsRef.current.has(id))) return;
+      portfolioSnapshotRef.current = null;
       if (await refresh(ownerId, portfolioPageRef.current, true)) {
         receipts.forEach((id) => importedScannerItemsRef.current.add(id));
       } else if (active) {
@@ -582,6 +688,16 @@ export default function Dashboard() {
       window.clearTimeout(retryTimer);
     };
   }, [ownerId, scannerJobs, refresh]);
+
+  async function changeHoldingStatus(item: PortfolioItem, status: "held" | "sold") {
+    await quickUpdateItem(item.id, { holding_status: status });
+    if (ownerId) {
+      if (itemDetail?.item.id === item.id) {
+        setItemDetail(await getItemDetail(item.id, ownerId));
+      }
+      await refresh(ownerId);
+    }
+  }
 
   async function savePurchasePrice(item: PortfolioItem) {
     if (!editingPurchase || editingPurchase.id !== item.id) return;
@@ -719,6 +835,9 @@ export default function Dashboard() {
       await logoutUser();
     } finally {
       ++portfolioRequestRef.current;
+      ++portfolioMetricsRequestRef.current;
+      ++detailRequestRef.current;
+      setItemDetail(null);
       portfolioBusyRef.current = false;
       importedScannerItemsRef.current.clear();
       setScannerJobs([]);
@@ -731,6 +850,15 @@ export default function Dashboard() {
       setPortfolioTotalPages(1);
       portfolioPageRef.current = 1;
       setSummary(emptySummary);
+      portfolioSummaryRef.current = emptySummary;
+      portfolioSnapshotRef.current = null;
+      portfolioSnapshotOwnerRef.current = null;
+      setPortfolioSnapshotAt(null);
+      setIdentityIssueCounts({});
+      setIdentityCorrections([]);
+      setIdentityReview(null);
+      setItemCatalog(null);
+      setPortfolioAuxErrors({summary: "", corrections: ""});
       setShowSetup(true);
     }
   }
@@ -778,28 +906,23 @@ export default function Dashboard() {
     const serialTotal = String(form.get("serialTotal") ?? "");
     setError("");
     try {
+      const identity = confirmationPayload(ownerId, cardDraft ?? { confidence: 0 }, {
+        player_name: String(form.get("playerName") ?? ""),
+        brand_name: String(form.get("brandName") ?? ""),
+        product_name: String(form.get("productName") ?? ""),
+        season_start: String(seasonStart),
+        season_end: String(form.get("seasonEnd") || seasonStart + 1),
+        card_number: String(form.get("cardNumber") ?? ""),
+        insert_name: String(form.get("insertName") ?? ""),
+        parallel_name: String(form.get("parallelName") ?? ""),
+        serial_number: String(form.get("serialNumber") ?? ""),
+        serial_total: serialTotal,
+        is_rookie: String(form.get("isRookie") === "on"),
+        is_autograph: String(form.get("isAutograph") === "on"),
+        is_patch: String(form.get("isPatch") === "on"),
+      });
       const created = await createItem({
-        owner_id: ownerId,
-        card: {
-          player_name: form.get("playerName"),
-          brand_name: form.get("brandName"),
-          season_start: seasonStart,
-          season_end: form.get("seasonEnd")
-            ? Number(form.get("seasonEnd"))
-            : seasonStart + 1,
-          product_name: form.get("productName"),
-          insert_name: form.get("insertName") || null,
-          parallel_name: form.get("parallelName") || null,
-          card_number: form.get("cardNumber") || null,
-          is_rookie: form.get("isRookie") === "on",
-          is_autograph: form.get("isAutograph") === "on",
-          is_patch: form.get("isPatch") === "on",
-          print_run: serialTotal ? Number(serialTotal) : null,
-        },
-        serial_number: form.get("serialNumber")
-          ? Number(form.get("serialNumber"))
-          : null,
-        serial_total: serialTotal ? Number(serialTotal) : null,
+        ...identity,
         strategy_tags: form.getAll("strategyTags"),
         purchase: {
           transacted_at: String(form.get("purchasedAt") || new Date().toISOString()),
@@ -811,12 +934,10 @@ export default function Dashboard() {
           notes: form.get("purchaseNotes") || null,
         },
       });
-      if (cardDraft && recognitionFile) {
-        await uploadItemImage(created.id, ownerId, "front", recognitionFile);
-      }
-      if (cardDraft && recognitionBackFile) {
-        await uploadItemImage(created.id, ownerId, "back", recognitionBackFile);
-      }
+      if (cardDraft) await uploadItemImages(created.id, ownerId, [
+        ...(recognitionFile ? [{side: "front" as const, file: recognitionFile}] : []),
+        ...(recognitionBackFile ? [{side: "back" as const, file: recognitionBackFile}] : []),
+      ]);
       const consumedScannerJobId = selectedScannerJobId;
       let remainingScannerJobs: ScannerRecognitionJob[] | null = null;
       let scannerCleanupError = "";
@@ -1208,30 +1329,40 @@ export default function Dashboard() {
     }
   }
 
+  function loadDetailExtras(itemId: string, id: string, version: number) {
+    const current = () => version === detailRequestRef.current;
+    setDetailExtrasLoading(true);
+    setDetailExtrasError("");
+    setItemCatalogLoading(true);
+    const failure = (reason: unknown) => {
+      if (current()) setDetailExtrasError(previous => [previous, reason instanceof Error ? reason.message : "详情辅助信息读取失败"].filter(Boolean).join("；"));
+    };
+    void Promise.allSettled([
+      getIdentityCorrections(itemId, id).then(value => { if (current()) setIdentityCorrections(value); }).catch(failure),
+      getIdentityReview(itemId).then(value => { if (current()) setIdentityReview(value); }).catch(failure),
+    ]).then(() => { if (current()) setDetailExtrasLoading(false); });
+    void getCardCatalog(itemId, id).then(value => { if (current()) setItemCatalog(value); })
+      .catch(failure).finally(() => { if (current()) setItemCatalogLoading(false); });
+  }
+
   async function openItemDetail(itemId: string): Promise<boolean> {
     if (!ownerId) return false;
+    const version = ++detailRequestRef.current;
     setError("");
+    setItemDetail(null);
     setItemCatalog(null);
     setDetailAnalysis(null);
+    setIdentityCorrections([]);
+    setIdentityReview(null);
+    setDetailExtrasError("");
     try {
-      const [detail, corrections, review] = await Promise.all([
-        getItemDetail(itemId, ownerId),
-        getIdentityCorrections(itemId, ownerId),
-        getIdentityReview(itemId),
-      ]);
+      const detail = await getItemDetail(itemId, ownerId);
+      if (version !== detailRequestRef.current) return false;
       setItemDetail(detail);
-      setIdentityCorrections(corrections);
-      setIdentityReview(review);
-      setItemCatalogLoading(true);
-      void getCardCatalog(itemId, ownerId)
-        .then(setItemCatalog)
-        .catch((reason) =>
-          setError(reason instanceof Error ? reason.message : "图鉴补全失败"),
-        )
-        .finally(() => setItemCatalogLoading(false));
+      loadDetailExtras(itemId, ownerId, version);
       return true;
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "持仓详情读取失败");
+      if (version === detailRequestRef.current) setError(reason instanceof Error ? reason.message : "持仓详情读取失败");
       return false;
     }
   }
@@ -1657,6 +1788,9 @@ export default function Dashboard() {
           <a className="nav-item" href="#ai">
             <Sparkles size={18} /> AI 估值
           </a>
+          <a className="nav-item" href="/player-prices">
+            <TrendingUp size={18} /> 球员卡价涨跌
+          </a>
           {currentUser?.role === "admin" && (
             <>
               <a className="nav-item" href="/knowledge">
@@ -1710,6 +1844,7 @@ export default function Dashboard() {
             <Menu size={20} />
           </button>
           <div className="top-actions">
+            <button className="ghost-button" disabled={!ownerId} onClick={() => { setCaptureTarget(null); setShowCapture(true); }}>照片录卡 / 任务</button>
             <button
               className="ghost-button"
               onClick={() => setShowCardHobbyImport(true)}
@@ -1849,7 +1984,35 @@ export default function Dashboard() {
                 </button>
               </div>
             </div>
-            <CollectionSearch filters={searchFilters} total={portfolioTotal} busy={loading} onApply={applyCollectionSearch} currency={summary.base_currency} requestError={portfolioError} onRetry={() => { if (ownerId) void refresh(ownerId); }}/>
+            {(portfolioAuxErrors.summary || portfolioAuxErrors.corrections) && <p role="status">
+              {portfolioAuxErrors.summary && `汇总读取失败：${portfolioAuxErrors.summary} `}
+              {portfolioAuxErrors.corrections && `纠错统计读取失败：${portfolioAuxErrors.corrections} `}
+              <button className="text-button" onClick={() => { if (ownerId) refreshMetrics(ownerId); }}>重试汇总与纠错统计</button>
+            </p>}
+            <CollectionSearch filters={searchFilters} total={portfolioTotal} busy={loading} onApply={applyCollectionSearch} currency={summary.base_currency} requestError={portfolioError} onRetry={() => { if (ownerId) void refresh(ownerId); }}
+              viewControls={<div className="collection-view-controls" role="group" aria-label="卡库显示设置">
+                  <div className="collection-sort-controls">
+                    <label className="collection-control">
+                      <span>排序</span>
+                      <select aria-label="卡库排序" value={portfolioSort.sort_by} disabled={loading}
+                        onChange={event => changePortfolioSort({...portfolioSort, sort_by: event.target.value as PortfolioSortBy})}>
+                        {PORTFOLIO_SORT_OPTIONS.filter(option => option.value !== 'relevance' || searchFilters.q?.trim()).map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      </select>
+                    </label>
+                    <select className="collection-order-select" aria-label="排序方向" value={portfolioSort.order} disabled={loading}
+                      onChange={event => changePortfolioSort({...portfolioSort, order: event.target.value as PortfolioSortOrder})}>
+                      <option value="desc">↓ 降序</option><option value="asc">↑ 升序</option>
+                    </select>
+                  </div>
+                  <label className="collection-control collection-page-size">
+                    <span>每页</span>
+                    <select aria-label="每页显示数量" value={portfolioPageSize} disabled={loading}
+                      onChange={event => changePortfolioPageSize(Number(event.target.value))}>
+                      {[10, 20, 30, 50, 100].map(size => <option key={size} value={size}>{size} 张</option>)}
+                    </select>
+                  </label>
+                </div>}
+            />
             <div className="table-wrap">
               <table>
                 <thead>
@@ -1867,7 +2030,9 @@ export default function Dashboard() {
                     <th>属性</th>
                     <th>买入价 / 购入总成本</th>
                     <th>当前估值</th>
+                    <th>Codex 估值</th>
                     <th>未实现盈亏</th>
+                    <th>风险提示</th>
                     <th>分析</th>
                   </tr>
                 </thead>
@@ -1882,7 +2047,7 @@ export default function Dashboard() {
                         </div>
                       </td>
                       <td><span className="scanner-ingesting"><span className="valuation-spinner" /> 录入中</span></td>
-                      <td>—</td><td>—</td><td>—</td>
+                      <td>—</td><td>—</td><td>—</td><td>—</td>
                       <td><small>{job.status === "queued" ? "等待处理" : "AI 识别中"}</small></td>
                     </tr>
                   ))}
@@ -1922,13 +2087,10 @@ export default function Dashboard() {
                         </td>
                         <td>
                           <div className="card-identity">
-                            {item.image_front_url ? (
+                            {(item.image_front_url || item.image_back_url) ? (
                               <div className="card-thumb has-image">
-                                <OpenableImage
-                                  src={
-                                    assetUrl(item.image_front_url) ?? undefined
-                                  }
-                                  alt={`${item.player_name} 卡片正面`}
+                                <PortfolioImage itemId={item.id} side={item.image_front_url ? "front" : "back"} url={item.image_front_url || item.image_back_url} variant="thumb"
+                                  alt={`${item.player_name} 卡片${item.image_front_url ? "正面" : "背面"}`}
                                   gallery={[
                                     {
                                       src: assetUrl(item.image_front_url),
@@ -1958,6 +2120,7 @@ export default function Dashboard() {
                             <div>
                               <div className="player-name-row">
                                 <span className="asset-display-id">ID {item.display_id}</span>
+                                {item.holding_status === "sold" && <span className="tag muted">已卖出</span>}
                                 <button
                                   className="player-link"
                                   onClick={() => void openItemDetail(item.id)}
@@ -2070,6 +2233,7 @@ export default function Dashboard() {
                           ) : editingPurchase?.id === item.id ? (
                             <input
                               autoFocus
+                              aria-label="人工录入买入价"
                               className="inline-price-input"
                               type="number"
                               min="0"
@@ -2084,8 +2248,7 @@ export default function Dashboard() {
                             />
                           ) : (
                             <>
-                              <strong>{purchasePrice === null ? "双击填写" : purchaseMoney(purchasePrice, purchaseCurrency)}</strong>
-                              <small className="cost-secondary">购入总成本 {purchaseTotal == null ? "未录入" : purchaseMoney(purchaseTotal, purchaseCurrency)}</small>
+                              <PurchaseCostValues price={purchasePrice} total={purchaseTotal} currency={purchaseCurrency} />
                               {costStatusLabel && <div className="cost-lookup-result" title={costLookup?.message}>
                                 <small role="status">{costStatusLabel}</small>
                                 {costLookup?.message && <small className="cost-lookup-detail">{costLookup.message}</small>}
@@ -2106,6 +2269,14 @@ export default function Dashboard() {
                             onDoubleClick={event => event.stopPropagation()}
                             onClick={() => fetchCostInBackground(item.id)}
                           >获取成本</button>
+                          <button
+                            type="button"
+                            className="cost-inline-action"
+                            disabled={costLoading || editingPurchase?.id === item.id}
+                            title="直接填写买入价，按回车或移开焦点保存，无需登录卡淘"
+                            onDoubleClick={event => event.stopPropagation()}
+                            onClick={() => setEditingPurchase({ id: item.id, value: purchasePrice ?? "" })}
+                          >{purchasePrice === null ? "人工录入" : "修改成本"}</button>
                           {purchasePrice !== null && <button type="button" className="cost-inline-action" onDoubleClick={event=>event.stopPropagation()} onClick={()=>setCostEvidenceItemId(item.id)}>查看订单快照</button>}
                           {recordedCost?.match_method === "inferred" && <small className="cost-secondary">推测匹配 · 请核对快照</small>}
                         </td>
@@ -2117,7 +2288,7 @@ export default function Dashboard() {
                               title={
                                 usesShadowValue
                                   ? `影子估值 · 置信度 ${Math.round(Number(item.shadow_valuation_confidence ?? 0) * 100)}%`
-                                  : "正式估值"
+                                  : item.valuation_synthesis?.reasons.join("；") || "正式估值"
                               }
                             >
                               {money(
@@ -2180,6 +2351,33 @@ export default function Dashboard() {
                               待估值 · 点击处理
                             </button>
                           )}
+                          {item.valuation_synthesis && ["combined", "codex_supported", "joint_recalculated", "joint_validated"].includes(item.valuation_synthesis.status) && (
+                            <small className="cost-secondary">{synthesisStatusLabels[item.valuation_synthesis.status]}</small>
+                          )}
+                        </td>
+                        <td>
+                          {item.codex_analysis_version != null ? (
+                            <button
+                              className="valuation-price codex"
+                              onClick={() => void openExpertAnalysis(item)}
+                              title="最新成功的 Codex 独立看图分析 · 点击查看依据"
+                            >
+                              {item.codex_fair_value != null
+                                ? money(item.codex_fair_value, item.codex_valuation_currency ?? summary.base_currency)
+                                : "证据不足"}
+                              {item.codex_valuation_low != null && item.codex_valuation_high != null && (
+                                <small>
+                                  {money(item.codex_valuation_low, item.codex_valuation_currency ?? summary.base_currency)} – {money(item.codex_valuation_high, item.codex_valuation_currency ?? summary.base_currency)}
+                                </small>
+                              )}
+                            </button>
+                          ) : <span className="muted-copy">未分析</span>}
+                          {item.valuation_synthesis?.codex_id && (
+                            <small className="cost-secondary" title={item.valuation_synthesis.reasons.join("；")}>
+                              {["joint_recalculated", "joint_validated"].includes(item.valuation_synthesis.status)
+                                ? "已参与联合校验" : synthesisStatusLabels[item.valuation_synthesis.status] ?? "未采用"}
+                            </small>
+                          )}
                         </td>
                         <td
                           className={
@@ -2193,6 +2391,7 @@ export default function Dashboard() {
                               )
                             : "—"}
                         </td>
+                        <td><NewsRiskAlerts alerts={item.news_alerts} /></td>
                         <td>
                           <div className="action-row">
                             <button
@@ -2207,10 +2406,12 @@ export default function Dashboard() {
                                 <button type="button" onClick={() => setPotentialItem(item)}>潜力</button>
                                 <button type="button" onClick={() => void openMarket(item)}>市场</button>
                                 <button type="button" onClick={() => setImageItem(item)}>图片</button>
+                                <button type="button" onClick={() => { setCaptureTarget(item); setShowCapture(true); }}>补拍</button>
                                 <button type="button" className="detail-alert-button" onClick={() => void openItemDetail(item.id)}>
                                   详情
                                   {(identityIssueCounts[item.id] ?? 0) > 0 && <span className="identity-issue-dot" />}
                                 </button>
+                                <HoldingStatusControl status={item.holding_status} onChange={status => changeHoldingStatus(item, status)} />
                                 <button type="button" className="danger" onClick={() => void handleDeleteItem(item)}>删除</button>
                               </div>
                             </details>
@@ -2221,7 +2422,7 @@ export default function Dashboard() {
                   })}
                   {!loading && !portfolioError && filteredItems.length === 0 && (
                     <tr>
-                      <td colSpan={7}>
+                      <td colSpan={9}>
                         <div className="empty-state">
                           <CircleDollarSign size={28} />
                           <strong>
@@ -2255,12 +2456,15 @@ export default function Dashboard() {
               </table>
             </div>
             <div className="portfolio-pagination" aria-label="卡牌列表分页">
-              <span>共 {portfolioTotal} 张 · 每页最多 30 张</span>
+              <div className="portfolio-page-summary">
+                <span>共 {portfolioTotal} 张</span>
+                {portfolioSnapshotAt && <span className="portfolio-updated-at">结果更新于 {new Date(portfolioSnapshotAt).toLocaleTimeString("zh-CN")}</span>}
+              </div>
               <div>
                 <button
                   type="button"
                   disabled={loading || portfolioPage <= 1}
-                  onClick={() => ownerId && void refresh(ownerId, portfolioPage - 1)}
+                  onClick={() => ownerId && void refresh(ownerId, portfolioPage - 1, false, true)}
                 >
                   上一页
                 </button>
@@ -2268,7 +2472,7 @@ export default function Dashboard() {
                 <button
                   type="button"
                   disabled={loading || portfolioPage >= portfolioTotalPages}
-                  onClick={() => ownerId && void refresh(ownerId, portfolioPage + 1)}
+                  onClick={() => ownerId && void refresh(ownerId, portfolioPage + 1, false, true)}
                 >
                   下一页
                 </button>
@@ -2346,8 +2550,12 @@ export default function Dashboard() {
           analysisLoading={detailAnalysisLoading}
           identityCorrections={identityCorrections}
           identityReview={identityReview}
+          extrasLoading={detailExtrasLoading}
+          extrasError={detailExtrasError}
+          onExtrasRetry={() => { if (ownerId) loadDetailExtras(itemDetail.item.id, ownerId, ++detailRequestRef.current); }}
           applyingIdentityCorrections={applyingIdentityCorrections}
           onClose={() => {
+            ++detailRequestRef.current;
             setItemDetail(null);
             setItemCatalog(null);
             setDetailAnalysis(null);
@@ -2368,6 +2576,7 @@ export default function Dashboard() {
           onTransaction={handleTransaction}
           onValuation={handleValuation}
           onDelete={() => void handleDeleteItem(itemDetail.item)}
+          onHoldingStatus={status => changeHoldingStatus(itemDetail.item, status)}
         />
       )}
       {showTrash && (
@@ -2408,6 +2617,7 @@ export default function Dashboard() {
           onSubmit={handlePotential}
         />
       )}
+      {showCapture && ownerId && <CapturePanel key={ownerId + (captureTarget?.id ?? "new")} ownerId={ownerId} target={captureTarget} onClose={() => setShowCapture(false)} onSaved={async () => { await refresh(ownerId); }} />}
       {imageItem && (
         <ImageDialog
           item={imageItem}
@@ -3148,8 +3358,8 @@ function ExpertAnalysisDialog({
           <button className="icon-button" onClick={onClose}><X size={20} /></button>
         </div>
         <div className="expert-analysis-card-link">
-          {item.image_front_url && <OpenableImage src={assetUrl(item.image_front_url) ?? ""} alt={`${item.player_name} 正面`} />}
-          {item.image_back_url && <OpenableImage src={assetUrl(item.image_back_url) ?? ""} alt={`${item.player_name} 背面`} />}
+          {item.image_front_url && <PortfolioImage itemId={item.id} side="front" url={item.image_front_url} variant="preview" alt={`${item.player_name} 正面`} />}
+          {item.image_back_url && <PortfolioImage itemId={item.id} side="back" url={item.image_back_url} variant="preview" alt={`${item.player_name} 背面`} />}
           <p>{item.season_start} {item.brand_name} {item.product_name}<br />
             <small>本结果只以这两张图片为卡片输入，独立于影子估值与正式估值，不会写入正式估值。</small></p>
         </div>
@@ -3624,6 +3834,9 @@ function ItemDetailDialog({
   analysisLoading,
   identityCorrections,
   identityReview,
+  extrasLoading,
+  extrasError,
+  onExtrasRetry,
   applyingIdentityCorrections,
   onClose,
   onCatalogRefresh,
@@ -3640,8 +3853,10 @@ function ItemDetailDialog({
   onTransaction,
   onValuation,
   onDelete,
+  onHoldingStatus,
 }: {
   detail: ItemDetail;
+  onHoldingStatus: (status: "held" | "sold") => Promise<void>;
   currency: string;
   catalog: CardRecognition | null;
   catalogLoading: boolean;
@@ -3649,6 +3864,9 @@ function ItemDetailDialog({
   analysisLoading: boolean;
   identityCorrections: IdentityCorrection[];
   identityReview: IdentityReviewDetail | null;
+  extrasLoading: boolean;
+  extrasError: string;
+  onExtrasRetry: () => void;
   applyingIdentityCorrections: boolean;
   onClose: () => void;
   onCatalogRefresh: () => void;
@@ -3678,6 +3896,9 @@ function ItemDetailDialog({
   const confirmationFormRef = useRef<HTMLDivElement | null>(null);
   const [reviewReason, setReviewReason] = useState("人工核对正反面图片及成交证据");
   const showLegacyIdentityReview: boolean = false;
+  useEffect(() => {
+    setReviewDraft(identityReview?.suggested_identity ?? identityReview?.current_identity ?? null);
+  }, [identityReview]);
   const item = detail.item;
   const catalogFields = [
     ["球员", catalog?.player_name ?? item.player_name],
@@ -3735,12 +3956,14 @@ function ItemDetailDialog({
               {item.insert_name ? ` · ${item.insert_name}` : ""}
             </p>
           </div>
-          <button type="button" className="icon-button" onClick={onClose}>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="关闭卡片详情">
             <X size={20} />
           </button>
         </div>
 
-        <p>购入总成本：{item.purchase_total_cost == null ? "未录入" : purchaseMoney(item.purchase_total_cost, item.purchase_currency ?? "CNY")}</p>
+        {extrasLoading && <p role="status">正在读取纠错与身份复核…</p>}
+        {extrasError && <p role="status">{extrasError} <button className="text-button" onClick={onExtrasRetry}>重试详情辅助信息</button></p>}
+        <PurchaseCostValues total={item.purchase_total_cost} currency={item.purchase_currency ?? "CNY"} detail />
         <PurchaseCostAudit itemId={item.id} />
         <div className="dossier-hero">
           <section className="dossier-gallery">
@@ -3748,7 +3971,7 @@ function ItemDetailDialog({
               <figure>
                 <div className="dossier-main-image">
                   {imageFront ? (
-                    <OpenableImage src={imageFront} alt={`${item.player_name} 卡片正面`} />
+                    <PortfolioImage itemId={item.id} side="front" url={item.image_front_url} variant="preview" alt={`${item.player_name} 卡片正面`} />
                   ) : (
                     <div>
                       <strong>暂无正面图片</strong>
@@ -3769,7 +3992,7 @@ function ItemDetailDialog({
               <figure>
                 <div className="dossier-main-image">
                   {imageBack ? (
-                    <OpenableImage src={imageBack} alt={`${item.player_name} 卡片背面`} />
+                    <PortfolioImage itemId={item.id} side="back" url={item.image_back_url} variant="preview" alt={`${item.player_name} 卡片背面`} />
                   ) : (
                     <div>
                       <strong>暂无背面图片</strong>
@@ -3796,6 +4019,8 @@ function ItemDetailDialog({
           </section>
 
           <section className="dossier-overview">
+            <HoldingStatusControl status={item.holding_status} onChange={onHoldingStatus} />
+            {item.holding_status === "sold" && <p className="muted-copy">已卖出，不计入当前持仓统计。买入记录和历史估值保留。</p>}
             <div className="tag-row">
               {item.is_redemption && <span className="tag lime">交换板</span>}
               {item.is_rookie && <span className="tag lime">RC</span>}
@@ -4048,7 +4273,7 @@ function ItemDetailDialog({
             </div>
             <label className="identity-review-reason"><span>确认理由</span><input value={reviewReason} onChange={(event) => setReviewReason(event.target.value)} /></label>
             <div className="identity-review-sales">
-              <strong>关联成交（{identityReview.market_evidence.filter((sale) => sale.decision === "accepted").length} 接受 / {identityReview.market_evidence.filter((sale) => sale.decision === "rejected").length} 拒绝）</strong>
+              <strong>关联成交（{identityReview.market_evidence.filter((sale) => sale.decision === "accepted").length} 接受 / {identityReview.market_evidence.filter((sale) => sale.decision === "needs_review").length} 待复核 / {identityReview.market_evidence.filter((sale) => sale.decision === "rejected").length} 拒绝）</strong>
               {identityReview.market_evidence.map((sale) => (
                 <a key={sale.id} href={externalSourceUrl(sale.source_url)} target="_blank" rel="noreferrer">
                   {sale.image_url ? (
@@ -4056,7 +4281,7 @@ function ItemDetailDialog({
                   ) : (
                     <span className="identity-sale-placeholder">无图</span>
                   )}
-                  <span>{sale.decision === "accepted" ? "接受" : "隔离"} · {sale.raw_title}</span>
+                  <span>{sale.decision === "accepted" ? "接受" : sale.decision === "needs_review" ? "待复核" : "隔离"} · {sale.raw_title}</span>
                   <small>
                     {sale.reason_codes.join("、")} · {money(sale.sale_price, sale.currency)}
                     {Number(sale.shipping_price) > 0 ? ` + 运费 ${money(sale.shipping_price, sale.currency)}` : ""}
@@ -4364,6 +4589,16 @@ function ItemDetailDialog({
   );
 }
 
+const synthesisStatusLabels: Record<string, string> = {
+  joint_recalculated: "联合校验后估值",
+  joint_validated: "联合校验一致",
+  combined: "综合估值",
+  codex_supported: "Codex 证据补足",
+  review_required: "综合估值待复核",
+  insufficient_evidence: "未采用 · 证据不足",
+  original_only: "保留原估值",
+};
+
 const valuationStatusLabels: Record<string, string> = {
   queued: "等待处理",
   identifying: "正在确认卡片身份",
@@ -4378,6 +4613,9 @@ const valuationRiskLabels: Record<string, string> = {
   relative_candidate_tier_T1: "T1 高可比成交（尚非精确同版）",
   relative_candidate_tier_T2: "T2 同类型代理成交",
   relative_candidate_tier_T3: "T3 宽泛市场参考",
+  same_base_different_print_run: "同底卡不同限编类比",
+  print_run_multiplier_is_uncalibrated_prior: "限编倍率为暂定模型，尚未市场校准",
+  parallel_and_condition_premium_uncertain: "平行与品相溢价不确定",
   cardhobby_same_type_proxy_range: "卡淘同类型代理区间",
   single_cardhobby_proxy_sale: "仅一条卡淘代理成交",
   single_provider_concentration: "证据集中于单一来源",
@@ -4390,6 +4628,13 @@ const valuationRiskLabels: Record<string, string> = {
 };
 
 const comparableFieldLabels: Record<string, string> = {
+  season_start: "年份",
+  product_name: "系列",
+  insert_name: "特卡",
+  parallel_name: "平行版本",
+  is_autograph: "签字属性",
+  is_memorabilia: "球衣属性",
+  grade_company: "评级机构",
   player: "球员",
   player_name: "球员",
   season: "年份",
@@ -4527,13 +4772,54 @@ function AutomatedValuationDialog({
             <p className="eyebrow">AUTOMATED VALUATION</p>
             <h2>{item.player_name} · 估值详情</h2>
             <p className="detail-subtitle">
-              {valuationStatusLabels[detail.status ?? ""] ?? "尚未估值"}
+              {item.valuation_synthesis?.status === "joint_recalculated"
+                ? "联合估值已更新" : evidence?.pricing_basis === "codex_independent_fallback"
+                ? "已有 Codex 独立估值 · 低置信参考" : valuationStatusLabels[detail.status ?? ""] ?? "尚未估值"}
             </p>
           </div>
           <button className="icon-button" onClick={onClose}>
             <X size={20} />
           </button>
         </div>
+        {item.valuation_synthesis?.codex_id && (
+          <section className="valuation-method">
+            <h3>{synthesisStatusLabels[item.valuation_synthesis.status] ?? "综合估值"}</h3>
+            <p>列表当前估值：{item.fair_value != null
+              ? money(item.fair_value, item.valuation_currency ?? "CNY", 2) : "证据不足"}</p>
+            {item.valuation_low != null && item.valuation_high != null && (
+              <p>估值区间：{money(item.valuation_low, item.valuation_currency ?? "CNY", 2)} – {money(item.valuation_high, item.valuation_currency ?? "CNY", 2)}</p>
+            )}
+            <p>原估值：{item.valuation_synthesis.original_fair_value != null
+              ? money(String(item.valuation_synthesis.original_fair_value), item.valuation_currency ?? "CNY") : "无有效估值"}
+              {" · "}Codex 分析 v{item.valuation_synthesis.codex_analysis_version}</p>
+            <ul>{item.valuation_synthesis.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>
+            {item.valuation_synthesis.identity_checks?.[0] && (
+              <p>
+                双方一致：{item.valuation_synthesis.identity_checks[0].agreed.map(k => comparableFieldLabels[k] ?? k).join("、") || "暂无"}；
+                历史分析补充：{item.valuation_synthesis.identity_checks[0].supplemented.map(k => comparableFieldLabels[k] ?? k).join("、") || "无"}；
+                待核对：{item.valuation_synthesis.identity_checks[0].conflicts.map(k => comparableFieldLabels[k] ?? k).join("、") || "无"}
+              </p>
+            )}
+            {Object.entries(item.valuation_synthesis.identity_corrections ?? {}).map(([field, correction]) => (
+              <p key={field}>{comparableFieldLabels[field] ?? field}：{String(correction.before ?? "未记录")} → {String(correction.after ?? "无")}。{correction.reason}</p>
+            ))}
+            {item.valuation_synthesis.recovered_evidence && (
+              <p>提取 {item.valuation_synthesis.recovered_evidence.length} 条历史依据；
+                本次采用 {item.valuation_synthesis.accepted_evidence?.length ?? 0} 条独立成交，
+                排除或暂缓 {item.valuation_synthesis.rejected_evidence?.length ?? 0} 条价格候选。
+                {item.valuation_synthesis.confidence != null && `估值置信度 ${Math.round(Number(item.valuation_synthesis.confidence) * 100)}%。`}
+              </p>
+            )}
+            {item.valuation_synthesis.accepted_evidence?.map(entry => (
+              <p key={entry.url}>
+                <a href={entry.url} target="_blank" rel="noreferrer">{entry.source === "system" ? "系统成交" : "历史 Codex 线索补核"}</a>
+                {" · "}{entry.sold_at.slice(0, 10)} · 折合 {money(String(entry.price_base), item.valuation_currency ?? "CNY", 2)}
+                {entry.verification_scope && <small>{entry.verification_scope}</small>}
+              </p>
+            ))}
+            <small>规则：{item.valuation_synthesis.rule_version}；原始分析及估值记录均保留。下方为原估值过程。</small>
+          </section>
+        )}
         {running && (
           <div className="valuation-running-panel">
             <span className="valuation-spinner" />
@@ -4625,12 +4911,13 @@ function AutomatedValuationDialog({
                 <h3>证据说明与调整</h3>
                 {proxyEvidence && (
                   <p>
-                    当前为低置信代理估值：采用的是可核验的同类型成交，并非已核实的精确同版成交；
-                    未经证据支持的限编、平行或评级溢价不会自动加入价格。
+                    {evidence?.pricing_basis === "same_base_different_print_run"
+                      ? "当前为低置信类比估值：使用同底卡不同限编成交，经暂定限编模型推算。倍率尚未经过市场校准，估值区间较宽。"
+                      : "当前为低置信代理估值：采用可核验的同类型成交，尚非精确同版；未经证据支持的平行或评级溢价不会自动加入价格。"}
                   </p>
                 )}
                 {evidence?.pricing_basis && (
-                  <small>定价基准：{evidence.pricing_basis}</small>
+                  <small>定价基准：{evidence.pricing_basis === "codex_independent_fallback" ? "Codex 独立估值兜底" : evidence.pricing_basis === "same_base_different_print_run" ? "同底卡不同限编类比" : evidence.pricing_basis}</small>
                 )}
                 {evidence?.notes?.map((note, index) => (
                   <small key={`${note}-${index}`}>{note}</small>

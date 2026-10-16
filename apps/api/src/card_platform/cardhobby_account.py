@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import math
 import re
 from contextvars import ContextVar
 from time import monotonic
@@ -19,7 +20,7 @@ from card_platform.purchase_cost import OrderCapture
 logger = logging.getLogger(__name__)
 request_stage = ContextVar('cardhobby_request_stage', default='prepare')
 STAGE_LABELS = {'prepare':'准备查询', 'session_check':'检查登录状态', 'login_page':'打开登录页',
-                'login_submit':'提交登录验证', 'order_search':'搜索购买订单', 'order_detail':'读取订单详情'}
+                'login_submit':'提交登录验证', 'sms_send':'发送短信验证码', 'order_search':'搜索购买订单', 'order_detail':'读取订单详情'}
 
 
 class AccountError(Exception):
@@ -49,7 +50,9 @@ def restore_cookies(client, cookies):
 
 
 def new_client():
-    return httpx.AsyncClient(timeout=httpx.Timeout(connect=8, read=25, write=10, pool=5), follow_redirects=False, headers={
+    # CardHobby is directly reachable. The global proxy used by overseas
+    # providers may be offline; it must not block session checks or re-login.
+    return httpx.AsyncClient(trust_env=False, timeout=httpx.Timeout(connect=8, read=25, write=10, pool=5), follow_redirects=False, headers={
         'User-Agent': 'Mozilla/5.0 CardPlatform/1.0', 'Accept': 'text/html',
     })
 
@@ -179,7 +182,9 @@ class CardHobbySession:
                     orders[order.external_order_id] = order.model_dump(mode='json')
                     await asyncio.sleep(0.15)
                 next_link = next((a for a in doc.all('a') if a.text() in {'»', '下一页', '›'}
-                                  and not any('disabled' in n.attrs.get('class', '').split()
+                                  and not any('disabled' in n.attrs
+                                              or n.attrs.get('aria-disabled') == 'true'
+                                              or 'disabled' in n.attrs.get('class', '').split()
                                               for n in [a, a.parent] if n)), None)
                 url = safe_url(urljoin(url, next_link.attrs.get('href', '')), 'list') if next_link else None
                 if url and parse_qs(urlsplit(url).query).get('searchTxt') != [keyword]:
@@ -205,6 +210,58 @@ class CardHobbyAccountService:
         row = await result.fetchone()
         return {'saved': bool(row and row['credentials_enc']), 'state': row['state'] if row else 'unbound'}
 
+    async def pending_verification(self, conn, owner):
+        row = await self.row(conn, owner)
+        if not row['pending_enc']:
+            raise login_required()
+        pending = self.cipher.decrypt(owner, 'pending', row['pending_enc'])
+        if datetime.fromisoformat(pending['expires']) <= datetime.now(timezone.utc):
+            raise AccountError('VERIFICATION_EXPIRED', '验证码会话已过期，请重新发起验证；无需重复输入账号密码')
+        if not re.fullmatch(r'[0-9]{11}', pending['credentials']['username']):
+            raise AccountError('LOGIN_REQUIRED', '卡淘短信验证需要手机号，请使用绑定的11位手机号重新登录')
+        return pending
+
+    @staticmethod
+    def verification_details(pending):
+        retry_at = pending.get('sms_retry_after')
+        seconds = max(0, math.ceil((datetime.fromisoformat(retry_at) - datetime.now(timezone.utc)).total_seconds())) if retry_at else 0
+        return {'captcha_url': 'https://cms.cardhobby.com.cn/checkcode/index?' + urlencode({'mobile': pending['credentials']['username']}),
+                'sms_sent': pending.get('sms_sent') is True, 'retry_after_seconds': seconds}
+
+    async def verification(self, conn, owner):
+        return self.verification_details(await self.pending_verification(conn, owner))
+
+    async def save_pending(self, conn, owner, pending):
+        await conn.execute('UPDATE cardhobby_account SET pending_enc=%s WHERE owner_id=%s',
+                           (self.cipher.encrypt(owner, 'pending', pending), owner))
+
+    async def send_sms(self, conn, owner):
+        # Called only after the user completes the official iframe. CardHobby
+        # validates the mobile's captcha server-side; never synthesize a solution.
+        pending = await self.pending_verification(conn, owner)
+        if self.verification_details(pending)['retry_after_seconds']:
+            raise AccountError('RATE_LIMITED', '短信请求过于频繁，请稍后重新完成滑块验证')
+        pending['sms_retry_after'] = (datetime.now(timezone.utc) + timedelta(seconds=60)).isoformat()
+        pending['sms_sent'] = False
+        await self.save_pending(conn, owner, pending)
+        async with self.client_factory() as client:
+            restore_cookies(client, pending['cookies'])
+            client.headers.update({'X-Requested-With': 'XMLHttpRequest',
+                                   'Referer': ORIGIN + '/Verify/Index', 'Accept': 'application/json'})
+            response = await CardHobbySession(client).request('/Verify/SendSMS/', data={
+                'mobile': '86 ' + pending['credentials']['username'], 'SecurityCode': '', 'smsType': 9,
+            }, stage='sms_send')
+            try:
+                result = response.json()
+            except ValueError:
+                result = None
+            if not isinstance(result, dict) or str(result.get('status')) != '1':
+                raise AccountError('SMS_SEND_FAILED', '卡淘未确认短信发送成功，请稍后重新完成滑块验证并重试')
+            pending['sms_sent'] = True
+            pending['cookies'] = cookie_data(client)
+            await self.save_pending(conn, owner, pending)
+        return self.verification_details(pending)
+
     async def save_session(self, conn, owner, client, credentials=None):
         token = self.cipher.encrypt(owner, 'session', cookie_data(client))
         if credentials is not None:
@@ -216,13 +273,20 @@ class CardHobbyAccountService:
         row = await self.row(conn, owner)
         self.check_cooldown(row)
         pending = None
+        if credentials is None and not sms_code:
+            # A fresh login uses retained credentials, never expired cookies/tokens.
+            if row['pending_enc']:
+                credentials = self.cipher.decrypt(owner, 'pending', row['pending_enc'])['credentials']
+            elif row['credentials_enc']:
+                credentials = self.cipher.decrypt(owner, 'credentials', row['credentials_enc'])
+            else:
+                raise login_required()
         if sms_code:
             if not row['pending_enc']:
                 raise login_required()
             pending = self.cipher.decrypt(owner, 'pending', row['pending_enc'])
             if datetime.fromisoformat(pending['expires']) <= datetime.now(timezone.utc):
-                await conn.execute("UPDATE cardhobby_account SET pending_enc=NULL, state='login_required' WHERE owner_id=%s", (owner,))
-                raise AccountError('LOGIN_REQUIRED', '验证码会话已过期，请重新输入卡淘账号密码')
+                raise AccountError('VERIFICATION_EXPIRED', '验证码会话已过期，请重新发起验证；无需重复输入账号密码')
             credentials = pending['credentials']
         async with self.client_factory() as client:
             if pending:
@@ -252,10 +316,13 @@ class CardHobbyAccountService:
                 raise AccountError('LOGIN_REJECTED', '短信验证多次未成功，请稍后重新登录')
             if pending:
                 challenge['expires'] = pending['expires']
+                for key in ('sms_sent', 'sms_retry_after'):
+                    if key in pending:
+                        challenge[key] = pending[key]
             challenge.update(credentials=credentials, cookies=cookie_data(client), attempts=attempts)
             token = self.cipher.encrypt(owner, 'pending', challenge)
             await conn.execute("UPDATE cardhobby_account SET pending_enc=%s, state='verification_required', retry_after=CASE WHEN %s THEN retry_after ELSE NULL END WHERE owner_id=%s", (token, bool(sms_code), owner))
-            raise AccountError('VERIFICATION_REQUIRED', '卡淘要求短信验证，请输入卡淘发送的验证码；验证成功后才保存账号')
+            raise AccountError('VERIFICATION_REQUIRED', '卡淘要求验证，请先完成滑块并获取短信验证码；验证成功后才保存账号')
         await self.save_session(conn, owner, client, credentials)
 
     async def search(self, conn, owner, keywords):

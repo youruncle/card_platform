@@ -194,13 +194,19 @@ def sanitize_local_ocr_conflicts(result: CardRecognitionResult) -> CardRecogniti
 
 
 def finalize_recognition_status(result: CardRecognitionResult) -> CardRecognitionResult:
+    from card_platform.domain.recognition_evidence import assess_recognition_fields
+
     result = sanitize_local_ocr_conflicts(result)
     result = sanitize_birthdate_serial_false_positive(result)
-    issues = recognition_quality_issues(result)
-    return result.model_copy(update={
+    result = assess_recognition_fields(result)
+    issues = list(dict.fromkeys([
+        *recognition_quality_issues(result),
+        *(issue for state in result.field_assessments.values() for issue in state.issues),
+    ]))
+    return assess_recognition_fields(result.model_copy(update={
         "recognition_status": "research_required" if issues else "resolved",
         "recognition_quality_issues": issues,
-    })
+    }))
 
 
 class TieredVisionRouter:

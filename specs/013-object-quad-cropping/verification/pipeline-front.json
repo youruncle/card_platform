@@ -1,0 +1,556 @@
+{
+  "id": "c2a9f2f3-bc9b-420b-b0df-e4700eb56b95",
+  "side": "front",
+  "revision": 1,
+  "regions": [
+    {
+      "id": "f916a640-19fc-4683-b0a3-61eaba1592c4",
+      "ordinal": 0,
+      "bounds": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 0.48044353723526,
+        "height": 0.29399487376213074,
+        "angle": 0.0,
+        "points": [
+          {
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "x": 0.48044353723526,
+            "y": 0.0
+          },
+          {
+            "x": 0.48044353723526,
+            "y": 0.29399487376213074
+          },
+          {
+            "x": 0.0,
+            "y": 0.29399487376213074
+          }
+        ],
+        "source_crop_points": [
+          {
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "x": 0.48044353723526,
+            "y": 0.0
+          },
+          {
+            "x": 0.48044353723526,
+            "y": 0.29399487376213074
+          },
+          {
+            "x": 0.0,
+            "y": 0.29399487376213074
+          }
+        ],
+        "crop_padding_ratio": 0.0,
+        "output_border_ratio": 0.008,
+        "crop_padding_axes": {
+          "short_leading": 0.0,
+          "short_trailing": 0.0,
+          "long": 0.0
+        }
+      },
+      "confidence": 0.49,
+      "failure_reason": "source_edge_contact",
+      "crop_quality": {
+        "presence_score": 1.0,
+        "isolation_score": 1.0,
+        "boundary_score": 0.74,
+        "usability_score": 0.948,
+        "usable": true,
+        "needs_review": true,
+        "violations": [
+          {
+            "code": "source_edge_contact",
+            "severity": "warning",
+            "message": "卡牌贴近扫描原图边界，可能缺少边缘留白",
+            "evidence": {
+              "edge_count": 2,
+              "edges": "left,top"
+            }
+          }
+        ],
+        "metrics": {
+          "crop_width_px": 1192,
+          "crop_height_px": 1032,
+          "content_ratio": 0.6030367786900213,
+          "edge_ratio": 0.08282980215330972,
+          "luma_stddev": 59.00199953313089,
+          "row_content_coverage": 0.9322865554465162,
+          "column_content_coverage": 1.0,
+          "row_content_span": 0.9548577036310107,
+          "column_content_span": 1.0,
+          "content_axis_coverage": 0.9548577036310107,
+          "content_axis_signal_density": 0.9322865554465162,
+          "polygon_area_px": 1228484.2065429688,
+          "polygon_mask_ratio": 1.0,
+          "sparse_span_only": 0,
+          "pixel_aspect_ratio": 1.1556292237529422,
+          "max_peer_overlap": 0.0017328777732243403,
+          "width_to_peer_median": 0.9490817821458898,
+          "height_to_peer_median": 1.0607720540665604,
+          "short_edge_to_peer_median": 1.107224323834419,
+          "long_edge_to_peer_median": 0.9784217344498692,
+          "orientation_invariant_peer_size": 0,
+          "area_to_peer_median": 1.0447785684136939,
+          "axis_span_to_peer_median": 1.107224323834419,
+          "source_edge_count": 2,
+          "outside_normalized_distance": 0.0,
+          "severe_source_clamp": 0,
+          "max_boundary_content_continuity": 0.0,
+          "object_integrity_error_count": 0
+        }
+      }
+    },
+    {
+      "id": "80b012c5-937c-4ed7-94f7-d604087655f6",
+      "ordinal": 1,
+      "bounds": {
+        "x": 0.4741103320121765,
+        "y": 0.002841487254947428,
+        "width": 0.5151700439453126,
+        "height": 0.28372353744506834,
+        "angle": -3.639352321624756,
+        "points": [
+          {
+            "x": 0.49765079832077025,
+            "y": 0.28656502470001577
+          },
+          {
+            "x": 0.4741103320121765,
+            "y": 0.024945275630801914
+          },
+          {
+            "x": 0.9657399096488952,
+            "y": 0.002841487254947428
+          },
+          {
+            "x": 0.9892803759574891,
+            "y": 0.2644612344168127
+          }
+        ],
+        "source_crop_points": [
+          {
+            "x": 0.47411030530929565,
+            "y": 0.024945273995399475
+          },
+          {
+            "x": 0.965739905834198,
+            "y": 0.0028414870612323284
+          },
+          {
+            "x": 0.9892803430557251,
+            "y": 0.2644612491130829
+          },
+          {
+            "x": 0.49765077233314514,
+            "y": 0.28656500577926636
+          }
+        ],
+        "crop_padding_ratio": 0.0,
+        "output_border_ratio": 0.008,
+        "crop_padding_axes": {
+          "short_leading": 0.0,
+          "short_trailing": 0.0,
+          "long": 0.0
+        }
+      },
+      "confidence": 0.9242769479751587,
+      "failure_reason": null,
+      "crop_quality": {
+        "presence_score": 1.0,
+        "isolation_score": 1.0,
+        "boundary_score": 1.0,
+        "usability_score": 1.0,
+        "usable": true,
+        "needs_review": false,
+        "violations": [],
+        "metrics": {
+          "crop_width_px": 1279,
+          "crop_height_px": 996,
+          "content_ratio": 0.9334771702184063,
+          "edge_ratio": 0.11286447037114256,
+          "luma_stddev": 65.23884516056488,
+          "row_content_coverage": 0.9906832298136646,
+          "column_content_coverage": 1.0,
+          "row_content_span": 0.9906832298136646,
+          "column_content_span": 1.0,
+          "content_axis_coverage": 0.9906832298136646,
+          "content_axis_signal_density": 0.9906832298136646,
+          "polygon_area_px": 1123180.047841955,
+          "polygon_mask_ratio": 0.8832962375640288,
+          "sparse_span_only": 0,
+          "pixel_aspect_ratio": 1.3288683165492996,
+          "max_peer_overlap": 0.0017328777732243403,
+          "width_to_peer_median": 1.0176814803499619,
+          "height_to_peer_median": 1.0237117583770474,
+          "short_edge_to_peer_median": 0.9872878252261216,
+          "long_edge_to_peer_median": 1.0032234755426592,
+          "orientation_invariant_peer_size": 0,
+          "area_to_peer_median": 0.9552214315863061,
+          "axis_span_to_peer_median": 1.0032234755426592,
+          "source_edge_count": 0,
+          "outside_normalized_distance": 0.0,
+          "severe_source_clamp": 0,
+          "max_boundary_content_continuity": 0.0,
+          "object_integrity_error_count": 0
+        }
+      }
+    },
+    {
+      "id": "d8d8ea9c-a013-46cc-ac4d-e8a326b8a491",
+      "ordinal": 2,
+      "bounds": {
+        "x": 0.0,
+        "y": 0.29411691427230835,
+        "width": 0.536902666091919,
+        "height": 0.2677684426307678,
+        "angle": 0.0,
+        "points": [
+          {
+            "x": 0.0,
+            "y": 0.29411691427230835
+          },
+          {
+            "x": 0.536902666091919,
+            "y": 0.29411691427230835
+          },
+          {
+            "x": 0.536902666091919,
+            "y": 0.5618853569030762
+          },
+          {
+            "x": 0.0,
+            "y": 0.5618853569030762
+          }
+        ],
+        "source_crop_points": [
+          {
+            "x": 0.0,
+            "y": 0.29411691427230835
+          },
+          {
+            "x": 0.536902666091919,
+            "y": 0.29411691427230835
+          },
+          {
+            "x": 0.536902666091919,
+            "y": 0.5618853569030762
+          },
+          {
+            "x": 0.0,
+            "y": 0.5618853569030762
+          }
+        ],
+        "crop_padding_ratio": 0.0,
+        "output_border_ratio": 0.008,
+        "crop_padding_axes": {
+          "short_leading": 0.0,
+          "short_trailing": 0.0,
+          "long": 0.0
+        }
+      },
+      "confidence": 0.49,
+      "failure_reason": "source_edge_contact",
+      "crop_quality": {
+        "presence_score": 1.0,
+        "isolation_score": 1.0,
+        "boundary_score": 0.87,
+        "usability_score": 0.974,
+        "usable": true,
+        "needs_review": true,
+        "violations": [
+          {
+            "code": "source_edge_contact",
+            "severity": "warning",
+            "message": "卡牌贴近扫描原图边界，可能缺少边缘留白",
+            "evidence": {
+              "edge_count": 1,
+              "edges": "left"
+            }
+          }
+        ],
+        "metrics": {
+          "crop_width_px": 1332,
+          "crop_height_px": 940,
+          "content_ratio": 0.9001883835689517,
+          "edge_ratio": 0.07598192851427048,
+          "luma_stddev": 53.45264657344627,
+          "row_content_coverage": 1.0,
+          "column_content_coverage": 0.9677914110429447,
+          "row_content_span": 1.0,
+          "column_content_span": 0.9677914110429447,
+          "content_axis_coverage": 0.9677914110429447,
+          "content_axis_signal_density": 0.9677914110429447,
+          "polygon_area_px": 1250381.0932278633,
+          "polygon_mask_ratio": 1.0,
+          "sparse_span_only": 0,
+          "pixel_aspect_ratio": 1.4179210410965457,
+          "max_peer_overlap": 0.0,
+          "width_to_peer_median": 1.0606126754873118,
+          "height_to_peer_median": 0.9661436735211105,
+          "short_edge_to_peer_median": 1.0084520718097558,
+          "long_edge_to_peer_median": 1.093400498304261,
+          "orientation_invariant_peer_size": 0,
+          "area_to_peer_median": 1.0634010283537687,
+          "axis_span_to_peer_median": 1.093400498304261,
+          "source_edge_count": 1,
+          "outside_normalized_distance": 0.0,
+          "severe_source_clamp": 0,
+          "max_boundary_content_continuity": 0.10625,
+          "object_integrity_error_count": 0
+        }
+      }
+    },
+    {
+      "id": "7ab5a79e-c002-4b91-b752-081dc9d608ff",
+      "ordinal": 3,
+      "bounds": {
+        "x": 0.0017213492225855442,
+        "y": 0.57293270778656,
+        "width": 0.4972686195373535,
+        "height": 0.27058007812500007,
+        "angle": -1.2188752889633179,
+        "points": [
+          {
+            "x": 0.009644150240346788,
+            "y": 0.8435127859115601
+          },
+          {
+            "x": 0.0017213492225855442,
+            "y": 0.5802923879623413
+          },
+          {
+            "x": 0.4910671782325953,
+            "y": 0.57293270778656
+          },
+          {
+            "x": 0.49898996875993906,
+            "y": 0.8361531057357788
+          }
+        ],
+        "source_crop_points": [
+          {
+            "x": 0.001721349311992526,
+            "y": 0.5802924036979675
+          },
+          {
+            "x": 0.49106717109680176,
+            "y": 0.5729327201843262
+          },
+          {
+            "x": 0.4989899694919586,
+            "y": 0.8361530900001526
+          },
+          {
+            "x": 0.00964414980262518,
+            "y": 0.843512773513794
+          }
+        ],
+        "crop_padding_ratio": 0.0,
+        "output_border_ratio": 0.008,
+        "crop_padding_axes": {
+          "short_leading": 0.0,
+          "short_trailing": 0.0,
+          "long": 0.0
+        }
+      },
+      "confidence": 0.9450884461402893,
+      "failure_reason": "source_edge_contact",
+      "crop_quality": {
+        "presence_score": 1.0,
+        "isolation_score": 1.0,
+        "boundary_score": 0.87,
+        "usability_score": 0.974,
+        "usable": true,
+        "needs_review": true,
+        "violations": [
+          {
+            "code": "source_edge_contact",
+            "severity": "warning",
+            "message": "卡牌贴近扫描原图边界，可能缺少边缘留白",
+            "evidence": {
+              "edge_count": 1,
+              "edges": "left"
+            }
+          }
+        ],
+        "metrics": {
+          "crop_width_px": 1234,
+          "crop_height_px": 950,
+          "content_ratio": 0.9860595615054711,
+          "edge_ratio": 0.11060786226123515,
+          "luma_stddev": 57.48269772691222,
+          "row_content_coverage": 0.9947368421052631,
+          "column_content_coverage": 0.9991896272285251,
+          "row_content_span": 0.9947368421052631,
+          "column_content_span": 0.9991896272285251,
+          "content_axis_coverage": 0.9947368421052631,
+          "content_axis_signal_density": 0.9947368421052631,
+          "polygon_area_px": 1120777.420266036,
+          "polygon_mask_ratio": 0.9576942762091615,
+          "sparse_span_only": 0,
+          "pixel_aspect_ratio": 1.3146560126728921,
+          "max_peer_overlap": 0.0,
+          "width_to_peer_median": 0.982318519650038,
+          "height_to_peer_median": 0.9762882416229526,
+          "short_edge_to_peer_median": 0.9915479281902441,
+          "long_edge_to_peer_median": 0.9967765244573407,
+          "orientation_invariant_peer_size": 0,
+          "area_to_peer_median": 0.9531780892414632,
+          "axis_span_to_peer_median": 0.9967765244573407,
+          "source_edge_count": 1,
+          "outside_normalized_distance": 0.0,
+          "severe_source_clamp": 0,
+          "max_boundary_content_continuity": 0.0125,
+          "object_integrity_error_count": 0
+        }
+      }
+    }
+  ],
+  "failures": [
+    "source_edge_contact",
+    "low_outline_confidence",
+    "layout_requires_review"
+  ],
+  "layout_hypothesis": {
+    "detector_version": "object-quad-layout-v25",
+    "score": 0.9225,
+    "rows": 4,
+    "columns": 2,
+    "transform": "independent",
+    "signals": {
+      "projection_x_periodicity": 0.4183,
+      "projection_y_periodicity": 0.3065,
+      "line_segment_count": 516,
+      "candidate_routes": "multi_threshold+adaptive+gradient_lines+projection+components+mixed_slab_instances",
+      "single_slab_grid_fragmentation_guard": 0,
+      "row_local_body_recovery": 0,
+      "current_instance_recovery": 4,
+      "current_instance_replaced_grid_regions": 5,
+      "current_instance_reference_boxes": [
+        0.0,
+        0.0,
+        0.480444,
+        0.293995,
+        0.480645,
+        0.004562,
+        0.504032,
+        0.281437,
+        0.0,
+        0.297382,
+        0.530274,
+        0.261238,
+        0.027581,
+        0.586655,
+        0.456532,
+        0.242715
+      ],
+      "physical_object_envelope_count": 4,
+      "grid_oversegmentation_rejected": 1,
+      "current_object_layout_authoritative": 1,
+      "mixed_orientation_object_layout": 0,
+      "physical_object_reference_boxes": [
+        0.0,
+        0.0,
+        0.480444,
+        0.293995,
+        0.480645,
+        0.004562,
+        0.504032,
+        0.281437,
+        0.0,
+        0.297382,
+        0.530274,
+        0.261238,
+        0.027581,
+        0.586655,
+        0.456532,
+        0.242715
+      ],
+      "irregular_saturation_content_recall": 0.0,
+      "prior_topology_rejected": 0,
+      "current_topology_count": 4,
+      "candidate_count": 4,
+      "expected_count": 4,
+      "dpi": 300,
+      "sources": "multi_threshold+gradient+components",
+      "front_prior_role": "not_applicable",
+      "current_grid_evidence_score": 0.0,
+      "geometry_source": "current_pixel_quads",
+      "grid_role": "search_and_missing_object_advisory",
+      "resolved_quad_count": 4,
+      "unresolved_quad_count": 0
+    },
+    "rejected_reasons": [],
+    "manual_override": false,
+    "ml_refinement": {
+      "status": "accepted",
+      "reason": null,
+      "model": "sam2.1-hiera-tiny",
+      "refined_count": 2,
+      "edge_refined_count": 0,
+      "fallback_count": 2,
+      "overlap_fallback_indices": [],
+      "geometry_validation": "joint_proposals_v3_object_coverage",
+      "object_preservation_fallback_count": 2,
+      "object_preservation_fallback_indices": [
+        0,
+        2
+      ],
+      "label_preservation_fallback_count": 0,
+      "label_preservation_fallback_indices": [],
+      "preservation_fallback_details": [
+        {
+          "index": 0,
+          "reason": "object_envelope_coverage_below_minimum",
+          "original_polygon_coverage": 0.912125,
+          "minimum_coverage": 0.95
+        },
+        {
+          "index": 2,
+          "reason": "object_envelope_coverage_below_minimum",
+          "original_polygon_coverage": 0.863928,
+          "minimum_coverage": 0.95
+        }
+      ],
+      "inference_seconds": 0.911
+    },
+    "slot_refinement": {
+      "status": "skipped",
+      "reason": "not_a_back_with_slots"
+    },
+    "crop_quality": {
+      "region_count": 4,
+      "usable_count": 4,
+      "needs_review_count": 3,
+      "error_count": 0,
+      "error_codes": [],
+      "minimum_usability_score": 0.948
+    },
+    "source_resolution": {
+      "requested_dpi": 300,
+      "effective_dpi": 300,
+      "pixel_width": 2480,
+      "pixel_height": 3507,
+      "capture_kind": "unknown",
+      "source": "session_fallback",
+      "metadata_status": "unavailable"
+    },
+    "object_integrity": {
+      "status": "accepted",
+      "reference_count": 4,
+      "missing_object_count": 0,
+      "minimum_object_coverage": 1.0,
+      "error_codes": [],
+      "violations": []
+    }
+  },
+  "requires_review": true
+}

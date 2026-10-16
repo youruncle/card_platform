@@ -432,3 +432,180 @@ def test_public_commodity_code_and_internal_item_url_are_distinct_identifiers():
     assert parsed.lines[0].item_id == "250901123456789"
     assert parsed.lines[0].item_url.endswith("/900002")
     assert score_match(card(), parsed.lines[0].model_dump())["automatic"]
+
+
+def test_comic_issue_number_is_not_autograph_card_checklist_number():
+    target = dict(player_name='Joshua Cassara',season_start=2024,brand_name='Topps',
+        product_name='Marvel Chrome',insert_name='Chrome Autographs',parallel_name=None,
+        card_number='CA-JC',serial_number=6,serial_total=10,is_autograph=True,
+        is_memorabilia=False,notes='https://cardhobby.com.cn/market/item/900002')
+    line = capture().lines[0].model_dump()
+    line['title'] = '2024 Topps Chrome Marvel Joshua Cassara /10编 画师签字 2018年《Falcon #4》漫画封面'
+    match = score_match(target,line)
+    assert '卡号冲突' not in match['conflicts']
+    assert match['automatic']
+    line['title'] += ' 卡号 CA-XX'
+    assert '卡号冲突' in score_match(target,line)['conflicts']
+
+
+def test_large_material_window_alone_is_not_a_rookie_patch_autograph_insert():
+    target = dict(player_name='Derik Queen', season_start=2026, brand_name='Topps',
+        product_name='Motif', insert_name='Rookie Relics', card_number='MRR-DQ',
+        serial_total=75, is_autograph=False, is_memorabilia=True,
+        notes='https://cardhobby.com.cn/market/item/900002')
+    line = capture().lines[0].model_dump()
+    line['title'] = '2026 Topps Motif Derik Queen RC 新秀 大窗球衣 实物 /75编'
+    assert score_match(target,line)['automatic']
+    line['title'] += ' Rookie Patch Autographs'
+    assert 'Insert 冲突' in score_match(target,line)['conflicts']
+
+
+@pytest.mark.parametrize('seller_suffix', [
+    '卡品如图 #js91#', '收藏必备#1聂-EEXE', '收藏必备 #3 杰-EEXE',
+    '卡品如图 JH #B8-15 7.23', '瑕疵如图1 L甲#820',
+])
+def test_seller_stock_labels_are_not_checklist_numbers(seller_suffix):
+    target = card()
+    line = capture().lines[0].model_dump()
+    line['title'] = '2025 Topps NBA Hoops Test Player Gold Bounce House 7/50编 ' + seller_suffix
+    assert score_match(target, line)['automatic']
+    line['title'] = '2025 Topps NBA Hoops Test Player Gold Bounce House 卡号 999 7/50编 ' + seller_suffix
+    assert '卡号冲突' in score_match(target,line)['conflicts']
+
+
+@pytest.mark.parametrize('number', ['#999', '#CA-JC', '卡号 #JS91#', 'No. 999', '卡号 #1聂-EEXE'])
+def test_actual_checklist_labels_remain_hard_conflicts(number):
+    line = capture().lines[0].model_dump()
+    line['title'] = '2025 Topps NBA Hoops Test Player Gold Bounce House 7/50编 卡品如图 ' + number
+    assert '卡号冲突' in score_match(card(),line)['conflicts']
+
+
+def test_century_boundary_season_end_is_2000_not_1900():
+    target={**card(), 'season_start':1999, 'season_end':2000}
+    line=capture().lines[0].model_dump()
+    line['title']=line['title'].replace('2025','1999-00')
+    assert score_match(target,line)['automatic']
+    line['title']=line['title'].replace('1999-00','1999-01')
+    assert '赛季结束年份冲突' in score_match(target,line)['conflicts']
+
+
+def test_signature_class_box_name_is_not_an_autographed_card():
+    target=dict(player_name='Nolan Traore',brand_name='Topps',season_start=2025,
+        product_name='Topps Signature Class',insert_name='Odyssey',is_autograph=False,
+        notes='https://cardhobby.com.cn/market/item/900002')
+    line=capture().lines[0].model_dump()
+    line['title']='2025-26 Topps Signature Class Nolan Traore 签字盒 Odyssey 特卡'
+    assert score_match(target,line)['automatic']
+    line['title'] += ' 卡签'
+    assert '签字属性冲突' in score_match(target,line)['conflicts']
+
+
+def test_parallel_of_base_set_is_not_plain_base_conflict():
+    target={**card(),'parallel_name':'Gold Wave'}
+    line=capture().lines[0].model_dump()
+    line['title']='2025 Topps NBA Hoops Test Player Gold Wave Bounce House 7/50编 base 折射'
+    assert score_match(target,line)['automatic']
+    line['title']='2025 Topps NBA Hoops Test Player Bounce House 普卡 正base'
+    assert '平行与 Base 冲突' in score_match(target,line)['conflicts']
+
+
+def test_consignor_tag_does_not_add_a_conflicting_insert():
+    target=dict(player_name='Giannis Antetokounmpo',brand_name='Panini',season_start=2021,
+        product_name='Donruss Elite',insert_name='Spellbound',card_number='10',
+        notes='https://cardhobby.com.cn/market/item/900002')
+    line=capture().lines[0].model_dump()
+    line['title']='2021-22 Panini Donruss Elite Giannis Antetokounmpo N字母 拼写特卡 微瑕如图/大头/【D】'
+    assert score_match(target,line)['automatic']
+    line['title']='2021-22 Panini Donruss Elite Giannis Antetokounmpo Jam Masters 大头特卡 微瑕如图/卖家/【D】'
+    assert 'Insert 冲突' in score_match(target,line)['conflicts']
+
+
+def test_prepared_recall_keeps_all_existing_recall_paths():
+    from card_platform.purchase_cost import prepare_purchase_recall
+    target={**card(),'notes':''}
+    line=capture().lines[0].model_dump()
+    recall=prepare_purchase_recall(target, KnowledgeResolver())
+    for title in ['2025 Test Player Gold','2025 Other Player','2025 Test Players']:
+        candidate={**line,'title':title}
+        assert recall(candidate)==score_match(target,candidate)['recalled']
+    unrelated={**line,'title':'2025 Other Player'}
+    assert prepare_purchase_recall(card(),KnowledgeResolver())(unrelated)
+    image_target={**target,'image_front_url':'https://images.cardhobby.com/source.jpg'}
+    assert prepare_purchase_recall(image_target,KnowledgeResolver())({**unrelated,'image_urls':[image_target['image_front_url']]})
+    roster={**target,'player_name':'LeBron James, Stephen Curry'}
+    assert prepare_purchase_recall(roster,KnowledgeResolver())({**line,'title':'2025 Stephen Curry'})
+
+
+def test_single_release_year_vs_cross_year_listing_needs_visual_review():
+    target={**card(),'season_start':2026,'season_end':None}
+    line=capture().lines[0].model_dump();line['title']=line['title'].replace('2025','2025-26')
+    result=score_match(target,line)
+    assert '年份冲突' not in result['conflicts']
+    assert result['soft_differences'] and not result['automatic']
+    line['title']=line['title'].replace('2025-26','2024-25')
+    assert '年份冲突' in score_match(target,line)['conflicts']
+
+
+@pytest.mark.parametrize('tail,conflict', [('7/25/【D】', '限编总数冲突'),
+                                         ('7/50编 /卡号 999/【D】', '卡号冲突')])
+def test_consignor_cleanup_cannot_erase_identity_evidence(tail, conflict):
+    target = {**card(), 'notes': 'https://cardhobby.com.cn/market/item/900002'}
+    line = capture().lines[0].model_dump()
+    line['title'] = '2025 Topps NBA Hoops Test Player Gold Bounce House ' + tail
+    result = score_match(target, line)
+    assert not result['automatic']
+    assert conflict in result['conflicts']
+
+
+def test_printed_tre_johnson_iii_name_matches_reviewed_marketplace_name():
+    target = dict(player_name='Tre Johnson III', brand_name='Topps', season_start=2025,
+                  product_name='Topps Chrome Updates Basketball', insert_name='Shadow Etch',
+                  card_number='SE-13')
+    line = capture().lines[0].model_dump()
+    line['title'] = '2025-26 Topps Chrome Update Tre Johnson Shadow Etch RC 卡号 SE-13'
+    result = score_match(target, line)
+    assert result['automatic'], result
+    line['title'] = line['title'].replace('Tre Johnson', 'Keldon Johnson')
+    assert not score_match(target, line)['automatic']
+
+
+@pytest.mark.parametrize('dash', ['‐', '‑', '–', '—'])
+def test_unicode_season_dash_keeps_end_year_evidence(dash):
+    target = {**card(), 'season_start': 2004, 'season_end': None}
+    line = capture().lines[0].model_dump()
+    line['title'] = line['title'].replace('2025', '2003' + dash + '04')
+    result = score_match(target,line)
+    assert not result['conflicts']
+    assert result['soft_differences'] and not result['automatic']
+
+
+def test_die_cut_captains_is_not_a_memorabilia_or_patch_card():
+    target=dict(player_name='Jamal Murray',brand_name='Topps',season_start=2025,
+                product_name='Topps Chrome Update',insert_name='Captains',is_memorabilia=False,
+                notes='https://cardhobby.com.cn/market/item/900002')
+    line=capture().lines[0].model_dump()
+    line['title']='2025-26 Topps Chrome Update Jamal Murray Captains 异形切割特卡'
+    assert score_match(target,line)['automatic']
+    line['title'] += ' 球衣物料切割'
+    assert '球衣属性冲突' in score_match(target,line)['conflicts']
+
+
+def test_generic_retro_description_does_not_assert_retrofractor_insert():
+    target=dict(player_name='Michael Jordan',brand_name='Skybox',season_start=2021,
+                product_name='Metal Universe Champions',insert_name='1997-98 Retro',
+                notes='https://cardhobby.com.cn/market/item/900002')
+    line=capture().lines[0].model_dump()
+    line['title']='2021 Skybox Metal Universe Michael Jordan 复古特卡'
+    assert score_match(target,line)['automatic']
+    line['title'] += ' Retrofractor Variations'
+    assert 'Insert 冲突' in score_match(target,line)['conflicts']
+
+
+@pytest.mark.parametrize('name', ['勒布朗 詹姆斯', '勒布朗詹姆斯'])
+def test_full_lebron_chinese_name_is_identity_evidence_not_query_only(name):
+    target={**card(),'player_name':'LeBron James','notes':None}
+    line=capture().lines[0].model_dump()
+    line['title']=line['title'].replace('Test Player',name)
+    assert score_match(target,line)['automatic']
+    line['title']=line['title'].replace(name,'詹姆斯')
+    assert not score_match(target,line)['automatic']

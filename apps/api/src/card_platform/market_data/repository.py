@@ -17,6 +17,84 @@ from card_platform.market_data.retry import MAX_REFRESH_ATTEMPTS, TRANSIENT_ERRO
 
 
 class MarketDataRepository:
+    async def store_public_gallery_observations(self, connection, pages) -> int:
+        """Enrich existing sales only; a rejected page price never creates one."""
+        from card_platform.ingestion.cardhobby_public_item import canonical_public_item_url, public_gallery_for_primary
+        changed = 0
+        seen = set()
+        for page in [p for p in pages if p.get('stage') == 'public_item_source'][:2]:
+            source = canonical_public_item_url(page.get('query'))
+            if not source or source in seen:
+                continue
+            seen.add(source)
+            examples = page.get('rejected_examples') or []
+            example = next((e for e in examples[:5]
+                if canonical_public_item_url((e.get('source_metadata') or {}).get('source_url')) == source), None)
+            if example is None:
+                continue
+            cursor = await connection.execute(
+                "SELECT id, source_url, raw_payload FROM market_evidence "
+                "WHERE provider_code='cardhobby' AND external_sale_id=%s FOR UPDATE",
+                ('item:' + source.rsplit('/', 1)[-1],))
+            row = await cursor.fetchone()
+            if row is None:
+                continue
+            raw = row.get('raw_payload') or {}
+            gallery = public_gallery_for_primary(example, row['source_url'], raw.get('image_url'))
+            if not gallery:
+                continue
+            try:
+                old_time = datetime.fromisoformat((raw.get('source_gallery') or {})['retrieved_at'])
+                if old_time >= datetime.fromisoformat(gallery['retrieved_at']):
+                    continue
+            except (KeyError, TypeError, ValueError):
+                pass
+            result = await connection.execute(
+                "UPDATE market_evidence SET raw_payload=jsonb_set(raw_payload, '{source_gallery}', %s, true) "
+                "WHERE id=%s AND raw_payload->'source_gallery' IS DISTINCT FROM %s",
+                (Jsonb(gallery), row['id'], Jsonb(gallery)))
+            changed += result.rowcount
+        return changed
+
+    async def evidence_for_public_image_leads(self, connection, leads) -> list[EvidenceRecord]:
+        """Join bounded public URL/image pairs; another identity grants no authority."""
+        from card_platform.ingestion.cardhobby_public_item import canonical_public_item_url
+        from urllib.parse import urlsplit
+        allowed = set()
+        for lead in leads[:12]:
+            source = canonical_public_item_url(lead.get('source_url'))
+            image = lead.get('image_url')
+            try:
+                image_parts = urlsplit(image) if isinstance(image, str) else None
+            except ValueError:
+                continue
+            if (lead.get('provider') == 'cardhobby' and lead.get('discovery_only') is True
+                    and source and image_parts is not None
+                    and image_parts.scheme == 'https'
+                    and image_parts.netloc == 'images.cardhobby.com'):
+                allowed.add((source, image))
+        if not allowed:
+            return []
+        ids = sorted({'item:' + source.rsplit('/', 1)[-1] for source, _ in allowed})
+        result = await connection.execute(
+            "SELECT * FROM market_evidence WHERE provider_code = 'cardhobby' "
+            "AND external_sale_id IN (" + ','.join('%s' for _ in ids) + ") ORDER BY occurred_at DESC",
+            tuple(ids))
+        found = {}
+        for row in await result.fetchall():
+            reliability = (row.get('identity_classification') or {}).get('source_reliability')
+            found[row['external_sale_id']] = EvidenceRecord.model_validate({**row, 'match_confidence': 0,
+                'identity_classification': {'source_reliability': reliability} if reliability is not None else {}})
+        from card_platform.public_source_catalog import evidence_for_source_ids
+        for item in await evidence_for_source_ids(connection, ids):
+            previous = found.get(item.external_sale_id)
+            if previous is None or item.fetched_at > previous.fetched_at:
+                found[item.external_sale_id] = item
+        # Select the newest public facts before checking the image binding. A
+        # newer observation of another image invalidates an old indexed pair.
+        return [item for item in found.values()
+                if (canonical_public_item_url(item.source_url), item.raw_payload.get('image_url')) in allowed]
+
     async def ensure_identity(
         self,
         connection: AsyncConnection,
@@ -82,11 +160,16 @@ class MarketDataRepository:
             SELECT provider_code, external_sale_id, raw_title, sale_price,
                    shipping_price, currency, occurred_at, source_url, evidence_level,
                    grade_company, grade_value, match_confidence,
-                   identity_classification, raw_payload, evidence_version, fetched_at
-            FROM market_evidence
-            WHERE identity_fingerprint = %s
+                   CASE WHEN evidence.identity_fingerprint = scope.identity_fingerprint
+                        THEN identity_classification
+                        ELSE jsonb_strip_nulls(jsonb_build_object(
+                            'source_reliability', identity_classification->'source_reliability'))
+                        END AS identity_classification,
+                   raw_payload, evidence_version, fetched_at
+            FROM market_evidence evidence
+            JOIN market_evidence_discovery_scope scope ON scope.market_evidence_id = evidence.id
+            WHERE scope.identity_fingerprint = %s
             ORDER BY occurred_at DESC, first_seen_at DESC
-            LIMIT 100
             """,
             (fingerprint,),
         )
@@ -158,9 +241,61 @@ class MarketDataRepository:
               AND evidence.identity_fingerprint <> %s
             ORDER BY evidence.provider_code, evidence.external_sale_id,
                      evidence.occurred_at DESC
-            LIMIT 100
             """,
             (card_definition_id, fingerprint),
+        )
+        return [EvidenceRecord.model_validate(row) for row in await result.fetchall()]
+
+    async def reviewed_evidence_for_identity(
+        self,
+        connection: AsyncConnection,
+        collection_item_id: UUID,
+        identity_version_id: UUID,
+    ) -> list[EvidenceRecord]:
+        """Read current manual-review sources as candidates, without adopting them.
+
+        A repair can replace both fingerprint and definition. The explicit
+        item/version decision is then the only surviving discovery link. Its
+        visual authority is still checked separately against current assets;
+        no review flags or old admission decisions are added to these rows.
+        """
+        result = await connection.execute(
+            """
+            SELECT evidence.provider_code, evidence.external_sale_id,
+                   evidence.raw_title, evidence.sale_price,
+                   evidence.shipping_price, evidence.currency,
+                   evidence.occurred_at, evidence.source_url,
+                   evidence.evidence_level, evidence.grade_company,
+                   evidence.grade_value, evidence.match_confidence,
+                   evidence.identity_classification, evidence.raw_payload,
+                   evidence.evidence_version, evidence.fetched_at
+            FROM collection_item item
+            JOIN card_identity_version version
+              ON version.collection_item_id = item.id
+            JOIN market_evidence_identity_decision decision
+              ON decision.collection_item_id = item.id
+             AND decision.identity_version_id = version.id
+            JOIN market_evidence evidence
+              ON evidence.id = decision.market_evidence_id
+            WHERE item.id = %s AND version.id = %s
+              AND decision.decision = 'accepted'
+              AND decision.classification->'visual_review'->>'source'
+                  = 'codex_paired_image_review'
+              AND version.id = (
+                  SELECT current_version.id
+                  FROM card_identity_version current_version
+                  WHERE current_version.collection_item_id = item.id
+                    AND current_version.review_status = 'confirmed'
+                    AND NOT EXISTS (
+                        SELECT 1 FROM card_identity_version revocation
+                        WHERE revocation.supersedes_id = current_version.id
+                          AND revocation.review_status = 'rejected'
+                    )
+                  ORDER BY current_version.version DESC LIMIT 1
+              )
+            ORDER BY evidence.occurred_at DESC
+            """,
+            (collection_item_id, identity_version_id),
         )
         return [EvidenceRecord.model_validate(row) for row in await result.fetchall()]
 
@@ -182,7 +317,9 @@ class MarketDataRepository:
             UPDATE market_evidence evidence
             SET identity_fingerprint = %s,
                 identity_classification = evidence.identity_classification || jsonb_build_object(
-                    'reviewed_identity_accepted', true,
+                    'reviewed_identity_accepted', NOT (decision.classification ? 'visual_review'),
+                    'reviewed_visual_accepted', decision.classification ? 'visual_review',
+                    'reviewed_identity_scope', CASE WHEN decision.classification ? 'visual_review' THEN 'visual' ELSE 'identity' END,
                     'reviewed_identity_version_id', decision.identity_version_id::text,
                     'reviewed_collection_item_id', decision.collection_item_id::text
                 ),
@@ -193,10 +330,16 @@ class MarketDataRepository:
               AND decision.decision = 'accepted'
               AND (
                   evidence.identity_fingerprint <> %s
-                  OR COALESCE(
-                      (evidence.identity_classification->>'reviewed_identity_accepted')::boolean,
-                      false
-                  ) = false
+                  OR evidence.identity_classification->>'reviewed_identity_scope' IS DISTINCT FROM
+                      CASE WHEN decision.classification ? 'visual_review' THEN 'visual' ELSE 'identity' END
+                  OR (evidence.identity_classification->>'reviewed_identity_accepted')::boolean
+                      IS DISTINCT FROM (NOT (decision.classification ? 'visual_review'))
+                  OR (evidence.identity_classification->>'reviewed_visual_accepted')::boolean
+                      IS DISTINCT FROM (decision.classification ? 'visual_review')
+                  OR evidence.identity_classification->>'reviewed_identity_version_id'
+                      IS DISTINCT FROM decision.identity_version_id::text
+                  OR evidence.identity_classification->>'reviewed_collection_item_id'
+                      IS DISTINCT FROM decision.collection_item_id::text
               )
             RETURNING evidence.id
             """,
@@ -494,6 +637,15 @@ class MarketDataRepository:
         evidence: list[EvidenceRecord],
     ) -> int:
         for item in evidence:
+            # Preserve the previous discovery before the canonical pointer can
+            # move. Membership is a search lead, never an accepted identity.
+            await connection.execute(
+                """INSERT INTO market_evidence_discovery(identity_fingerprint, market_evidence_id)
+                   SELECT identity_fingerprint, id FROM market_evidence
+                   WHERE provider_code = %s AND external_sale_id = %s
+                   ON CONFLICT DO NOTHING""",
+                (item.provider_code, item.external_sale_id),
+            )
             await connection.execute(
                 """
                 INSERT INTO market_evidence (
@@ -540,7 +692,20 @@ class MarketDataRepository:
                         ) THEN market_evidence.identity_classification
                         ELSE EXCLUDED.identity_classification
                     END,
-                    raw_payload = EXCLUDED.raw_payload,
+                    raw_payload = CASE
+                        -- A valid gallery is an independent historical page
+                        -- observation. API-only refreshes must not erase it,
+                        -- but changed source/primary images invalidate its link.
+                        WHEN market_evidence.provider_code = 'cardhobby'
+                          AND lower(rtrim(market_evidence.source_url, '/')) = lower(rtrim(EXCLUDED.source_url, '/'))
+                          AND market_evidence.raw_payload->>'image_url' = EXCLUDED.raw_payload->>'image_url'
+                          AND market_evidence.raw_payload->'source_gallery'->>'primary_image_url' = EXCLUDED.raw_payload->>'image_url'
+                          AND market_evidence.raw_payload->'source_gallery'->>'contract' = 'public-source-gallery-v1'
+                          AND market_evidence.raw_payload->'source_gallery'->>'discovery_only' = 'true'
+                          AND COALESCE(EXCLUDED.raw_payload->'source_gallery', '{}'::jsonb) IN ('{}'::jsonb, 'null'::jsonb)
+                        THEN EXCLUDED.raw_payload || jsonb_build_object('source_gallery', market_evidence.raw_payload->'source_gallery')
+                        ELSE EXCLUDED.raw_payload
+                    END,
                     evidence_version = EXCLUDED.evidence_version,
                     fetched_at = EXCLUDED.fetched_at,
                     last_seen_at = now()
@@ -564,6 +729,16 @@ class MarketDataRepository:
                     item.evidence_version,
                     item.fetched_at,
                 ),
+            )
+            # Even an accepted canonical owner must not hide this sale from
+            # another identity's bounded discovery. No decision is copied.
+            await connection.execute(
+                """INSERT INTO market_evidence_discovery(identity_fingerprint, market_evidence_id)
+                   SELECT %s, id FROM market_evidence
+                   WHERE provider_code = %s AND external_sale_id = %s
+                   ON CONFLICT (identity_fingerprint, market_evidence_id)
+                   DO UPDATE SET last_seen_at = now()""",
+                (fingerprint, item.provider_code, item.external_sale_id),
             )
         return len(evidence)
 
@@ -654,7 +829,8 @@ class MarketDataRepository:
             SET freshness = %s,
                 evidence_count = (
                     SELECT count(*) FROM market_evidence e
-                    WHERE e.identity_fingerprint = c.identity_fingerprint
+                    JOIN market_evidence_discovery_scope scope ON scope.market_evidence_id = e.id
+                    WHERE scope.identity_fingerprint = c.identity_fingerprint
                 ),
                 last_success_at = CASE
                     WHEN %s::text IS NULL THEN now()
@@ -662,7 +838,8 @@ class MarketDataRepository:
                 END,
                 data_as_of = COALESCE((
                     SELECT max(occurred_at) FROM market_evidence e
-                    WHERE e.identity_fingerprint = c.identity_fingerprint
+                    JOIN market_evidence_discovery_scope scope ON scope.market_evidence_id = e.id
+                    WHERE scope.identity_fingerprint = c.identity_fingerprint
                 ), data_as_of),
                 next_refresh_at = now() + make_interval(secs => %s),
                 last_error = %s,
@@ -691,7 +868,8 @@ class MarketDataRepository:
                 WHERE b.identity_fingerprint = %s
                   AND EXISTS (
                       SELECT 1 FROM market_evidence evidence
-                      WHERE evidence.identity_fingerprint = b.identity_fingerprint
+                      JOIN market_evidence_discovery_scope scope ON scope.market_evidence_id = evidence.id
+                      WHERE scope.identity_fingerprint = b.identity_fingerprint
                   )
                   AND NOT EXISTS (
                       SELECT 1 FROM valuation_job active

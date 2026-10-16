@@ -77,3 +77,22 @@ def test_logo_subject_quality_gate_requires_review_not_high_confidence_acceptanc
                                   insert_name="Artist Sketch Card", confidence="0.99")
     assert "sketch_subject_may_be_series_logo" in recognition_quality_issues(value)
     assert "sketch_subject_may_be_series_logo" not in recognition_quality_issues(value.model_copy(update={"player_name":"Sentry"}))
+
+
+def test_ladypool_reviewed_sketch_order_uses_film_title_and_artist_qinqian():
+    target = dict(player_name='Ladypool', brand_name='Topps', season_start=2025,
+                  product_name='Deadpool Chrome', insert_name='Original Sketch Card',
+                  is_autograph=False, is_memorabilia=False,
+                  notes='逐图核对 https://cardhobby.com.cn/market/item/134695940')
+    line = dict(title='2025 Topps Chrome Marvel 漫威影视 死侍与金刚狼 Ladypool 女死侍 Sketch 手绘卡 1/1编 画师亲签 签字 卡签 Jean Sinclair',
+                item_id='260910172040691', item_url='https://cardhobby.com.cn/market/item/134695940', image_urls=[])
+    match = score_match(target, line)
+    assert match['automatic'], match
+    assert not match['conflicts']
+    assert not score_match({**target, 'notes': ''}, line)['automatic']
+    assert not score_match(target, {**line, 'title': line['title'] + ' 演员亲笔签名'})['automatic']
+
+
+def test_deadpool_film_title_does_not_match_other_chrome_sets():
+    assert assess_product_match('2025 Topps Chrome Marvel Spider-Man 手绘卡', 'Deadpool Chrome') != ProductMatchStatus.MATCH
+    assert assess_product_match('2025 死侍与金刚狼 普通电影卡', 'Deadpool Chrome') != ProductMatchStatus.MATCH

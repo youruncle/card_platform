@@ -1,4 +1,4 @@
-import { ApiError, getCardHobbyAccountStatus, searchSavedCardHobbyOrders } from "./api";
+import { ApiError, getCardHobbyAccountStatus, searchSavedCardHobbyOrders, resolveCostSearch, type CostSearchPlan } from "./api";
 export type OrderSearchCapture = {orders: unknown[]; complete: boolean; keywords?: string[]; pages?: number};
 export class CardHobbyConnectionError extends Error {}
 export class CardHobbyLoginError extends Error {
@@ -61,14 +61,37 @@ export async function connectCostSearch(signal?: AbortSignal) {
   if (!state.saved || state.state === "login_required") throw new CardHobbyLoginError("请登录卡淘。登录成功后会加密保存账号，并自动继续获取成本。");
   return state;
 }
-export async function searchCardHobbyOrders(keywords: string[], signal?: AbortSignal): Promise<OrderSearchCapture> {
+export async function searchCardHobbyOrders(keywords: string[], signal?: AbortSignal, fallbackKeywords: string[] = []): Promise<OrderSearchCapture> {
   try {
     // The backend checks the actual session and automatically reauthenticates with saved credentials.
     const result = await searchSavedCardHobbyOrders(keywords, signal);
     if (!result || !Array.isArray(result.orders) || typeof result.complete !== "boolean") throw new Error("卡淘未返回有效搜索结果，请重试");
+    if (result.complete && result.orders.length === 0 && fallbackKeywords.length) {
+      return searchCardHobbyOrders(fallbackKeywords, signal);
+    }
     return {orders:result.orders, complete:result.complete};
   } catch (error) {
     if (error instanceof ApiError && ["LOGIN_REQUIRED", "LOGIN_REJECTED", "VERIFICATION_REQUIRED"].includes(error.code ?? "")) throw new CardHobbyLoginError(error.message, error.code);
     throw error;
   }
+}
+
+export async function resolveCostSearchWithFallback(itemId: string, capture: OrderSearchCapture,
+  plan: Pick<CostSearchPlan, "fallback_keywords">, signal?: AbortSignal,
+  options: {keepWriteResponseOnClose?: boolean} = {}) {
+  // Closing a modal cannot undo a server write already in flight. Deliver its
+  // final outcome, while still cancelling discovery before another write starts.
+  const writeSignal = options.keepWriteResponseOnClose ? undefined : signal;
+  const initial = await resolveCostSearch(itemId, capture, writeSignal);
+  if (signal?.aborted || !capture.complete || !plan.fallback_keywords?.length || !["not_found", "unmatched"].includes(initial.status)) return initial;
+  const fallback = await searchCardHobbyOrders(plan.fallback_keywords, signal);
+  if (signal?.aborted) return initial;
+  const orders = new Map<string, unknown>();
+  for (const order of [...capture.orders, ...fallback.orders]) {
+    const id = (order as {external_order_id?: string} | null)?.external_order_id;
+    if (!id) throw new Error("卡淘订单缺少编号，未继续写入成本");
+    orders.set(id, order);
+  }
+  return resolveCostSearch(itemId, {orders: [...orders.values()].slice(0, 100),
+    complete: fallback.complete && orders.size <= 100}, writeSignal);
 }

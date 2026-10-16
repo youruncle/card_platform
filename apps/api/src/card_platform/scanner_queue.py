@@ -1,5 +1,8 @@
 import asyncio
 import logging
+import hashlib
+import time
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -13,12 +16,14 @@ from card_platform.card_orientation import (
     OrientationDecision,
     rotate_image_content,
 )
+from card_platform.local_vision_process import local_vision_health
 from card_platform.db import Database
 from card_platform.image_rectification import RectifiedImage, rectify_card_image
 from card_platform.image_service import ALLOWED_IMAGE_TYPES, CardVisionService, ImageStorageService
 from card_platform.repository import PortfolioRepository
 from card_platform.recognition_benchmark_predictor import canonicalize_identity
 from card_platform.vision_routing import finalize_recognition_status
+from card_platform.domain.recognition_evidence import bind_recognition_storage
 from card_platform.schemas import (
     CardIdentityInput,
     CardRecognitionResult,
@@ -462,7 +467,7 @@ class ScannerRecognitionWorker:
                 """
                 UPDATE scanner_recognition_job
                 SET status = 'running', attempt_count = attempt_count + 1,
-                    started_at = now(), finished_at = NULL,
+                    started_at = clock_timestamp(), finished_at = NULL,
                     error_message = NULL, updated_at = now()
                 WHERE id = %s
                 """,
@@ -471,102 +476,185 @@ class ScannerRecognitionWorker:
             return row["id"]
 
     async def _process(self, job_id: UUID) -> None:
+        processing_started = time.monotonic()
+        current_stage = "load_job"
+        job = None
         try:
+            # Neither local Vision nor remote requests need a database lease.
             async with self.database.connection() as connection:
                 selected = await connection.execute(
-                    "SELECT * FROM scanner_recognition_job WHERE id = %s",
-                    (job_id,),
+                    "SELECT * FROM scanner_recognition_job WHERE id = %s", (job_id,)
                 )
                 job = await selected.fetchone()
-                if job is None:
+            if job is None:
+                return
+            job = dict(job)
+
+            async def can_publish(connection):
+                selected = await connection.execute(
+                    """SELECT id,status,collection_item_id,attempt_count,started_at
+                    FROM scanner_recognition_job WHERE id=%s AND owner_id=%s FOR UPDATE""",
+                    (job_id, job["owner_id"]),
+                )
+                current = await selected.fetchone()
+                return bool(
+                    current and current.get("status") in {"queued", "running"}
+                    and not current.get("collection_item_id")
+                    and current.get("attempt_count") == job.get("attempt_count")
+                    and current.get("started_at") == job.get("started_at")
+                )
+
+            from io import BytesIO
+            from starlette.datastructures import UploadFile, Headers
+            vision = CardVisionService(self.settings)
+            side_timings = {}
+            contents = {}
+            content_types = {}
+
+            async def prepare_side(side):
+                started = time.monotonic()
+                path = self.queue.image_path(job[f"{side}_image_path"])
+                original = self.queue.image_path(job[f"{side}_original_image_path"])
+                if (job.get("crop_recipe") or {}).get(side, {}).get("confirmed"):
+                    decision = OrientationDecision(0, 1.0, "manual")
+                    content_type = job[f"{side}_content_type"]
+                else:
+                    decision = await self._orient_side(
+                        original, path, job[f"{side}_content_type"], vision
+                    )
+                    content_type = "image/jpeg"
+                async with aiofiles.open(path, "rb") as source:
+                    content = await source.read()
+                side_timings[side] = {
+                    "latency_ms": round((time.monotonic() - started) * 1000),
+                    "method": decision.method,
+                    "rotation_degrees": decision.rotation_degrees,
+                    **({"local_vision": decision.local_vision} if decision.local_vision else {}),
+                }
+                return side, decision, content_type, content
+
+            current_stage = "orientation"
+            orientation_started = time.monotonic()
+            tasks = [asyncio.create_task(prepare_side(side)) for side in ("front", "back")
+                     if job[f"{side}_image_path"]]
+            try:
+                prepared = await asyncio.gather(*tasks)
+            finally:
+                for task in tasks:
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
+            orientation_ms = round((time.monotonic() - orientation_started) * 1000)
+            async with self.database.connection() as connection:
+                if not await can_publish(connection):
                     return
-                front_path = self.queue.image_path(job["front_image_path"])
-                back_path = self.queue.image_path(job["back_image_path"])
-                front_original_path = self.queue.image_path(job["front_original_image_path"])
-                back_original_path = self.queue.image_path(job["back_original_image_path"])
-                vision = CardVisionService(self.settings)
-                front_decision, back_decision = await asyncio.gather(
-                    self._orient_side(
-                        front_original_path, front_path, job["front_content_type"], vision
-                    ),
-                    self._orient_side(
-                        back_original_path, back_path, job["back_content_type"], vision
-                    ),
-                )
-                await connection.execute(
-                    """
-                    UPDATE scanner_recognition_job
-                    SET front_rotation_degrees = %s,
-                        front_orientation_confidence = %s,
-                        front_orientation_method = %s,
-                        front_orientation_corrected_at = now(),
-                        front_content_type = 'image/jpeg',
-                        back_rotation_degrees = %s,
-                        back_orientation_confidence = %s,
-                        back_orientation_method = %s,
-                        back_orientation_corrected_at = now(),
-                        back_content_type = 'image/jpeg',
-                        updated_at = now()
-                    WHERE id = %s
-                    """,
-                    (
-                        front_decision.rotation_degrees,
-                        front_decision.confidence,
-                        front_decision.method,
-                        back_decision.rotation_degrees,
-                        back_decision.confidence,
-                        back_decision.method,
-                        job_id,
-                    ),
-                )
-                async with aiofiles.open(front_path, "rb") as source:
-                    front_content = await source.read()
-                async with aiofiles.open(back_path, "rb") as source:
-                    back_content = await source.read()
-                result = finalize_recognition_status(
-                    canonicalize_identity(
-                        await vision.recognize_pair_contents(
-                            front_content,
-                            "image/jpeg",
-                            back_content,
-                            "image/jpeg",
-                        )
-                    )
-                )
-                # Recognition quality is advisory. A successful scanner job is
-                # always imported, queued for valuation, and remains editable;
-                # uncertainty is exposed as confidence and issue metadata.
-                async with connection.transaction():
-                    item_id = await PortfolioRepository().create_item(
-                        connection, _auto_import_payload(job["owner_id"], result)
-                    )
-                    storage = ImageStorageService(self.settings)
-                    await storage.save_preprocessed_item_image_content(
-                        connection, item_id, job["owner_id"], "front", front_content, "image/jpeg"
-                    )
-                    await storage.save_preprocessed_item_image_content(
-                        connection, item_id, job["owner_id"], "back", back_content, "image/jpeg"
-                    )
+                for side, decision, content_type, content in prepared:
+                    content_types[side] = content_type
+                    contents[side] = content
                     await connection.execute(
-                        """
-                        UPDATE scanner_recognition_job
-                        SET status = 'succeeded', result = %s, collection_item_id = %s,
-                            imported_at = now(), finished_at = now(), updated_at = now(),
-                            error_message = NULL
-                        WHERE id = %s
-                        """,
-                        (Jsonb(result.model_dump(mode="json")), item_id, job_id),
+                        f"""UPDATE scanner_recognition_job SET {side}_rotation_degrees=%s,
+                        {side}_orientation_confidence=%s,{side}_orientation_method=%s,
+                        {side}_orientation_corrected_at=clock_timestamp(),{side}_content_type=%s,
+                        updated_at=clock_timestamp() WHERE id=%s""",
+                        (decision.rotation_degrees, decision.confidence, decision.method, content_type, job_id),
                     )
+                await connection.execute(
+                    "UPDATE scanner_recognition_job SET revision=revision+1 WHERE id=%s", (job_id,)
+                )
+            current_stage = "recognition"
+            recognition_started = time.monotonic()
+            if len(contents) == 2:
+                recognized = await vision.recognize_pair_contents(
+                    contents["front"], content_types["front"], contents["back"], content_types["back"]
+                )
+            else:
+                side, content = next(iter(contents.items()))
+                recognized = await vision.recognize(UploadFile(
+                    file=BytesIO(content), filename=f"{side}{ALLOWED_IMAGE_TYPES[content_types[side]]}",
+                    headers=Headers({"content-type": content_types[side]}),
+                ))
+            recognition_ms = round((time.monotonic() - recognition_started) * 1000)
+            result = finalize_recognition_status(canonicalize_identity(recognized))
+            queue_ms = None
+            if job.get("created_at") is not None and job.get("started_at") is not None:
+                queue_ms = max(0, round((job["started_at"] - job["created_at"]).total_seconds() * 1000))
+            stages = {
+                "orientation": {"latency_ms": orientation_ms, "concurrent": len(prepared) > 1,
+                                "sides": side_timings},
+                "recognition": {"latency_ms": recognition_ms},
+            }
+            current_stage = "persist"
+            persist_started = time.monotonic()
+
+            def traced_result():
+                stages["persist"] = {"latency_ms": round((time.monotonic() - persist_started) * 1000)}
+                trace = {"tier": "scanner_pipeline", "model": "pipeline", "status": "succeeded",
+                         "latency_ms": round((time.monotonic() - processing_started) * 1000),
+                         "queue_ms": queue_ms, "stages": stages,
+                         "local_vision_health": local_vision_health()}
+                return result.model_copy(update={"recognition_route": [trace, *result.recognition_route]})
+
+            # Phone captures remain drafts until explicit owner confirmation.
+            if job.get("require_confirmation", False):
+                async with self.database.connection() as connection:
+                    if not await can_publish(connection):
+                        return
+                    await connection.execute(
+                        """UPDATE scanner_recognition_job
+                        SET status = 'succeeded', result = %s, finished_at = clock_timestamp(),
+                            updated_at = clock_timestamp(), error_message = NULL
+                        WHERE id = %s""",
+                        (Jsonb(traced_result().model_dump(mode="json")), job_id),
+                    )
+                return
+            async with self.database.connection() as connection, connection.transaction():
+                if not await can_publish(connection):
+                    return
+                item_id = await PortfolioRepository().create_item(
+                    connection, _auto_import_payload(job["owner_id"], result)
+                )
+                storage = ImageStorageService(self.settings)
+                for side, content in contents.items():
+                    await storage.save_preprocessed_item_image_content(
+                        connection, item_id, job["owner_id"], side, content, content_types[side]
+                    )
+                stored = await (await connection.execute(
+                    """SELECT ci.card_definition_id,ci.serial_number,ci.serial_total,ci.is_numbered,
+                    ci.grade_company,ci.grade_value,p.full_name AS player_name,b.name AS brand_name,
+                    cs.product_name,cs.season_start,cs.season_end,cd.card_number,cd.insert_name,
+                    cd.parallel_name,cd.is_rookie,cd.is_autograph,cd.is_memorabilia,
+                    cs.set_name,cd.print_run,cd.autograph_type,cd.has_inscription,cd.inscription_text,
+                    cd.is_patch,cd.memorabilia_types,cd.memorabilia_usage,cd.memorabilia_player
+                    FROM collection_item ci JOIN card_definition cd ON cd.id=ci.card_definition_id
+                    JOIN player p ON p.id=cd.player_id JOIN card_set cs ON cs.id=cd.card_set_id
+                    JOIN brand b ON b.id=cs.brand_id WHERE ci.id=%s AND ci.owner_id=%s""",
+                    (item_id, job['owner_id']),
+                )).fetchone()
+                stored['image_content_hashes'] = {
+                    side: hashlib.sha256(content).hexdigest() for side, content in contents.items()
+                }
+                result = bind_recognition_storage(result, stored)
+                await connection.execute(
+                    """UPDATE scanner_recognition_job
+                    SET status = 'succeeded', result = %s, collection_item_id = %s,
+                        imported_at = clock_timestamp(), finished_at = clock_timestamp(),
+                        updated_at = clock_timestamp(), error_message = NULL
+                    WHERE id = %s""",
+                    (Jsonb(traced_result().model_dump(mode="json")), item_id, job_id),
+                )
         except Exception as error:
+            if job is None:
+                raise
             async with self.database.connection() as connection:
                 await connection.execute(
-                    """
-                    UPDATE scanner_recognition_job
+                    """UPDATE scanner_recognition_job
                     SET status = 'failed', error_message = %s,
-                        finished_at = now(), updated_at = now()
-                    WHERE id = %s
-                    """,
-                    (str(error)[:500], job_id),
+                        finished_at = clock_timestamp(), updated_at = clock_timestamp()
+                    WHERE id = %s AND owner_id = %s AND status IN ('queued','running')
+                        AND collection_item_id IS NULL AND attempt_count = %s
+                        AND started_at IS NOT DISTINCT FROM %s""",
+                    (f"{current_stage}: {str(error)}"[:500], job_id, job["owner_id"],
+                     job.get("attempt_count", 0), job.get("started_at")),
                 )
 
     async def _orient_side(
@@ -591,12 +679,14 @@ class ScannerRecognitionWorker:
                     logger.warning("vision orientation fallback failed: %s", error)
         if decision is None:
             decision = OrientationDecision(0, 0, "unresolved")
-        normalized = rotate_image_content(original_content, decision.rotation_degrees)
+        normalized = await asyncio.to_thread(
+            rotate_image_content, original_content, decision.rotation_degrees
+        )
         temporary_path = display_path.with_suffix(".tmp.jpg")
         async with aiofiles.open(temporary_path, "wb") as output:
             await output.write(normalized)
         temporary_path.replace(display_path)
-        return decision
+        return replace(decision, local_vision=getattr(classifier, "last_outcome", None))
 
 
 async def stop_scanner_worker(

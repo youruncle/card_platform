@@ -107,7 +107,7 @@ def test_one_translated_roster_name_needs_full_image_and_explicit_dual_insert(
     result = ComparableClassifier().classify(
         target,
         ComparableInput(
-            title="2021-22 Donruss Ja Morant 贾莫兰特 多诺万米切尔 双人 DUOS 特卡",
+            title="2021-22 Donruss Ja Morant 贾莫兰特 双人 DUOS 特卡",
             source_code="cardhobby",
             visual_verdict=verdict,
             visual_confidence=Decimal(confidence),
@@ -147,7 +147,7 @@ def test_partial_roster_provider_only_proposes_image_review():
 
     candidate = CardHobbySale(
         item_id="12345",
-        title="2021-22 Donruss Ja Morant 贾莫兰特 多诺万米切尔 双人 DUOS 特卡",
+        title="2021-22 Donruss Ja Morant 贾莫兰特 双人 DUOS 特卡",
         source_url="https://cardhobby.com.cn/Market/Item/12345",
         occurred_at="2026-07-01T00:00:00+08:00",
         sale_price=Decimal("2"),

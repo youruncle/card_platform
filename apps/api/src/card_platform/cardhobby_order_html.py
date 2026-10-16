@@ -96,9 +96,17 @@ def amount(value, label):
 
 def detail_amounts(doc):
     values = [n.text() for n in doc.all() if n.tag in {'li', 'p', 'td', 'div'}]
-    return {name: next((v for t in values if len(t) < 100 and (v := amount(t, label))), None)
+    result = {name: next((v for t in values if len(t) < 100 and (v := amount(t, label))), None)
             for name, label in [('paid_total', '实付总额'), ('discount', '优惠(?:金额)?'),
                                 ('refund', '退款(?:金额)?'), ('extra_fee', '额外费用')]}
+    # The help dialog is nested inside the fee row, making its text long.
+    # Require a labelled amount at the start; explanatory fee text is not a charge.
+    if result['extra_fee'] is None:
+        result['extra_fee'] = next((value for text in values
+            if (value := amount(text, r'^\s*服务费\s*[?？]?'))), None)
+    if any(re.fullmatch(r'运费\s*[:：]?\s*顺丰到付', t) for t in values):
+        result.update(shipping_method='sf_collect', shipping=None)
+    return result
 
 
 def parse_orders(doc):

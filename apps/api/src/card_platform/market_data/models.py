@@ -6,7 +6,9 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from card_platform.ingestion.cardhobby_public_item import canonical_public_item_url
 
 
 IDENTITY_VERSION = 2
@@ -30,6 +32,20 @@ def _normalize(value: Any) -> Any:
 
 class MarketIdentity(BaseModel):
     player_name: str
+    public_source_urls: list[str] = Field(default_factory=list, max_length=2)
+
+    @field_validator('public_source_urls')
+    @classmethod
+    def public_urls(cls, values):
+        urls = []
+        for value in values:
+            url = canonical_public_item_url(value)
+            if not url:
+                raise ValueError('only public CardHobby item discovery URLs are allowed')
+            if url not in urls:
+                urls.append(url)
+        return urls
+
     player_name_aliases: list[str] = Field(default_factory=list)
     season_start: int | None = None
     season_end: int | None = None
@@ -54,13 +70,15 @@ class MarketIdentity(BaseModel):
         return {
             key: _normalize(value)
             for key, value in self.model_dump(mode="python").items()
-            if value is not None
+            if value is not None and (key != "public_source_urls" or value)
         }
 
     @property
     def fingerprint(self) -> str:
+        core_identity = self.normalized()
+        core_identity.pop('public_source_urls', None)
         payload = json.dumps(
-            {"version": IDENTITY_VERSION, **self.normalized()},
+            {"version": IDENTITY_VERSION, **core_identity},
             ensure_ascii=False,
             sort_keys=True,
             separators=(",", ":"),
@@ -89,6 +107,7 @@ class EvidenceRecord(BaseModel):
 
 class ProviderFetchResult(BaseModel):
     provider_code: str
+    public_image_sources: list[dict[str, Any]] = Field(default_factory=list)
     evidence: list[EvidenceRecord] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
     incremental_cursor: str | None = None

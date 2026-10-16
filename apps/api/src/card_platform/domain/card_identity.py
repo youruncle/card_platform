@@ -9,6 +9,7 @@ from card_platform.domain.product_identity import product_matches_title
 
 
 INSERT_ALIASES = {
+    "roses": ("roses", "玫瑰", "玫瑰特卡"),
     "playing cards": ("playing cards", "扑克", "扑克牌"),
     # The circular artwork crosses the printed word, so OCR/vision commonly
     # drops the hidden "no" and returns Hoop-Itic. The checklist/seller name is
@@ -222,8 +223,9 @@ def canonical_insert(value: object) -> str | None:
     resolved = _INSERT_RESOLVER.resolve("insert", value)
     if resolved.entity_id:
         return resolved.canonical_value
-    matches = _INSERT_RESOLVER.find_in_text("insert", value)
-    return matches[0].canonical_value if len(matches) == 1 else str(value).strip()
+    # This is a complete structured field, not a marketplace title. Finding a
+    # known word inside an unknown name cannot establish an equivalent insert.
+    return str(value).strip()
 
 
 def known_insert_from_text(value: object) -> str | None:
@@ -405,7 +407,10 @@ class CardIdentityResolver:
             elif normalize_text(normalized_number) in {"nno", "no number", "unnumbered"}:
                 card_number = None
             elif re.fullmatch(r"\d+\s*/\s*\d+", normalized_number):
-                card_number = None
+                # Import locally: identity_review uses this module's normalizer.
+                from card_platform.domain.identity_review import is_tcg_collector_number
+                if not is_tcg_collector_number(stored):
+                    card_number = None
             elif (
                 serial_total
                 and normalized_number == str(serial_total)
@@ -576,4 +581,31 @@ class CardIdentityResolver:
             values["serial_total"] = values["print_run"]
         if values["print_run"] is None:
             values["print_run"] = values["serial_total"]
+        # Recover only a missing card kind from the reviewed product checklist.
+        # R-* is NOT globally unique. Scope to this release and its 25 entries;
+        # never infer a parallel/print run from the red flower artwork.
+        if (
+            not values["insert"]
+            and normalize_text(values["brand_name"]) == "topps"
+            and normalize_text(values["product_name"]) in {
+                "signature class", "topps signature class",
+                "signature class basketball", "topps signature class basketball",
+            }
+            and (values["season_start"], values["season_end"]) in {
+                (2025, 2026), (2025, None), (2026, None), (2026, 2026),
+            }
+            and re.fullmatch(
+                r"#?R-(?:[1-9]|1[0-9]|2[0-5])",
+                str(values["card_number"] or "").strip(), re.I,
+            )
+        ):
+            values["insert"] = "Roses"
+            provenance["insert"] = [{
+                "source": "catalog", "value": "Roses",
+                "source_url": (
+                    "https://cdn.shopify.com/s/files/1/0662/9749/5709/files/"
+                    "2025-26_Topps_Signature_Class_Basketball_Checklist.pdf?v=1777313247"
+                ),
+                "reason": "Topps official checklist p.10: Roses R-1 through R-25",
+            }]
         return CardIdentity(**values, evidence=provenance, conflicts=conflicts)

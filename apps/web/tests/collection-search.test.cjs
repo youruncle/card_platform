@@ -46,3 +46,10 @@ test('Chinese composition does not accidentally submit incomplete query',()=>{
  fireEvent.submit(input.closest('form'));
  assert.deepEqual(applied,{q:'杜兰特'});
 });
+test('holding status filter can select sold cards and clear back to all',()=>{
+ let applied;
+ render(React.createElement(CollectionSearch,{filters:{},total:2,busy:false,onApply:v=>{applied=v;}}));
+ fireEvent.change(screen.getByLabelText('卡片状态'),{target:{value:'sold'}});
+ fireEvent.click(screen.getByRole('button',{name:'搜索'}));
+ assert.deepEqual(applied,{holding_status:'sold'});
+});

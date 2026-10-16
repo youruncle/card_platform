@@ -11,7 +11,7 @@ from card_platform.flatbed_detection import Detection
 from card_platform.flatbed_ml import refine_with_sam2
 
 
-async def run_worker(tmp_path, items, originals):
+async def run_worker(tmp_path, items, originals, **kwargs):
     script = tmp_path / "worker.py"
     script.write_text(
         "import sys\nsys.stdin.buffer.read()\nprint("
@@ -27,6 +27,7 @@ async def run_worker(tmp_path, items, originals):
         worker_script=str(script),
         checkpoint=str(checkpoint),
         timeout_seconds=2,
+        **kwargs,
     )
 
 
@@ -187,3 +188,13 @@ async def test_mixed_batch_records_fallback_indices_without_reverting_unrelated_
     assert metadata["refined_count"] == 1
     assert metadata["object_preservation_fallback_indices"] == [0]
     assert metadata["label_preservation_fallback_indices"] == [0]
+
+
+@pytest.mark.asyncio
+async def test_content_guarded_refinement_defers_axis_background_area_check(tmp_path):
+    raw = rotated_same_area_box()
+    original = Detection(raw["x"], raw["y"], raw["width"], raw["height"], 0, .9,
+        evidence=("physical_object_envelope", "grading_label_association", "original_content_verified"))
+    final, metadata = await run_worker(tmp_path, [raw], [original], content_guarded=True)
+    assert "sam2_oriented_mask" in final[0].evidence
+    assert metadata["object_preservation_fallback_count"] == 0

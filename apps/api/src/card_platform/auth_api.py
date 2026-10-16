@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from math import ceil
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -115,19 +116,18 @@ async def register(
     return user
 
 
-@router.post("/login", response_model=AuthUser)
-async def login(
+async def authenticate_login(
     payload: AuthLogin,
     request: Request,
-    response: Response,
-    db: AsyncConnection = Depends(connection),
-) -> AuthUser:
+    db: AsyncConnection,
+) -> tuple[AuthUser, str, datetime]:
     settings = get_settings()
     try:
         email = normalize_email(payload.email)
     except ValueError:
         email = payload.email.strip().casefold()
     login_failed = False
+    retry_after_seconds = None
     async with db.transaction():
         result = await db.execute(
             """
@@ -143,20 +143,26 @@ async def login(
         row = await result.fetchone()
         now = datetime.now(timezone.utc)
         locked = row and row["locked_until"] and row["locked_until"] > now
+        if locked:
+            retry_after_seconds = max(1, ceil((row["locked_until"] - now).total_seconds()))
         valid = bool(row and not row["disabled_at"] and not locked and password_matches(row["password_hash"], payload.password))
         if not valid:
             if row and not locked:
-                failures = row["failed_login_count"] + 1
-                await db.execute(
+                failures = (0 if row["locked_until"] else row["failed_login_count"]) + 1
+                updated = await db.execute(
                     """
                     UPDATE user_credential
                     SET failed_login_count = %s,
                         locked_until = CASE WHEN %s >= %s THEN now() + (%s * interval '1 minute') ELSE NULL END,
                         updated_at = now()
                     WHERE user_id = %s
+                    RETURNING locked_until
                     """,
                     (failures, failures, settings.auth_max_failed_logins, settings.auth_lock_minutes, row["id"]),
                 )
+                deadline = (await updated.fetchone())["locked_until"]
+                if deadline:
+                    retry_after_seconds = max(1, ceil((deadline - now).total_seconds()))
             await audit(db, request, "login", False, user_id=row["id"] if row else None, email=email)
             login_failed = True
         else:
@@ -173,7 +179,28 @@ async def login(
             await audit(db, request, "login", True, user_id=row["id"], email=email)
             user = AuthUser.model_validate(row)
     if login_failed:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="邮箱或密码错误")
+        if retry_after_seconds is not None:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={
+                    "code": "account_temporarily_locked",
+                    "message": f"登录尝试过多，账户已暂时锁定，请在{ceil(retry_after_seconds / 60)}分钟后重试。",
+                    "retry_after_seconds": retry_after_seconds,
+                },
+                headers={"Retry-After": str(retry_after_seconds)},
+            )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="邮箱或密码错误，请核对后重试。")
+    return user, token, expires_at
+
+
+@router.post("/login", response_model=AuthUser)
+async def login(
+    payload: AuthLogin,
+    request: Request,
+    response: Response,
+    db: AsyncConnection = Depends(connection),
+) -> AuthUser:
+    user, token, expires_at = await authenticate_login(payload, request, db)
     set_session_cookie(response, token, expires_at)
     return user
 
@@ -190,8 +217,9 @@ async def logout(
     user: AuthenticatedUser = Depends(current_user),
     db: AsyncConnection = Depends(connection),
 ) -> None:
-    await db.execute("UPDATE auth_session SET revoked_at = now() WHERE id = %s", (user.session_id,))
-    await audit(db, request, "logout", True, user_id=user.id, email=user.email)
+    async with db.transaction():
+        await db.execute("UPDATE auth_session SET revoked_at = now() WHERE id = %s", (user.session_id,))
+        await audit(db, request, "logout", True, user_id=user.id, email=user.email)
     response.delete_cookie(get_settings().auth_cookie_name, path="/")
 
 
@@ -219,10 +247,11 @@ async def revoke_session(
     user: AuthenticatedUser = Depends(current_user),
     db: AsyncConnection = Depends(connection),
 ) -> None:
-    await db.execute(
-        "UPDATE auth_session SET revoked_at = now() WHERE id = %s AND user_id = %s",
-        (session_id, user.id),
-    )
+    async with db.transaction():
+        await db.execute(
+            "UPDATE auth_session SET revoked_at = now() WHERE id = %s AND user_id = %s",
+            (session_id, user.id),
+        )
 
 
 @router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)

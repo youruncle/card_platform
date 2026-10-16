@@ -37,6 +37,26 @@ def query(client, filters, **params):
     )
 
 
+def test_partial_relevance_is_global_stable_and_respects_strict_filters(client):
+    owner = register(client)
+    best = create(client, owner, "Kevin Durant", parallel_name="Black and White")
+    player_only = create(client, owner, "Kevin Durant", parallel_name="Base")
+    parallel_only = create(client, owner, "Unrelated Player", parallel_name="Black and White")
+    filters = {"q": "杜兰特，黑白，不存在"}
+    result = query(client, filters, sort_by="relevance", snapshot="true", include_summary="true", page_size=2)
+    assert result.status_code == 200, result.text
+    first = result.json()
+    assert [r["id"] for r in first["items"]] == [best, player_only]
+    assert first["total"] == 3
+    follow = query(client, filters, sort_by="relevance", snapshot_token=first["snapshot_token"], page_size=2, page=2)
+    assert follow.status_code == 200, follow.text
+    assert [r["id"] for r in follow.json()["items"]] == [parallel_only]
+    strict = query(client, filters | {"player": ["杜兰特"]}, include_summary="true").json()
+    assert [r["id"] for r in strict["items"]] == [best, player_only]
+    assert strict["summary"]["item_count"] == 3
+    assert query(client, {"q": "完全无关 2025"}).json()["total"] == 0
+
+
 def test_cross_page_global_search_aliases_exact_id_and_owner_scope(client):
     owner = register(client)
     target = create(client, owner, "KEVIN DURANT", is_autograph=True)

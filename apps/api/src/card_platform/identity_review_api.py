@@ -103,7 +103,15 @@ def _identity(row: dict) -> dict:
     })
 
 
-async def _evidence_rows(connection, item: dict) -> list[dict]:
+def _review_evidence_decision(sale: dict) -> tuple[str, list[str]]:
+    if sale.get("review_decision") in {"rejected", "needs_review"}:
+        return sale["review_decision"], list(sale.get("review_reason_codes") or [])
+    return structured_evidence_decision(
+        sale.get("identity_classification") or {}, sale["evidence_level"]
+    )
+
+
+async def _evidence_rows(connection, item: dict, identity_version_id: UUID | None = None) -> list[dict]:
     result = await connection.execute(
         """
         SELECT DISTINCT ON (me.provider_code, me.external_sale_id)
@@ -112,16 +120,23 @@ async def _evidence_rows(connection, item: dict) -> list[dict]:
                me.sale_price, me.shipping_price, me.currency, me.occurred_at,
                me.source_url, me.evidence_level, me.match_confidence,
                me.identity_classification,
+               decision.decision AS review_decision,
+               decision.reason_codes AS review_reason_codes,
                NULLIF(me.raw_payload->>'image_url', '') AS image_url
         FROM market_evidence me
         LEFT JOIN market_identity_binding mib
           ON mib.identity_fingerprint = me.identity_fingerprint
          AND mib.collection_item_id = %s
         LEFT JOIN market_comp mc ON mc.market_evidence_id = me.id
+        LEFT JOIN market_evidence_identity_decision decision
+          ON decision.market_evidence_id = me.id
+         AND decision.collection_item_id = %s
+         AND decision.identity_version_id = %s
         WHERE mib.collection_item_id IS NOT NULL OR mc.card_definition_id = %s
+           OR decision.id IS NOT NULL
         ORDER BY me.provider_code, me.external_sale_id, me.occurred_at DESC
         """,
-        (item["id"], item["card_definition_id"]),
+        (item["id"], item["id"], identity_version_id, item["card_definition_id"]),
     )
     return [dict(row) for row in await result.fetchall()]
 
@@ -272,12 +287,10 @@ async def review_detail(item_id: UUID, request: Request, user: AuthenticatedUser
         suggestions = [dict(row) for row in await corrections.fetchall()]
         suggestion_map = {row["field_name"]: row["suggested_value"] for row in suggestions}
         current = _identity(item)
-        evidence = await _evidence_rows(connection, item)
+        evidence = await _evidence_rows(connection, item, (version or {}).get("id"))
         decisions = []
         for sale in evidence:
-            decision, reasons = structured_evidence_decision(
-                sale.get("identity_classification") or {}, sale["evidence_level"]
-            )
+            decision, reasons = _review_evidence_decision(sale)
             decisions.append({**sale, "decision": decision, "reason_codes": reasons})
         research_result = await connection.execute(
             """SELECT id, status, trigger_reasons, source_version, attempt_count, last_error
@@ -611,7 +624,7 @@ async def confirm_identity(item_id: UUID, payload: ConfirmIdentityRequest, reque
             ),
         )
         await MarketDataRepository().ensure_identity(connection, market_identity, item_id)
-        accepted = rejected = 0
+        accepted = rejected = needs_review = 0
         for sale in evidence:
             decision, reasons = structured_evidence_decision(
                 sale.get("identity_classification") or {}, sale["evidence_level"],
@@ -619,6 +632,7 @@ async def confirm_identity(item_id: UUID, payload: ConfirmIdentityRequest, reque
             )
             accepted += decision == "accepted"
             rejected += decision == "rejected"
+            needs_review += decision == "needs_review"
             await connection.execute(
                 """INSERT INTO market_evidence_identity_decision
                    (collection_item_id, identity_version_id, market_evidence_id, decision, reason_codes, classification)
@@ -640,7 +654,8 @@ async def confirm_identity(item_id: UUID, payload: ConfirmIdentityRequest, reque
                 actor_id, accepted_count, rejected_count, duplicate_count, details)
                VALUES (%s, %s, %s, %s, %s, %s, %s, 0, %s)""",
             (item_id, version["id"], old_fingerprint, market_identity.fingerprint,
-             user.id, accepted, rejected, Jsonb({"published_valuation_unchanged": True})),
+             user.id, accepted, rejected, Jsonb({"published_valuation_unchanged": True,
+                                               "needs_review_count": needs_review})),
         )
         candidate_result = await connection.execute(
             """SELECT c.market_evidence FROM identity_research_candidate c
@@ -675,6 +690,7 @@ async def confirm_identity(item_id: UUID, payload: ConfirmIdentityRequest, reque
              shadow.confidence, len(shadow.used_ids), Jsonb(list(shadow.review_reasons)),
              Jsonb({"used_ids": list(shadow.used_ids), "rejected": list(shadow.rejected),
                     "accepted_count": accepted, "rejected_count": rejected,
+                    "needs_review_count": needs_review,
                     "research_evidence": candidate_sales, "published_value_unchanged": True}), item_id),
         )
         final_status = (ResearchStatus.SHADOW_ESTIMATED if shadow.fair is not None
@@ -699,6 +715,7 @@ async def confirm_identity(item_id: UUID, payload: ConfirmIdentityRequest, reque
         valuation_job_id = (await valuation_job.fetchone())["id"]
         return {"identity_version_id": version["id"], "version": version["version"],
                 "identity_fingerprint": market_identity.fingerprint, "accepted_count": accepted,
-                "rejected_count": rejected, "valuation_job_id": valuation_job_id,
+                "rejected_count": rejected, "needs_review_count": needs_review,
+                "valuation_job_id": valuation_job_id,
                 "prior_valuations_marked_incompatible": prior_valuations_marked_incompatible,
                 "published_valuation_unchanged": True}

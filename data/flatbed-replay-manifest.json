@@ -1,8 +1,9 @@
 {
   "version": 1,
-  "detector_version": "physical-object-layout-v20",
+  "detector_version": "physical-object-layout-v24",
   "corpus_glob": "data/flatbed-scans/*/*/*/original.*",
   "expected_count_by_session": {
+    "070e8976-ac2f-4d70-8b89-1666fc820f35": 2,
     "1143db53-b905-4b52-a9c2-aa9450c886ab": 8,
     "34358aef-f55a-4504-aa0f-bfcc8a5d4a80": 8,
     "8527da4a-6c5c-42dc-a368-cb18568d8b0a": 8,
@@ -24,9 +25,16 @@
     "907e7361-5c66-4f56-a048-71e0a8c38e5b": 5,
     "fac8e6df-e6aa-4eda-a6bf-3ea668dc5cb6": 8,
     "ac1e9883-889e-4491-8bc5-9da0dfd8e723": 8,
-    "2e149a28-f7f1-4333-850e-1e59d3225b38": 5
+    "2e149a28-f7f1-4333-850e-1e59d3225b38": 5,
+    "c8f1d7f1-34ba-40ce-9d78-8d414f46541d": 4,
+    "470d031e-79c3-4216-891e-f4b046fd4a7a": 3,
+    "d7d17446-f122-46c8-9619-3d9100703693": 8,
+    "915916d2-a72e-4310-b706-f107b2b3a534": 6,
+    "17b36c10-262d-4fd9-a6ae-c89e4d32ce80": 8,
+    "5b0caf99-c50f-4062-881b-d2aac30ebffc": 2
   },
   "dpi_by_session": {
+    "070e8976-ac2f-4d70-8b89-1666fc820f35": 300,
     "1143db53-b905-4b52-a9c2-aa9450c886ab": 300,
     "34358aef-f55a-4504-aa0f-bfcc8a5d4a80": 300,
     "8527da4a-6c5c-42dc-a368-cb18568d8b0a": 300,
@@ -48,13 +56,21 @@
     "907e7361-5c66-4f56-a048-71e0a8c38e5b": 300,
     "fac8e6df-e6aa-4eda-a6bf-3ea668dc5cb6": 300,
     "ac1e9883-889e-4491-8bc5-9da0dfd8e723": 300,
-    "2e149a28-f7f1-4333-850e-1e59d3225b38": 300
+    "2e149a28-f7f1-4333-850e-1e59d3225b38": 300,
+    "c8f1d7f1-34ba-40ce-9d78-8d414f46541d": 300,
+    "470d031e-79c3-4216-891e-f4b046fd4a7a": 300,
+    "d7d17446-f122-46c8-9619-3d9100703693": 300,
+    "915916d2-a72e-4310-b706-f107b2b3a534": 300,
+    "17b36c10-262d-4fd9-a6ae-c89e4d32ce80": 300,
+    "5b0caf99-c50f-4062-881b-d2aac30ebffc": 300
   },
   "expected_count_by_sheet": {
     "fdd0731e-12cc-4536-93e9-4402a1b1e465": 8,
     "ed35d948-0b32-4f16-9433-e2bae9764f0b": 8
   },
   "source_sha256_by_sheet": {
+    "6510b71e-08d9-4d21-9ed6-d019896647f7": "0f6780f4d5ad2f4371f067f29d49803831b448a208a22754205b9617530b7af6",
+    "53898155-464c-49ce-b3fb-709a2bee9a82": "257227a2f55274aa849af42c12886af3e5e95027e0ce123e5f826493be0cbd69",
     "6fb14844-b7ba-495d-aa7c-edbf2b23579a": "53bfce329c87e9d92e23a80c547500897fb123681d5d10ef4794b43abb06f649",
     "9632a555-7fa1-48f8-9606-d2afb278d4fc": "a6625dd9eef80d774d389f575fc155bc5ce2f619186c55db30dfab31fa740bef",
     "1c0a8308-7850-4adb-aaf2-4aa692747940": "02a60ab3cd630c1f979233939d4167744825cec6bca808da9b8053b6e8fcd20e",
@@ -65,35 +81,264 @@
     "83b49571-3533-4f5a-a57c-28c0573409f0": "7c835a99f65651e63cd1919ccda314b8555eb9572a40e427b0a40ba021ef1764",
     "bb91de95-1451-4ffc-b3ed-f02b437c8083": "dbc3d09c81ba80238a77ed9d44f80e8d5cb9ed12181675892b3bb1ebe3e83db4",
     "58da166f-c6ce-4dc1-a27f-09a23655883f": "9cd8297acc7f54d8eacce1ad0746f053dad577c34987b83a70c7dd3884bd6365",
-    "815f4b75-2d54-4ed7-91af-5dcd80d8d27a": "74f4ff17ef7b566a3c0b44f46b98e238a30c8c312def5e42a1b3b8addf985fe0"
+    "815f4b75-2d54-4ed7-91af-5dcd80d8d27a": "74f4ff17ef7b566a3c0b44f46b98e238a30c8c312def5e42a1b3b8addf985fe0",
+    "eb670aba-74aa-47e7-81d8-38cca6a65695": "2c7529d369e98e93922c41b91a01de6bddbdcd5293d74d5cb90e89d3c6fae82d",
+    "984db2bd-75aa-4189-a7c4-f50c59472636": "893cadacb512fad8d66cafca64d2648d8a62a83604abd59f626f97786dc31d4a",
+    "9d4e859c-d88d-4423-9d89-0d534bd7f1f8": "18d9315b94fd5ca1bcadd8a73b49de5187614b92afbd4691391c2c43864c34bd",
+    "b9e6a078-b811-4c3f-9d13-f75ab7d7f448": "cb22bd6b548fb2e9d5a14edde1d63eb4adb425996c2ee8b33d79c40bbd9737d5",
+    "4ac7de65-8e1d-41d8-9083-90da02853d1c": "58df7d5ad8b1bc44407a9c1261398490d7201c60de51547f987580b24d44de5f",
+    "329895ab-cb14-4456-b01f-d8be454b8cae": "98ad51e4dbb6ca7e8fd4b22ec2b34e954d037922113562f38579b3ae7ff3ec9a",
+    "916c9c36-5059-4d40-b6e7-f0927aae47fe": "75d7719104978a240b8cc1c329c1691bca02577ae70a707cc667e1c648bc1f66",
+    "c1cc16cb-790b-4fe1-b948-da61e3b3e7b9": "fd1abbecb53dc985f184017ba1faed9c3fb7a0cf4c7f25f7e2c5279419822be8"
   },
   "source_dimensions_by_sheet": {
-    "6fb14844-b7ba-495d-aa7c-edbf2b23579a": [2480, 3507],
-    "9632a555-7fa1-48f8-9606-d2afb278d4fc": [1700, 2338],
-    "1c0a8308-7850-4adb-aaf2-4aa692747940": [2480, 3507],
-    "5b49a25a-f577-4715-9cd9-a363761d4786": [2480, 3507],
-    "6c5c91bc-c5fe-463a-affa-cf326723bac0": [2480, 3507],
-    "5bf6682a-7f9b-4fc7-95d0-fc32ac3dcaf4": [2480, 3507],
-    "69b56186-7879-48f2-84a7-6da5ae85b158": [2480, 3507],
-    "83b49571-3533-4f5a-a57c-28c0573409f0": [2480, 3507],
-    "bb91de95-1451-4ffc-b3ed-f02b437c8083": [2480, 3507],
-    "58da166f-c6ce-4dc1-a27f-09a23655883f": [2480, 3507],
-    "815f4b75-2d54-4ed7-91af-5dcd80d8d27a": [2480, 3507]
+    "6510b71e-08d9-4d21-9ed6-d019896647f7": [
+      2480,
+      3507
+    ],
+    "53898155-464c-49ce-b3fb-709a2bee9a82": [
+      2480,
+      3507
+    ],
+    "6fb14844-b7ba-495d-aa7c-edbf2b23579a": [
+      2480,
+      3507
+    ],
+    "9632a555-7fa1-48f8-9606-d2afb278d4fc": [
+      1700,
+      2338
+    ],
+    "1c0a8308-7850-4adb-aaf2-4aa692747940": [
+      2480,
+      3507
+    ],
+    "5b49a25a-f577-4715-9cd9-a363761d4786": [
+      2480,
+      3507
+    ],
+    "6c5c91bc-c5fe-463a-affa-cf326723bac0": [
+      2480,
+      3507
+    ],
+    "5bf6682a-7f9b-4fc7-95d0-fc32ac3dcaf4": [
+      2480,
+      3507
+    ],
+    "69b56186-7879-48f2-84a7-6da5ae85b158": [
+      2480,
+      3507
+    ],
+    "83b49571-3533-4f5a-a57c-28c0573409f0": [
+      2480,
+      3507
+    ],
+    "bb91de95-1451-4ffc-b3ed-f02b437c8083": [
+      2480,
+      3507
+    ],
+    "58da166f-c6ce-4dc1-a27f-09a23655883f": [
+      2480,
+      3507
+    ],
+    "815f4b75-2d54-4ed7-91af-5dcd80d8d27a": [
+      2480,
+      3507
+    ],
+    "eb670aba-74aa-47e7-81d8-38cca6a65695": [
+      2480,
+      3507
+    ],
+    "984db2bd-75aa-4189-a7c4-f50c59472636": [
+      2480,
+      3507
+    ],
+    "9d4e859c-d88d-4423-9d89-0d534bd7f1f8": [
+      2480,
+      3507
+    ],
+    "b9e6a078-b811-4c3f-9d13-f75ab7d7f448": [
+      2480,
+      3507
+    ],
+    "4ac7de65-8e1d-41d8-9083-90da02853d1c": [
+      2480,
+      3507
+    ],
+    "329895ab-cb14-4456-b01f-d8be454b8cae": [
+      2480,
+      3507
+    ],
+    "916c9c36-5059-4d40-b6e7-f0927aae47fe": [
+      2480,
+      3507
+    ],
+    "c1cc16cb-790b-4fe1-b948-da61e3b3e7b9": [
+      2480,
+      3507
+    ]
   },
   "geometry_rules_by_sheet": {
+    "6510b71e-08d9-4d21-9ed6-d019896647f7": {
+      "required_content_regions": [
+        {
+          "x": 0.392741935483871,
+          "y": 0.10179640718562874,
+          "width": 0.47016129032258064,
+          "height": 0.2885657256914742,
+          "points": [
+            [
+              0.392741935483871,
+              0.18933561448531508
+            ],
+            [
+              0.7838709677419354,
+              0.10179640718562874
+            ],
+            [
+              0.8629032258064516,
+              0.30852580553179354
+            ],
+            [
+              0.4729838709677419,
+              0.3903621328771029
+            ]
+          ],
+          "minimum_coverage": 0.97
+        },
+        {
+          "x": 0.11693548387096774,
+          "y": 0.6355859709153122,
+          "width": 0.4185483870967742,
+          "height": 0.3316224693470202,
+          "points": [
+            [
+              0.11693548387096774,
+              0.7154262902765897
+            ],
+            [
+              0.3709677419354839,
+              0.6355859709153122
+            ],
+            [
+              0.535483870967742,
+              0.887368120901055
+            ],
+            [
+              0.2810483870967742,
+              0.9672084402623324
+            ]
+          ],
+          "minimum_coverage": 0.97
+        }
+      ],
+      "max_unusable_regions": 0,
+      "require_distinct_content_matches": true
+    },
+    "53898155-464c-49ce-b3fb-709a2bee9a82": {
+      "required_content_regions": [
+        {
+          "x": 0.23911290322580644,
+          "y": 0.06814941545480467,
+          "width": 0.5161290322580645,
+          "height": 0.32820074137439403,
+          "points": [
+            [
+              0.3782258064516129,
+              0.06814941545480467
+            ],
+            [
+              0.755241935483871,
+              0.2055888223552894
+            ],
+            [
+              0.6080645161290322,
+              0.3963501568291987
+            ],
+            [
+              0.23911290322580644,
+              0.2643284858853721
+            ]
+          ],
+          "minimum_coverage": 0.97
+        },
+        {
+          "x": 0.3149193548387097,
+          "y": 0.5902480752780154,
+          "width": 0.5116935483870968,
+          "height": 0.30795551753635586,
+          "points": [
+            [
+              0.3149193548387097,
+              0.6900484744796122
+            ],
+            [
+              0.7209677419354839,
+              0.5902480752780154
+            ],
+            [
+              0.8266129032258065,
+              0.7998289136013687
+            ],
+            [
+              0.4165322580645161,
+              0.8982035928143712
+            ]
+          ],
+          "minimum_coverage": 0.97
+        }
+      ],
+      "max_unusable_regions": 0,
+      "require_distinct_content_matches": true
+    },
     "58da166f-c6ce-4dc1-a27f-09a23655883f": {
       "max_unusable_regions": 0,
       "require_distinct_content_matches": true,
       "max_neighbour_content_overlap": 0.03,
       "required_content_regions": [
-        {"x": 0.020161, "y": 0.018534, "width": 0.429435, "height": 0.215284, "minimum_coverage": 0.96},
-        {"x": 0.032258, "y": 0.279441, "width": 0.419355, "height": 0.212432, "minimum_coverage": 0.96},
-        {"x": 0.032258, "y": 0.536071, "width": 0.431452, "height": 0.206729, "minimum_coverage": 0.96},
-        {"x": 0.637097, "y": 0.025663, "width": 0.330645, "height": 0.419162, "minimum_coverage": 0.96},
-        {"x": 0.645161, "y": 0.561734, "width": 0.322581, "height": 0.322213, "minimum_coverage": 0.96}
+        {
+          "x": 0.020161,
+          "y": 0.018534,
+          "width": 0.429435,
+          "height": 0.215284,
+          "minimum_coverage": 0.96
+        },
+        {
+          "x": 0.032258,
+          "y": 0.279441,
+          "width": 0.419355,
+          "height": 0.212432,
+          "minimum_coverage": 0.96
+        },
+        {
+          "x": 0.032258,
+          "y": 0.536071,
+          "width": 0.431452,
+          "height": 0.206729,
+          "minimum_coverage": 0.96
+        },
+        {
+          "x": 0.637097,
+          "y": 0.025663,
+          "width": 0.330645,
+          "height": 0.419162,
+          "minimum_coverage": 0.96
+        },
+        {
+          "x": 0.645161,
+          "y": 0.561734,
+          "width": 0.322581,
+          "height": 0.322213,
+          "minimum_coverage": 0.96
+        }
       ],
       "verified_blank_regions": [
-        {"x": 0.032258, "y": 0.812660, "width": 0.391129, "height": 0.151126, "maximum_detection_coverage": 0.10}
+        {
+          "x": 0.032258,
+          "y": 0.81266,
+          "width": 0.391129,
+          "height": 0.151126,
+          "maximum_detection_coverage": 0.1
+        }
       ],
       "annotation": "Five manually verified mixed-format objects: three horizontal cards on the left, a complete PSA slab including its label on the upper right, and a complete signed one-touch card on the lower right. The lower-left region is verified empty scanner bed. Scoring only; never detector input."
     },
@@ -102,22 +347,75 @@
       "require_distinct_content_matches": true,
       "max_neighbour_content_overlap": 0.03,
       "required_content_regions": [
-        {"x": 0.040323, "y": 0.032792, "width": 0.429435, "height": 0.228115, "minimum_coverage": 0.96},
-        {"x": 0.679435, "y": 0.049900, "width": 0.290323, "height": 0.423439, "minimum_coverage": 0.96},
-        {"x": 0.040323, "y": 0.339321, "width": 0.427419, "height": 0.246650, "minimum_coverage": 0.96},
-        {"x": 0.661290, "y": 0.574565, "width": 0.306452, "height": 0.337896, "minimum_coverage": 0.96},
+        {
+          "x": 0.040323,
+          "y": 0.032792,
+          "width": 0.429435,
+          "height": 0.228115,
+          "minimum_coverage": 0.96
+        },
+        {
+          "x": 0.679435,
+          "y": 0.0499,
+          "width": 0.290323,
+          "height": 0.423439,
+          "minimum_coverage": 0.96
+        },
+        {
+          "x": 0.040323,
+          "y": 0.339321,
+          "width": 0.427419,
+          "height": 0.24665,
+          "minimum_coverage": 0.96
+        },
+        {
+          "x": 0.66129,
+          "y": 0.574565,
+          "width": 0.306452,
+          "height": 0.337896,
+          "minimum_coverage": 0.96
+        },
         {
           "x": 0.052419,
-          "y": 0.702880,
-          "width": 0.463710,
-          "height": 0.246650,
-          "points": [[0.052419, 0.735672], [0.479839, 0.702880], [0.516129, 0.915312], [0.076613, 0.949530]],
+          "y": 0.70288,
+          "width": 0.46371,
+          "height": 0.24665,
+          "points": [
+            [
+              0.052419,
+              0.735672
+            ],
+            [
+              0.479839,
+              0.70288
+            ],
+            [
+              0.516129,
+              0.915312
+            ],
+            [
+              0.076613,
+              0.94953
+            ]
+          ],
           "minimum_coverage": 0.96
         }
       ],
       "verified_blank_regions": [
-        {"x": 0.540323, "y": 0.042772, "width": 0.028226, "height": 0.590249, "maximum_detection_coverage": 0.10},
-        {"x": 0.048387, "y": 0.607642, "width": 0.419355, "height": 0.028514, "maximum_detection_coverage": 0.10}
+        {
+          "x": 0.540323,
+          "y": 0.042772,
+          "width": 0.028226,
+          "height": 0.590249,
+          "maximum_detection_coverage": 0.1
+        },
+        {
+          "x": 0.048387,
+          "y": 0.607642,
+          "width": 0.419355,
+          "height": 0.028514,
+          "maximum_detection_coverage": 0.1
+        }
       ],
       "annotation": "Five manually verified card backs after the cards were repositioned independently of the front: full printed regions for Galactus, Luka PSA including its grading label, Edgecombe, Coward, and a rotated Gradey Dick quad. Two inset scanner-bed regions with visible clearance from every valid object envelope reject fixed-grid fragments without penalizing legitimate crop safety margins. Scoring only; never detector or prior input."
     },
@@ -126,14 +424,50 @@
       "require_distinct_content_matches": true,
       "max_neighbour_content_overlap": 0.03,
       "required_content_regions": [
-        {"x": 0.032258, "y": 0.019960, "width": 0.568548, "height": 0.213858, "minimum_coverage": 0.96},
-        {"x": 0.032258, "y": 0.285144, "width": 0.568548, "height": 0.211007, "minimum_coverage": 0.96},
-        {"x": 0.032258, "y": 0.550328, "width": 0.568548, "height": 0.216709, "minimum_coverage": 0.96},
-        {"x": 0.681452, "y": 0.022812, "width": 0.290323, "height": 0.407756, "minimum_coverage": 0.96},
-        {"x": 0.677419, "y": 0.473339, "width": 0.294355, "height": 0.441973, "minimum_coverage": 0.96}
+        {
+          "x": 0.032258,
+          "y": 0.01996,
+          "width": 0.568548,
+          "height": 0.213858,
+          "minimum_coverage": 0.96
+        },
+        {
+          "x": 0.032258,
+          "y": 0.285144,
+          "width": 0.568548,
+          "height": 0.211007,
+          "minimum_coverage": 0.96
+        },
+        {
+          "x": 0.032258,
+          "y": 0.550328,
+          "width": 0.568548,
+          "height": 0.216709,
+          "minimum_coverage": 0.96
+        },
+        {
+          "x": 0.681452,
+          "y": 0.022812,
+          "width": 0.290323,
+          "height": 0.407756,
+          "minimum_coverage": 0.96
+        },
+        {
+          "x": 0.677419,
+          "y": 0.473339,
+          "width": 0.294355,
+          "height": 0.441973,
+          "minimum_coverage": 0.96
+        }
       ],
       "verified_blank_regions": [
-        {"x": 0.040323, "y": 0.826918, "width": 0.544355, "height": 0.142572, "maximum_detection_coverage": 0.10}
+        {
+          "x": 0.040323,
+          "y": 0.826918,
+          "width": 0.544355,
+          "height": 0.142572,
+          "maximum_detection_coverage": 0.1
+        }
       ],
       "annotation": "Historical five-object mixed-format sheet, visually rechecked on 2026-09-16. Full printed regions include the grading labels; lower-left is verified empty bed."
     },
@@ -142,14 +476,50 @@
       "require_distinct_content_matches": true,
       "max_neighbour_content_overlap": 0.03,
       "required_content_regions": [
-        {"x": 0.032258, "y": 0.019960, "width": 0.568548, "height": 0.213858, "minimum_coverage": 0.96},
-        {"x": 0.032258, "y": 0.285144, "width": 0.568548, "height": 0.211007, "minimum_coverage": 0.96},
-        {"x": 0.032258, "y": 0.550328, "width": 0.568548, "height": 0.216709, "minimum_coverage": 0.96},
-        {"x": 0.681452, "y": 0.022812, "width": 0.290323, "height": 0.407756, "minimum_coverage": 0.96},
-        {"x": 0.677419, "y": 0.473339, "width": 0.294355, "height": 0.441973, "minimum_coverage": 0.96}
+        {
+          "x": 0.032258,
+          "y": 0.01996,
+          "width": 0.568548,
+          "height": 0.213858,
+          "minimum_coverage": 0.96
+        },
+        {
+          "x": 0.032258,
+          "y": 0.285144,
+          "width": 0.568548,
+          "height": 0.211007,
+          "minimum_coverage": 0.96
+        },
+        {
+          "x": 0.032258,
+          "y": 0.550328,
+          "width": 0.568548,
+          "height": 0.216709,
+          "minimum_coverage": 0.96
+        },
+        {
+          "x": 0.681452,
+          "y": 0.022812,
+          "width": 0.290323,
+          "height": 0.407756,
+          "minimum_coverage": 0.96
+        },
+        {
+          "x": 0.677419,
+          "y": 0.473339,
+          "width": 0.294355,
+          "height": 0.441973,
+          "minimum_coverage": 0.96
+        }
       ],
       "verified_blank_regions": [
-        {"x": 0.040323, "y": 0.826918, "width": 0.544355, "height": 0.142572, "maximum_detection_coverage": 0.10}
+        {
+          "x": 0.040323,
+          "y": 0.826918,
+          "width": 0.544355,
+          "height": 0.142572,
+          "maximum_detection_coverage": 0.1
+        }
       ],
       "annotation": "Second immutable capture of the historical five-object mixed-format sheet; decoded geometry matches sheet 5bf6682a while the source SHA remains independently pinned."
     },
@@ -158,15 +528,57 @@
       "require_distinct_content_matches": true,
       "max_neighbour_content_overlap": 0.03,
       "required_content_regions": [
-        {"x": 0.028226, "y": 0.017109, "width": 0.415323, "height": 0.216709, "minimum_coverage": 0.96},
-        {"x": 0.032258, "y": 0.279441, "width": 0.411290, "height": 0.202452, "minimum_coverage": 0.96},
-        {"x": 0.032258, "y": 0.527516, "width": 0.411290, "height": 0.196749, "minimum_coverage": 0.96},
-        {"x": 0.032258, "y": 0.781295, "width": 0.411290, "height": 0.199601, "minimum_coverage": 0.96},
-        {"x": 0.572581, "y": 0.017109, "width": 0.395161, "height": 0.208155, "minimum_coverage": 0.96},
-        {"x": 0.665323, "y": 0.285144, "width": 0.302419, "height": 0.399202, "minimum_coverage": 0.96}
+        {
+          "x": 0.028226,
+          "y": 0.017109,
+          "width": 0.415323,
+          "height": 0.216709,
+          "minimum_coverage": 0.96
+        },
+        {
+          "x": 0.032258,
+          "y": 0.279441,
+          "width": 0.41129,
+          "height": 0.202452,
+          "minimum_coverage": 0.96
+        },
+        {
+          "x": 0.032258,
+          "y": 0.527516,
+          "width": 0.41129,
+          "height": 0.196749,
+          "minimum_coverage": 0.96
+        },
+        {
+          "x": 0.032258,
+          "y": 0.781295,
+          "width": 0.41129,
+          "height": 0.199601,
+          "minimum_coverage": 0.96
+        },
+        {
+          "x": 0.572581,
+          "y": 0.017109,
+          "width": 0.395161,
+          "height": 0.208155,
+          "minimum_coverage": 0.96
+        },
+        {
+          "x": 0.665323,
+          "y": 0.285144,
+          "width": 0.302419,
+          "height": 0.399202,
+          "minimum_coverage": 0.96
+        }
       ],
       "verified_blank_regions": [
-        {"x": 0.584677, "y": 0.769889, "width": 0.375000, "height": 0.199601, "maximum_detection_coverage": 0.10}
+        {
+          "x": 0.584677,
+          "y": 0.769889,
+          "width": 0.375,
+          "height": 0.199601,
+          "maximum_detection_coverage": 0.1
+        }
       ],
       "annotation": "Historical six-object mixed-format sheet, visually rechecked on 2026-09-16: four horizontal left objects and two right objects, with the lower-right bed verified empty."
     },
@@ -176,14 +588,62 @@
       "require_distinct_content_matches": true,
       "max_neighbour_content_overlap": 0.03,
       "required_content_regions": [
-        {"x": 0.080645, "y": 0.038494, "width": 0.314516, "height": 0.159681, "minimum_coverage": 0.98},
-        {"x": 0.629032, "y": 0.038494, "width": 0.314516, "height": 0.159681, "minimum_coverage": 0.98},
-        {"x": 0.080645, "y": 0.293698, "width": 0.314516, "height": 0.159681, "minimum_coverage": 0.98},
-        {"x": 0.629032, "y": 0.293698, "width": 0.314516, "height": 0.159681, "minimum_coverage": 0.98},
-        {"x": 0.080645, "y": 0.563159, "width": 0.314516, "height": 0.159681, "minimum_coverage": 0.98},
-        {"x": 0.629032, "y": 0.563159, "width": 0.314516, "height": 0.159681, "minimum_coverage": 0.98},
-        {"x": 0.080645, "y": 0.822640, "width": 0.314516, "height": 0.159681, "minimum_coverage": 0.98},
-        {"x": 0.629032, "y": 0.822640, "width": 0.314516, "height": 0.159681, "minimum_coverage": 0.98}
+        {
+          "x": 0.080645,
+          "y": 0.038494,
+          "width": 0.314516,
+          "height": 0.159681,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.629032,
+          "y": 0.038494,
+          "width": 0.314516,
+          "height": 0.159681,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.080645,
+          "y": 0.293698,
+          "width": 0.314516,
+          "height": 0.159681,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.629032,
+          "y": 0.293698,
+          "width": 0.314516,
+          "height": 0.159681,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.080645,
+          "y": 0.563159,
+          "width": 0.314516,
+          "height": 0.159681,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.629032,
+          "y": 0.563159,
+          "width": 0.314516,
+          "height": 0.159681,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.080645,
+          "y": 0.82264,
+          "width": 0.314516,
+          "height": 0.159681,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.629032,
+          "y": 0.82264,
+          "width": 0.314516,
+          "height": 0.159681,
+          "minimum_coverage": 0.98
+        }
       ],
       "annotation": "Eight manually checked independent card-face interiors on the immutable front revision 1; scoring only, never detector input."
     },
@@ -193,14 +653,62 @@
       "require_distinct_content_matches": true,
       "max_neighbour_content_overlap": 0.03,
       "required_content_regions": [
-        {"x": 0.078235, "y": 0.047049, "width": 0.305883, "height": 0.159538, "minimum_coverage": 0.98},
-        {"x": 0.611765, "y": 0.047049, "width": 0.305882, "height": 0.159538, "minimum_coverage": 0.98},
-        {"x": 0.078235, "y": 0.304534, "width": 0.305883, "height": 0.159538, "minimum_coverage": 0.98},
-        {"x": 0.611765, "y": 0.304534, "width": 0.305882, "height": 0.159538, "minimum_coverage": 0.98},
-        {"x": 0.078235, "y": 0.558169, "width": 0.305883, "height": 0.159538, "minimum_coverage": 0.98},
-        {"x": 0.611765, "y": 0.558169, "width": 0.305882, "height": 0.159538, "minimum_coverage": 0.98},
-        {"x": 0.078235, "y": 0.819076, "width": 0.305883, "height": 0.159538, "minimum_coverage": 0.98},
-        {"x": 0.611765, "y": 0.819076, "width": 0.305882, "height": 0.159538, "minimum_coverage": 0.98}
+        {
+          "x": 0.078235,
+          "y": 0.047049,
+          "width": 0.305883,
+          "height": 0.159538,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.611765,
+          "y": 0.047049,
+          "width": 0.305882,
+          "height": 0.159538,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.078235,
+          "y": 0.304534,
+          "width": 0.305883,
+          "height": 0.159538,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.611765,
+          "y": 0.304534,
+          "width": 0.305882,
+          "height": 0.159538,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.078235,
+          "y": 0.558169,
+          "width": 0.305883,
+          "height": 0.159538,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.611765,
+          "y": 0.558169,
+          "width": 0.305882,
+          "height": 0.159538,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.078235,
+          "y": 0.819076,
+          "width": 0.305883,
+          "height": 0.159538,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.611765,
+          "y": 0.819076,
+          "width": 0.305882,
+          "height": 0.159538,
+          "minimum_coverage": 0.98
+        }
       ],
       "annotation": "Eight manually checked independent card-back interiors on the immutable downscaled front revision 2; scoring only, never detector input."
     },
@@ -210,42 +718,136 @@
       "require_distinct_content_matches": true,
       "max_neighbour_content_overlap": 0.03,
       "required_content_regions": [
-        {"x": 0.080645, "y": 0.047049, "width": 0.314516, "height": 0.159680, "minimum_coverage": 0.98},
-        {"x": 0.629032, "y": 0.047049, "width": 0.314516, "height": 0.159680, "minimum_coverage": 0.98},
-        {"x": 0.080645, "y": 0.304534, "width": 0.314516, "height": 0.159680, "minimum_coverage": 0.98},
-        {"x": 0.629032, "y": 0.304534, "width": 0.314516, "height": 0.159680, "minimum_coverage": 0.98},
-        {"x": 0.080645, "y": 0.558027, "width": 0.314516, "height": 0.159680, "minimum_coverage": 0.98},
-        {"x": 0.629032, "y": 0.558027, "width": 0.314516, "height": 0.159680, "minimum_coverage": 0.98},
-        {"x": 0.080645, "y": 0.818934, "width": 0.314516, "height": 0.159680, "minimum_coverage": 0.98},
-        {"x": 0.629032, "y": 0.818934, "width": 0.314516, "height": 0.159680, "minimum_coverage": 0.98}
+        {
+          "x": 0.080645,
+          "y": 0.047049,
+          "width": 0.314516,
+          "height": 0.15968,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.629032,
+          "y": 0.047049,
+          "width": 0.314516,
+          "height": 0.15968,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.080645,
+          "y": 0.304534,
+          "width": 0.314516,
+          "height": 0.15968,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.629032,
+          "y": 0.304534,
+          "width": 0.314516,
+          "height": 0.15968,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.080645,
+          "y": 0.558027,
+          "width": 0.314516,
+          "height": 0.15968,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.629032,
+          "y": 0.558027,
+          "width": 0.314516,
+          "height": 0.15968,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.080645,
+          "y": 0.818934,
+          "width": 0.314516,
+          "height": 0.15968,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.629032,
+          "y": 0.818934,
+          "width": 0.314516,
+          "height": 0.15968,
+          "minimum_coverage": 0.98
+        }
       ],
       "annotation": "Eight manually checked independent card-back interiors on the immutable back revision 1; scoring only, never detector or prior input."
     },
     "087c972f-20b5-4bde-a2f1-c258d703ac9d": {
       "max_unusable_regions": 0,
-      "required_layout_signals": ["current_instance_recovery"],
+      "required_layout_signals": [
+        "current_instance_recovery"
+      ],
       "require_distinct_content_matches": true,
       "max_neighbour_content_overlap": 0.03,
       "required_content_regions": [
-        {"x": 0.045, "y": 0.045, "width": 0.415, "height": 0.21, "minimum_coverage": 0.98},
-        {"x": 0.55, "y": 0.06, "width": 0.40, "height": 0.205, "minimum_coverage": 0.98},
-        {"x": 0.05, "y": 0.315, "width": 0.385, "height": 0.19, "minimum_coverage": 0.98},
-        {"x": 0.57, "y": 0.33, "width": 0.36, "height": 0.18, "minimum_coverage": 0.98},
-        {"x": 0.26, "y": 0.63, "width": 0.40, "height": 0.20, "minimum_coverage": 0.98}
+        {
+          "x": 0.045,
+          "y": 0.045,
+          "width": 0.415,
+          "height": 0.21,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.55,
+          "y": 0.06,
+          "width": 0.4,
+          "height": 0.205,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.05,
+          "y": 0.315,
+          "width": 0.385,
+          "height": 0.19,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.57,
+          "y": 0.33,
+          "width": 0.36,
+          "height": 0.18,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.26,
+          "y": 0.63,
+          "width": 0.4,
+          "height": 0.2,
+          "minimum_coverage": 0.98
+        }
       ],
       "annotation": "Manually checked card-face interior rectangles on the immutable original; used only for scoring, never detector input."
     },
     "99b985d6-fc21-44b7-bd09-08dc4d37133b": {
       "max_unusable_regions": 0,
       "required_content_regions": [
-        {"x": 0.015, "y": 0.78, "width": 0.425, "height": 0.22, "minimum_coverage": 0.98}
+        {
+          "x": 0.015,
+          "y": 0.78,
+          "width": 0.425,
+          "height": 0.22,
+          "minimum_coverage": 0.98
+        }
       ]
     },
     "8b3a4597-fe63-4957-a703-5cbc283ed632": {
       "max_unusable_regions": 0,
-      "required_layout_signals": ["row_local_body_recovery"],
+      "required_layout_signals": [
+        "row_local_body_recovery"
+      ],
       "required_content_regions": [
-        {"x": 0.14, "y": 0.77, "width": 0.49, "height": 0.23, "minimum_coverage": 0.98}
+        {
+          "x": 0.14,
+          "y": 0.77,
+          "width": 0.49,
+          "height": 0.23,
+          "minimum_coverage": 0.98
+        }
       ]
     },
     "072c29ed-1137-43ed-bed2-b23919ab1773": {
@@ -259,9 +861,493 @@
       "required_layout_signals": [
         "single_slab_grid_fragmentation_guard"
       ]
+    },
+    "eb670aba-74aa-47e7-81d8-38cca6a65695": {
+      "required_content_regions": [
+        {
+          "x": 0.04,
+          "y": 0.036,
+          "width": 0.41000000000000003,
+          "height": 0.222,
+          "points": [
+            [
+              0.04,
+              0.038
+            ],
+            [
+              0.45,
+              0.036
+            ],
+            [
+              0.45,
+              0.257
+            ],
+            [
+              0.04,
+              0.258
+            ]
+          ],
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.526,
+          "y": 0.027,
+          "width": 0.41999999999999993,
+          "height": 0.23900000000000002,
+          "points": [
+            [
+              0.526,
+              0.041
+            ],
+            [
+              0.925,
+              0.027
+            ],
+            [
+              0.946,
+              0.252
+            ],
+            [
+              0.55,
+              0.266
+            ]
+          ],
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.046,
+          "y": 0.325,
+          "width": 0.44,
+          "height": 0.22500000000000003,
+          "points": [
+            [
+              0.046,
+              0.325
+            ],
+            [
+              0.486,
+              0.33
+            ],
+            [
+              0.485,
+              0.55
+            ],
+            [
+              0.047,
+              0.546
+            ]
+          ],
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.044,
+          "y": 0.597,
+          "width": 0.431,
+          "height": 0.22999999999999998,
+          "points": [
+            [
+              0.044,
+              0.6
+            ],
+            [
+              0.466,
+              0.597
+            ],
+            [
+              0.475,
+              0.823
+            ],
+            [
+              0.046,
+              0.827
+            ]
+          ],
+          "minimum_coverage": 0.98
+        }
+      ],
+      "require_distinct_content_matches": true,
+      "max_unusable_regions": 0
+    },
+    "984db2bd-75aa-4189-a7c4-f50c59472636": {
+      "required_content_regions": [
+        {
+          "x": 0.024,
+          "y": 0.065,
+          "width": 0.44499999999999995,
+          "height": 0.21899999999999997,
+          "points": [
+            [
+              0.024,
+              0.065
+            ],
+            [
+              0.469,
+              0.066
+            ],
+            [
+              0.469,
+              0.284
+            ],
+            [
+              0.024,
+              0.284
+            ]
+          ],
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.55,
+          "y": 0.091,
+          "width": 0.44699999999999995,
+          "height": 0.261,
+          "points": [
+            [
+              0.55,
+              0.144
+            ],
+            [
+              0.956,
+              0.091
+            ],
+            [
+              0.997,
+              0.303
+            ],
+            [
+              0.6,
+              0.352
+            ]
+          ],
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.04,
+          "y": 0.338,
+          "width": 0.42600000000000005,
+          "height": 0.22000000000000003,
+          "points": [
+            [
+              0.04,
+              0.338
+            ],
+            [
+              0.466,
+              0.338
+            ],
+            [
+              0.466,
+              0.558
+            ],
+            [
+              0.04,
+              0.558
+            ]
+          ],
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.051,
+          "y": 0.61,
+          "width": 0.435,
+          "height": 0.22699999999999998,
+          "points": [
+            [
+              0.051,
+              0.615
+            ],
+            [
+              0.482,
+              0.61
+            ],
+            [
+              0.486,
+              0.831
+            ],
+            [
+              0.055,
+              0.837
+            ]
+          ],
+          "minimum_coverage": 0.98
+        }
+      ],
+      "require_distinct_content_matches": true,
+      "max_neighbour_content_overlap": 0.01
+    },
+    "9d4e859c-d88d-4423-9d89-0d534bd7f1f8": {
+      "max_unusable_regions": 0,
+      "require_distinct_content_matches": true,
+      "max_neighbour_content_overlap": 0.03,
+      "required_content_regions": [
+        {
+          "x": 0.045,
+          "y": 0.025,
+          "width": 0.425,
+          "height": 0.21,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.06,
+          "y": 0.28,
+          "width": 0.415,
+          "height": 0.21,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.035,
+          "y": 0.54,
+          "width": 0.59,
+          "height": 0.23,
+          "minimum_coverage": 0.98
+        }
+      ],
+      "verified_blank_regions": [
+        {
+          "x": 0.72,
+          "y": 0.05,
+          "width": 0.24,
+          "height": 0.88,
+          "maximum_detection_coverage": 0.01
+        },
+        {
+          "x": 0.04,
+          "y": 0.86,
+          "width": 0.62,
+          "height": 0.12,
+          "maximum_detection_coverage": 0.01
+        }
+      ],
+      "annotation": "Three manually verified stacked objects, including the complete lower graded Marvels holder and its left label. Right and lower scanner bed are empty. Scoring only; never detector input."
+    },
+    "b9e6a078-b811-4c3f-9d13-f75ab7d7f448": {
+      "max_unusable_regions": 0,
+      "require_distinct_content_matches": true,
+      "max_neighbour_content_overlap": 0.01,
+      "required_content_regions": [
+        {
+          "x": 0.05,
+          "y": 0.02,
+          "width": 0.405,
+          "height": 0.205,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.05,
+          "y": 0.29,
+          "width": 0.405,
+          "height": 0.195,
+          "minimum_coverage": 0.98
+        },
+        {
+          "x": 0.05,
+          "y": 0.535,
+          "width": 0.405,
+          "height": 0.2,
+          "minimum_coverage": 0.98
+        }
+      ],
+      "annotation": "Manually verified full printed card backs for the two Mavericks cards and Cooper Flagg: logo and text panel alone must not count as complete content. Scoring only; never detector input."
+    },
+    "4ac7de65-8e1d-41d8-9083-90da02853d1c": {
+      "max_unusable_regions": 0,
+      "require_distinct_content_matches": true,
+      "max_neighbour_content_overlap": 0.01,
+      "required_content_regions": [
+        {
+          "x": 0.56,
+          "y": 0.34,
+          "width": 0.41,
+          "height": 0.21,
+          "minimum_coverage": 0.98
+        }
+      ],
+      "verified_blank_regions": [
+        {
+          "x": 0.56,
+          "y": 0.67,
+          "width": 0.39,
+          "height": 0.29,
+          "maximum_detection_coverage": 0.01
+        }
+      ],
+      "annotation": "Six manually verified objects; offset horizontal Origins signature card is one complete object. Lower right scanner bed is empty. Scoring only; never detector input."
+    },
+    "329895ab-cb14-4456-b01f-d8be454b8cae": {
+      "max_unusable_regions": 0,
+      "require_distinct_content_matches": true,
+      "required_content_regions": [
+        {
+          "x": 0.035,
+          "y": 0.025,
+          "width": 0.405,
+          "height": 0.195,
+          "minimum_coverage": 0.98
+        }
+      ],
+      "annotation": "Reflective Curry card at upper left is a complete physical card, not an unresolved capacity cell. Scoring only; never detector input."
+    },
+    "916c9c36-5059-4d40-b6e7-f0927aae47fe": {
+      "max_unusable_regions": 0,
+      "require_distinct_content_matches": true,
+      "max_neighbour_content_overlap": 0.01,
+      "required_content_regions": [
+        {
+          "object_id": "haliburton-graded",
+          "role": "body",
+          "x": 0.166,
+          "y": 0.046672,
+          "width": 0.42,
+          "height": 0.214976,
+          "points": [
+            [
+              0.168,
+              0.048794
+            ],
+            [
+              0.585,
+              0.046672
+            ],
+            [
+              0.586,
+              0.25882
+            ],
+            [
+              0.166,
+              0.261648
+            ]
+          ],
+          "minimum_coverage": 0.98
+        },
+        {
+          "object_id": "haliburton-graded",
+          "role": "label",
+          "x": 0.02,
+          "y": 0.035358,
+          "width": 0.091,
+          "height": 0.233362,
+          "points": [
+            [
+              0.022,
+              0.035358
+            ],
+            [
+              0.111,
+              0.035358
+            ],
+            [
+              0.11,
+              0.26872
+            ],
+            [
+              0.02,
+              0.26872
+            ]
+          ],
+          "minimum_coverage": 0.98
+        },
+        {
+          "object_id": "leonard-graded",
+          "role": "body",
+          "x": 0.173,
+          "y": 0.348628,
+          "width": 0.421,
+          "height": 0.212855,
+          "points": [
+            [
+              0.176,
+              0.348628
+            ],
+            [
+              0.592,
+              0.349336
+            ],
+            [
+              0.594,
+              0.561483
+            ],
+            [
+              0.173,
+              0.561483
+            ]
+          ],
+          "minimum_coverage": 0.98
+        },
+        {
+          "object_id": "leonard-graded",
+          "role": "label",
+          "x": 0.02,
+          "y": 0.338728,
+          "width": 0.091,
+          "height": 0.228412,
+          "points": [
+            [
+              0.023,
+              0.338728
+            ],
+            [
+              0.111,
+              0.338728
+            ],
+            [
+              0.11,
+              0.56714
+            ],
+            [
+              0.02,
+              0.56714
+            ]
+          ],
+          "minimum_coverage": 0.98
+        }
+      ],
+      "verified_blank_regions": [
+        {
+          "x": 0.72,
+          "y": 0.04,
+          "width": 0.25,
+          "height": 0.83,
+          "maximum_detection_coverage": 0.01
+        },
+        {
+          "x": 0.1,
+          "y": 0.68,
+          "width": 0.5,
+          "height": 0.22,
+          "maximum_detection_coverage": 0.01
+        }
+      ],
+      "annotation": "2026-10-14: two manually traced complete printed bodies and separate HEM grading-label interiors on immutable front original. Parts sharing object_id must occupy the same final crop; scoring only, never detector/prior input."
+    },
+    "c1cc16cb-790b-4fe1-b948-da61e3b3e7b9": {
+      "max_unusable_regions": 0,
+      "require_distinct_content_matches": true,
+      "max_neighbour_content_overlap": 0.01,
+      "required_content_regions": [
+        {
+          "object_id": "jason-kidd-back",
+          "role": "body",
+          "x": 0.6,
+          "y": 0.065,
+          "width": 0.35,
+          "height": 0.17,
+          "minimum_coverage": 0.98
+        },
+        {
+          "object_id": "derrick-white-back",
+          "role": "body",
+          "x": 0.07,
+          "y": 0.83,
+          "width": 0.39,
+          "height": 0.155,
+          "minimum_coverage": 0.98
+        }
+      ],
+      "annotation": "2026-10-14 manual safe printed-content interiors on immutable back: Jason Kidd must retain the upper half; Derrick White 30/49 must retain content outside the central gold text frame. Scoring only, never detector/prior input."
     }
   },
   "must_pass_sheets": [
+    "6510b71e-08d9-4d21-9ed6-d019896647f7",
+    "53898155-464c-49ce-b3fb-709a2bee9a82",
     "087c972f-20b5-4bde-a2f1-c258d703ac9d",
     "99b985d6-fc21-44b7-bd09-08dc4d37133b",
     "8b3a4597-fe63-4957-a703-5cbc283ed632",
@@ -278,14 +1364,26 @@
     "5bf6682a-7f9b-4fc7-95d0-fc32ac3dcaf4",
     "69b56186-7879-48f2-84a7-6da5ae85b158",
     "83b49571-3533-4f5a-a57c-28c0573409f0",
-    "bb91de95-1451-4ffc-b3ed-f02b437c8083"
+    "bb91de95-1451-4ffc-b3ed-f02b437c8083",
+    "eb670aba-74aa-47e7-81d8-38cca6a65695",
+    "984db2bd-75aa-4189-a7c4-f50c59472636",
+    "b9e6a078-b811-4c3f-9d13-f75ab7d7f448",
+    "4ac7de65-8e1d-41d8-9083-90da02853d1c",
+    "329895ab-cb14-4456-b01f-d8be454b8cae",
+    "916c9c36-5059-4d40-b6e7-f0927aae47fe",
+    "c1cc16cb-790b-4fe1-b948-da61e3b3e7b9"
   ],
   "minimum_metrics": {
-    "standalone_count_recall": 0.80,
+    "standalone_count_recall": 0.8,
     "duplicate_free_rate": 1.0,
     "whole_sheet_rejection_rate": 1.0,
     "usable_region_rate": 0.99,
     "critical_geometry_pass_rate": 1.0
   },
-  "notes": "Local-only SHA-deduplicated replay manifest. Original scans are immutable and untracked; expected counts and human geometry labels are used only for scoring, never passed to the detector. Recorded detector DPI comes from flatbed_scan_session and is not inferred from expected counts or PNG metadata. Critical sources are pinned by SHA-256 and pixel dimensions before detection."
+  "notes": "Local-only SHA-deduplicated replay manifest. Original scans are immutable and untracked; expected counts and human geometry labels are used only for scoring, never passed to the detector. Recorded detector DPI comes from flatbed_scan_session and is not inferred from expected counts or PNG metadata. Critical sources are pinned by SHA-256 and pixel dimensions before detection.",
+  "dpi_by_sheet": {
+    "984db2bd-75aa-4189-a7c4-f50c59472636": 300,
+    "916c9c36-5059-4d40-b6e7-f0927aae47fe": 300,
+    "c1cc16cb-790b-4fe1-b948-da61e3b3e7b9": 300
+  }
 }

@@ -11,8 +11,10 @@ from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
 from card_platform.card_search_service import CardSearchService
+from card_platform.catalog_evidence import normalize_team_parallel
 from card_platform.config import Settings
 from card_platform.domain.card_identity import canonical_insert
+from card_platform.domain.identity_review import is_tcg_collector_number
 from card_platform.domain.sketch_identity import is_sketch_card
 from card_platform.domain.serial_evidence import (
     serial_field_evidence,
@@ -31,6 +33,7 @@ from card_platform.recognition_catalog import (
     scoped_parallel_options,
 )
 from card_platform.schemas import CardRecognitionResult
+from card_platform.serial_ocr import verified_ocr_serial_total
 
 BACK_PRIORITY_FIELDS = {
     "season_start",
@@ -67,7 +70,7 @@ SERIAL_AS_PARALLEL = re.compile(
 CARD_NUMBER_PREFIX = re.compile(r"^\s*(?:card\s*)?(?:no\.?|#)\s*", re.IGNORECASE)
 VISION_MAX_EDGE = 1800
 BENCHMARK_REMOTE_MAX_BYTES = 25 * 1024 * 1024
-RECOGNITION_PIPELINE_VERSION = "image-v5.4.0"
+RECOGNITION_PIPELINE_VERSION = "image-v5.4.1"
 RICH_ATTRIBUTE_FIELDS = (
     "is_rookie",
     "is_autograph",
@@ -158,6 +161,7 @@ PRODUCT_MANUFACTURERS = {
 
 def canonicalize_identity(result: CardRecognitionResult) -> CardRecognitionResult:
     """Remove common visual-model category errors before scoring/searching."""
+    result = normalize_team_parallel(result)
     updates: dict[str, Any] = {}
     caveats = list(result.caveats)
     cleaned = False
@@ -319,8 +323,8 @@ def canonicalize_identity(result: CardRecognitionResult) -> CardRecognitionResul
         "donrussopticbasketball": "Donruss Optic",
         "immaculatecollectionbasketball": "Immaculate Collection",
         "mosaicbasketball": "Mosaic",
-        "prizmdecabasketball": "Prizm",
-        "prizmblackbasketball": "Prizm",
+        "prizmdecabasketball": "Prizm Deca",
+        "prizmblackbasketball": "Prizm Black",
         "toppsinception": "Topps Inception",
         "toppsnow": "Topps Now",
     }
@@ -449,6 +453,12 @@ def canonicalize_identity(result: CardRecognitionResult) -> CardRecognitionResul
     visible_serial = unique_visible_serial(
         serial_field_evidence(result.field_evidence)
     )
+    collector_fraction = is_tcg_collector_number(result.model_dump())
+    if collector_fraction and visible_serial is not None:
+        collector_pair = tuple(int(v) for v in result.card_number.split('/'))
+        if (visible_serial.number, visible_serial.total) == collector_pair:
+            visible_serial = None
+    partial_total = verified_ocr_serial_total(result)
     if visible_serial is not None:
         serial_number, serial_total = visible_serial.number, visible_serial.total
         if (
@@ -460,6 +470,8 @@ def canonicalize_identity(result: CardRecognitionResult) -> CardRecognitionResul
             updates["serial_total"] = serial_total
             caveats.append("限编已按 is_numbered 的可见 x/y 证据纠正")
             cleaned = True
+    elif partial_total is not None:
+        updates.update(is_numbered=True, serial_number=None, serial_total=partial_total)
     elif (
         result.serial_number is not None
         or result.serial_total is not None
@@ -671,7 +683,7 @@ def canonicalize_identity(result: CardRecognitionResult) -> CardRecognitionResul
         cleaned = True
 
     card_serial_match = SERIAL_AS_PARALLEL.fullmatch(result.card_number or "")
-    if card_serial_match:
+    if card_serial_match and not collector_fraction:
         serial_number, serial_total = (int(value) for value in card_serial_match.groups())
         updates["card_number"] = None
         updates["serial_number"] = result.serial_number or serial_number

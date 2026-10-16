@@ -1,0 +1,123 @@
+{
+  "front": {
+    "coverage": [
+      0.9999999953716643,
+      0.9999999940496632,
+      1.0000000275577452,
+      1.0000000053184757
+    ],
+    "neighbour_overlap": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "distinct_crops": 4,
+    "quality": {
+      "region_count": 4,
+      "usable_count": 4,
+      "needs_review_count": 3,
+      "error_count": 0,
+      "error_codes": [],
+      "minimum_usability_score": 0.948
+    },
+    "ml": {
+      "status": "accepted",
+      "reason": null,
+      "model": "sam2.1-hiera-tiny",
+      "refined_count": 2,
+      "edge_refined_count": 0,
+      "fallback_count": 2,
+      "overlap_fallback_indices": [],
+      "geometry_validation": "joint_proposals_v3_object_coverage",
+      "object_preservation_fallback_count": 2,
+      "object_preservation_fallback_indices": [
+        0,
+        2
+      ],
+      "label_preservation_fallback_count": 0,
+      "label_preservation_fallback_indices": [],
+      "preservation_fallback_details": [
+        {
+          "index": 0,
+          "reason": "object_envelope_coverage_below_minimum",
+          "original_polygon_coverage": 0.912125,
+          "minimum_coverage": 0.95
+        },
+        {
+          "index": 2,
+          "reason": "object_envelope_coverage_below_minimum",
+          "original_polygon_coverage": 0.863928,
+          "minimum_coverage": 0.95
+        }
+      ],
+      "inference_seconds": 0.911
+    }
+  },
+  "back": {
+    "coverage": [
+      0.9999999837942736,
+      0.999999995841427,
+      1.0000000114604761,
+      0.9999999775385112
+    ],
+    "neighbour_overlap": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "distinct_crops": 4,
+    "quality": {
+      "region_count": 4,
+      "usable_count": 4,
+      "needs_review_count": 4,
+      "error_count": 0,
+      "error_codes": [],
+      "minimum_usability_score": 0.974
+    },
+    "ml": {
+      "status": "accepted",
+      "reason": null,
+      "model": "sam2.1-hiera-tiny",
+      "refined_count": 2,
+      "edge_refined_count": 0,
+      "fallback_count": 2,
+      "overlap_fallback_indices": [],
+      "geometry_validation": "joint_proposals_v3_object_coverage",
+      "object_preservation_fallback_count": 2,
+      "object_preservation_fallback_indices": [
+        0,
+        3
+      ],
+      "label_preservation_fallback_count": 0,
+      "label_preservation_fallback_indices": [],
+      "preservation_fallback_details": [
+        {
+          "index": 0,
+          "reason": "object_envelope_coverage_below_minimum",
+          "original_polygon_coverage": 0.936326,
+          "minimum_coverage": 0.95
+        },
+        {
+          "index": 3,
+          "reason": "object_envelope_coverage_below_minimum",
+          "original_polygon_coverage": 0.868581,
+          "minimum_coverage": 0.95
+        }
+      ],
+      "inference_seconds": 1.116
+    }
+  },
+  "jordan": {
+    "count": 7,
+    "quality": {
+      "region_count": 7,
+      "usable_count": 7,
+      "needs_review_count": 6,
+      "error_count": 0,
+      "error_codes": [],
+      "minimum_usability_score": 0.948
+    }
+  }
+}

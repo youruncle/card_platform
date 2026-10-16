@@ -1,0 +1,564 @@
+{
+  "display_id": 586,
+  "identity_before": {
+    "is_patch": false,
+    "set_name": null,
+    "is_rookie": false,
+    "print_run": null,
+    "brand_name": "Topps",
+    "season_end": null,
+    "card_number": "R-5",
+    "grade_value": null,
+    "insert_name": null,
+    "player_name": "Tracy McGrady",
+    "is_autograph": false,
+    "product_name": "Signature Class",
+    "season_start": 2026,
+    "serial_total": null,
+    "grade_company": null,
+    "is_redemption": false,
+    "parallel_name": null,
+    "serial_number": null,
+    "redemption_status": "unknown"
+  },
+  "resolved_insert": "Roses",
+  "insert_evidence": [
+    {
+      "source": "catalog",
+      "value": "Roses",
+      "source_url": "https://cdn.shopify.com/s/files/1/0662/9749/5709/files/2025-26_Topps_Signature_Class_Basketball_Checklist.pdf?v=1777313247",
+      "reason": "Topps official checklist p.10: Roses R-1 through R-25"
+    }
+  ],
+  "query_plan": [
+    "麦迪 R-5",
+    "麦迪 Roses",
+    "Tracy McGrady R-5",
+    "Tracy McGrady Roses",
+    "麦迪 2026 Roses",
+    "Tracy McGrady 2026 Roses",
+    "麦迪 Topps Signature Class",
+    "麦迪 Signature Class",
+    "麦迪 玫瑰",
+    "麦迪 Topps Signature Class 玫瑰",
+    "麦迪 Topps Signature Class R-5",
+    "麦迪 2026"
+  ],
+  "queries": [
+    {
+      "query": "麦迪 Roses",
+      "raw_count": 18,
+      "matching_candidates": [
+        {
+          "id": "129508348",
+          "url": "https://cardhobby.com.cn/Market/Item/129508348",
+          "title": "【战斧代卖】2025-26 Topps Signature Class Tracy Mcgrady 麦克格雷迪 TMAC 麦迪 火箭 Roses 胶片 玫瑰特卡 大比例 ssp 收藏必备 瑕疵如图｜战斧嗨瑞G1026",
+          "price": "155",
+          "shipping": "12",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体",
+            "标题只命中球员和产品，缺少赛季、卡号、版本或限编锚点"
+          ],
+          "after_score": "0.62",
+          "after_conflicts": [],
+          "damage_disclosed": true
+        },
+        {
+          "id": "128193878",
+          "url": "https://cardhobby.com.cn/Market/Item/128193878",
+          "title": "【战斧代卖】2025-26 Topps Signature Class Tracy Mcgrady 麦克格雷迪 TMAC 麦迪 火箭 Roses 胶片 玫瑰特卡 大比例 ssp 收藏必备 瑕疵如图｜战斧嗨瑞G26",
+          "price": "188",
+          "shipping": "12",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体",
+            "标题只命中球员和产品，缺少赛季、卡号、版本或限编锚点"
+          ],
+          "after_score": "0.62",
+          "after_conflicts": [],
+          "damage_disclosed": true
+        },
+        {
+          "id": "124210074",
+          "url": "https://cardhobby.com.cn/Market/Item/124210074",
+          "title": "【LA拍卖】2025-26 Topps Signature Class Tracy McGrady 麦克格雷迪 麦迪 魔术火箭队猛龙队 名宿 NBA得分王 天才巨星 四大分卫 Roses 玫瑰特卡 胶片特卡 大比例 SP  H01D",
+          "price": "207.5",
+          "shipping": "18",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体",
+            "标题只命中球员和产品，缺少赛季、卡号、版本或限编锚点"
+          ],
+          "after_score": "0.62",
+          "after_conflicts": [],
+          "damage_disclosed": false
+        },
+        {
+          "id": "122156847",
+          "url": "https://cardhobby.com.cn/Market/Item/122156847",
+          "title": "2026 Topps Signature Class Tracy McGrady 【云猫代卖】特雷西 麦克格雷迪 麦迪 火箭 Roses 玫瑰 胶片 特卡 大比例 SSP 轻印见图 任涛Q24",
+          "price": "131.11",
+          "shipping": "18",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体"
+          ],
+          "after_score": "0.77",
+          "after_conflicts": [],
+          "damage_disclosed": true
+        },
+        {
+          "id": "121622165",
+          "url": "https://cardhobby.com.cn/Market/Item/121622165",
+          "title": "【阿福拍卖】2026 Topps Signature Class Tracy McGrady  特雷西 麦克格雷迪 麦迪 大比例 SSP Roses 玫瑰 胶片 瑕疵图三四 收藏必备（ZLX）",
+          "price": "158.29",
+          "shipping": "18",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体"
+          ],
+          "after_score": "0.77",
+          "after_conflicts": [],
+          "damage_disclosed": true
+        },
+        {
+          "id": "120548966",
+          "url": "https://cardhobby.com.cn/Market/Item/120548966",
+          "title": "【战斧暴扣】2026 Topps Signature Class Tracy Mcgrady 麦克格雷迪 TMAC 麦迪 火箭 大比例 SSP Roses 胶片特卡 收藏必备 瑕疵如图｜战斧猫屎D2",
+          "price": "179.9",
+          "shipping": "12",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体"
+          ],
+          "after_score": "0.77",
+          "after_conflicts": [],
+          "damage_disclosed": true
+        },
+        {
+          "id": "117872493",
+          "url": "https://cardhobby.com.cn/Market/Item/117872493",
+          "title": "2026 【腕龙代卖】 #腕龙雨轩jN8# Topps Signature Class 麦迪 麦克格雷迪 火箭 Roses 玫瑰 胶片特卡 大比例 Tracy McGrady 瑕疵",
+          "price": "93",
+          "shipping": "18",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡，但标题显示为其他特卡、产品变体、平行或限编"
+          ],
+          "after_score": "0.77",
+          "after_conflicts": [],
+          "damage_disclosed": true
+        },
+        {
+          "id": "117992344",
+          "url": "https://cardhobby.com.cn/Market/Item/117992344",
+          "title": "【战斧暴扣】2025-26 Topps Signature Class Tracy McGrady 特雷西 麦克格雷迪 麦迪 火箭 大比例 SSP Roses 胶片特卡 收藏必备 瑕疵如图｜战斧班马C1",
+          "price": "203.88",
+          "shipping": "12",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体",
+            "标题只命中球员和产品，缺少赛季、卡号、版本或限编锚点"
+          ],
+          "after_score": "0.62",
+          "after_conflicts": [],
+          "damage_disclosed": true
+        },
+        {
+          "id": "116753036",
+          "url": "https://cardhobby.com.cn/Market/Item/116753036",
+          "title": "【小幻拍卖】2025-26 TOPPS Signature Class TRACY McGRADY 火箭 特雷西 麦克格雷迪 麦迪 Roses 玫瑰 特卡 胶片 大比例 SP 卡品如图(1)-kenne-【A】",
+          "price": "248",
+          "shipping": "16",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体",
+            "标题只命中球员和产品，缺少赛季、卡号、版本或限编锚点"
+          ],
+          "after_score": "0.62",
+          "after_conflicts": [],
+          "damage_disclosed": false
+        },
+        {
+          "id": "116753122",
+          "url": "https://cardhobby.com.cn/Market/Item/116753122",
+          "title": "【小幻拍卖】2025-26 TOPPS Signature Class TRACY McGRADY 火箭 特雷西 麦克格雷迪 麦迪 Roses 玫瑰 特卡 胶片 大比例 SP 微瑕如图(2)-kenne-【A】",
+          "price": "237",
+          "shipping": "16",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体",
+            "标题只命中球员和产品，缺少赛季、卡号、版本或限编锚点"
+          ],
+          "after_score": "0.62",
+          "after_conflicts": [],
+          "damage_disclosed": true
+        },
+        {
+          "id": "116450105",
+          "url": "https://cardhobby.com.cn/Market/Item/116450105",
+          "title": "【对号拍卖】2025-26 Topps signature Class tracy mcgrady 火箭队 特雷西 麦克格雷迪 麦迪 roses 玫瑰 胶片特卡 大比例 SSP 极其稀有 实卡极美",
+          "price": "333",
+          "shipping": "18",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体",
+            "标题只命中球员和产品，缺少赛季、卡号、版本或限编锚点"
+          ],
+          "after_score": "0.62",
+          "after_conflicts": [],
+          "damage_disclosed": false
+        },
+        {
+          "id": "115720134",
+          "url": "https://cardhobby.com.cn/Market/Item/115720134",
+          "title": "【LA拍卖】2025-26 Topps Signature Class Tracy McGrady 麦克格雷迪 麦迪 魔术火箭队猛龙队 名宿 NBA得分王 天才巨星 四大分卫 Roses 玫瑰特卡 胶片特卡 大比例 SP 瑕疵如图 V75A",
+          "price": "288.88",
+          "shipping": "18",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体",
+            "标题只命中球员和产品，缺少赛季、卡号、版本或限编锚点"
+          ],
+          "after_score": "0.62",
+          "after_conflicts": [],
+          "damage_disclosed": true
+        },
+        {
+          "id": "115696293",
+          "url": "https://cardhobby.com.cn/Market/Item/115696293",
+          "title": "2025-26 Topps Signature Class Tracy McGrady LS7拍卖 Class 火箭 特雷西 麦克格雷迪 麦迪 Roses 玫瑰 胶片 特卡 大比例 RP8",
+          "price": "350",
+          "shipping": "18",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡，但标题显示为其他特卡、产品变体、平行或限编",
+            "标题只命中球员和产品，缺少赛季、卡号、版本或限编锚点"
+          ],
+          "after_score": "0.62",
+          "after_conflicts": [],
+          "damage_disclosed": false
+        },
+        {
+          "id": "116221078",
+          "url": "https://cardhobby.com.cn/Market/Item/116221078",
+          "title": "【浩行拍卖精品 截标预付82%】2026 topps Signature Class tracy mcgrady 特雷西 麦克格雷迪 麦迪 roses 玫瑰 胶片特卡 大比例 SSP 专收必备「晚摇壹」0606G03兿",
+          "price": "313",
+          "shipping": "18",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体"
+          ],
+          "after_score": "0.77",
+          "after_conflicts": [],
+          "damage_disclosed": false
+        }
+      ]
+    },
+    {
+      "query": "麦迪 玫瑰",
+      "raw_count": 33,
+      "matching_candidates": [
+        {
+          "id": "129508348",
+          "url": "https://cardhobby.com.cn/Market/Item/129508348",
+          "title": "【战斧代卖】2025-26 Topps Signature Class Tracy Mcgrady 麦克格雷迪 TMAC 麦迪 火箭 Roses 胶片 玫瑰特卡 大比例 ssp 收藏必备 瑕疵如图｜战斧嗨瑞G1026",
+          "price": "155",
+          "shipping": "12",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体",
+            "标题只命中球员和产品，缺少赛季、卡号、版本或限编锚点"
+          ],
+          "after_score": "0.62",
+          "after_conflicts": [],
+          "damage_disclosed": true
+        },
+        {
+          "id": "128193878",
+          "url": "https://cardhobby.com.cn/Market/Item/128193878",
+          "title": "【战斧代卖】2025-26 Topps Signature Class Tracy Mcgrady 麦克格雷迪 TMAC 麦迪 火箭 Roses 胶片 玫瑰特卡 大比例 ssp 收藏必备 瑕疵如图｜战斧嗨瑞G26",
+          "price": "188",
+          "shipping": "12",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体",
+            "标题只命中球员和产品，缺少赛季、卡号、版本或限编锚点"
+          ],
+          "after_score": "0.62",
+          "after_conflicts": [],
+          "damage_disclosed": true
+        },
+        {
+          "id": "126204108",
+          "url": "https://cardhobby.com.cn/Market/Item/126204108",
+          "title": "【KAKA】2026 Topps Signature Tracy Mcgrady 火箭 麦迪 特雷西 麦克格雷迪 Rose 玫瑰特卡 胶片 大比例 SSP 轻印如图 多多",
+          "price": "135",
+          "shipping": "18",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题未提供可验证的目标产品信息",
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体"
+          ],
+          "after_score": "0.40",
+          "after_conflicts": [
+            "标题未提供可验证的目标产品信息"
+          ],
+          "damage_disclosed": true
+        },
+        {
+          "id": "124675267",
+          "url": "https://cardhobby.com.cn/Market/Item/124675267",
+          "title": "2526 Topps  Signature Class Rockets Tracy McGrady Rose 玫瑰特卡 大比例 麦克格雷迪 麦迪 火箭 姚明队友 胶片卡有常规卡面痕迹【芥末-xh】",
+          "price": "215",
+          "shipping": "0",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体",
+            "标题只命中球员和产品，缺少赛季、卡号、版本或限编锚点"
+          ],
+          "after_score": "0.62",
+          "after_conflicts": [],
+          "damage_disclosed": false
+        },
+        {
+          "id": "125008573",
+          "url": "https://cardhobby.com.cn/Market/Item/125008573",
+          "title": "2025-26 Topps Signature Class Tracy McGrady 特雷西 麦克格雷迪 麦迪 火箭 罗斯 玫瑰 胶片 比例特卡 流通品相 超新星[A1]",
+          "price": "200.67",
+          "shipping": "23",
+          "before_score": "0.40",
+          "before_conflicts": [
+            "标题未命中目标卡号或卡种",
+            "标题只命中球员和产品，缺少赛季、卡号、版本或限编锚点"
+          ],
+          "after_score": "0.62",
+          "after_conflicts": [],
+          "damage_disclosed": false
+        },
+        {
+          "id": "124210074",
+          "url": "https://cardhobby.com.cn/Market/Item/124210074",
+          "title": "【LA拍卖】2025-26 Topps Signature Class Tracy McGrady 麦克格雷迪 麦迪 魔术火箭队猛龙队 名宿 NBA得分王 天才巨星 四大分卫 Roses 玫瑰特卡 胶片特卡 大比例 SP  H01D",
+          "price": "207.5",
+          "shipping": "18",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体",
+            "标题只命中球员和产品，缺少赛季、卡号、版本或限编锚点"
+          ],
+          "after_score": "0.62",
+          "after_conflicts": [],
+          "damage_disclosed": false
+        },
+        {
+          "id": "122156847",
+          "url": "https://cardhobby.com.cn/Market/Item/122156847",
+          "title": "2026 Topps Signature Class Tracy McGrady 【云猫代卖】特雷西 麦克格雷迪 麦迪 火箭 Roses 玫瑰 胶片 特卡 大比例 SSP 轻印见图 任涛Q24",
+          "price": "131.11",
+          "shipping": "18",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体"
+          ],
+          "after_score": "0.77",
+          "after_conflicts": [],
+          "damage_disclosed": true
+        },
+        {
+          "id": "121622165",
+          "url": "https://cardhobby.com.cn/Market/Item/121622165",
+          "title": "【阿福拍卖】2026 Topps Signature Class Tracy McGrady  特雷西 麦克格雷迪 麦迪 大比例 SSP Roses 玫瑰 胶片 瑕疵图三四 收藏必备（ZLX）",
+          "price": "158.29",
+          "shipping": "18",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体"
+          ],
+          "after_score": "0.77",
+          "after_conflicts": [],
+          "damage_disclosed": true
+        },
+        {
+          "id": "117872493",
+          "url": "https://cardhobby.com.cn/Market/Item/117872493",
+          "title": "2026 【腕龙代卖】 #腕龙雨轩jN8# Topps Signature Class 麦迪 麦克格雷迪 火箭 Roses 玫瑰 胶片特卡 大比例 Tracy McGrady 瑕疵",
+          "price": "93",
+          "shipping": "18",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡，但标题显示为其他特卡、产品变体、平行或限编"
+          ],
+          "after_score": "0.77",
+          "after_conflicts": [],
+          "damage_disclosed": true
+        },
+        {
+          "id": "117486634",
+          "url": "https://cardhobby.com.cn/Market/Item/117486634",
+          "title": "2026 Topps class Tracy McGrady 舟 火箭 特雷西 麦克格雷迪 麦迪 T-MAC 玫瑰特卡 大比例 SSP 胶片 名人堂  微白边角061201(老宋",
+          "price": "187",
+          "shipping": "18",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题未提供可验证的目标产品信息",
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体"
+          ],
+          "after_score": "0.40",
+          "after_conflicts": [
+            "标题未提供可验证的目标产品信息"
+          ],
+          "damage_disclosed": false
+        },
+        {
+          "id": "116753036",
+          "url": "https://cardhobby.com.cn/Market/Item/116753036",
+          "title": "【小幻拍卖】2025-26 TOPPS Signature Class TRACY McGRADY 火箭 特雷西 麦克格雷迪 麦迪 Roses 玫瑰 特卡 胶片 大比例 SP 卡品如图(1)-kenne-【A】",
+          "price": "248",
+          "shipping": "16",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体",
+            "标题只命中球员和产品，缺少赛季、卡号、版本或限编锚点"
+          ],
+          "after_score": "0.62",
+          "after_conflicts": [],
+          "damage_disclosed": false
+        },
+        {
+          "id": "116753122",
+          "url": "https://cardhobby.com.cn/Market/Item/116753122",
+          "title": "【小幻拍卖】2025-26 TOPPS Signature Class TRACY McGRADY 火箭 特雷西 麦克格雷迪 麦迪 Roses 玫瑰 特卡 胶片 大比例 SP 微瑕如图(2)-kenne-【A】",
+          "price": "237",
+          "shipping": "16",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体",
+            "标题只命中球员和产品，缺少赛季、卡号、版本或限编锚点"
+          ],
+          "after_score": "0.62",
+          "after_conflicts": [],
+          "damage_disclosed": true
+        },
+        {
+          "id": "116450105",
+          "url": "https://cardhobby.com.cn/Market/Item/116450105",
+          "title": "【对号拍卖】2025-26 Topps signature Class tracy mcgrady 火箭队 特雷西 麦克格雷迪 麦迪 roses 玫瑰 胶片特卡 大比例 SSP 极其稀有 实卡极美",
+          "price": "333",
+          "shipping": "18",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体",
+            "标题只命中球员和产品，缺少赛季、卡号、版本或限编锚点"
+          ],
+          "after_score": "0.62",
+          "after_conflicts": [],
+          "damage_disclosed": false
+        },
+        {
+          "id": "115720134",
+          "url": "https://cardhobby.com.cn/Market/Item/115720134",
+          "title": "【LA拍卖】2025-26 Topps Signature Class Tracy McGrady 麦克格雷迪 麦迪 魔术火箭队猛龙队 名宿 NBA得分王 天才巨星 四大分卫 Roses 玫瑰特卡 胶片特卡 大比例 SP 瑕疵如图 V75A",
+          "price": "288.88",
+          "shipping": "18",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体",
+            "标题只命中球员和产品，缺少赛季、卡号、版本或限编锚点"
+          ],
+          "after_score": "0.62",
+          "after_conflicts": [],
+          "damage_disclosed": true
+        },
+        {
+          "id": "115696293",
+          "url": "https://cardhobby.com.cn/Market/Item/115696293",
+          "title": "2025-26 Topps Signature Class Tracy McGrady LS7拍卖 Class 火箭 特雷西 麦克格雷迪 麦迪 Roses 玫瑰 胶片 特卡 大比例 RP8",
+          "price": "350",
+          "shipping": "18",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡，但标题显示为其他特卡、产品变体、平行或限编",
+            "标题只命中球员和产品，缺少赛季、卡号、版本或限编锚点"
+          ],
+          "after_score": "0.62",
+          "after_conflicts": [],
+          "damage_disclosed": false
+        },
+        {
+          "id": "116221078",
+          "url": "https://cardhobby.com.cn/Market/Item/116221078",
+          "title": "【浩行拍卖精品 截标预付82%】2026 topps Signature Class tracy mcgrady 特雷西 麦克格雷迪 麦迪 roses 玫瑰 胶片特卡 大比例 SSP 专收必备「晚摇壹」0606G03兿",
+          "price": "313",
+          "shipping": "18",
+          "before_score": "0",
+          "before_conflicts": [
+            "标题明确命中其他卡种，与目标卡种不一致",
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体"
+          ],
+          "after_score": "0.77",
+          "after_conflicts": [],
+          "damage_disclosed": false
+        },
+        {
+          "id": "115920650",
+          "url": "https://cardhobby.com.cn/Market/Item/115920650",
+          "title": "2026 Topps Signature Class Tracy McGrady 特雷西 麦克格雷迪 超大比例 SSP 玫瑰 胶片 火箭 卡品如图 Alex",
+          "price": "278",
+          "shipping": "18",
+          "before_score": "0",
+          "before_conflicts": [
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体"
+          ],
+          "after_score": "0.77",
+          "after_conflicts": [],
+          "damage_disclosed": false
+        },
+        {
+          "id": "115400321",
+          "url": "https://cardhobby.com.cn/Market/Item/115400321",
+          "title": "2026 Topps Signature Class Tracy McGrady 【果冻代卖】 火箭队 特雷西 麦克格雷迪 麦迪 大比例 SSP 玫瑰绽放特卡 胶片特卡 【椿】 14",
+          "price": "780",
+          "shipping": "18",
+          "before_score": "0",
+          "before_conflicts": [
+            "目标为基础卡/未识别卡种，但标题明确为命名特卡或变体"
+          ],
+          "after_score": "0.77",
+          "after_conflicts": [],
+          "damage_disclosed": false
+        }
+      ]
+    }
+  ],
+  "scope": "Live public search and deterministic identity gate only; no visual verification or database writes."
+}

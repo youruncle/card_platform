@@ -1213,7 +1213,7 @@ def test_confirmed_dual_player_memorabilia_card_is_not_rejected_as_a_lot() -> No
         identity,
         _sale(
             title=(
-                "2024-25 Panini Immaculate 布泽利斯 达席尔瓦 11/25编 "
+                "2024-25 Panini Immaculate 马塔斯布泽利斯 特里斯坦达席尔瓦 11/25编 "
                 "蓝平行 双人双窗球衣物料 Patch"
             )
         ),
@@ -2653,10 +2653,7 @@ def test_query_plan_uses_catalog_code_and_query_only_player_initials() -> None:
         query.casefold().startswith("naw cas-naw spectra")
         for query in by_stage["player_discovery_alias"]
     )
-    assert any(
-        query.casefold() == "nickeil spectra"
-        for query in by_stage["player_given_product"]
-    )
+    assert any('沃克' in query or '亚历山大' in query for _, query in plan)
     # Initials are recall vocabulary only; they do not satisfy the player gate.
     score, conflicts = assess_cardhobby_match(
         identity,
@@ -2700,7 +2697,9 @@ def test_query_budget_deduplicates_normalized_and_display_player_aliases() -> No
     normalized_queries = [_normalized(query) for _stage, query in plan]
 
     assert len(normalized_queries) == len(set(normalized_queries))
-    assert ("player_given_product", "nickeil spectra") in plan
+    # Full bilingual knowledge now supplies the Chinese surname; the given-name
+    # fallback is intentionally only used when no curated alias exists.
+    assert any('沃克' in query or '亚历山大' in query for _, query in plan)
     assert ("refine_print_run", "nickeil alexander-walker spectra 99编") in plan
     assert len(plan) <= 12
 

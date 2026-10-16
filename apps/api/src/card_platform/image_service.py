@@ -1,4 +1,5 @@
 from card_platform.valuation_trace import traced_completion
+import asyncio
 import base64
 import json
 import re
@@ -15,9 +16,10 @@ from openai import AsyncOpenAI
 from psycopg import AsyncConnection
 
 from card_platform.config import Settings
-from card_platform.card_search_service import CardSearchService
+from card_platform.card_search_service import CardSearchService, candidate_supports_resolved_field
 from card_platform.catalog_evidence import normalize_catalog_evidence
 from card_platform.domain.sketch_identity import SKETCH_RECOGNITION_INSTRUCTIONS
+from card_platform.domain.identity_review import is_tcg_collector_number
 from card_platform.card_orientation import (
     OrientationDecision,
     rotation_from_upright_index,
@@ -50,8 +52,16 @@ def sanitize_identity_field_roles(result: CardRecognitionResult) -> CardRecognit
     def positive_claims(text):
         return re.sub(r'(?:不是|并非|並非|并不是|\bnot\b)[^，。；;,.]*', '', text, flags=re.I)
     number_evidence = positive_claims(' '.join(result.field_evidence.get('card_number', [])))
+    if re.fullmatch(r'(?:(?:upper|lower|top|bottom)[\s_-]*(?:left|right)|(?:左|右)(?:上|下)(?:角|方)?)', number, re.I):
+        changes['card_number'] = None
+        issues.append('card_number_is_location_not_catalog_identifier')
+    if (str(result.product_name or '').casefold() == 'topps now'
+            and re.fullmatch(r'(?:(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s*(?:0?[1-9]|[12]\d|3[01])|(?:0?[1-9]|1[0-2])\.(?:0?[1-9]|[12]\d|3[01]))', number, re.I)):
+        changes['card_number'] = None
+        issues.append('card_number_is_calendar_date_not_catalog_identifier')
     # Catalog identifiers with letters (GR-5, FAN-12) are not numeric roster ranges.
-    if re.fullmatch(r'\d+\s*/\s*\d+', number):
+    if (re.fullmatch(r'\d+\s*/\s*\d+', number)
+            and not is_tcg_collector_number(result.model_dump())):
         changes['card_number'] = None
         issues.append('card_number_is_fraction_not_catalog_identifier')
     elif re.fullmatch(r'\d+(?:\s*[-–—]\s*\d+)?', number) and re.search(
@@ -85,12 +95,32 @@ def sanitize_identity_field_roles(result: CardRecognitionResult) -> CardRecognit
                         year += 100
                 release_line |= year == getattr(result, field)
         wrong_role = re.search(
-            r'推断|推斷|推测|推測|猜测|猜測|统计|統計|生涯|\binfer(?:red|ence)?\b|'
+            r'推断|推斷|推测|推測|猜测|猜測|统计|統計|生涯|传记|傳記|大学赛季|大學賽季|\bbio(?:graph\w*)?\b|\bcollege(?:\s+(?:basketball|football|baseball|hockey|soccer))?\s+season\b|\binfer(?:red|ence)?\b|'
             r'\bstatistic|career|\bdrafted\b|\bin\s+(?:19|20)\d{2}\s*[/–-]\s*\d{2,4}\b|选秀|選秀',
             evidence, re.I)
-        if getattr(result, field) is not None and wrong_role and not release_line:
+        catalog_release = (any(text.startswith('目录核验：') for text in claims)
+            and result.catalog_verified_fields.get(field) == getattr(result,field)
+            and any(candidate_supports_resolved_field(candidate,field,getattr(result,field))
+                    for candidate in result.web_candidates))
+        if getattr(result, field) is not None and wrong_role and not (release_line or catalog_release):
             changes[field] = None
             issues.append(field+'_not_direct_release_evidence')
+    product = str(result.product_name or '').strip()
+    product_claims = [positive_claims(text) for text in result.field_evidence.get('product_name', [])]
+    guessed_product = any(re.search(r'\bimplied\b|\binfer(?:red|ence)?\b|\bguess\w*\b|推断|推斷|推测|推測|猜测|猜測', text, re.I)
+                          for text in product_claims)
+    printed_product = product and any(
+        not text.startswith(('联网候选：', '目录核验：'))
+        and re.search(r'(?:logo|product line|产品行|產品行|产品名|產品名|印有|印字|系列标识)'
+                      r"[^\w\n]{0,12}" + re.escape(product) + r'(?!\w)', text, re.I)
+        for text in product_claims)
+    catalog_product = (any(text.startswith('目录核验：') for text in product_claims)
+                       and result.catalog_verified_fields.get('product_name') == product
+                       and any(candidate_supports_resolved_field(candidate, 'product_name', product)
+                               for candidate in result.web_candidates))
+    if product and guessed_product and not (printed_product or catalog_product):
+        changes['product_name'] = None
+        issues.append('product_name_inferred_from_design_not_product_label')
     copyright_evidence = result.field_evidence.get('copyright_year', [])
     if result.copyright_year is not None and copyright_evidence and not any(
         re.search(rf'(?<!\d){result.copyright_year}(?!\d)', text)
@@ -133,7 +163,9 @@ def apply_local_ocr_anchors(
     for field in updates:
         source = anchors.get(evidence_map.get(field, ""))
         if source:
-            evidence[field] = [*evidence.get(field, []), f"Apple Vision OCR：{source}"]
+            evidence[field] = list(dict.fromkeys([
+                *evidence.get(field, []), f"Apple Vision OCR：{source}"
+            ]))
     trace = [{
         "tier": "local_ocr", "model": "apple_vision", "reason": "free_local_anchor_pass",
         "status": "succeeded", "latency_ms": latency_ms, "estimated_cost_cny": "0",
@@ -142,6 +174,9 @@ def apply_local_ocr_anchors(
     }, *result.recognition_route]
     return sanitize_local_ocr_conflicts(result.model_copy(update={
         **updates, "field_evidence": evidence, "recognition_route": trace,
+        "local_ocr_observed_fields": {**result.local_ocr_observed_fields, **{
+            field: value for field, value in updates.items() if value is not None
+        }},
     }))
 
 
@@ -337,7 +372,8 @@ class ImageStorageService:
         rectify: bool = True,
     ) -> ImageUploadResult:
         if rectify:
-            rectified = rectify_card_image(
+            rectified = await asyncio.to_thread(
+                rectify_card_image,
                 content,
                 content_type,
                 standardize_ratio=standardize_ratio,
@@ -567,6 +603,8 @@ class QwenVisionProvider:
                         "无法确认时返回 null 并在 caveats 说明。field_evidence逐项记录图片位置、原文和字段角色。"
                         "名单/清单的行号不是本卡卡号；球队合照不能把名单球员拼成一个球员身份。"
                         "限编35/50这类分数不是card_number；应继续找背面独立卡号。"
+                        "Topps Now 的 JUN 23、8.10 等事件日期也不是卡号；优先读取背面独立的数字或字母编号，"
+                        "例如 DACU、26。不能把背面左侧日期当成右侧独立编号；没有读清独立编号则留空。"
                         "赛季必须有产品发行行直接证据，版权或统计赛季只能分别记录原文，不能推成发行年份。不要根据球员生涯年份猜测"
                         "卡片年份，不要把印刷签名误判为亲笔签名。confidence 是整体识别"
                         "置信度。image_role 只能是 front、back、ad、unknown；多图联合"
@@ -590,7 +628,12 @@ class QwenVisionProvider:
                         "候选列表、搜索词、参考图或额外解释。"
                         "逐面读取明确标注 No./Nº/# 的卡号，优先于球衣上的数字；"
                         "不能把球衣号码作为 card_number。只有确为共同主体的多人卡才逐个读取球员姓名，"
-                        "player_name 用 / 分隔，不得只保留第一个人。杂志封面设计中的文章预告、"
+                        "player_name 用 / 分隔，不得只保留第一个人。"
+                        "星战等非体育卡的 player_name 表示主体，可读取人物、飞船或作品标题；"
+                        "没有人物时应读取明确的背面作品名，不要把‘无法识别球员’作为姓名。"
+                        "作品题名若是该张 Base 的主题，不等于 insert_name；UPPER-RIGHT 等位置"
+                        "描述不是卡号，必须读取该位置真正印刷的编号，未读清则留空。"
+                        "杂志封面设计中的文章预告、"
                         "边栏和背景提及的球员不属于卡片主体，不能拼入 player_name；"
                         "应结合主肖像、主标题和卡背独立姓名/传记确定主体。卡背 BIOGRAPHY、"
                         "INSIDER、REWIND、SKILLS 等履历栏目标题或正文句子，不能直接当成"
@@ -614,9 +657,11 @@ class QwenVisionProvider:
                         "泛化的 Prizm。正面为完整彩色教堂窗/彩绘玻璃构图的 Mosaic 卡，应"
                         "核验 Stained Glass 特卡，即使卡面没有印出英文特卡名。"
                         "Prizm、Select、Obsidian、National Treasures、Immaculate、"
-                        "Flawless、Donruss、Optic、Mosaic、Noir、Recon、Threads、"
-                        "Hoops 均是 Panini"
-                        "产品线，不是厂商；Chrome、Finest、Inception 是 Topps 产品线。"
+                        "Flawless、Donruss、Optic、Mosaic、Noir、Recon、Threads "
+                        "通常是 Panini 产品线，不是厂商；Chrome、Finest、Inception 是 Topps 产品线。"
+                        "Hoops 的厂商必须读取实卡标志，不可依赖旧的品牌归属常识。"
+                        "NEW SCHOOL 是特卡标题，不能仅凭篮球构图推断为 Hoops；未看到产品名"
+                        "且没有目录核验时 product_name 留空，保留 Topps 等清晰厂商标志。"
                         "NBA Hoops 的 SLAM 特卡会故意模仿 SLAM 杂志封面，必须结合"
                         "卡背 Panini、HOOPS、赛季和 No. 卡号识别，不能当成真实杂志。"
                         "SLAM 封面上的杂志发行日期、卡背大号纪念年份和传记正文的历史赛季"
@@ -672,7 +717,10 @@ class QwenVisionProvider:
         result = response.choices[0].message.content
         if not result:
             raise RuntimeError("vision response did not contain structured card data")
-        parsed = sanitize_identity_field_roles(CardRecognitionResult.model_validate_json(result))
+        parsed = sanitize_identity_field_roles(CardRecognitionResult.model_validate_json(result).model_copy(update={
+            'catalog_verified_fields': {}, 'field_assessments': {}, 'identity_storage_binding': {},
+            'local_ocr_observed_fields': {},
+        }))
         usage = response.usage
         return parsed, {
             "prompt_tokens": getattr(usage, "prompt_tokens", None),
@@ -766,19 +814,22 @@ class CardVisionService:
             )
         content = await read_validated_image(upload, self.max_bytes)
         visual = await self.provider.recognize(content, upload.content_type or "image/jpeg")
+        visual = visual.model_copy(update={'local_ocr_observed_fields': {}})
         visual = await self._recover_serial(visual, [(content, upload.content_type or "image/jpeg")])
         return finalize_recognition_status(normalize_catalog_evidence(
-            await self.search.enrich(normalize_catalog_evidence(visual))
+            sanitize_identity_field_roles(await self.search.enrich(normalize_catalog_evidence(visual)))
         ))
 
     async def _recover_serial(
         self, visual: CardRecognitionResult, images: list[tuple[bytes, str]]
     ) -> CardRecognitionResult:
+        payload, latency_ms = await self._read_serial(images)
+        return serial_ocr.apply_serial_ocr(visual, payload, latency_ms)
+
+    async def _read_serial(self, images: list[tuple[bytes, str]]) -> tuple[dict, int]:
         started = time.monotonic()
         payload = await serial_ocr.recognize_serial_images(images)
-        return serial_ocr.apply_serial_ocr(
-            visual, payload, round((time.monotonic() - started) * 1000)
-        )
+        return payload, round((time.monotonic() - started) * 1000)
 
     async def recognize_pair(
         self, front: UploadFile, back: UploadFile
@@ -809,6 +860,7 @@ class CardVisionService:
             )
         if not hasattr(self.provider, "recognize_images"):
             raise RuntimeError("configured vision provider does not support paired recognition")
+        pair_started = time.monotonic()
         images = [
             (front_content, front_content_type),
             (back_content, back_content_type),
@@ -818,7 +870,7 @@ class CardVisionService:
         ocr_latency_ms = round((time.monotonic() - ocr_started) * 1000)
         ocr_anchors = local_ocr.extract_anchors(ocr_lines)
         prompt = (
-                "这两张图片依次是同一张篮球球星卡的正面和背面。联合识别，优先从"
+                "这两张图片依次是同一张收藏卡的正面和背面，可能是体育、影视或场景卡。联合识别，优先从"
                 "背面读取年份、卡号和版权信息，从正面判断球员、卡种与视觉属性；"
                 "冲突字段写入 caveats，不要把两张图当成两张卡。"
         )
@@ -829,13 +881,23 @@ class CardVisionService:
                 + json.dumps({"ocr_lines": ocr_lines, "validated_anchors": ocr_anchors},
                              ensure_ascii=False)
             )
-        if self.tiered_providers:
+        async def recognize_visual():
+            if not self.tiered_providers:
+                return await self.provider.recognize_images(images, prompt)
+
             def routed_call(provider):
                 if provider is None:
                     return None
-                return lambda prior: provider.recognize_images_with_usage(
-                    images, prompt, prior_result=prior
-                )
+
+                async def call(prior):
+                    result, usage = await provider.recognize_images_with_usage(
+                        images, prompt, prior_result=prior
+                    )
+                    # Evaluate the upgrade gate with the same validated anchors
+                    # that will be present in the final result.
+                    return apply_local_ocr_anchors(result, ocr_anchors, ocr_latency_ms), usage
+
+                return call
 
             router = TieredVisionRouter(
                 routed_call(self.tiered_providers["flash"]),
@@ -844,15 +906,67 @@ class CardVisionService:
                 plus_threshold=Decimal(str(self.plus_threshold)),
                 max_threshold=Decimal(str(self.max_threshold)),
             )
-            visual = await router.recognize()
-        else:
-            visual = await self.provider.recognize_images(images, prompt)
-        visual = apply_local_ocr_anchors(visual, ocr_anchors, ocr_latency_ms)
+            return await router.recognize()
+
+        parallel_started = time.monotonic()
+        visual_task = asyncio.create_task(recognize_visual())
+        serial_task = None
+        tasks = [visual_task]
         if not ocr_anchors.get("serial_number") or not ocr_anchors.get("serial_total"):
-            visual = await self._recover_serial(visual, images)
-        return finalize_recognition_status(normalize_catalog_evidence(
-            await self.search.enrich(normalize_catalog_evidence(visual))
-        ))
+            serial_task = asyncio.create_task(self._read_serial(images))
+            tasks.append(serial_task)
+        try:
+            await asyncio.gather(*tasks)
+        finally:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+        parallel_latency_ms = round((time.monotonic() - parallel_started) * 1000)
+        visual = visual_task.result().model_copy(update={'local_ocr_observed_fields': {}})
+        visual = apply_local_ocr_anchors(visual, ocr_anchors, ocr_latency_ms)
+        parallel_status = "succeeded"
+        if serial_task is not None:
+            payload, latency_ms = serial_task.result()
+            visual = serial_ocr.apply_serial_ocr(visual, payload, latency_ms)
+            if payload.get("status") != "succeeded":
+                parallel_status = "degraded"
+        catalog_started = time.monotonic()
+        enriched = await self.search.enrich(normalize_catalog_evidence(visual))
+        catalog_latency_ms = round((time.monotonic() - catalog_started) * 1000)
+        result = finalize_recognition_status(normalize_catalog_evidence(sanitize_identity_field_roles(enriched)))
+        catalog_rows = [row for row in result.recognition_route
+                        if str(row.get("tier", "")).startswith("catalog_")]
+        catalog_status = (
+            "degraded" if any(row.get("status") in {"failed", "timeout"} for row in catalog_rows)
+            else "skipped" if catalog_rows and all(row.get("status") == "skipped" for row in catalog_rows)
+            else "succeeded"
+        )
+        # These are wall-clock spans. Model, serial OCR, and catalog subspans
+        # overlap; summing recognition_route latencies would double-count work.
+        trace = {
+            "tier": "paired_pipeline", "status": "succeeded",
+            "latency_ms": round((time.monotonic() - pair_started) * 1000),
+            "latency_scope": "wall_clock", "stage_latencies_additive": False,
+            "stages": {
+                "local_ocr": {
+                    "latency_ms": ocr_latency_ms,
+                    "status": getattr(ocr_lines, "status", "succeeded" if ocr_lines else "not_observed"),
+                    **({"failure_reason": ocr_lines.failure_reason}
+                       if getattr(ocr_lines, "failure_reason", None) else {}),
+                    "line_count": len(ocr_lines), "anchor_count": len(ocr_anchors),
+                },
+                "identity_and_serial": {
+                    "latency_ms": parallel_latency_ms, "status": parallel_status,
+                    "concurrent": serial_task is not None,
+                    "participating_stages": ["identity_model"] + (
+                        ["local_serial_ocr"] if serial_task is not None else []
+                    ),
+                },
+                "catalog_enrich": {"latency_ms": catalog_latency_ms, "status": catalog_status},
+            },
+        }
+        return result.model_copy(update={"recognition_route": [trace, *result.recognition_route]})
 
     async def recognize_sheet(self, upload: UploadFile) -> SheetCardRecognitionResult:
         if self.provider is None:
@@ -866,6 +980,10 @@ class CardVisionService:
             content, upload.content_type or "image/jpeg"
         )
         for card in sheet.cards:
+            card.result = card.result.model_copy(update={
+                'local_ocr_observed_fields': {}, 'catalog_verified_fields': {},
+                'field_assessments': {}, 'identity_storage_binding': {},
+            })
             context_parts = [card.listing_title, card.visible_description]
             context = "\n".join(part for part in context_parts if part)
             if card.text_derived_fields:
@@ -880,7 +998,7 @@ class CardVisionService:
                         }
                     }
                 )
-            card.result = normalize_catalog_evidence(await self.search.enrich(
+            card.result = finalize_recognition_status(sanitize_identity_field_roles(normalize_catalog_evidence(await self.search.enrich(
                 normalize_catalog_evidence(card.result), context=context or None
-            ))
+            ))))
         return sheet

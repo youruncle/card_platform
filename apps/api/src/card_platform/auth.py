@@ -107,7 +107,13 @@ def password_matches(password_hash: str, password: str) -> bool:
 
 async def current_user(request: Request) -> AuthenticatedUser:
     settings = get_settings()
-    token = request.cookies.get(settings.auth_cookie_name)
+    authorization = request.headers.get("authorization")
+    if authorization is not None:
+        scheme, _, token = authorization.partition(" ")
+        if scheme.casefold() != "bearer" or not token or " " in token:
+            raise HTTPException(status_code=401, detail="无效的登录凭证")
+    else:
+        token = request.cookies.get(settings.auth_cookie_name)
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="请先登录")
     async with request.app.state.database.connection() as connection:

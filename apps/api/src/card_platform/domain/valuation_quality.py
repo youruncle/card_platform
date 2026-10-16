@@ -10,6 +10,7 @@ from card_platform.domain.card_identity import (
 )
 from card_platform.domain.comparables import ComparableTier
 from card_platform.domain.grade_basis import UNGRADED_SAME_CARD_BASIS
+from card_platform.domain.identity_review import is_scoped_standard_refractor
 
 
 class EvidenceGrade(StrEnum):
@@ -71,12 +72,7 @@ def identity_review_reasons(identity: dict) -> list[str]:
         normalize_text(identity.get("insert_name") or identity.get("insert"))
     )
     has_card_number_anchor = bool(normalize_text(identity.get("card_number")))
-    official_chrome_refractor = bool(
-        parallel == "refractor"
-        and "chrome" in product
-        and has_insert_anchor
-        and has_card_number_anchor
-    )
+    official_chrome_refractor = is_scoped_standard_refractor(identity)
     if parallel in {"prizm", "refractor", "parallel", "折射"} and not official_chrome_refractor:
         reasons.append("generic_parallel_name")
     # A print run plus a real card/insert anchor is already specific enough to

@@ -76,11 +76,26 @@ async def verify(request: Request, user: AuthenticatedUser = Depends(current_use
     try:
         body = await request.json()
         code = body['code']
-        if set(body) != {'code'} or not isinstance(code, str) or len(code) != 6 or not code.isascii() or not code.isdigit():
+        if set(body) != {'code'} or not isinstance(code, str) or not 4 <= len(code) <= 6 or not code.isascii() or not code.isdigit():
             raise ValueError
     except (ValueError, TypeError, KeyError):
-        return JSONResponse(status_code=422, content={'detail':'请输入六位短信验证码'})
+        return JSONResponse(status_code=422, content={'detail':'请输入4至6位数字短信验证码'})
     return await run(conn, user.id, lambda: account_service().login(conn, user.id, sms_code=code))
+
+
+@router.get('/verification')
+async def verification(user: AuthenticatedUser = Depends(current_user), conn: AsyncConnection = Depends(get_connection)):
+    return await run(conn, user.id, lambda: account_service().verification(conn, user.id))
+
+
+@router.post('/restart-verification')
+async def restart_verification(user: AuthenticatedUser = Depends(current_user), conn: AsyncConnection = Depends(get_connection)):
+    return await run(conn, user.id, lambda: account_service().login(conn, user.id))
+
+
+@router.post('/send-sms')
+async def send_sms(user: AuthenticatedUser = Depends(current_user), conn: AsyncConnection = Depends(get_connection)):
+    return await run(conn, user.id, lambda: account_service().send_sms(conn, user.id))
 
 
 @router.delete('/account', status_code=204)

@@ -1,12 +1,13 @@
 import asyncio
 import json
 import re
+import time
 from decimal import Decimal
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 
 import httpx
-from openai import AsyncOpenAI
+from openai import APITimeoutError, AsyncOpenAI
 
 from card_platform.config import Settings
 from card_platform.domain.serial_evidence import (
@@ -361,6 +362,48 @@ def build_card_search_queries(
     return list(dict.fromkeys(queries))[:4]
 
 
+def _failure_status(error: Exception) -> str:
+    return "timeout" if isinstance(error, (TimeoutError, httpx.TimeoutException, APITimeoutError)) else "failed"
+
+
+def _stage_trace(tier: str, started: float | None, status: str, **details) -> dict:
+    # Only stage metadata is recorded: no URLs, exception text, or model payload.
+    return {
+        "tier": tier, "status": status,
+        "latency_ms": round((time.monotonic() - started) * 1000) if started is not None else 0,
+        "latency_scope": "wall_clock", "concurrency_group": "catalog_and_reference",
+        **details,
+    }
+
+
+class _CatalogPages:
+    """Cache source responses only for one enrichment; cap remote page work."""
+
+    def __init__(self):
+        self.responses = {}
+        self.limit = asyncio.Semaphore(4)
+        self.failures: dict[str, set[str]] = {}
+
+    def record_failure(self, stage: str, error: Exception | None = None) -> None:
+        self.failures.setdefault(stage, set()).add(_failure_status(error) if error else "failed")
+
+    def stage_status(self, stage: str) -> str:
+        statuses = self.failures.get(stage, set())
+        return "timeout" if "timeout" in statuses else "failed" if statuses else "succeeded"
+
+    async def get(self, client, url):
+        async def fetch():
+            async with self.limit:
+                return await client.get(url)
+
+        if url not in self.responses:
+            self.responses[url] = asyncio.create_task(fetch())
+        task = self.responses[url]
+        response = await task
+        self.responses.setdefault(str(response.url), task)
+        return response
+
+
 class CardSearchService:
     def __init__(self, settings: Settings) -> None:
         self.enabled = settings.card_search_enabled and bool(settings.vision_api_key)
@@ -379,10 +422,60 @@ class CardSearchService:
     async def enrich(
         self, visual: CardRecognitionResult, context: str | None = None
     ) -> CardRecognitionResult:
+        # These are server outputs, never assertions supplied by a vision model.
+        visual = visual.model_copy(update={
+            'catalog_verified_fields': {}, 'field_assessments': {}, 'identity_storage_binding': {},
+        })
+        if not self.client or not build_card_search_queries(visual, context):
+            return visual.model_copy(update={
+                "search_queries": build_card_search_queries(visual, context),
+                "recognition_route": [
+                    *[_stage_trace(tier, None, "skipped") for tier in (
+                        "catalog_llm", "catalog_sources", "catalog_images", "catalog_reference"
+                    )], *visual.recognition_route,
+                ],
+            })
+        tasks = [asyncio.create_task(self._enrich_catalog(visual, context)),
+                 asyncio.create_task(self._reference_updates(visual))]
+        try:
+            enriched, (references, reference_trace) = await asyncio.gather(*tasks)
+            return enriched.model_copy(update={
+                **references,
+                "recognition_route": [reference_trace, *enriched.recognition_route],
+            })
+        finally:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def _reference_updates(self, visual: CardRecognitionResult) -> tuple[dict, dict]:
+        started = time.monotonic()
+        try:
+            reference = await asyncio.wait_for(
+                CardHobbyProvider(self.client, self.model, timeout=15).reference_images(
+                    visual.model_dump(mode="json")
+                ), timeout=15,
+            )
+            if reference:
+                return {
+                    "reference_image_front_url": reference.front_url,
+                    "reference_image_back_url": reference.back_url,
+                    "reference_image_source_url": reference.source_url,
+                    "reference_image_provider": "cardhobby",
+                    "reference_image_match_confidence": reference.match_confidence,
+                }, _stage_trace("catalog_reference", started, "succeeded", outcome="found")
+        except Exception as error:
+            # Reference media is optional; catalog evidence remains authoritative.
+            return {}, _stage_trace("catalog_reference", started, _failure_status(error))
+        return {}, _stage_trace("catalog_reference", started, "succeeded", outcome="not_found")
+
+    async def _enrich_catalog(self, visual, context=None):
         queries = build_card_search_queries(visual, context)
         if not self.client or not queries:
             return visual.model_copy(update={"search_queries": queries})
         schema = json.dumps(CardSearchEnrichment.model_json_schema(), ensure_ascii=False)
+        llm_started = time.monotonic()
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
@@ -460,9 +553,16 @@ class CardSearchService:
                 update={
                     "search_queries": queries,
                     "caveats": [*visual.caveats, f"联网目录核验失败：{str(error)[:180]}"],
+                    "recognition_route": [
+                        _stage_trace("catalog_llm", llm_started, _failure_status(error)),
+                        _stage_trace("catalog_sources", None, "skipped"),
+                        _stage_trace("catalog_images", None, "skipped"),
+                        *visual.recognition_route,
+                    ],
                 }
             )
 
+        traces = [_stage_trace("catalog_llm", llm_started, "succeeded")]
         candidates = []
         for candidate in enrichment.candidates[:5]:
             valid_urls = [
@@ -471,19 +571,33 @@ class CardSearchService:
                 if urlparse(url).scheme in {"http", "https"} and is_trusted_catalog_url(url)
             ]
             candidates.append(candidate.model_copy(update={"source_urls": valid_urls}))
+        pages = _CatalogPages()
+        source_count = sum(min(len(candidate.source_urls), 3) for candidate in candidates)
+        sources_started = time.monotonic()
         verified_url_groups = await asyncio.gather(
-            *(self._verified_source_urls(candidate) for candidate in candidates)
+            *(self._verified_source_urls(candidate, pages) for candidate in candidates)
         )
         candidates = [
             candidate.model_copy(update={"source_urls": urls})
             for candidate, urls in zip(candidates, verified_url_groups, strict=True)
         ]
+        traces.append(_stage_trace(
+            "catalog_sources", sources_started, pages.stage_status("catalog_sources"),
+            concurrent=source_count > 1, candidate_count=len(candidates),
+            verified_source_count=sum(len(urls) for urls in verified_url_groups),
+        ))
+        images_started = time.monotonic()
+        image_candidate_count = sum(
+            bool(candidate.source_urls) and candidate_is_exact_image_match(candidate, visual)
+            for candidate in candidates
+        )
         image_urls = await asyncio.gather(
             *(
                 self._candidate_image(
                     candidate.source_urls,
                     candidate.image_url,
                     candidate_is_exact_image_match(candidate, visual),
+                    pages,
                 )
                 for candidate in candidates
             )
@@ -492,6 +606,11 @@ class CardSearchService:
             candidate.model_copy(update={"image_url": image_url})
             for candidate, image_url in zip(candidates, image_urls, strict=True)
         ]
+        traces.append(_stage_trace(
+            "catalog_images", images_started, pages.stage_status("catalog_images"),
+            concurrent=image_candidate_count > 1, candidate_count=len(candidates),
+            image_count=sum(url is not None for url in image_urls),
+        ))
         updates = {
             key: normalized
             for key, value in enrichment.resolved_fields.items()
@@ -505,34 +624,21 @@ class CardSearchService:
             )
             and resolved_update_is_safe(visual, key, normalized)
         }
-        reference_updates: dict = {}
-        try:
-            reference = await CardHobbyProvider(
-                self.client, self.model, timeout=15
-            ).reference_images(visual.model_dump(mode="json"))
-            if reference:
-                reference_updates = {
-                    "reference_image_front_url": reference.front_url,
-                    "reference_image_back_url": reference.back_url,
-                    "reference_image_source_url": reference.source_url,
-                    "reference_image_provider": "cardhobby",
-                    "reference_image_match_confidence": reference.match_confidence,
-                }
-        except (httpx.HTTPError, ValueError, TypeError):
-            reference_updates = {}
         return visual.model_copy(
             update={
                 **updates,
-                **reference_updates,
                 "search_queries": queries,
                 "field_evidence": merge_search_evidence(visual, enrichment, updates),
+                "catalog_verified_fields": dict(updates),
                 "web_candidates": candidates,
                 "caveats": [*visual.caveats, *enrichment.caveats],
+                "recognition_route": [*traces, *visual.recognition_route],
             }
         )
 
-    async def _verified_source_urls(self, candidate: CardWebCandidate) -> list[str]:
+    async def _verified_source_urls(self, candidate: CardWebCandidate, pages: _CatalogPages | None = None) -> list[str]:
         """Keep only source pages whose response text supports this exact candidate."""
+        pages = pages or _CatalogPages()
         urls = candidate.source_urls
         if not urls:
             return []
@@ -548,15 +654,21 @@ class CardSearchService:
             follow_redirects=True,
             headers=headers,
         ) as client:
-            for url in urls[:3]:
+            async def verify(url):
                 try:
-                    response = await client.get(url)
+                    response = await pages.get(client, url)
+                    if response.status_code >= 400:
+                        pages.record_failure("catalog_sources")
                     if response.status_code < 400 and source_page_supports_candidate(
                         response.text[:2_000_000], candidate
                     ):
-                        verified.append(str(response.url))
-                except httpx.HTTPError:
-                    continue
+                        return str(response.url)
+                except httpx.HTTPError as error:
+                    pages.record_failure("catalog_sources", error)
+                return None
+
+            results = await asyncio.gather(*(verify(url) for url in urls[:3]))
+            verified.extend(url for url in results if url is not None)
         return verified
 
     async def _candidate_image(
@@ -564,7 +676,9 @@ class CardSearchService:
         source_urls: list[str],
         suggested_image_url: str | None,
         exact_identity_match: bool,
+        pages: _CatalogPages | None = None,
     ) -> str | None:
+        pages = pages or _CatalogPages()
         if not exact_identity_match or not source_urls:
             return None
         headers = {
@@ -579,11 +693,13 @@ class CardSearchService:
             headers=headers,
         ) as client:
             if suggested_image_url and is_trusted_catalog_url(suggested_image_url):
-                if await self._is_real_image(client, suggested_image_url):
+                if await self._is_real_image(client, suggested_image_url, pages):
                     return suggested_image_url
             for source_url in source_urls[:2]:
                 try:
-                    response = await client.get(source_url)
+                    response = await pages.get(client, source_url)
+                    if response.status_code >= 400:
+                        pages.record_failure("catalog_images")
                     if (
                         response.status_code != 200
                         or not is_trusted_catalog_url(str(response.url))
@@ -598,25 +714,32 @@ class CardSearchService:
                             marker in image_url.lower()
                             for marker in ("logo", "default", "placeholder", "social-share")
                         )
-                        and await self._is_real_image(client, image_url)
+                        and await self._is_real_image(client, image_url, pages)
                     ):
                         return image_url
-                except httpx.HTTPError:
+                except httpx.HTTPError as error:
+                    pages.record_failure("catalog_images", error)
                     continue
         return None
 
     @staticmethod
-    async def _is_real_image(client: httpx.AsyncClient, image_url: str) -> bool:
+    async def _is_real_image(
+        client: httpx.AsyncClient, image_url: str, pages: _CatalogPages | None = None
+    ) -> bool:
         try:
             response = await client.get(
                 image_url,
                 headers={"Range": "bytes=0-65535"},
             )
             content_type = response.headers.get("content-type", "").lower()
+            if pages is not None and response.status_code >= 400:
+                pages.record_failure("catalog_images")
             return (
                 response.status_code in {200, 206}
                 and content_type.startswith("image/")
                 and len(response.content) >= 512
             )
-        except httpx.HTTPError:
+        except httpx.HTTPError as error:
+            if pages is not None:
+                pages.record_failure("catalog_images", error)
             return False

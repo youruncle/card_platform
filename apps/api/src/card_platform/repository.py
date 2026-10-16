@@ -7,7 +7,10 @@ from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
 from card_platform.domain.redemption import redemption_identity
+from card_platform.domain.codex_joint_valuation import joint_valuation
+from card_platform.codex_joint_context import current_image_hashes, recovery_reviews
 from card_platform.domain.portfolio import LedgerEntry, TransactionKind, calculate_position
+from card_platform.portfolio_sort import PortfolioProjection
 from card_platform.schemas import (
     CardRecognitionResult,
     CollectionItemCreate,
@@ -31,8 +34,9 @@ def normalize_name(value: str) -> str:
 def build_portfolio_summary(
     items: list[PortfolioItem], owner_id: UUID, base_currency: str
 ) -> PortfolioSummary:
-    total_cost = sum((item.remaining_cost for item in items), Decimal("0"))
     realized = sum((item.realized_profit for item in items), Decimal("0"))
+    items = [item for item in items if getattr(item, "holding_status", "held") == "held"]
+    total_cost = sum((item.remaining_cost for item in items), Decimal("0"))
     valued_items = [
         item
         for item in items
@@ -452,7 +456,11 @@ class PortfolioRepository:
         result = await connection.execute(
             f"""
             SELECT
-                ci.id, ci.display_id, ci.owner_id, p.id AS player_id, p.full_name AS player_name,
+                ci.id, ci.created_at, ci.display_id, ci.owner_id, ci.holding_status, p.id AS player_id, p.full_name AS player_name,
+                COALESCE((SELECT jsonb_agg(to_jsonb(na) ORDER BY na.created_at DESC)
+                    FROM player_news_alert na
+                    WHERE na.player_id = p.id AND na.expires_at > statement_timestamp()
+                ), '[]'::jsonb) AS news_alerts,
                 b.name AS brand_name,
                 cs.season_start, cs.season_end, cs.product_name, cs.set_name,
                 cd.card_number, cd.insert_name, cd.parallel_name,
@@ -476,13 +484,28 @@ class PortfolioRepository:
                     '[]'::jsonb
                 ) AS recognition_quality_issues,
                 CASE WHEN vj.created_at > lv.valued_at AND vj.status <> 'succeeded'
+                          AND COALESCE(lv.model_version, '') <> 'codex-independent-fallback-v1'
                      THEN NULL ELSE lv.currency END AS valuation_currency,
                 CASE WHEN vj.created_at > lv.valued_at AND vj.status <> 'succeeded'
+                          AND COALESCE(lv.model_version, '') <> 'codex-independent-fallback-v1'
                      THEN NULL ELSE lv.low_value END AS valuation_low,
                 CASE WHEN vj.created_at > lv.valued_at AND vj.status <> 'succeeded'
+                          AND COALESCE(lv.model_version, '') <> 'codex-independent-fallback-v1'
                      THEN NULL ELSE lv.fair_value END AS fair_value,
                 CASE WHEN vj.created_at > lv.valued_at AND vj.status <> 'succeeded'
+                          AND COALESCE(lv.model_version, '') <> 'codex-independent-fallback-v1'
                      THEN NULL ELSE lv.high_value END AS valuation_high,
+                codex.analysis_version AS codex_analysis_version,
+                codex.currency AS codex_valuation_currency,
+                codex.fair_value_low AS codex_valuation_low,
+                codex.fair_value AS codex_fair_value,
+                codex.fair_value_high AS codex_valuation_high,
+                codex.snapshot AS synthesis_codex,
+                codex_history.snapshots AS synthesis_codex_history,
+                joint_market.comparables AS synthesis_market,
+                confirmed_identity.identity AS synthesis_confirmed_identity,
+                lv.snapshot AS synthesis_original,
+                confirmed_identity.id AS synthesis_identity_id,
                 sv.currency AS shadow_valuation_currency,
                 sv.low_value AS shadow_valuation_low,
                 sv.fair_value AS shadow_fair_value,
@@ -491,7 +514,10 @@ class PortfolioRepository:
                 sv.status AS shadow_valuation_status,
                 sv.model_version AS shadow_valuation_model,
                 vj.id AS valuation_job_id,
-                CASE WHEN lv.valued_at > vj.created_at THEN 'succeeded'
+                CASE WHEN lv.valued_at > vj.created_at
+                          OR (lv.model_version = 'codex-independent-fallback-v1'
+                              AND COALESCE(vj.status, '') NOT IN ('queued','identifying','searching','calculating'))
+                     THEN 'succeeded'
                      ELSE vj.status END AS valuation_status,
                 CASE WHEN lv.valued_at > vj.created_at THEN NULL
                      ELSE vj.error_message END AS valuation_error,
@@ -506,7 +532,55 @@ class PortfolioRepository:
             JOIN player p ON p.id = cd.player_id
             JOIN card_set cs ON cs.id = cd.card_set_id
             JOIN brand b ON b.id = cs.brand_id
-            LEFT JOIN latest_item_valuation lv ON lv.collection_item_id = ci.id
+            LEFT JOIN LATERAL (
+                SELECT s.*, to_jsonb(s) AS snapshot
+                FROM valuation_snapshot s
+                WHERE s.collection_item_id = ci.id
+                  AND s.identity_compatibility <> 'incompatible'
+                ORDER BY s.valued_at DESC, s.created_at DESC, s.id DESC LIMIT 1
+            ) lv ON true
+            LEFT JOIN LATERAL (
+                SELECT iv.id, iv.identity FROM card_identity_version iv
+                WHERE iv.collection_item_id = ci.id AND iv.review_status = 'confirmed'
+                  AND NOT EXISTS (
+                    SELECT 1 FROM card_identity_version revocation
+                    WHERE revocation.supersedes_id = iv.id
+                      AND revocation.review_status = 'rejected'
+                  )
+                ORDER BY iv.version DESC LIMIT 1
+            ) confirmed_identity ON true
+            LEFT JOIN LATERAL (
+                SELECT s.analysis_version, s.currency, s.fair_value_low,
+                       s.fair_value, s.fair_value_high, to_jsonb(s) AS snapshot
+                FROM card_analysis_snapshot s
+                JOIN card_analysis_job j ON j.id = s.job_id
+                WHERE s.collection_item_id = ci.id AND j.owner_id = ci.owner_id
+                  AND j.collection_item_id = ci.id
+                  AND s.source = 'codex_multimodal' AND s.status = 'succeeded'
+                ORDER BY s.analysis_version DESC
+                LIMIT 1
+            ) codex ON true
+            LEFT JOIN LATERAL (
+                SELECT jsonb_agg(to_jsonb(s) ORDER BY s.analysis_version DESC) AS snapshots
+                FROM card_analysis_snapshot s
+                JOIN card_analysis_job j ON j.id=s.job_id
+                  AND j.owner_id=ci.owner_id AND j.collection_item_id=ci.id
+                WHERE s.collection_item_id=ci.id AND s.source='codex_multimodal'
+                  AND s.status='succeeded'
+            ) codex_history ON codex.analysis_version IS NOT NULL
+            LEFT JOIN LATERAL (
+                SELECT jsonb_agg(to_jsonb(mc)) AS comparables
+                FROM market_comp mc
+                WHERE mc.card_definition_id=ci.card_definition_id
+                  AND (
+                    EXISTS (
+                        SELECT 1 FROM jsonb_array_elements(
+                            COALESCE(lv.evidence->'used_comparables','[]'::jsonb) ||
+                            COALESCE(lv.evidence->'comparables','[]'::jsonb)
+                        ) e WHERE COALESCE(e->>'market_comp_id',e->>'id')=mc.id::text
+                    )
+                  )
+            ) joint_market ON codex.analysis_version IS NOT NULL
             LEFT JOIN LATERAL (
                 SELECT unit_price, currency, quantity, fee_amount
                 FROM card_transaction
@@ -567,9 +641,38 @@ class PortfolioRepository:
             parameters,
         )
         rows = await result.fetchall()
-        entries_by_item = await self._owner_ledger_entries(connection, owner_id)
+        if not rows:
+            return []
+        entries_by_item = await self._owner_ledger_entries(
+            connection, owner_id, item_ids=[row["id"] for row in rows]
+        )
         items: list[PortfolioItem] = []
         for row in rows:
+            original = row.pop("synthesis_original", None)
+            row.pop("synthesis_codex", None)
+            history = row.pop("synthesis_codex_history", None) or []
+            market = row.pop("synthesis_market", None) or []
+            confirmed = row.pop("synthesis_confirmed_identity", None) or {}
+            identity_id = row.pop("synthesis_identity_id", None)
+            reviews = recovery_reviews()
+            joint_item = {**row, "_confirmed_identity": confirmed, "_human_confirmed": bool(identity_id)}
+            synthesis = joint_valuation(
+                joint_item, history,
+                original if row["fair_value"] is not None else None,
+                market, row["base_currency"], reviews=reviews["sources"],
+                fx=reviews["fx"], image_hashes=current_image_hashes(joint_item) if history else {},
+                identity_reviews=reviews.get("identity_reviews", {}),
+            )
+            synthesis["original_job_status"] = row["valuation_status"]
+            row["valuation_synthesis"] = synthesis
+            if synthesis["status"] == "joint_recalculated":
+                row.update(
+                    valuation_currency=synthesis["currency"],
+                    valuation_low=synthesis["low_value"],
+                    fair_value=synthesis["fair_value"],
+                    valuation_high=synthesis["high_value"],
+                    valuation_status="succeeded",
+                )
             recognition = row.pop("redemption_recognition", None) or {}
             voucher, status = redemption_identity({"notes": row.pop("redemption_notes", None)})
             if recognition:
@@ -580,6 +683,9 @@ class PortfolioRepository:
                         status = physical.redemption_status
             row.update(is_redemption=voucher, redemption_status=status)
             position = calculate_position(entries_by_item[row["id"]])
+            sold = row.get("holding_status") == "sold"
+            if sold:
+                row["news_alerts"] = []
             valuation_compatible = (
                 row["fair_value"] is not None and row["valuation_currency"] == row["base_currency"]
             )
@@ -600,13 +706,15 @@ class PortfolioRepository:
                 else None
             )
             items.append(
-                PortfolioItem(
+                PortfolioProjection(
                     **{k: v for k, v in row.items() if k != "base_currency"},
-                    quantity_held=position.quantity_held,
-                    remaining_cost=position.remaining_cost,
+                    cost_comparable=sold or bool(entries_by_item[row["id"]]),
+                    quantity_held=Decimal("0") if sold else position.quantity_held,
+                    remaining_cost=Decimal("0") if sold else position.remaining_cost,
                     realized_profit=position.realized_profit,
                     unrealized_profit=(
-                        market_value - position.remaining_cost if market_value is not None else None
+                        market_value - position.remaining_cost
+                        if market_value is not None and not sold else None
                     ),
                 )
             )
@@ -656,6 +764,12 @@ class PortfolioRepository:
             item = await selected.fetchone()
             if item is None:
                 raise NotFoundError("collection item not found")
+
+            if "holding_status" in fields:
+                await connection.execute(
+                    "UPDATE collection_item SET holding_status=%s, updated_at=now() WHERE id=%s",
+                    (payload.holding_status, item_id),
+                )
 
             if "is_numbered" in fields:
                 await connection.execute(
@@ -873,7 +987,7 @@ class PortfolioRepository:
     async def item_detail(
         self, connection: AsyncConnection, owner_id: UUID, item_id: UUID
     ) -> PortfolioItemDetail:
-        items = await self.list_items(connection, owner_id)
+        items = await self.list_items(connection, owner_id, item_ids=[item_id])
         item = next((candidate for candidate in items if candidate.id == item_id), None)
         if item is None:
             raise NotFoundError("collection item not found")
@@ -916,18 +1030,27 @@ class PortfolioRepository:
         return [self._to_entry(row) for row in await result.fetchall()]
 
     async def _owner_ledger_entries(
-        self, connection: AsyncConnection, owner_id: UUID
+        self,
+        connection: AsyncConnection,
+        owner_id: UUID,
+        *,
+        item_ids: list[UUID] | None = None,
     ) -> defaultdict[UUID, list[LedgerEntry]]:
+        item_filter = ""
+        parameters: tuple[object, ...] = (owner_id,)
+        if item_ids is not None:
+            item_filter = "AND t.collection_item_id = ANY(%s::uuid[])"
+            parameters += (item_ids,)
         result = await connection.execute(
-            """
+            f"""
             SELECT t.collection_item_id, t.transaction_type, t.quantity,
                    t.unit_price, t.fee_amount, t.fx_rate_to_base
             FROM card_transaction t
             JOIN collection_item ci ON ci.id = t.collection_item_id
-            WHERE ci.owner_id = %s AND ci.deleted_at IS NULL
+            WHERE ci.owner_id = %s AND ci.deleted_at IS NULL {item_filter}
             ORDER BY t.collection_item_id, t.transacted_at, t.created_at, t.id
             """,
-            (owner_id,),
+            parameters,
         )
         grouped: defaultdict[UUID, list[LedgerEntry]] = defaultdict(list)
         for row in await result.fetchall():

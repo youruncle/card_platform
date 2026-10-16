@@ -280,3 +280,18 @@ def test_local_ocr_anchors_override_serial_and_record_provenance() -> None:
     assert resolved.serial_total == 50
     assert resolved.field_evidence["card_number"] == ["Apple Vision OCR：No. 31"]
     assert resolved.recognition_route[0]["model"] == "apple_vision"
+
+
+def test_manual_pair_recognition_does_not_return_team_text_as_parallel():
+    class TeamTextProvider(FakeVisionProvider):
+        async def recognize_images(self, images, prompt):
+            return CardRecognitionResult(player_name='Stephen Curry', parallel_name='GOLDEN',
+                is_numbered=True, confidence='.95', field_evidence={
+                    'parallel_name':['正面球队 GOLDEN STATE WARRIORS 字样'],
+                })
+    service = CardVisionService(Settings(max_image_bytes=100,card_search_enabled=False),
+                                provider=TeamTextProvider())
+    result = asyncio.run(service.recognize_pair(upload(b'\xff\xd8\xfffront'),upload(b'\xff\xd8\xffback')))
+    assert result.parallel_name is None
+    assert result.is_numbered is None
+    assert any('team_text_not_parallel' in c for c in result.caveats)

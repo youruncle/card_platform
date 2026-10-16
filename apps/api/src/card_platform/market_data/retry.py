@@ -5,7 +5,7 @@ import re
 MAX_REFRESH_ATTEMPTS = 4  # initial attempt plus at most three retries
 TRANSIENT_ERROR = re.compile(
     r"timeout|timed?\s*out|超时|connecterror|networkerror|connection reset|"
-    r"HTTP\s*(?:429|502|503|504)\b|circuit open|concurrency wait", re.I,
+    r"HTTP\s*(?:429|502|503|504)\b|circuit open|concurrency wait|transient_source_failure", re.I,
 )
 
 

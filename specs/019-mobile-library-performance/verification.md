@@ -1,0 +1,86 @@
+# 实际验证（2026-10-16）
+
+## 四步结果
+
+1. LibraryPage 在同一 Workspace 持续挂载，active 控制隐藏与恢复；查询草稿、已提交查询、持仓、排序及已加载列表保留。Chrome 手机视口实际验证栏目切换与详情返回，无重复第一页请求，滚动位置恢复。
+2. 每批30张，距底部500px观察触发，按钮作为后备；同步锁防重入，ID去重；失败保留列表并重试。DOM覆盖重复观察和失败，浏览器验证自动追加失败后重试。
+3. 仅当前查询会话缓存，无全局私有数据缓存；MobileApi实例隔离账户和服务，成功写操作触发失效；返回或重新前台超过60秒后重新验证已加载窗口，旧列表保留至全部页面成功。请求effect清理防旧查询/刷新响应覆盖。401立即dispose取消请求并清订阅，退出销毁Workspace。DOM覆盖隐藏写入、晚到响应、过期返回、已加载窗口刷新；浏览器验证退出再登录另一个账户无旧卡片/草稿。评估后不增加额外缩略图缓存：保留组件已显示图片，避免新增全局Blob缓存。
+4. 显式 snapshot_mode=membership 仅对无汇总created_at排序生效；数据库按created_at方向、id升序固定成员，投影仅当页ID。成员快照绑定账户/过滤/排序/币种，所有成员删除或转移会失效。完整快照仍默认full；估值/盈亏仍全库投影，已有full快照冻结展示值行为不变。无快照时间排序使用SQL LIMIT/OFFSET选择ID再投影。
+
+## 通过的检查
+
+- `cd apps/mobile && npm test`：12文件、69测试通过。
+- `cd apps/mobile && npm run build`：TypeScript检查与Vite构建通过。
+- `cd apps/mobile && npx playwright test tests/e2e/library-performance.spec.ts`：1个Chrome手机视口综合路径通过。网络全部使用隔离响应fixture，不访问真实账户。
+- `bash scripts/test-mobile.sh` 指定 membership、sorting、pagination、performance、read_scope、search_postgres、mobile_postgres 9个相关文件：45通过、3跳过（显式opt-in合成排序性能基准）。脚本启动临时PostgreSQL并应用迁移，退出销毁；真实数据库HTTP测试证明首批仅30个ID进入投影，后续页5个ID，插入不移页、排序/筛选绑定、跨账户拒绝和删除失效。
+- 后端已有Starlette/httpx弃用警告，浏览器运行器NO_COLOR/FORCE_COLOR环境警告。
+
+- 聚焦独立静态审查：未发现有充分证据的P1/P2问题；审查未额外运行测试。
+
+## 范围与限制
+
+- 未部署，未做真实卡库写入，未测量线上提速比例；未运行iPhone原生包/真机内存测试。缩略图无额外跨卸载LRU缓存。
+- membership是成员/顺序快照：展示值按页读取；若需要价格也完全冻结，使用现有full模式。本轮移动端仅默认时间排序opt-in，其他排序不改变语义。
+- 第一条不带隔离DB环境的后端全套尝试在连接等待时中断（1通过），随后仅在脚本临时数据库中扩大运行。后端全套扩大运行也已中断：当时533通过、56失败、1跳过，未完成全套。不能宣称后端全套通过。失败涉及CardHobby身份/成交证据和端到端管理员权限等非本轮功能，未改动这些实现，未逐项定位根因。
+- 全套中断时flatbed异步任务有pending清理警告。以下完整记录已经输出的失败名称；后续未执行测试无结果。
+
+## 扩大后端运行已出现的失败
+
+```text
+FAILED apps/api/tests/test_cardhobby_audit_trace.py::test_page_and_every_rejected_row_are_traceable[payload0-None-empty]
+FAILED apps/api/tests/test_cardhobby_audit_trace.py::test_page_and_every_rejected_row_are_traceable[payload1-None-succeeded]
+FAILED apps/api/tests/test_cardhobby_audit_trace.py::test_page_and_every_rejected_row_are_traceable[None-error2-failed]
+FAILED apps/api/tests/test_cardhobby_cross_brand_conflict_scan.py::test_missing_card_kind_never_hides_later_hard_version_conflict[explicit-technology-parallel]
+FAILED apps/api/tests/test_cardhobby_cross_brand_conflict_scan.py::test_base_and_explicit_colour_parallel_never_cross_match[target-base-seller-blue]
+FAILED apps/api/tests/test_cardhobby_cross_brand_conflict_scan.py::test_terse_same_player_season_product_sale_remains_image_reviewable[court-kings-without-maker-or-sport-suffix]
+FAILED apps/api/tests/test_cardhobby_cross_brand_conflict_scan.py::test_terse_same_player_season_product_sale_remains_image_reviewable[topps-chrome-without-sport-suffix]
+FAILED apps/api/tests/test_cardhobby_cross_brand_conflict_scan.py::test_terse_same_player_season_product_sale_remains_image_reviewable[mosaic-without-sport-suffix]
+FAILED apps/api/tests/test_cardhobby_cross_brand_conflict_scan.py::test_exact_sales_remain_usable_across_product_families[kobe-all-heart]
+FAILED apps/api/tests/test_cardhobby_cross_brand_conflict_scan.py::test_exact_sales_remain_usable_across_product_families[mosaic-jam-masters]
+FAILED apps/api/tests/test_cardhobby_cross_brand_conflict_scan.py::test_exact_sales_remain_usable_across_product_families[topps-chrome-fanatical]
+FAILED apps/api/tests/test_cardhobby_cross_brand_conflict_scan.py::test_target_product_or_bare_variant_words_are_not_other_insert_claims[identity_updates1-1998 SkyBox Metal Universe Jerry Stackhouse \u7ecf\u5178\u8001\u5361 \u7279\u5361 46]
+FAILED apps/api/tests/test_cardhobby_provider.py::test_runtime_query_budget_reserves_reviewed_knowledge_aliases
+FAILED apps/api/tests/test_cardhobby_provider.py::test_bowman_retrofractor_seller_vocabulary_is_exact_candidate
+FAILED apps/api/tests/test_cardhobby_provider.py::test_stained_glass_chinese_seller_alias_is_an_exact_insert_match
+FAILED apps/api/tests/test_cardhobby_provider.py::test_donruss_catalog_sport_suffix_may_be_omitted_by_seller
+FAILED apps/api/tests/test_cardhobby_provider.py::test_unanchored_target_keeps_plain_same_product_sale_as_analog
+FAILED apps/api/tests/test_cardhobby_provider.py::test_unnumbered_insert_rejects_explicit_red_diamond_parallel
+FAILED apps/api/tests/test_cardhobby_provider.py::test_checkerboard_finish_is_not_a_base_card_comparable
+FAILED apps/api/tests/test_cardhobby_provider.py::test_named_technology_finish_is_not_a_base_card_comparable[\u53d8\u5f62\u866b\u6298]
+FAILED apps/api/tests/test_cardhobby_provider.py::test_named_technology_finish_is_not_a_base_card_comparable[\u9f99\u9cde\u6298\u5c04]
+FAILED apps/api/tests/test_cardhobby_provider.py::test_named_technology_finish_is_not_a_base_card_comparable[\u94f6\u8109\u51b2\u6298]
+FAILED apps/api/tests/test_cardhobby_provider.py::test_named_technology_finish_is_not_a_base_card_comparable[Amoeba]
+FAILED apps/api/tests/test_cardhobby_provider.py::test_named_technology_finish_is_not_a_base_card_comparable[Dragon Scale]
+FAILED apps/api/tests/test_cardhobby_provider.py::test_player_alias_can_match_and_generates_broad_query
+FAILED apps/api/tests/test_cardhobby_provider.py::test_team_checklist_accepts_common_cardhobby_misspelling
+FAILED apps/api/tests/test_cardhobby_provider.py::test_nba_hoops_basketball_matches_common_cardhobby_seller_title
+FAILED apps/api/tests/test_cardhobby_provider.py::test_multi_player_query_uses_individual_short_aliases_and_strict_gate
+FAILED apps/api/tests/test_cardhobby_provider.py::test_ud_game_floor_seller_alias_is_exact_insert_evidence
+FAILED apps/api/tests/test_cardhobby_provider.py::test_signature_class_star_cast_seller_title_is_exact_identity
+FAILED apps/api/tests/test_cardhobby_provider.py::test_unicode_player_name_and_hoopnotic_use_short_seller_queries
+FAILED apps/api/tests/test_cardhobby_provider.py::test_rookie_focus_short_title_is_exact_only_with_full_identity_anchors
+FAILED apps/api/tests/test_cardhobby_provider.py::test_named_maze_finish_is_not_accepted_as_rookie_focus_base
+FAILED apps/api/tests/test_cardhobby_provider.py::test_coloured_cracked_ice_without_zhe_suffix_is_still_a_parallel
+FAILED apps/api/tests/test_cardhobby_provider.py::test_sparse_autograph_insert_is_retained_only_as_an_image_review_candidate
+FAILED apps/api/tests/test_cardhobby_recall_budget.py::test_full_page_does_not_hide_second_page_after_three_title_matches
+FAILED apps/api/tests/test_cardhobby_recall_budget.py::test_page_budget_includes_second_pages
+FAILED apps/api/tests/test_cardhobby_recall_budget.py::test_full_pages_do_not_starve_later_query_families
+FAILED apps/api/tests/test_comparable_budget_anchors.py::test_twelve_weak_image_candidates_cannot_starve_explicit_insert_proxy[Topps Chrome Update-Clutch Gene-CG-10]
+FAILED apps/api/tests/test_comparable_budget_anchors.py::test_twelve_weak_image_candidates_cannot_starve_explicit_insert_proxy[Donruss-All Heart-3]
+FAILED apps/api/tests/test_comparable_insert_normalization.py::test_explicit_insert_name_outweighs_short_descriptive_alias[\u5f53\u9009FMVP-High Honors-False]
+FAILED apps/api/tests/test_comparable_insert_normalization.py::test_explicit_insert_name_outweighs_short_descriptive_alias[\u5f53\u9009FMVP-High Honors-True]
+FAILED apps/api/tests/test_comparable_insert_normalization.py::test_explicit_insert_name_outweighs_short_descriptive_alias[\u5f53\u9009FMVP-Victory Portraits-False]
+FAILED apps/api/tests/test_comparable_insert_normalization.py::test_explicit_insert_name_outweighs_short_descriptive_alias[\u5f53\u9009FMVP-Victory Portraits-True]
+FAILED apps/api/tests/test_comparable_insert_normalization.py::test_explicit_insert_name_outweighs_short_descriptive_alias[\u6367\u676f-High Honors-False]
+FAILED apps/api/tests/test_comparable_insert_normalization.py::test_explicit_insert_name_outweighs_short_descriptive_alias[\u6367\u676f-High Honors-True]
+FAILED apps/api/tests/test_comparable_insert_normalization.py::test_explicit_insert_name_outweighs_short_descriptive_alias[\u6367\u676f-Victory Portraits-False]
+FAILED apps/api/tests/test_comparable_insert_normalization.py::test_explicit_insert_name_outweighs_short_descriptive_alias[\u6367\u676f-Victory Portraits-True]
+FAILED apps/api/tests/test_comparable_insert_normalization.py::test_explicit_insert_name_outweighs_short_descriptive_alias[\u5956\u676f-High Honors-False]
+FAILED apps/api/tests/test_comparable_insert_normalization.py::test_explicit_insert_name_outweighs_short_descriptive_alias[\u5956\u676f-High Honors-True]
+FAILED apps/api/tests/test_comparable_insert_normalization.py::test_explicit_insert_name_outweighs_short_descriptive_alias[\u5956\u676f-Victory Portraits-False]
+FAILED apps/api/tests/test_comparable_insert_normalization.py::test_explicit_insert_name_outweighs_short_descriptive_alias[\u5956\u676f-Victory Portraits-True]
+FAILED apps/api/tests/test_comparable_insert_normalization.py::test_source_title_retains_exact_insert_despite_award_description
+FAILED apps/api/tests/test_comparable_version_texture.py::test_persisted_visual_result_needs_current_target_and_identity_binding
+FAILED apps/api/tests/test_direct_cardhobby_evidence_persistence.py::test_direct_and_refresh_normalizers_preserve_identical_sale_facts
+FAILED apps/api/tests/test_e2e_postgres.py::test_full_investment_workflow - A...
+```

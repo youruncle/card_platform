@@ -1,0 +1,170 @@
+{
+  "detector_version": "object-quad-layout-v30+sam2.1-tiny",
+  "source_sheet_id": "916c9c36-5059-4d40-b6e7-f0927aae47fe",
+  "saved_sheet_id": "8e6e68b3-88a3-4185-bc78-793fdef3e612",
+  "revision": 2,
+  "source_sha256": "75d7719104978a240b8cc1c329c1691bca02577ae70a707cc667e1c648bc1f66",
+  "required_content": [
+    {
+      "object_id": "haliburton-graded",
+      "role": "body",
+      "x": 0.166,
+      "y": 0.046672,
+      "width": 0.42,
+      "height": 0.214976,
+      "points": [
+        [
+          0.168,
+          0.048794
+        ],
+        [
+          0.585,
+          0.046672
+        ],
+        [
+          0.586,
+          0.25882
+        ],
+        [
+          0.166,
+          0.261648
+        ]
+      ],
+      "minimum_coverage": 0.98,
+      "coverage_by_actual_crop": [
+        0.9999999658270902,
+        0.0
+      ]
+    },
+    {
+      "object_id": "haliburton-graded",
+      "role": "label",
+      "x": 0.02,
+      "y": 0.035358,
+      "width": 0.091,
+      "height": 0.233362,
+      "points": [
+        [
+          0.022,
+          0.035358
+        ],
+        [
+          0.111,
+          0.035358
+        ],
+        [
+          0.11,
+          0.26872
+        ],
+        [
+          0.02,
+          0.26872
+        ]
+      ],
+      "minimum_coverage": 0.98,
+      "coverage_by_actual_crop": [
+        1.0000000220507614,
+        0.0
+      ]
+    },
+    {
+      "object_id": "leonard-graded",
+      "role": "body",
+      "x": 0.173,
+      "y": 0.348628,
+      "width": 0.421,
+      "height": 0.212855,
+      "points": [
+        [
+          0.176,
+          0.348628
+        ],
+        [
+          0.592,
+          0.349336
+        ],
+        [
+          0.594,
+          0.561483
+        ],
+        [
+          0.173,
+          0.561483
+        ]
+      ],
+      "minimum_coverage": 0.98,
+      "coverage_by_actual_crop": [
+        0.0,
+        0.9999999752806435
+      ]
+    },
+    {
+      "object_id": "leonard-graded",
+      "role": "label",
+      "x": 0.02,
+      "y": 0.338728,
+      "width": 0.091,
+      "height": 0.228412,
+      "points": [
+        [
+          0.023,
+          0.338728
+        ],
+        [
+          0.111,
+          0.338728
+        ],
+        [
+          0.11,
+          0.56714
+        ],
+        [
+          0.02,
+          0.56714
+        ]
+      ],
+      "minimum_coverage": 0.98,
+      "coverage_by_actual_crop": [
+        0.0,
+        0.9999999732603747
+      ]
+    }
+  ],
+  "actual_final_crop_points_checked": true,
+  "errors": [],
+  "content_integrity": {
+    "status": "accepted",
+    "independent_reference_count": 2,
+    "search_reference_count": 0,
+    "coverage_scope": "observed_source_regions",
+    "minimum_content_coverage": 0.992544,
+    "minimum_partition_coverage": 0.965068,
+    "error_codes": [],
+    "objects": [
+      {
+        "source_index": 0,
+        "crop_index": 0,
+        "reference_role": "independent_object",
+        "preserved": true,
+        "minimum_panel_coverage": 1.0,
+        "panel_count": 0,
+        "content_coverage": 1.0,
+        "minimum_partition_coverage": 1.0,
+        "partition_count": 16,
+        "content_pixels": 168621
+      },
+      {
+        "source_index": 1,
+        "crop_index": 1,
+        "reference_role": "independent_object",
+        "preserved": true,
+        "minimum_panel_coverage": 1.0,
+        "panel_count": 0,
+        "content_coverage": 0.992544,
+        "minimum_partition_coverage": 0.965068,
+        "partition_count": 16,
+        "content_pixels": 175023
+      }
+    ]
+  }
+}

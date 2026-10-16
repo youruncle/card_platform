@@ -1,0 +1,85 @@
+"use client";
+import React, {useState} from "react";
+import {ArrowDownRight,ArrowUpRight,ArrowLeft,RefreshCw,TrendingUp,FlaskConical,Minus,ExternalLink} from "lucide-react";
+import {demoBoard,sortPlayers,priceIdentity,type PriceBoard,type PricePlayer} from "../lib/player-prices";
+
+function money(value:string|null) {
+  return value===null?"—":new Intl.NumberFormat("zh-CN",{style:"currency",currency:"CNY",maximumFractionDigits:2}).format(Number(value));
+}
+function Change({value}:{value:string|null}) {
+  if(value===null) return <span className="pp-change pp-muted">数据不足</span>;
+  const n=Number(value),Icon=n>0?ArrowUpRight:n<0?ArrowDownRight:Minus;
+  return <span className={`pp-change ${n>0?"pp-up":n<0?"pp-down":"pp-flat"}`}><Icon size={19}/>{n>0?"+":""}{n.toFixed(2)}%</span>;
+}
+function stamp(value?:string|null) {
+  return value?new Date(value).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai",hour12:false}):"尚未更新";
+}
+function safeSource(url:string) {
+  try {const u=new URL(url);return u.protocol==="https:"&&["cardhobby.com.cn","www.cardhobby.com.cn"].includes(u.hostname)?url:null;}catch{return null;}
+}
+function PlayerRow({player,rank,demo}:{player:PricePlayer;rank:number;demo:boolean}) {
+  return <details className="pp-player">
+    <summary>
+      <span className="pp-rank">{player.change_pct===null?"—":String(rank).padStart(2,"0")}</span>
+      <div className="pp-player-name"><strong data-player-name>{player.player_name}</strong><small>
+        {player.cards.length}/3 种代表卡 · {player.cards.reduce((sum,c)=>sum+c.current_count,0)} 笔近7日成交
+        {player.status==="stale"?` · 旧快照 ${player.report_date}`:""}
+        {player.refresh.error?" · 采集异常":""}
+        {player.refresh.queued?" · 更新已排队":""}
+      </small></div>
+      {player.status==="stale"?<span className="pp-change pp-muted">待更新</span>:<Change value={player.change_pct}/>}<span className="pp-expand">明细 <span>⌄</span></span>
+    </summary>
+    <div className="pp-detail">
+      {player.refresh.error&&<p className="pp-error" role="status">{player.refresh.error}；当前展示已保存结果。</p>}
+      {player.status==="stale"&&<p className="pp-error">最新报告日尚无有效更新；以下是 {player.report_date} 的历史快照，上次球员涨跌 {player.last_change_pct===null?"数据不足":`${Number(player.last_change_pct).toFixed(2)}%`}，不参与本日排名。</p>}
+      <p className="pp-detail-note">{demo?"演示样本，不提供真实成交链接。":`统计生成：${stamp(player.computed_at)} · 最近成功统计：${stamp(player.refresh.last_success_at)}`}</p>
+      {player.current_window&&<p className="pp-detail-note">当前窗口 {player.current_window.start.slice(0,10)} — {new Date(new Date(player.current_window.end).getTime()-86400000).toLocaleDateString("zh-CN",{timeZone:"Asia/Shanghai"})} · 前日窗口向前移动一天</p>}
+      <div className="pp-cards">{player.cards.map(card=><article className="pp-card" key={card.card_key}>
+        <p className="pp-card-label">代表卡 · 近90天 {card.selection_count} 笔</p>
+        <h3>{priceIdentity(card.identity)}</h3><Change value={card.change_pct}/>
+        <div className="pp-prices"><div><small>前日7天中位价</small><strong>{money(card.previous_price)}</strong><span>{card.previous_count} 笔</span></div>
+        <div><small>当前7天中位价</small><strong>{money(card.current_price)}</strong><span>{card.current_count} 笔</span></div></div>
+        <p className="pp-detail-note">最近成交：{stamp(card.latest_sale_at)}</p>
+        {!!card.sources.length&&<details className="pp-evidence"><summary>查看成交证据（最多30笔）</summary><ul>{card.sources.map(source=>{
+          const href=safeSource(source.source_url);
+          return <li key={source.source_id}><div>{href?<a href={href} target="_blank" rel="noreferrer">{source.raw_title}<ExternalLink size={12}/></a>:source.raw_title}</div>
+            <small>{stamp(source.occurred_at)} · {money(source.sale_price)}</small></li>;
+        })}</ul></details>}
+      </article>)}</div>
+      {!player.cards.length&&<p className="pp-detail-note">尚无能确认同款的成交样本。更新后仍需三种代表卡，每种在两个窗口中各至少3笔成交。</p>}
+      <div className="pp-coverage"><span>采样范围：{demo?"演示":player.coverage.scope==="local_sample"?"已有公开样本":"卡淘有预算检索"}</span>
+        <span>候选 {player.coverage.sample_count??0} · 可确认 {player.coverage.identified_count??0} · 未纳入 {player.coverage.rejected_count??0}</span>
+        <span>{player.coverage.pages??0} 页{player.coverage.budget_exhausted||player.coverage.local_limit_reached?" · 已达采样上限":""}</span>
+        <span>{player.basket_frozen?`篮子固定于 ${player.basket_selected_on}`:"篮子待补齐"}</span>
+      </div>
+    </div>
+  </details>;
+}
+export function PlayerPriceBoard({data,error="",loading=false,refreshing=false,onRefresh,onReload,message=""}:{
+  data:PriceBoard;error?:string;loading?:boolean;refreshing?:boolean;onRefresh?:()=>void;onReload?:()=>void;message?:string;
+}) {
+  const [demo,setDemo]=useState(false),[direction,setDirection]=useState<"gainers"|"losers">("gainers"),[search,setSearch]=useState("");
+  const shown=demo?demoBoard(data.report_date):data;
+  const players=sortPlayers(shown.players,direction).filter(p=>p.player_name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
+  const ready=shown.players.filter(p=>p.change_pct!==null),up=ready.filter(p=>Number(p.change_pct)>0).length,down=ready.filter(p=>Number(p.change_pct)<0).length;
+  return <main className="pp-shell">
+    <header className="pp-header"><div><a className="pp-back" href="/"><ArrowLeft size={15}/> 返回资产台</a><p className="pp-eyebrow">PLAYER MARKET PULSE</p>
+      <h1>球员卡价<span>每日涨跌</span></h1><p className="pp-intro">用三种常见卡的成交变化，观察球员在收藏市场的热度。</p></div>
+      <div className="pp-header-actions"><button onClick={()=>{setDemo(!demo);setSearch("");}} className="pp-secondary"><FlaskConical size={16}/>{demo?"返回真实统计":"查看演示数据"}</button>
+        <button data-refresh className="pp-primary" onClick={onRefresh} disabled={demo||refreshing||!onRefresh||shown.worker_enabled===false}><RefreshCw size={16}/>{refreshing?"正在排队…":"更新公开成交"}</button></div></header>
+    {demo&&<div className="pp-demo" role="status"><FlaskConical size={18}/><div><strong>演示数据 · 不是真实成交统计</strong><span>用于预览排序和卡片明细，不会写入你的卡库或市场价格。</span></div></div>}
+    {!demo&&error&&<div className="pp-error" role="alert">{error} <a href="/">前往资产台</a>{onReload&&<button onClick={onReload}>重试</button>}</div>}
+    {!demo&&data.worker_enabled===false&&<div className="pp-message">当前环境未开启自动采集，展示已保存的公开样本。</div>}
+    {!demo&&message&&<div className="pp-message" role="status">{message}</div>}
+    <section className="pp-stats" aria-label="每日概览"><div><small>报告日 · 北京时间</small><strong>{shown.report_date}</strong><span>完整自然日，次日07:00起更新</span></div>
+      <div><small>可比较球员</small><strong>{ready.length}<em> / {shown.players.length}</em></strong><span>三卡、两个窗口均满足样本下限</span></div>
+      <div><small>上涨 / 下跌</small><strong><b className="pp-up">{up}</b><em> / </em><b className="pp-down">{down}</b></strong><span>其余持平或数据不足</span></div></section>
+    <section className="pp-method"><TrendingUp size={21}/><div><strong>近7天成交中位价 · 三卡等权</strong><p>每天与前一天的7日窗口比较，按近90天有效成交选出三种卡并按月固定。每种卡每个窗口至少3笔；成交价不含运费。</p></div><span>卡淘 · 人民币</span></section>
+    <section className="pp-board"><div className="pp-toolbar"><div className="pp-tabs"><button className={direction==="gainers"?"active":""} onClick={()=>setDirection("gainers")}>涨幅优先</button><button className={direction==="losers"?"active":""} onClick={()=>setDirection("losers")}>跌幅优先</button></div>
+      <input type="search" aria-label="搜索球员" placeholder="搜索球员…" value={search} onChange={e=>setSearch(e.target.value)}/></div>
+      <div className="pp-table-head"><span>球员 / 代表卡成交</span><span>日变化</span></div>
+      {!demo&&loading?<div className="pp-empty">正在加载每日统计…</div>:players.length?players.map((p,i)=><PlayerRow key={p.player_id} player={p} rank={i+1} demo={demo}/>):<div className="pp-empty"><TrendingUp size={32}/><h2>{search?"没有匹配的球员":"暂无球员统计"}</h2><p>默认跟踪你活动篮球卡库里的球员。登录后请求更新，或先查看演示数据。</p></div>}
+    </section>
+    <footer className="pp-footer"><span>已采集样本中的活跃卡型，并非全市场成交排行。</span><span>窗口滚动也会带来变化；数据不足不记作0%。指标反映卡价变化。</span></footer>
+  </main>;
+}

@@ -1281,3 +1281,15 @@ async def revalue(
             None,
         )
         return {"queued": queued}
+
+
+@router.get("/official-checklists/progress")
+async def official_checklist_progress() -> dict[str, Any]:
+    import json
+    from card_platform.official_checklists import STATUS_PATH
+    if not STATUS_PATH.exists():
+        return {"engineering_percent": 0, "known_products_percent": 0,
+                "summary": {"total": 0, "counts": {}, "discovery_complete": False,
+                            "success_percent": None, "date_unknown": 0},
+                "source_blockers": [], "products": []}
+    return json.loads(STATUS_PATH.read_text())

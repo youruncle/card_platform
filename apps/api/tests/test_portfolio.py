@@ -149,3 +149,35 @@ async def test_existing_calendar_year_set_upgrades_to_confirmed_cross_year() -> 
         and call[1] == (2026, set_id)
         for call in connection.calls
     )
+
+
+def test_sold_cards_are_excluded_from_holdings_but_keep_realized_profit():
+    def card(status, quantity=1):
+        return SimpleNamespace(id=uuid4(), holding_status=status,
+            remaining_cost=Decimal('100'), realized_profit=Decimal('25'),
+            fair_value=Decimal('150'), valuation_currency='CNY',
+            quantity_held=Decimal(quantity), unrealized_profit=Decimal('50'))
+    active, sold = card('held'), card('sold')
+    summary = build_portfolio_summary([active, sold], uuid4(), 'CNY')
+    assert summary.item_count == summary.valued_item_count == 1
+    assert summary.unvalued_item_count == 0
+    assert summary.total_cost == 100
+    assert summary.total_market_value == 150
+    assert summary.unrealized_profit == 50
+    assert summary.realized_profit == 50
+    sold.holding_status = 'held'
+    restored = build_portfolio_summary([active, sold], uuid4(), 'CNY')
+    assert restored.item_count == 2 and restored.total_cost == 200
+
+
+def test_sold_status_validation_and_search():
+    from pydantic import ValidationError
+    from card_platform.schemas import PortfolioItemQuickUpdate
+    from card_platform.portfolio_search import SearchFilters, matches
+    for status in ['held', 'sold']:
+        assert PortfolioItemQuickUpdate(holding_status=status).holding_status == status
+    for status in ['deleted', None]:
+        with pytest.raises(ValidationError):
+            PortfolioItemQuickUpdate(holding_status=status)
+    assert matches({'holding_status': 'sold'}, SearchFilters(holding_status='sold'))
+    assert not matches({'holding_status': 'sold'}, SearchFilters(holding_status='held'))

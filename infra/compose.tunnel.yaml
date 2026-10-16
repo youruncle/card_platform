@@ -1,0 +1,76 @@
+name: card-platform-cloud
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: card_platform
+      POSTGRES_USER: card_platform
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    logging: *logging
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U card_platform -d card_platform']
+      interval: 5s
+      retries: 30
+  api:
+    build: ../apps/api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: ../.env.cloud
+    environment:
+      DATABASE_URL: postgresql://card_platform:${POSTGRES_PASSWORD:?required}@postgres:5432/card_platform
+      ALLOWED_ORIGINS: http://localhost:13000,http://127.0.0.1:13000,http://1.117.65.47
+      AUTH_COOKIE_SECURE: 'false'
+      AUTH_REGISTRATION_ENABLED: 'false'
+      DATABASE_POOL_MAX_SIZE: '4'
+      RECOGNITION_CONCURRENCY: '1'
+      SCANNER_WORKER_CONCURRENCY: '1'
+      VALUATION_WORKER_CONCURRENCY: '1'
+      RECOGNITION_WORKER_ENABLED: 'false'
+      PURCHASE_COST_WORKER_ENABLED: 'false'
+      SEARCH_INDEX_CONCURRENCY: '1'
+      UPLOAD_DIR: /app/uploads
+      SCANNER_JOB_DIR: /app/scanner-jobs
+      FLATBED_SCAN_DIR: /app/flatbed-scans
+      CARDHOBBY_ACCOUNT_KEY_FILE: /app/secrets/cardhobby-account.key
+    volumes:
+      - uploads:/app/uploads
+      - scanner:/app/scanner-jobs
+      - flatbed:/app/flatbed-scans
+      - secrets:/app/secrets
+    logging: *logging
+    healthcheck:
+      test: ['CMD', 'python', '-c', "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready')"]
+      interval: 10s
+      retries: 15
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ''
+        NEXT_PUBLIC_SITE_URL: http://1.117.65.47
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      API_INTERNAL_URL: http://api:8000
+    ports:
+      - '127.0.0.1:3000:3000'
+    logging: *logging
+volumes:
+  postgres:
+  uploads:
+  scanner:
+  flatbed:
+  secrets:

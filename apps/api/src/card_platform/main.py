@@ -5,14 +5,20 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
+from card_platform.player_prices.api import router as player_prices_router
+from card_platform.player_prices.service import run_price_worker
 from card_platform.purchase_cost_api import router as purchase_cost_router
 from card_platform.cardhobby_account_api import router as cardhobby_account_router
 from card_platform.purchase_cost_service import run_cost_worker
 from card_platform.api import router
 from card_platform.auth_api import router as auth_router
+from card_platform.mobile_api import router as mobile_router
+from card_platform.capture_api import router as capture_router
+from card_platform.capture_media_api import router as capture_media_router
+from card_platform.private_uploads import router as private_uploads_router
 from card_platform.config import get_settings
+from card_platform.codex_valuation_fallback import run_codex_fallback_worker
 from card_platform.db import Database
 from card_platform.identity_correction_api import router as identity_correction_router
 from card_platform.identity_review_api import router as identity_review_router
@@ -41,6 +47,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.knowledge_runtime = knowledge_runtime
     worker = AutomatedValuationWorker(database, get_settings(), knowledge_runtime)
     worker_tasks: list[asyncio.Task] = []
+    codex_fallback_task = None
     recognition_worker = None
     recognition_worker_task = None
     scanner_worker = None
@@ -49,6 +56,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         recognition_worker = RecognitionBenchmarkWorker(database, get_settings())
         recognition_worker_task = asyncio.create_task(recognition_worker.run())
     if get_settings().valuation_worker_enabled:
+        codex_fallback_task = asyncio.create_task(
+            run_codex_fallback_worker(database, get_settings().resolved_upload_dir)
+        )
         concurrency = max(1, get_settings().valuation_worker_concurrency)
         worker_tasks = [asyncio.create_task(worker.run()) for _ in range(concurrency)]
     if get_settings().scanner_worker_enabled:
@@ -62,9 +72,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if get_settings().purchase_cost_worker_enabled
         else None
     )
+    price_worker = (asyncio.create_task(run_price_worker(database))
+                    if get_settings().player_price_worker_enabled else None)
     try:
         yield
     finally:
+        if price_worker is not None:
+            price_worker.cancel()
+            await asyncio.gather(price_worker, return_exceptions=True)
+        if codex_fallback_task is not None:
+            codex_fallback_task.cancel()
+            await asyncio.gather(codex_fallback_task, return_exceptions=True)
         if cost_worker is not None:
             cost_worker.cancel()
             await asyncio.gather(cost_worker, return_exceptions=True)
@@ -77,7 +95,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await database.close()
 
 
-app = FastAPI(title="Card Platform API", version="0.5.0", lifespan=lifespan)
+app = FastAPI(title="Card Platform API", version="0.6.1", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().cors_origins,
@@ -97,13 +115,26 @@ async def reject_cross_site_session_writes(request: Request, call_next):
         origin = request.headers.get("origin")
         if origin and origin not in settings.cors_origins:
             return JSONResponse(status_code=403, content={"detail": "请求来源未获授权"})
-    return await call_next(request)
+    response = await call_next(request)
+    path = request.url.path
+    if request.method in {"GET", "HEAD"} and (
+        path.startswith("/v1/capture/")
+        or (path.startswith("/v1/portfolio/items/") and "/images/" in path)
+    ):
+        # Include authorization and validation errors in the private media policy.
+        response.headers["Cache-Control"] = "private, no-store"
+        response.headers.add_vary_header("Cookie, Authorization")
+    return response
 
 
 app.include_router(router)
+app.include_router(player_prices_router)
 app.include_router(purchase_cost_router)
 app.include_router(cardhobby_account_router)
 app.include_router(auth_router)
+app.include_router(mobile_router)
+app.include_router(capture_router)
+app.include_router(capture_media_router)
 app.include_router(scanner_router)
 app.include_router(flatbed_router)
 app.include_router(identity_correction_router)
@@ -112,11 +143,7 @@ app.include_router(knowledge_router)
 app.include_router(market_data_router)
 app.include_router(recognition_benchmark_router)
 app.include_router(ebay_notification_router)
-app.mount(
-    "/uploads",
-    StaticFiles(directory=get_settings().resolved_upload_dir, check_dir=False),
-    name="uploads",
-)
+app.include_router(private_uploads_router)
 
 
 @app.get("/health", tags=["system"])
@@ -129,3 +156,10 @@ async def readiness(request: Request) -> dict[str, str]:
     async with request.app.state.database.connection() as connection:
         await connection.execute("SELECT 1")
     return {"status": "ready"}
+
+
+@app.get("/v1/client-capabilities", tags=["system"])
+def client_capabilities() -> dict:
+    return {"version": 1, "capture_jobs": True, "single_side": True,
+            "supplement": True, "crop_proposals": True,
+            "image_variants": True, "portfolio_sort": True}

@@ -54,7 +54,7 @@ def test_global_keywords_aliases_and_small_english_typos(q):
 
 @pytest.mark.parametrize(
     "q",
-    ["51", "ID 51", "加内特", "LeBron James", "durxxx", "158", "2024", "杜兰特 Panini", "%", "_"],
+    ["51", "ID 51", "加内特", "LeBron James", "durxxx", "158", "2024", "%", "_"],
 )
 def test_numbers_and_different_players_do_not_fuzzy_match(q):
     assert not search.matches(card(), search.SearchFilters(q=q))
@@ -161,6 +161,65 @@ def test_empty_query_matches_all_without_changing_fields():
     original = card()
     assert search.matches(original, search.SearchFilters(q="   "))
     assert original == card()
+
+
+def test_partial_keywords_rank_by_coverage_and_player_importance():
+    vocabulary = search.SearchVocabulary()
+    q = "杜兰特 黑白 Panini"
+    best = search.keyword_score(card(brand_name="Panini"), q, vocabulary)
+    partial = search.keyword_score(card(), q, vocabulary)
+    brand_only = search.keyword_score(card(player_name="Unrelated", parallel_name="Base", brand_name="Panini"), q, vocabulary)
+    assert best > partial > brand_only > 0
+    assert search.matches(card(), search.SearchFilters(q="杜兰特 Panini"))
+    assert not search.matches(card(), search.SearchFilters(q="杜兰特 Panini", brand=["Panini"]))
+    assert search.keyword_score(card(), "unrelated nonsense", vocabulary) == 0
+
+
+def test_keyword_ranking_handles_punctuation_typos_and_exact_ids():
+    vocabulary = search.SearchVocabulary()
+    assert search.keyword_score(card(), "杜兰特，黑白，不存在", vocabulary) > 0
+    assert search.keyword_score(card(), "Kevin Durant", vocabulary) > search.keyword_score(card(), "kevn durat", vocabulary) > 0
+    assert search.keyword_score(card(), "ID 51", vocabulary) == 0
+    assert search.keyword_score(card(), "519", vocabulary) > 0
+
+
+def test_keywords_split_chinese_runs_and_latin_separators():
+    vocabulary = search.SearchVocabulary()
+    assert search.keyword_score(card(), "杜兰特黑白", vocabulary) == search.keyword_score(card(), "杜兰特 黑白", vocabulary)
+    assert search.keyword_score(card(), "Durant-Topps", vocabulary) == search.keyword_score(card(), "Durant Topps", vocabulary)
+    assert search.keyword_score(card(), "不存在杜兰特黑白", vocabulary) > 0
+    assert search.keyword_score(card(), "7/50", vocabulary) > 0
+    assert search.keyword_score(card(), "7/99", vocabulary) == 0
+
+
+@pytest.mark.parametrize("number", ["CH-5", "SS-AB", "CARD/123"])
+def test_card_number_exact_recall_survives_keyword_tokenization(number):
+    assert search.matches(card(card_number=number), search.SearchFilters(q=number))
+
+
+@pytest.mark.asyncio
+async def test_vocabulary_cache_reuses_published_version_and_refreshes_on_publish():
+    from unittest.mock import AsyncMock
+    from uuid import uuid4
+
+    search._vocabulary_cache.clear()
+    first, second = uuid4(), uuid4()
+    version_result = AsyncMock()
+    version_result.fetchone.side_effect = [{"published_version_id": first}, {"published_version_id": first}, {"published_version_id": second}]
+    entity_result = AsyncMock()
+    entity_result.fetchall.side_effect = [
+        [{"entity_type": "player", "canonical_name": "Test Player", "aliases": ["旧别名"]}],
+        [{"entity_type": "player", "canonical_name": "Test Player", "aliases": ["新别名"]}],
+    ]
+    connection = AsyncMock()
+    connection.execute.side_effect = [version_result, entity_result, version_result, version_result, entity_result]
+    old = await search.search_vocabulary(connection)
+    assert await search.search_vocabulary(connection) is old
+    new = await search.search_vocabulary(connection)
+    assert "新别名" in new.values("player", "Test Player")
+    assert "旧别名" not in new.values("player", "Test Player")
+    assert entity_result.fetchall.await_count == 2
+    search._vocabulary_cache.clear()
 
 
 @pytest.mark.parametrize("state", ["identifying", "searching", "calculating"])

@@ -324,3 +324,85 @@ def test_chronicles_year_is_not_a_print_run() -> None:
     assert explicit_print_runs("2021编年史 Flux Prizm 12/68") == {68}
     assert explicit_print_runs("2021编") == {2021}
     assert explicit_print_runs("Gold 17/2021编") == {2021}
+
+
+def test_repeated_product_labels_do_not_repeat_catalog_normalization(monkeypatch):
+    from card_platform.domain import product_identity as products
+
+    original = products.normalize_product_text
+    calls = []
+
+    def track(value):
+        calls.append(value)
+        return original(value)
+
+    monkeypatch.setattr(products, 'normalize_product_text', track)
+    label = '2024-25 Panini Cost Lookup Fixture Basketball'
+    first = products.product_label_variants(label)
+    first_calls = len(calls)
+    assert first_calls > 0
+    assert products.product_label_variants(label) == first
+    assert len(calls) == first_calls
+    assert products.product_label_variants('Cost Lookup Fixture Optic') != first
+
+
+def test_product_label_cache_accepts_unhashable_input_and_tracks_changed_text():
+    from card_platform.domain.product_identity import product_label_variants
+
+    value = ['Donruss']
+    assert product_label_variants(value) == product_label_variants(str(value))
+    value.append('Optic')
+    assert product_label_variants(value) == product_label_variants(str(value))
+    assert product_label_variants(value) != product_label_variants('Donruss')
+
+
+def test_marvel_chrome_word_order_keeps_other_marvel_sets_separate():
+    assert assess_product_match('2024 TOPPS CHROME MARVEL JOSHUA CASSARA 画师签字', 'Marvel Chrome') == ProductMatchStatus.MATCH
+    assert assess_product_match('2024 Marvel Chrome Joshua Cassara', 'Topps Chrome Marvel') == ProductMatchStatus.MATCH
+    for title in ['2024 Topps Chrome Basketball', '2024 Marvel Metal Universe', '2024 Marvel Masterpieces', '2025 Deadpool Chrome']:
+        assert assess_product_match(title, 'Marvel Chrome') != ProductMatchStatus.MATCH
+
+
+def test_marvel_chrome_alias_does_not_absorb_deadpool_movie_set():
+    for product in ['Marvel Chrome', 'Topps Chrome Marvel']:
+        assert assess_product_match('2025 Topps Chrome Marvel 漫威影视 死侍与金刚狼 Ladypool',product) == ProductMatchStatus.EXPLICIT_CONFLICT
+        for movie in ['Deadpool & Wolverine', 'Deadpool and Wolverine', 'Deadpool Wolverine']:
+            assert assess_product_match(f'2025 Topps Chrome Marvel {movie} Ladypool', product) == ProductMatchStatus.EXPLICIT_CONFLICT
+    assert assess_product_match('2024 Topps Chrome Marvel Deadpool base', 'Marvel Chrome') == ProductMatchStatus.MATCH
+
+
+def test_chronicles_classics_and_absolute_parent_is_omitted_not_conflicting():
+    for target in ['Chronicles Classics Basketball','Chronicles Absolute Basketball']:
+        assert assess_product_match('2021-22 Panini 编年史 LeBron James',target) == ProductMatchStatus.UNKNOWN
+    assert assess_product_match('2021-22 Panini Chronicles Classics LeBron James','Chronicles Absolute Basketball') == ProductMatchStatus.EXPLICIT_CONFLICT
+
+
+def test_bowman_chrome_reordered_seller_product_label():
+    assert assess_product_match('2025-26 Topps Chrome Bowman Derek Dixon RC 鲍曼','Bowman Chrome') == ProductMatchStatus.MATCH
+    assert assess_product_match('2024 Topps Chrome Jeremy Fears 【DC】Bowman 鲍曼 大学 1ST','Bowman Chrome') == ProductMatchStatus.MATCH
+    assert assess_product_match('2024 Topps Chrome Jarrett Bowman','Bowman Chrome') != ProductMatchStatus.MATCH
+
+
+def test_tc_update_is_an_explicit_updates_product_shorthand():
+    title = '2026 Topps Chrome Paolo Banchero TC update 黑白折 BASE'
+    assert assess_product_match(title, 'Topps Chrome Updates Basketball') == ProductMatchStatus.MATCH
+    assert assess_product_match(title, 'Topps Chrome') == ProductMatchStatus.EXPLICIT_CONFLICT
+
+
+@pytest.mark.parametrize('title', [
+    '2024 Topps Chrome Jarrett Bowman 鲍曼',
+    '2024 Topps Chrome Update Jeremy Fears Bowman 鲍曼 大学 1ST',
+    '2024 Topps Chrome Sapphire Jeremy Fears Bowman 鲍曼 大学 1ST',
+])
+def test_reordered_bowman_label_cannot_erase_surname_or_child_conflict(title):
+    assert assess_product_match(title, 'Bowman Chrome') != ProductMatchStatus.MATCH
+
+
+def test_topps3_joined_manufacturer_product_keeps_family_boundary():
+    assert assess_product_match('2026 Topps3 Jason Kidd Triple Power', 'Topps 3 Basketball') == ProductMatchStatus.MATCH
+    assert assess_product_match('2026 Topps Chrome Jason Kidd', 'Topps 3 Basketball') == ProductMatchStatus.EXPLICIT_CONFLICT
+
+
+def test_chronicles_essentials_parent_omission_is_not_a_sibling_conflict():
+    assert assess_product_match('2019 Panini Chronicles Tyler Herro', 'Chronicles Essentials') == ProductMatchStatus.UNKNOWN
+    assert assess_product_match('2019 Panini Chronicles Absolute Tyler Herro', 'Chronicles Essentials') == ProductMatchStatus.EXPLICIT_CONFLICT

@@ -1,0 +1,949 @@
+{
+  "id": "de88fa4b-0895-4aa1-849e-b070f8ed2b25",
+  "side": "back",
+  "revision": 1,
+  "regions": [
+    {
+      "id": "cedd0535-26f3-4d17-86e7-6e758440edf8",
+      "ordinal": 0,
+      "bounds": {
+        "x": 0.007533158063888545,
+        "y": 0.0,
+        "width": 0.488912353515625,
+        "height": 0.25552996742725376,
+        "angle": -90.0,
+        "points": [
+          {
+            "x": 0.49644551157951355,
+            "y": 0.25552996742725376
+          },
+          {
+            "x": 0.007533158063888545,
+            "y": 0.25552996742725376
+          },
+          {
+            "x": 0.007533158063888545,
+            "y": 0.0
+          },
+          {
+            "x": 0.49644551157951355,
+            "y": 0.0
+          }
+        ],
+        "source_crop_points": [
+          {
+            "x": 0.007533158175647259,
+            "y": 0.0
+          },
+          {
+            "x": 0.4964454770088196,
+            "y": 0.0
+          },
+          {
+            "x": 0.4964454770088196,
+            "y": 0.26319587230682373
+          },
+          {
+            "x": 0.007533158175647259,
+            "y": 0.26319587230682373
+          }
+        ],
+        "crop_padding_ratio": 0.03,
+        "output_border_ratio": 0.008,
+        "crop_padding_axes": {
+          "short_leading": 0.03,
+          "short_trailing": 0.03,
+          "long": 0.0
+        }
+      },
+      "confidence": 0.92,
+      "failure_reason": "source_edge_contact",
+      "crop_quality": {
+        "presence_score": 1.0,
+        "isolation_score": 1.0,
+        "boundary_score": 0.87,
+        "usability_score": 0.974,
+        "usable": true,
+        "needs_review": true,
+        "violations": [
+          {
+            "code": "source_edge_contact",
+            "severity": "warning",
+            "message": "\u5361\u724c\u8d34\u8fd1\u626b\u63cf\u539f\u56fe\u8fb9\u754c\uff0c\u53ef\u80fd\u7f3a\u5c11\u8fb9\u7f18\u7559\u767d",
+            "evidence": {
+              "edge_count": 1,
+              "edges": "top"
+            }
+          }
+        ],
+        "metrics": {
+          "crop_width_px": 1214,
+          "crop_height_px": 897,
+          "content_ratio": 0.6472817240945131,
+          "edge_ratio": 0.06520130764727346,
+          "luma_stddev": 49.67861432506215,
+          "row_content_coverage": 0.9609810479375697,
+          "column_content_coverage": 0.9752679307502061,
+          "row_content_span": 1.0,
+          "column_content_span": 1.0,
+          "content_axis_coverage": 1.0,
+          "content_axis_signal_density": 0.9609810479375697,
+          "polygon_area_px": 1086576.4483994592,
+          "polygon_mask_ratio": 0.999176276771005,
+          "sparse_span_only": 0,
+          "pixel_aspect_ratio": 1.353022598390987,
+          "max_peer_overlap": 0.0,
+          "width_to_peer_median": 1.0328781017577442,
+          "height_to_peer_median": 1.0773435013513188,
+          "short_edge_to_peer_median": 1.0995911287788946,
+          "long_edge_to_peer_median": 1.0557453249371742,
+          "orientation_invariant_peer_size": 0,
+          "area_to_peer_median": 1.1635167615905053,
+          "axis_span_to_peer_median": 1.0995911287788946,
+          "source_edge_count": 1,
+          "outside_normalized_distance": 0.0,
+          "severe_source_clamp": 0,
+          "max_boundary_content_continuity": 0.0,
+          "object_integrity_error_count": 0
+        }
+      }
+    },
+    {
+      "id": "f74cb847-88fb-421d-a670-ab5c83503ea3",
+      "ordinal": 1,
+      "bounds": {
+        "x": 0.5472894630432129,
+        "y": 0.0,
+        "width": 0.4527105369567871,
+        "height": 0.2365454676421359,
+        "angle": -88.521728515625,
+        "points": [
+          {
+            "x": 0.9941860694885254,
+            "y": 0.2365454676421359
+          },
+          {
+            "x": 0.5472894630432129,
+            "y": 0.2283932154448703
+          },
+          {
+            "x": 0.5559208717346191,
+            "y": 0.0
+          },
+          {
+            "x": 1.0,
+            "y": 0.00011761596519499484
+          }
+        ],
+        "source_crop_points": [
+          {
+            "x": 0.5559208393096924,
+            "y": 0.0
+          },
+          {
+            "x": 0.9995967745780945,
+            "y": 0.0
+          },
+          {
+            "x": 0.9941861033439636,
+            "y": 0.24364183843135834
+          },
+          {
+            "x": 0.5472894310951233,
+            "y": 0.2354895919561386
+          }
+        ],
+        "crop_padding_ratio": 0.03,
+        "output_border_ratio": 0.008,
+        "crop_padding_axes": {
+          "short_leading": 0.03,
+          "short_trailing": 0.03,
+          "long": 0.0
+        }
+      },
+      "confidence": 0.9760749936103821,
+      "failure_reason": "source_edge_contact",
+      "crop_quality": {
+        "presence_score": 1.0,
+        "isolation_score": 1.0,
+        "boundary_score": 0.74,
+        "usability_score": 0.948,
+        "usable": true,
+        "needs_review": true,
+        "violations": [
+          {
+            "code": "source_edge_contact",
+            "severity": "warning",
+            "message": "\u5361\u724c\u8d34\u8fd1\u626b\u63cf\u539f\u56fe\u8fb9\u754c\uff0c\u53ef\u80fd\u7f3a\u5c11\u8fb9\u7f18\u7559\u767d",
+            "evidence": {
+              "edge_count": 2,
+              "edges": "top,right"
+            }
+          }
+        ],
+        "metrics": {
+          "crop_width_px": 1123,
+          "crop_height_px": 830,
+          "content_ratio": 0.8503163523439965,
+          "edge_ratio": 0.12727604855717867,
+          "luma_stddev": 59.31730722705542,
+          "row_content_coverage": 0.9819277108433735,
+          "column_content_coverage": 0.968833481745325,
+          "row_content_span": 0.9819277108433735,
+          "column_content_span": 1.0,
+          "content_axis_coverage": 0.9819277108433735,
+          "content_axis_signal_density": 0.968833481745325,
+          "polygon_area_px": 900750.1306995475,
+          "polygon_mask_ratio": 0.9690748747438552,
+          "sparse_span_only": 0,
+          "pixel_aspect_ratio": 1.3553729947218667,
+          "max_peer_overlap": 0.0,
+          "width_to_peer_median": 0.9563979908167548,
+          "height_to_peer_median": 0.9973027187255393,
+          "short_edge_to_peer_median": 1.0003564095871857,
+          "long_edge_to_peer_median": 0.9621360260904424,
+          "orientation_invariant_peer_size": 0,
+          "area_to_peer_median": 0.9645321105731077,
+          "axis_span_to_peer_median": 1.0003564095871857,
+          "source_edge_count": 2,
+          "outside_normalized_distance": 0.0,
+          "severe_source_clamp": 0,
+          "max_boundary_content_continuity": 0.0,
+          "object_integrity_error_count": 0
+        }
+      }
+    },
+    {
+      "id": "d75c698f-130f-4f1b-8d2f-3480718fac7b",
+      "ordinal": 2,
+      "bounds": {
+        "x": 0.015306239593774085,
+        "y": 0.2720518424510956,
+        "width": 0.43548284912109375,
+        "height": 0.22162615966796873,
+        "angle": -1.187307357788086,
+        "points": [
+          {
+            "x": 0.02161990116909146,
+            "y": 0.4936780021190643
+          },
+          {
+            "x": 0.015306239593774085,
+            "y": 0.27833925700187684
+          },
+          {
+            "x": 0.4444754290468991,
+            "y": 0.2720518424510956
+          },
+          {
+            "x": 0.45078908871486784,
+            "y": 0.4873905875682831
+          }
+        ],
+        "source_crop_points": [
+          {
+            "x": 0.015306239016354084,
+            "y": 0.2716904878616333
+          },
+          {
+            "x": 0.4444754421710968,
+            "y": 0.26540306210517883
+          },
+          {
+            "x": 0.45078906416893005,
+            "y": 0.4940393567085266
+          },
+          {
+            "x": 0.021619901061058044,
+            "y": 0.5003267526626587
+          }
+        ],
+        "crop_padding_ratio": 0.03,
+        "output_border_ratio": 0.008,
+        "crop_padding_axes": {
+          "short_leading": 0.03,
+          "short_trailing": 0.03,
+          "long": 0.0
+        }
+      },
+      "confidence": 0.9742141366004944,
+      "failure_reason": null,
+      "crop_quality": {
+        "presence_score": 1.0,
+        "isolation_score": 1.0,
+        "boundary_score": 1.0,
+        "usability_score": 1.0,
+        "usable": true,
+        "needs_review": false,
+        "violations": [],
+        "metrics": {
+          "crop_width_px": 1081,
+          "crop_height_px": 778,
+          "content_ratio": 0.7618383104250134,
+          "edge_ratio": 0.06588557800106026,
+          "luma_stddev": 49.40959396635253,
+          "row_content_coverage": 1.0,
+          "column_content_coverage": 1.0,
+          "row_content_span": 1.0,
+          "column_content_span": 1.0,
+          "content_axis_coverage": 1.0,
+          "content_axis_signal_density": 1.0,
+          "polygon_area_px": 804127.011863172,
+          "polygon_mask_ratio": 0.9577167194994638,
+          "sparse_span_only": 0,
+          "pixel_aspect_ratio": 1.4093606192954427,
+          "max_peer_overlap": 0.0,
+          "width_to_peer_median": 0.920002757718805,
+          "height_to_peer_median": 0.9344011317582225,
+          "short_edge_to_peer_median": 0.9268402481461496,
+          "long_edge_to_peer_median": 0.9269363345823834,
+          "orientation_invariant_peer_size": 0,
+          "area_to_peer_median": 0.8610671233751301,
+          "axis_span_to_peer_median": 0.9269363345823834,
+          "source_edge_count": 0,
+          "outside_normalized_distance": 0.0,
+          "severe_source_clamp": 0,
+          "max_boundary_content_continuity": 0.0,
+          "object_integrity_error_count": 0
+        }
+      }
+    },
+    {
+      "id": "8df4ae2d-85ac-43f7-96e7-cba52a5eb286",
+      "ordinal": 3,
+      "bounds": {
+        "x": 0.5368835926055908,
+        "y": 0.24610601365566254,
+        "width": 0.4631164073944092,
+        "height": 0.23690958321094513,
+        "angle": -179.18270830401875,
+        "points": [
+          {
+            "x": 0.9956552386283875,
+            "y": 0.48301559686660767
+          },
+          {
+            "x": 0.5368835926055908,
+            "y": 0.4783875644207001
+          },
+          {
+            "x": 0.5415693521499634,
+            "y": 0.24610601365566254
+          },
+          {
+            "x": 1.0,
+            "y": 0.25073403120040894
+          }
+        ],
+        "source_crop_points": [
+          {
+            "x": 0.5415693521499634,
+            "y": 0.23899874091148376
+          },
+          {
+            "x": 0.9995967745780945,
+            "y": 0.24362674355506897
+          },
+          {
+            "x": 0.9956552982330322,
+            "y": 0.49012288451194763
+          },
+          {
+            "x": 0.5368835926055908,
+            "y": 0.48549485206604004
+          }
+        ],
+        "crop_padding_ratio": 0.03,
+        "output_border_ratio": 0.008,
+        "crop_padding_axes": {
+          "short_leading": 0.03,
+          "short_trailing": 0.03,
+          "long": 0.0
+        }
+      },
+      "confidence": 0.49,
+      "failure_reason": "source_edge_contact",
+      "crop_quality": {
+        "presence_score": 1.0,
+        "isolation_score": 1.0,
+        "boundary_score": 0.87,
+        "usability_score": 0.974,
+        "usable": true,
+        "needs_review": true,
+        "violations": [
+          {
+            "code": "source_edge_contact",
+            "severity": "warning",
+            "message": "\u5361\u724c\u8d34\u8fd1\u626b\u63cf\u539f\u56fe\u8fb9\u754c\uff0c\u53ef\u80fd\u7f3a\u5c11\u8fb9\u7f18\u7559\u767d",
+            "evidence": {
+              "edge_count": 1,
+              "edges": "right"
+            }
+          }
+        ],
+        "metrics": {
+          "crop_width_px": 1149,
+          "crop_height_px": 831,
+          "content_ratio": 0.8363700745112854,
+          "edge_ratio": 0.11782534244732387,
+          "luma_stddev": 60.04940481370793,
+          "row_content_coverage": 0.9675090252707581,
+          "column_content_coverage": 0.9329852045256745,
+          "row_content_span": 0.9963898916967509,
+          "column_content_span": 0.9773716275021758,
+          "content_axis_coverage": 0.9773716275021758,
+          "content_axis_signal_density": 0.9329852045256745,
+          "polygon_area_px": 926664.4613864981,
+          "polygon_mask_ratio": 0.9730859984981447,
+          "sparse_span_only": 0,
+          "pixel_aspect_ratio": 1.3961737375650443,
+          "max_peer_overlap": 0.0,
+          "width_to_peer_median": 0.9783815434989587,
+          "height_to_peer_median": 0.9988377538664339,
+          "short_edge_to_peer_median": 0.9996435904128143,
+          "long_edge_to_peer_median": 0.9903929483061827,
+          "orientation_invariant_peer_size": 0,
+          "area_to_peer_median": 0.9922814310779652,
+          "axis_span_to_peer_median": 0.9996435904128143,
+          "source_edge_count": 1,
+          "outside_normalized_distance": 0.0,
+          "severe_source_clamp": 0,
+          "max_boundary_content_continuity": 0.0,
+          "object_integrity_error_count": 0
+        }
+      }
+    },
+    {
+      "id": "af069ea6-7c91-46ac-a87c-e6ddc3702540",
+      "ordinal": 4,
+      "bounds": {
+        "x": 0.0,
+        "y": 0.5050200068950653,
+        "width": 0.48761439857445654,
+        "height": 0.2649600219726562,
+        "angle": -90.0,
+        "points": [
+          {
+            "x": 0.48761439857445654,
+            "y": 0.7699800288677215
+          },
+          {
+            "x": 0.0,
+            "y": 0.7699800288677215
+          },
+          {
+            "x": 0.0,
+            "y": 0.5050200068950653
+          },
+          {
+            "x": 0.48761439857445654,
+            "y": 0.5050200068950653
+          }
+        ],
+        "source_crop_points": [
+          {
+            "x": 0.0,
+            "y": 0.505020022392273
+          },
+          {
+            "x": 0.48761439323425293,
+            "y": 0.505020022392273
+          },
+          {
+            "x": 0.48761439323425293,
+            "y": 0.7699800729751587
+          },
+          {
+            "x": 0.0,
+            "y": 0.7699800729751587
+          }
+        ],
+        "crop_padding_ratio": 0.0,
+        "output_border_ratio": 0.008,
+        "crop_padding_axes": {
+          "short_leading": 0.0,
+          "short_trailing": 0.0,
+          "long": 0.0
+        }
+      },
+      "confidence": 0.9279366731643677,
+      "failure_reason": "source_edge_contact",
+      "crop_quality": {
+        "presence_score": 1.0,
+        "isolation_score": 1.0,
+        "boundary_score": 0.87,
+        "usability_score": 0.974,
+        "usable": true,
+        "needs_review": true,
+        "violations": [
+          {
+            "code": "source_edge_contact",
+            "severity": "warning",
+            "message": "\u5361\u724c\u8d34\u8fd1\u626b\u63cf\u539f\u56fe\u8fb9\u754c\uff0c\u53ef\u80fd\u7f3a\u5c11\u8fb9\u7f18\u7559\u767d",
+            "evidence": {
+              "edge_count": 1,
+              "edges": "left"
+            }
+          }
+        ],
+        "metrics": {
+          "crop_width_px": 1210,
+          "crop_height_px": 930,
+          "content_ratio": 0.43769394828045854,
+          "edge_ratio": 0.07265618057406914,
+          "luma_stddev": 65.61872704502002,
+          "row_content_coverage": 1.0,
+          "column_content_coverage": 1.0,
+          "row_content_span": 1.0,
+          "column_content_span": 1.0,
+          "content_axis_coverage": 1.0,
+          "content_axis_signal_density": 1.0,
+          "polygon_area_px": 1123684.0611242056,
+          "polygon_mask_ratio": 1.0,
+          "sparse_span_only": 0,
+          "pixel_aspect_ratio": 1.3014041018238531,
+          "max_peer_overlap": 0.009047099949584579,
+          "width_to_peer_median": 1.0301360848961447,
+          "height_to_peer_median": 1.1171014251355766,
+          "short_edge_to_peer_median": 1.140170071555272,
+          "long_edge_to_peer_median": 1.0529426016752461,
+          "orientation_invariant_peer_size": 0,
+          "area_to_peer_median": 1.2032519587332828,
+          "axis_span_to_peer_median": 1.140170071555272,
+          "source_edge_count": 1,
+          "outside_normalized_distance": 0.0,
+          "severe_source_clamp": 0,
+          "max_boundary_content_continuity": 0.0,
+          "object_integrity_error_count": 0
+        }
+      }
+    },
+    {
+      "id": "b1b6abed-1f3f-4eda-8596-007e22efae0b",
+      "ordinal": 5,
+      "bounds": {
+        "x": 0.5330308079719543,
+        "y": 0.4946220815181732,
+        "width": 0.46533745527267456,
+        "height": 0.2374608814716339,
+        "angle": 179.42418050960728,
+        "points": [
+          {
+            "x": 0.5363589525222778,
+            "y": 0.7320829629898071
+          },
+          {
+            "x": 0.5330308079719543,
+            "y": 0.4979056119918823
+          },
+          {
+            "x": 0.9950401186943054,
+            "y": 0.4946220815181732
+          },
+          {
+            "x": 0.9983682632446289,
+            "y": 0.7287994027137756
+          }
+        ],
+        "source_crop_points": [
+          {
+            "x": 0.5330308079719543,
+            "y": 0.4907817840576172
+          },
+          {
+            "x": 0.9950401186943054,
+            "y": 0.4874982535839081
+          },
+          {
+            "x": 0.9983683228492737,
+            "y": 0.735923171043396
+          },
+          {
+            "x": 0.5363589525222778,
+            "y": 0.7392067909240723
+          }
+        ],
+        "crop_padding_ratio": 0.03,
+        "output_border_ratio": 0.008,
+        "crop_padding_axes": {
+          "short_leading": 0.03,
+          "short_trailing": 0.03,
+          "long": 0.0
+        }
+      },
+      "confidence": 0.49,
+      "failure_reason": "source_edge_contact",
+      "crop_quality": {
+        "presence_score": 1.0,
+        "isolation_score": 1.0,
+        "boundary_score": 0.87,
+        "usability_score": 0.974,
+        "usable": true,
+        "needs_review": true,
+        "violations": [
+          {
+            "code": "source_edge_contact",
+            "severity": "warning",
+            "message": "\u5361\u724c\u8d34\u8fd1\u626b\u63cf\u539f\u56fe\u8fb9\u754c\uff0c\u53ef\u80fd\u7f3a\u5c11\u8fb9\u7f18\u7559\u767d",
+            "evidence": {
+              "edge_count": 1,
+              "edges": "right"
+            }
+          }
+        ],
+        "metrics": {
+          "crop_width_px": 1155,
+          "crop_height_px": 834,
+          "content_ratio": 0.21667554032068184,
+          "edge_ratio": 0.05491660532885903,
+          "luma_stddev": 34.131444099755406,
+          "row_content_coverage": 0.9747899159663865,
+          "column_content_coverage": 0.9341421143847487,
+          "row_content_span": 0.9747899159663865,
+          "column_content_span": 0.9488734835355286,
+          "content_axis_coverage": 0.9488734835355286,
+          "content_axis_signal_density": 0.9341421143847487,
+          "polygon_area_px": 941080.7817746401,
+          "polygon_mask_ratio": 0.9788179845733802,
+          "sparse_span_only": 0,
+          "pixel_aspect_ratio": 1.3951529562353477,
+          "max_peer_overlap": 0.0,
+          "width_to_peer_median": 0.9830738249227069,
+          "height_to_peer_median": 1.001162246133566,
+          "short_edge_to_peer_median": 1.0077578062424477,
+          "long_edge_to_peer_median": 0.9977020942940098,
+          "orientation_invariant_peer_size": 0,
+          "area_to_peer_median": 1.007718568922035,
+          "axis_span_to_peer_median": 1.0077578062424477,
+          "source_edge_count": 1,
+          "outside_normalized_distance": 0.0,
+          "severe_source_clamp": 0,
+          "max_boundary_content_continuity": 0.0,
+          "object_integrity_error_count": 0
+        }
+      }
+    },
+    {
+      "id": "3de178d8-85e6-4d32-8296-72880babd64e",
+      "ordinal": 6,
+      "bounds": {
+        "x": 0.5076984167098999,
+        "y": 0.7522099018096924,
+        "width": 0.4815469980239868,
+        "height": 0.24699145555496216,
+        "angle": 176.7935133123881,
+        "points": [
+          {
+            "x": 0.5258110761642456,
+            "y": 0.9992013573646545
+          },
+          {
+            "x": 0.5076984167098999,
+            "y": 0.7705696821212769
+          },
+          {
+            "x": 0.9711326956748962,
+            "y": 0.7522099018096924
+          },
+          {
+            "x": 0.9892454147338867,
+            "y": 0.9808416962623596
+          }
+        ],
+        "source_crop_points": [
+          {
+            "x": 0.5076984167098999,
+            "y": 0.7631599307060242
+          },
+          {
+            "x": 0.971132755279541,
+            "y": 0.7448001503944397
+          },
+          {
+            "x": 0.9892454147338867,
+            "y": 0.9882514476776123
+          },
+          {
+            "x": 0.5258110761642456,
+            "y": 0.9997148513793945
+          }
+        ],
+        "crop_padding_ratio": 0.03,
+        "output_border_ratio": 0.008,
+        "crop_padding_axes": {
+          "short_leading": 0.03,
+          "short_trailing": 0.03,
+          "long": 0.0
+        }
+      },
+      "confidence": 0.49,
+      "failure_reason": "source_edge_contact",
+      "crop_quality": {
+        "presence_score": 1.0,
+        "isolation_score": 1.0,
+        "boundary_score": 0.87,
+        "usability_score": 0.974,
+        "usable": true,
+        "needs_review": true,
+        "violations": [
+          {
+            "code": "source_edge_contact",
+            "severity": "warning",
+            "message": "\u5361\u724c\u8d34\u8fd1\u626b\u63cf\u539f\u56fe\u8fb9\u754c\uff0c\u53ef\u80fd\u7f3a\u5c11\u8fb9\u7f18\u7559\u767d",
+            "evidence": {
+              "edge_count": 1,
+              "edges": "bottom"
+            }
+          }
+        ],
+        "metrics": {
+          "crop_width_px": 1195,
+          "crop_height_px": 867,
+          "content_ratio": 0.24484228639654723,
+          "edge_ratio": 0.055663688249664535,
+          "luma_stddev": 35.008713941960956,
+          "row_content_coverage": 0.9792387543252595,
+          "column_content_coverage": 0.896234309623431,
+          "row_content_span": 0.9815455594002307,
+          "column_content_span": 0.9297071129707113,
+          "content_axis_coverage": 0.9297071129707113,
+          "content_axis_signal_density": 0.896234309623431,
+          "polygon_area_px": 924427.8388943374,
+          "polygon_mask_ratio": 0.8940857957753616,
+          "sparse_span_only": 0,
+          "pixel_aspect_ratio": 1.433400795608459,
+          "max_peer_overlap": 0.0,
+          "width_to_peer_median": 1.0173180997445679,
+          "height_to_peer_median": 1.0413440656161483,
+          "short_edge_to_peer_median": 0.9853857839831374,
+          "long_edge_to_peer_median": 1.0022979057059902,
+          "orientation_invariant_peer_size": 0,
+          "area_to_peer_median": 0.9898864336870199,
+          "axis_span_to_peer_median": 1.0022979057059902,
+          "source_edge_count": 1,
+          "outside_normalized_distance": 0.0,
+          "severe_source_clamp": 0,
+          "max_boundary_content_continuity": 0.0,
+          "object_integrity_error_count": 0
+        }
+      }
+    },
+    {
+      "id": "2063755a-045d-4a6b-b9a6-b89619c5baa6",
+      "ordinal": 7,
+      "bounds": {
+        "x": 0.0,
+        "y": 0.7678799357414245,
+        "width": 0.48136151082627476,
+        "height": 0.23212006425857545,
+        "angle": -90.0,
+        "points": [
+          {
+            "x": 0.48136151082627476,
+            "y": 1.0
+          },
+          {
+            "x": 0.0,
+            "y": 1.0
+          },
+          {
+            "x": 0.0,
+            "y": 0.7678799357414245
+          },
+          {
+            "x": 0.48136151082627476,
+            "y": 0.7678799357414245
+          }
+        ],
+        "source_crop_points": [
+          {
+            "x": 0.0,
+            "y": 0.7678799033164978
+          },
+          {
+            "x": 0.4813614785671234,
+            "y": 0.7678799033164978
+          },
+          {
+            "x": 0.4813614785671234,
+            "y": 0.9997148513793945
+          },
+          {
+            "x": 0.0,
+            "y": 0.9997148513793945
+          }
+        ],
+        "crop_padding_ratio": 0.0,
+        "output_border_ratio": 0.008,
+        "crop_padding_axes": {
+          "short_leading": 0.0,
+          "short_trailing": 0.0,
+          "long": 0.0
+        }
+      },
+      "confidence": 0.9656572937965393,
+      "failure_reason": "source_edge_contact",
+      "crop_quality": {
+        "presence_score": 1.0,
+        "isolation_score": 1.0,
+        "boundary_score": 0.74,
+        "usability_score": 0.948,
+        "usable": true,
+        "needs_review": true,
+        "violations": [
+          {
+            "code": "source_edge_contact",
+            "severity": "warning",
+            "message": "\u5361\u724c\u8d34\u8fd1\u626b\u63cf\u539f\u56fe\u8fb9\u754c\uff0c\u53ef\u80fd\u7f3a\u5c11\u8fb9\u7f18\u7559\u767d",
+            "evidence": {
+              "edge_count": 2,
+              "edges": "left,bottom"
+            }
+          }
+        ],
+        "metrics": {
+          "crop_width_px": 1194,
+          "crop_height_px": 815,
+          "content_ratio": 0.9631933212335222,
+          "edge_ratio": 0.05999386778281251,
+          "luma_stddev": 52.49050659922112,
+          "row_content_coverage": 1.0,
+          "column_content_coverage": 1.0,
+          "row_content_span": 1.0,
+          "column_content_span": 1.0,
+          "content_axis_coverage": 1.0,
+          "content_axis_signal_density": 1.0,
+          "polygon_area_px": 971787.6889340878,
+          "polygon_mask_ratio": 0.9987730061349693,
+          "sparse_span_only": 0,
+          "pixel_aspect_ratio": 1.466474953873764,
+          "max_peer_overlap": 0.009047099949584579,
+          "width_to_peer_median": 1.016926175077293,
+          "height_to_peer_median": 0.9786444839902696,
+          "short_edge_to_peer_median": 0.9988539323570701,
+          "long_edge_to_peer_median": 1.0394402333799355,
+          "orientation_invariant_peer_size": 0,
+          "area_to_peer_median": 1.0405998275111095,
+          "axis_span_to_peer_median": 1.0394402333799355,
+          "source_edge_count": 2,
+          "outside_normalized_distance": 0.0,
+          "severe_source_clamp": 0,
+          "max_boundary_content_continuity": 0.0,
+          "object_integrity_error_count": 0
+        }
+      }
+    }
+  ],
+  "failures": [
+    "source_edge_contact",
+    "low_outline_confidence",
+    "layout_requires_review"
+  ],
+  "layout_hypothesis": {
+    "detector_version": "object-quad-layout-v27",
+    "score": 0.9174,
+    "rows": 4,
+    "columns": 2,
+    "transform": "independent",
+    "signals": {
+      "projection_x_periodicity": 0.2414,
+      "projection_y_periodicity": 0.273,
+      "line_segment_count": 375,
+      "candidate_routes": "multi_threshold+adaptive+gradient_lines+projection+components+mixed_slab_instances",
+      "single_slab_grid_fragmentation_guard": 0,
+      "row_local_body_recovery": 0,
+      "current_instance_recovery": 0,
+      "current_instance_replaced_grid_regions": 0,
+      "current_instance_reference_boxes": [],
+      "physical_object_envelope_count": 0,
+      "grid_oversegmentation_rejected": 0,
+      "current_object_layout_authoritative": 0,
+      "mixed_orientation_object_layout": 0,
+      "physical_object_reference_boxes": [],
+      "irregular_saturation_content_recall": 0.0,
+      "prior_topology_rejected": 0,
+      "current_topology_count": 8,
+      "candidate_count": 8,
+      "expected_count": 8,
+      "dpi": 300,
+      "sources": "multi_threshold+gradient+components",
+      "front_prior_role": "not_applicable",
+      "current_grid_evidence_score": 0.0,
+      "geometry_source": "current_pixel_quads",
+      "grid_role": "search_and_missing_object_advisory",
+      "resolved_quad_count": 8,
+      "unresolved_quad_count": 0
+    },
+    "rejected_reasons": [],
+    "manual_override": false,
+    "ml_refinement": {
+      "status": "accepted",
+      "reason": null,
+      "model": "sam2.1-hiera-tiny",
+      "refined_count": 5,
+      "edge_refined_count": 0,
+      "fallback_count": 3,
+      "overlap_fallback_indices": [],
+      "geometry_validation": "joint_proposals_v3_object_coverage",
+      "object_preservation_fallback_count": 3,
+      "object_preservation_fallback_indices": [
+        3,
+        5,
+        6
+      ],
+      "label_preservation_fallback_count": 0,
+      "label_preservation_fallback_indices": [],
+      "preservation_fallback_details": [
+        {
+          "index": 3,
+          "reason": "object_envelope_coverage_below_minimum",
+          "original_polygon_coverage": 0.900094,
+          "minimum_coverage": 0.95
+        },
+        {
+          "index": 5,
+          "reason": "object_envelope_coverage_below_minimum",
+          "original_polygon_coverage": 0.890231,
+          "minimum_coverage": 0.95
+        },
+        {
+          "index": 6,
+          "reason": "object_envelope_coverage_below_minimum",
+          "original_polygon_coverage": 0.919225,
+          "minimum_coverage": 0.95
+        }
+      ],
+      "inference_seconds": 1.786
+    },
+    "slot_refinement": {
+      "status": "skipped",
+      "reason": "independent_back_geometry"
+    },
+    "crop_quality": {
+      "region_count": 8,
+      "usable_count": 8,
+      "needs_review_count": 7,
+      "error_count": 0,
+      "error_codes": [],
+      "minimum_usability_score": 0.948
+    },
+    "source_resolution": {
+      "requested_dpi": 300,
+      "effective_dpi": 300,
+      "pixel_width": 2480,
+      "pixel_height": 3507,
+      "capture_kind": "unknown",
+      "source": "session_fallback",
+      "metadata_status": "unavailable"
+    },
+    "object_integrity": {
+      "status": "accepted",
+      "reference_count": 8,
+      "missing_object_count": 0,
+      "minimum_object_coverage": 0.95785,
+      "error_codes": [],
+      "violations": []
+    }
+  },
+  "requires_review": true
+}

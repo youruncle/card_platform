@@ -22,7 +22,7 @@ def identity(player="KEVIN DURANT"):
 @pytest.mark.parametrize("player", ["KEVIN DURANT", "Example Player"])
 def test_release_visual_parallel_query_survives_budget(player):
     plan = CardHobbyProvider.build_query_plan(identity(player))
-    assert ("release_parallel", f"{player} 2025 黑白") in plan
+    assert any(stage == "release_parallel" and query.endswith("2025 黑白") for stage, query in plan)
     assert len(plan) <= 12
 
 

@@ -12,6 +12,7 @@ import pytest
 
 from card_platform.flatbed_detection import Detection, LayoutHypothesis
 from card_platform.flatbed_service import FlatbedService
+from card_platform.flatbed_object_quads import resolve_object_layout
 
 
 def _objects(*, strong: bool = False) -> list[Detection]:
@@ -29,7 +30,12 @@ def _objects(*, strong: bool = False) -> list[Detection]:
         evidence += ("physical_object_envelope",)
     return [
         Detection(
-            x, y, width, height, 0, 0.90 if strong else 0.60,
+            x,
+            y,
+            width,
+            height,
+            0,
+            0.90 if strong else 0.60,
             points=((x, y), (x + width, y), (x + width, y + height), (x, y + height)),
             evidence=evidence,
         )
@@ -54,7 +60,10 @@ def _front_rows(detections: list[Detection]) -> list[dict]:
     return [
         {
             "bounds": {
-                "x": obj.x, "y": obj.y, "width": obj.width, "height": obj.height,
+                "x": obj.x,
+                "y": obj.y,
+                "width": obj.width,
+                "height": obj.height,
                 "angle": obj.angle,
                 "points": [{"x": x, "y": y} for x, y in obj.points or ()],
             },
@@ -69,17 +78,24 @@ def _radically_different_fronts() -> list[list[dict]]:
         [],
         _front_rows([Detection(0.01, 0.01, 0.98, 0.98, 0, 1)]),
         _front_rows(list(reversed(_objects(strong=True)))),
-        _front_rows([
-            Detection(0.02 + index * 0.19, 0.12, 0.16, 0.15, 45, 1)
-            for index in range(5)
-        ]),
-        _front_rows([
-            Detection(
-                0.01 + col * 0.5, 0.005 + row * 0.25, 0.48, 0.24, 0, 1,
-                evidence=("physical_object_envelope", "grading_label_association"),
-            )
-            for row in range(4) for col in range(2)
-        ]),
+        _front_rows(
+            [Detection(0.02 + index * 0.19, 0.12, 0.16, 0.15, 45, 1) for index in range(5)]
+        ),
+        _front_rows(
+            [
+                Detection(
+                    0.01 + col * 0.5,
+                    0.005 + row * 0.25,
+                    0.48,
+                    0.24,
+                    0,
+                    1,
+                    evidence=("physical_object_envelope", "grading_label_association"),
+                )
+                for row in range(4)
+                for col in range(2)
+            ]
+        ),
         # Front geometry is not needed even to report the count. An incomplete
         # historical row must not prevent processing valid current back bytes.
         [{"bounds": None, "signals": {}}, {"bounds": {}, "signals": {}}],
@@ -104,7 +120,8 @@ def _db(owner_id, session_id, fronts: list[dict]) -> AsyncMock:
 
 def _stored_sheet(connection: AsyncMock):
     return next(
-        call.args[1] for call in connection.execute.call_args_list
+        call.args[1]
+        for call in connection.execute.call_args_list
         if call.args[0].startswith("INSERT INTO flatbed_scan_sheet")
     )
 
@@ -126,6 +143,9 @@ async def test_same_back_bytes_ignore_front_count_geometry_and_evidence(
     owner_id, session_id = uuid4(), uuid4()
     current = _objects(strong=strong)
     content = _source(current)
+    resolved = list(
+        resolve_object_layout(content, LayoutHypothesis(tuple(current), 0.90, 0, 0)).detections
+    )
     detector_calls, ml_calls = [], []
 
     def detect_current(data, *, dpi, **kwargs):
@@ -138,7 +158,7 @@ async def test_same_back_bytes_ignore_front_count_geometry_and_evidence(
 
     async def refine_current(data, detections, **kwargs):
         assert data == content
-        assert detections == current
+        assert detections == resolved
         assert kwargs.get("prompt_detections") is None
         ml_calls.append(tuple(detections))
         return list(detections), {"status": "accepted", "refined_count": len(detections)}
@@ -162,16 +182,20 @@ async def test_same_back_bytes_ignore_front_count_geometry_and_evidence(
         result = await service.store_sheet(
             connection, owner_id, session_id, "back", content, "image/png"
         )
-        snapshots.append((
-            [region["bounds"] for region in result["regions"]],
-            _crop_fingerprints(connection, service.root),
-            result["layout_hypothesis"],
-        ))
+        snapshots.append(
+            (
+                [region["bounds"] for region in result["regions"]],
+                _crop_fingerprints(connection, service.root),
+                result["layout_hypothesis"],
+            )
+        )
         stored = _stored_sheet(connection)
         assert (service.root / stored[5]).read_bytes() == content
         assert stored[10].obj["expected_count"] == (len(fronts) or None)
         assert stored[10].obj["prior_role"] == "count_and_pairing_advisory_only"
-        assert result["layout_hypothesis"]["slot_refinement"]["reason"] == "independent_back_geometry"
+        assert (
+            result["layout_hypothesis"]["slot_refinement"]["reason"] == "independent_back_geometry"
+        )
         assert ("front_back_count_mismatch" in result["failures"]) == (
             bool(fronts) and len(fronts) != len(current)
         )
@@ -196,7 +220,9 @@ async def test_manual_back_quads_remain_authoritative_for_every_front_layout(tmp
         raise AssertionError("Explicit manual back geometry must not be re-detected or prompted")
 
     monkeypatch.setattr("card_platform.flatbed_service.detect_layout", no_automatic_geometry)
-    monkeypatch.setattr("card_platform.flatbed_service.back_refinement_prompts", no_automatic_geometry)
+    monkeypatch.setattr(
+        "card_platform.flatbed_service.back_refinement_prompts", no_automatic_geometry
+    )
     monkeypatch.setattr("card_platform.flatbed_service.refine_with_sam2", no_automatic_geometry)
     snapshots = []
     for index, fronts in enumerate(_radically_different_fronts()):
@@ -204,7 +230,12 @@ async def test_manual_back_quads_remain_authoritative_for_every_front_layout(tmp
         service = FlatbedService(str(tmp_path / str(index)), "bridge.swift", ml_enabled=True)
         service.orientation_classifier.classify = AsyncMock(return_value=None)
         result = await service.store_sheet(
-            connection, owner_id, session_id, "back", content, "image/png",
+            connection,
+            owner_id,
+            session_id,
+            "back",
+            content,
+            "image/png",
             detections_override=manual,
         )
         assert result["layout_hypothesis"]["manual_override"] is True
@@ -215,10 +246,12 @@ async def test_manual_back_quads_remain_authoritative_for_every_front_layout(tmp
             call.args[0].startswith("INSERT INTO flatbed_layout_override")
             for call in connection.execute.call_args_list
         )
-        snapshots.append((
-            [region["bounds"] for region in result["regions"]],
-            _crop_fingerprints(connection, service.root),
-        ))
+        snapshots.append(
+            (
+                [region["bounds"] for region in result["regions"]],
+                _crop_fingerprints(connection, service.root),
+            )
+        )
     assert all(snapshot == snapshots[0] for snapshot in snapshots)
 
 
@@ -237,9 +270,12 @@ async def test_pairing_uses_region_geometry_not_changed_scan_ordinals(tmp_path, 
         obj = replace(obj, y=obj.y - 0.15) if side == "front" and index == 4 else obj
         return {
             "id": (front_ids if side == "front" else back_ids)[index],
-            "side": side, "ordinal": ordinal,
+            "side": side,
+            "ordinal": ordinal,
             "bounds": {"x": obj.x, "y": obj.y, "width": obj.width, "height": obj.height},
-            "confidence": 0.9, "failure_reason": None, "signals": {},
+            "confidence": 0.9,
+            "failure_reason": None,
+            "signals": {},
         }
 
     rows = sorted(

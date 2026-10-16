@@ -351,6 +351,11 @@ def assess_crop_quality(
     bed_luma = _background_luma(image) if background_luma is None else background_luma
     metrics = _pixel_metrics(image, detection, bed_luma)
     violations: list[CropQualityViolation] = []
+    if "quad_unresolved" in detection.evidence:
+        violations.append(CropQualityViolation(
+            "card_outline_unresolved", "error", "未确认真实卡片四角，请人工校正",
+            {"geometry_source": "search_region_only"},
+        ))
 
     content_score = _score_between(float(metrics["content_ratio"]), 0.015, 0.16)
     edge_score = _score_between(float(metrics["edge_ratio"]), 0.001, 0.022)

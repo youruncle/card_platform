@@ -12,7 +12,9 @@ MANIFEST_DIRECTORY = Path(__file__).parents[4] / "data" / "knowledge"
 def manifest_catalog() -> dict[str, Path]:
     """Return only manifests whose declared key matches a safe file in the catalog."""
     catalog: dict[str, Path] = {}
-    for path in sorted(MANIFEST_DIRECTORY.glob("*.json")):
+    from card_platform.domain.nba_player_catalog import CATALOG_PATH
+
+    for path in [*sorted(MANIFEST_DIRECTORY.glob("*.json")), CATALOG_PATH]:
         manifest = load_manifest(path)
         batch_key = manifest.get("batch_key")
         if (

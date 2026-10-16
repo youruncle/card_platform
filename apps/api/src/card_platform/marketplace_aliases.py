@@ -33,6 +33,7 @@ class MarketplaceAliasCandidate:
 # Additions belong here first, then are initialized as reviewable knowledge
 # drafts with their query evidence; they never silently become live aliases.
 INITIAL_MARKETPLACE_ALIAS_CATALOG: tuple[MarketplaceAliasCandidate, ...] = (
+    MarketplaceAliasCandidate("insert", "Roses", ("Roses", "玫瑰", "玫瑰特卡"), "Topps Signature Class Roses；卡淘 122156847 同时使用 Roses/玫瑰。胶片、SSP 和红花不单独证明卡种或平行。"),
     MarketplaceAliasCandidate("parallel", "Black and White", ("Black and White", "黑白", "黑白折"), "黑白视觉描述的卖家检索词，不等于官方 checklist 名；不与 Blackout、Chrome Negative 合并，须产品与图片核验。", requires_visual_confirmation=True),
     MarketplaceAliasCandidate("player", "Magic Johnson", ("Magic Johnson", "魔术师约翰逊", "魔术师"), "球员中文昵称；与 Magicians insert 俗称重叠，身份门禁需按实体角色消歧。"),
     MarketplaceAliasCandidate("insert", "Stained Glass", ("Stained Glass", "教堂", "彩色玻璃"), "Mosaic 大比例彩窗特卡的中文卖家俗称。"),

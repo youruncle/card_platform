@@ -9,7 +9,7 @@ SKETCH_ALIASES = (
 _SKETCH = re.compile(r"\b(?:artist\s+|art\s+)?sketch\s+cards?\b|手[绘繪]卡|原画卡", re.I)
 _ARTIST_SIGNATURE = re.compile(
     r"(?:画师|畫師|画家|繪師|绘师|作者)\s*(?:亲笔|親筆)?\s*"
-    r"(?:(?:签字|签名|簽名|卡签|卡簽|签绘)\s*)+|"
+    r"(?:(?:亲签|親簽|签字|签名|簽名|卡签|卡簽|签绘)\s*)+|"
     r"\bartist\s+(?:(?:hand|on[ -]card)\s+)?(?:signed|signature|autograph(?:ed)?)\b|"
     r"\b(?:signed|autographed)\s+by\s+(?:the\s+)?artist\b", re.I,
 )

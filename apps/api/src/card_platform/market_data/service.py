@@ -2,6 +2,7 @@ from datetime import timedelta
 from uuid import UUID
 
 from card_platform.db import Database
+from card_platform.ingestion.cardhobby import CardHobbySearchError
 from card_platform.market_data.models import Freshness, MarketDataResult, MarketIdentity
 from card_platform.market_data.protection import (
     ProtectedProvider, ProviderConcurrencyBusy, SourceLimitedError,
@@ -36,6 +37,9 @@ class MarketDataService:
         needs_more_evidence = len(cached.evidence) < cls.MIN_EVIDENCE or cached.freshness in {
             Freshness.STALE,
             Freshness.INSUFFICIENT,
+            # A failed refresh can leave a full historical cache behind.
+            # Its size does not make the interrupted source check complete.
+            Freshness.SOURCE_LIMITED,
         }
         return needs_more_evidence and cached.refresh_is_due()
 
@@ -45,8 +49,10 @@ class MarketDataService:
         *,
         collection_item_id: UUID | None = None,
         card_definition_id: UUID | None = None,
+        confirmed_identity_version_id: UUID | None = None,
         requested_by: UUID | None = None,
         queue_refresh: bool = True,
+        public_image_leads: list[dict] | None = None,
     ) -> MarketDataResult:
         async with self.database.connection() as connection, connection.transaction():
             fingerprint = await self.repository.ensure_identity(
@@ -76,7 +82,6 @@ class MarketDataService:
                         key=lambda item: item.occurred_at,
                         reverse=True,
                     )
-                    cached.evidence = cached.evidence[:100]
                     cached.data_as_of = max(
                         item.occurred_at for item in cached.evidence
                     )
@@ -85,6 +90,40 @@ class MarketDataService:
                     cached.notes.append(
                         f"按当前身份重新校验 {len(reusable)} 条同卡定义历史成交"
                     )
+            # Scoped review leads are not a fresh source check and must not
+            # suppress a refresh that the ordinary cache still needs.
+            refresh_due = self.should_refresh(cached)
+            if collection_item_id is not None and confirmed_identity_version_id is not None:
+                reviewed = await self.repository.reviewed_evidence_for_identity(
+                    connection, collection_item_id, confirmed_identity_version_id
+                )
+                existing = {
+                    (item.provider_code, item.external_sale_id)
+                    for item in cached.evidence
+                }
+                for item in reviewed:
+                    key = (item.provider_code, item.external_sale_id)
+                    if key not in existing:
+                        cached.evidence.append(item)
+                        existing.add(key)
+                cached.evidence.sort(key=lambda item: item.occurred_at, reverse=True)
+            if public_image_leads:
+                discovered = await self.repository.evidence_for_public_image_leads(connection, public_image_leads)
+                if discovered:
+                    # Catalogue observations may not have a market_evidence
+                    # row yet. Persist public facts before the worker links a
+                    # comparable; retrieval supplies no identity approval.
+                    await self.repository.store_evidence(connection, fingerprint, discovered)
+                existing = {(item.provider_code, item.external_sale_id) for item in cached.evidence}
+                added = 0
+                for item in discovered:
+                    key = (item.provider_code, item.external_sale_id)
+                    if key not in existing:
+                        cached.evidence.append(item)
+                        existing.add(key)
+                        added += 1
+                cached.evidence.sort(key=lambda item: item.occurred_at, reverse=True)
+                cached.notes.append(f'本地公开图片索引补充 {added} 条待核验成交候选；相似度不代表同款')
             if cached.evidence:
                 await connection.execute(
                     """
@@ -92,7 +131,7 @@ class MarketDataService:
                     WHERE provider_code = 'cardhobby'
                     """
                 )
-            if queue_refresh and self.should_refresh(cached):
+            if queue_refresh and refresh_due:
                 job_id, _ = await self.repository.enqueue_refresh(
                     connection,
                     fingerprint,
@@ -145,6 +184,8 @@ class MarketDataService:
         try:
             identity = MarketIdentity.model_validate(job["normalized_identity"])
             all_evidence = []
+            public_image_sources = []
+            public_gallery_pages = []
             source_limited = False
             errors = []
             diagnostics = []
@@ -153,6 +194,10 @@ class MarketDataService:
                 try:
                     fetched = await provider.fetch_sales(identity, since=job["data_as_of"])
                     all_evidence.extend(fetched.evidence)
+                    if provider_code == 'cardhobby':
+                        public_image_sources.extend(fetched.public_image_sources)
+                        public_gallery_pages.extend(page for page in fetched.query_diagnostics
+                            if page.get('stage') == 'public_item_source')
                     if fetched.source_error:
                         source_limited = True
                         errors.append(f"{provider_code}: {fetched.source_error}")
@@ -197,12 +242,23 @@ class MarketDataService:
                             "status": "failed",
                             "evidence_count": 0,
                             "error": f"{type(error).__name__}: {str(error)[:240]}",
+                            **({
+                                "query_diagnostics": [
+                                    item.model_dump(mode="json") for item in error.query_diagnostics
+                                ],
+                                "retryable": error.retryable,
+                            } if isinstance(error, CardHobbySearchError) else {}),
                         }
                     )
             async with self.database.connection() as connection, connection.transaction():
+                if public_image_sources:
+                    from card_platform.public_source_catalog import store_observations
+                    await store_observations(connection, public_image_sources)
                 await self.repository.store_evidence(
                     connection, job["identity_fingerprint"], all_evidence
                 )
+                if public_gallery_pages:
+                    await self.repository.store_public_gallery_observations(connection, public_gallery_pages)
                 cached = await self.repository.cached(connection, job["identity_fingerprint"])
                 count = len(cached.evidence)
                 if source_limited:

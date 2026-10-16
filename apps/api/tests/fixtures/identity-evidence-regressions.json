@@ -1,0 +1,200 @@
+{
+  "description": "Redacted four-case field/recall regression; no account, order IDs, money or private images. Seller title is not ground truth.",
+  "cases": [
+    {
+      "case_id": "873",
+      "source": "reported physical card and retained original recognition evidence, 2026-10-15",
+      "recognition": {
+        "brand_name": "Topps",
+        "confidence": "0.98",
+        "season_end": 2025,
+        "card_number": "NS-20",
+        "insert_name": "New School",
+        "player_name": "Kasparas Jakucionis",
+        "product_name": "Hoops",
+        "season_start": 2024,
+        "serial_total": 50,
+        "parallel_name": null,
+        "serial_number": 10,
+        "field_evidence": {
+          "season_end": [
+            "Back: '2024/25 season' in bio paragraph",
+            "联网候选：Back bio states '2024/25 season'"
+          ],
+          "card_number": [
+            "Back: 'NS-20' at top center",
+            "联网候选：Back clearly shows 'NS-20' at top center"
+          ],
+          "insert_name": [
+            "Front: vertical 'NEW SCHOOL' text left/right of player; RC logo present",
+            "联网候选：Front vertical 'NEW SCHOOL' text + RC logo; consistent with Topps Hoops 2024–25 New School insert naming convention"
+          ],
+          "player_name": [
+            "Front: 'KASPARAS JAKUČIONIS' below image",
+            "Back: 'KASPARAS JAKUČIONIS' at top",
+            "联网候选：Front and back both display 'KASPARAS JAKUČIONIS'"
+          ],
+          "product_name": [
+            "Back: implied by NS-20 numbering and Topps/NBA licensing; Hoops is standard for NS-XX format",
+            "联网候选：NS-XX numbering format is exclusive to Topps Hoops New School insert series; confirmed via Topps official checklist structure"
+          ],
+          "season_start": [
+            "Back: '2024/25 season' in bio paragraph",
+            "联网候选：Back bio states '2024/25 season'"
+          ]
+        }
+      },
+      "expected_fields": {
+        "product_name": null,
+        "season_start": null,
+        "season_end": null,
+        "card_number": "NS-20"
+      },
+      "expected_query_any": [
+        "Kasparas Jakucionis",
+        "Kasparas Jakučionis",
+        "亚库乔尼斯"
+      ],
+      "corrected_identity": {
+        "player_name": "Kasparas Jakucionis",
+        "brand_name": "Topps",
+        "product_name": "Topps Basketball",
+        "season_start": 2025,
+        "season_end": 2026,
+        "card_number": "NS-20",
+        "insert_name": "New School",
+        "parallel_name": "Gold Rainbow",
+        "serial_number": 10,
+        "serial_total": 50
+      },
+      "positive_title": "Kasparas Jakucionis 2025 Topps Flagship RC /50编 New School 金折折射",
+      "negative_title": "Kasparas Jakucionis 2024-25 Panini Hoops New School Gold 10/50"
+    },
+    {
+      "case_id": "876",
+      "source": "reported physical card and retained original recognition evidence, 2026-10-15",
+      "recognition": {
+        "brand_name": "Topps",
+        "confidence": "0.83",
+        "season_end": null,
+        "card_number": "UPPER-RIGHT",
+        "insert_name": "Falcon Rising",
+        "player_name": null,
+        "product_name": "Star Wars Galaxy",
+        "season_start": null,
+        "serial_total": 50,
+        "parallel_name": null,
+        "serial_number": 38,
+        "field_evidence": {
+          "card_number": [
+            "背面右上角黑色箭头形徽章内数字: 93",
+            "联网候选：Back upper-right corner contains black arrow-shaped badge with '93'"
+          ],
+          "insert_name": [
+            "背面白色文本框上方标题: FALCON RISING",
+            "联网候选：Back white text box header reads 'FALCON RISING'"
+          ],
+          "player_name": [
+            "正面主体为千年隼号飞船插画，无真实人物肖像",
+            "背面正文描述飞船历史 (Corellian light freighter)，提及 Calrissian 但非卡片主体球员"
+          ],
+          "product_name": [
+            "正面左上角 Logo: STAR WARS GALAXY",
+            "背面顶部居中 Logo: STAR WARS GALAXY",
+            "联网候选：Front top-left and back center both display 'STAR WARS GALAXY' in prominent branding"
+          ]
+        }
+      },
+      "expected_fields": {
+        "card_number": null,
+        "season_start": null
+      },
+      "expected_query_any": [
+        "Falcon Rising"
+      ],
+      "corrected_identity": {
+        "player_name": "Falcon Rising",
+        "brand_name": "Topps",
+        "product_name": "Star Wars Galaxy",
+        "season_start": 2024,
+        "card_number": "93",
+        "parallel_name": "Mojo",
+        "serial_number": 38,
+        "serial_total": 50
+      },
+      "positive_title": "Falcon Rising 千年隼升空 Topps Star Wars Galaxy /50编 金mojo折射",
+      "negative_title": "Falcon Rising 2024 Topps Star Wars Galaxy 卡号 94 Gold 38/50"
+    },
+    {
+      "case_id": "875",
+      "source": "reported physical card and retained diagnosis, 2026-10-14",
+      "recognition": {
+        "player_name": "Darius Acuff Jr.",
+        "brand_name": "Topps",
+        "product_name": "Topps Now",
+        "season_start": 2026,
+        "card_number": "JUN23",
+        "confidence": ".67",
+        "field_evidence": {
+          "card_number": [
+            "Front: JUN23 date badge"
+          ]
+        }
+      },
+      "expected_fields": {
+        "card_number": null
+      },
+      "expected_query_any": [
+        "Darius Acuff Jr.",
+        "Darius Acuff Jr"
+      ],
+      "corrected_identity": {
+        "player_name": "Darius Acuff Jr.",
+        "brand_name": "Topps",
+        "product_name": "Topps Now",
+        "season_start": 2026,
+        "card_number": "DACU"
+      },
+      "positive_title": "Darryn Peterson 2025-26 Topps Now 新秀",
+      "negative_title": "Darryn Peterson 2025-26 Topps Now 新秀",
+      "seller_title_error": true,
+      "uncertain_fields": [
+        "season_start"
+      ],
+      "scope_note": "Season retains the inventory proposal and was not independently reverified in this optimization; this case tests date/subject roles and product recall only."
+    },
+    {
+      "case_id": "862",
+      "source": "reported physical card and retained diagnosis, 2026-10-14",
+      "recognition": {
+        "player_name": "Curry / James / Durant",
+        "brand_name": "Topps",
+        "product_name": "Topps Now",
+        "season_start": 2024,
+        "card_number": "8.10",
+        "confidence": ".86",
+        "field_evidence": {
+          "card_number": [
+            "Front: 8.10 date badge"
+          ]
+        }
+      },
+      "expected_fields": {
+        "card_number": null
+      },
+      "expected_query_any": [
+        "Stephen Curry",
+        "LeBron James",
+        "Kevin Durant"
+      ],
+      "corrected_identity": {
+        "player_name": "Curry / James / Durant",
+        "brand_name": "Topps",
+        "product_name": "Topps Now",
+        "season_start": 2024
+      },
+      "positive_title": "Stephen Curry 库里 LeBron James 詹姆斯 杜兰特 2024 Topps Now",
+      "negative_title": "Stephen Curry 2024 Topps Now"
+    }
+  ]
+}

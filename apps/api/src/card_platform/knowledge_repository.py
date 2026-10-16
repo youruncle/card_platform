@@ -361,6 +361,9 @@ class KnowledgeRepository:
         expected_revision: int,
         release_notes: str,
         request_id: str | None,
+        *,
+        official_source_keys: list[str] | None = None,
+        official_artifacts: list[dict] | None = None,
     ) -> dict[str, Any]:
         await connection.execute("SELECT pg_advisory_xact_lock(hashtext('card-platform-knowledge-publish'))")
         if request_id:
@@ -395,7 +398,7 @@ class KnowledgeRepository:
             (workspace["id"], workspace["id"], workspace["id"]),
         )
         invalid_count = (await invalid_result.fetchone())["count"]
-        if invalid_count:
+        if invalid_count and not official_source_keys:
             raise KnowledgeConflictError(f"仍有 {invalid_count} 条未审核内容，不能发布")
         version_result = await connection.execute(
             "SELECT COALESCE(max(version_number), 0) + 1 AS next FROM knowledge_version WHERE workspace_id = %s",
@@ -403,6 +406,41 @@ class KnowledgeRepository:
         )
         version_number = (await version_result.fetchone())["next"]
         snapshot = await self.build_snapshot(connection, workspace["id"], version_number)
+        if official_source_keys:
+            # Official automation may replace only its own facts. Keep the prior
+            # published facts for all other sources, including entities whose
+            # workspace versions are currently being edited as drafts.
+            source_result = await connection.execute(
+                """SELECT e.id FROM knowledge_entity e
+                   JOIN knowledge_source s ON s.workspace_id=e.workspace_id
+                     AND s.source_key=e.source->>'source_key'
+                   WHERE e.workspace_id=%s AND s.source_key=ANY(%s)
+                     AND s.source_type IN ('official_checklist', 'official_product', 'official_odds')""",
+                (workspace["id"], official_source_keys),
+            )
+            official_ids = {str(row["id"]) for row in await source_result.fetchall()}
+            previous_result = await connection.execute(
+                "SELECT snapshot FROM knowledge_version WHERE id=%s",
+                (locked["published_version_id"],),
+            )
+            previous_row = await previous_result.fetchone()
+            previous = previous_row["snapshot"] if previous_row else {"entities": [], "relations": []}
+            snapshot["entities"] = [
+                entity for entity in previous["entities"] if str(entity["id"]) not in official_ids
+            ] + [entity for entity in snapshot["entities"] if str(entity["id"]) in official_ids]
+            active_ids = {str(entity["id"]) for entity in snapshot["entities"]}
+            snapshot["relations"] = [relation for relation in previous["relations"]
+                if str(relation["subject_entity_id"]) in active_ids
+                and str(relation["object_entity_id"]) in active_ids]
+        # Immutable official fact attachments are part of the same version/checksum.
+        if official_artifacts is not None:
+            snapshot["official_artifacts"] = official_artifacts
+        elif locked["published_version_id"]:
+            previous_artifacts = await connection.execute(
+                "SELECT snapshot->'official_artifacts' AS artifacts FROM knowledge_version WHERE id=%s",
+                (locked["published_version_id"],),
+            )
+            snapshot["official_artifacts"] = (await previous_artifacts.fetchone())["artifacts"] or []
         snapshot = _json_safe(snapshot)
         checksum = snapshot_checksum(snapshot)
         inserted = await connection.execute(

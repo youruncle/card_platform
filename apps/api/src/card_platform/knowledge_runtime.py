@@ -35,12 +35,16 @@ class KnowledgeRuntime:
                         SELECT kw.published_version_id, kv.snapshot
                         FROM knowledge_workspace kw
                         LEFT JOIN knowledge_version kv ON kv.id = kw.published_version_id
+                            AND kv.id IS DISTINCT FROM %s::uuid
                         WHERE kw.name = 'Card Platform'
-                        """
+                        """,
+                        (self._version_id,),
                     )
                     row: dict[str, Any] | None = await result.fetchone()
             except UndefinedTable:
                 row = None
+            if row and row["published_version_id"] and str(row["published_version_id"]) == self._version_id:
+                return self._resolver
             snapshot = row["snapshot"] if row and row["snapshot"] else {}
             self._resolver = KnowledgeResolver(snapshot)
             self._version_id = (

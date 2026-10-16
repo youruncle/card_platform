@@ -1,0 +1,211 @@
+from datetime import date, timedelta
+
+from psycopg.types.json import Jsonb
+
+from card_platform.player_prices.domain import TZ, calculate_snapshot, day_end, select_basket
+
+ROSTER_SQL = """SELECT DISTINCT p.id, p.full_name FROM player p
+    JOIN card_definition cd ON cd.player_id=p.id
+    JOIN card_set cs ON cs.id=cd.card_set_id
+    JOIN collection_item ci ON ci.card_definition_id=cd.id
+    WHERE ci.deleted_at IS NULL AND ci.holding_status='held' AND cs.sport='basketball' """
+
+
+class PriceRepository:
+    async def roster(self, c, owner_id=None):
+        sql = ROSTER_SQL + (" AND ci.owner_id=%s" if owner_id is not None else "")
+        return await (
+            await c.execute(
+                sql + " ORDER BY p.full_name", (owner_id,) if owner_id is not None else ()
+            )
+        ).fetchall()
+
+    async def enqueue(self, c, owner_id=None):
+        roster = await self.roster(c, owner_id)
+        for player in roster:
+            await c.execute(
+                """INSERT INTO player_price_state(player_id,requested_at)
+                VALUES(%s,now()) ON CONFLICT(player_id) DO UPDATE SET requested_at=now()""",
+                (player["id"],),
+            )
+        return len(roster)
+
+    async def seed_states(self, c):
+        await c.execute(
+            """INSERT INTO player_price_state(player_id)
+            SELECT id FROM ("""
+            + ROSTER_SQL
+            + """) roster ON CONFLICT DO NOTHING"""
+        )
+
+    async def due_player(self, c, report_date):
+        result = await c.execute(
+            """SELECT p.id,p.full_name,s.requested_at,s.last_attempt_at FROM player_price_state s
+            JOIN player p ON p.id=s.player_id WHERE
+              (s.last_attempt_at IS NULL OR s.last_attempt_at < now()-interval '5 minutes')
+              AND ((s.requested_at IS NOT NULL AND
+                    (s.last_attempt_at IS NULL OR s.requested_at>s.last_attempt_at))
+                   OR ((s.last_report_date IS NULL OR s.last_report_date<%s)
+                       AND (s.error IS NULL OR s.last_attempt_at<now()-interval '6 hours')))
+              AND EXISTS (SELECT 1 FROM collection_item ci
+                   JOIN card_definition cd ON cd.id=ci.card_definition_id
+                   JOIN card_set cs ON cs.id=cd.card_set_id
+                   WHERE cd.player_id=p.id AND ci.deleted_at IS NULL
+                     AND ci.holding_status='held' AND cs.sport='basketball')
+            ORDER BY s.requested_at NULLS LAST, s.last_attempt_at NULLS FIRST, p.id LIMIT 1""",
+            (report_date,),
+        )
+        return await result.fetchone()
+
+    async def exclude_sources(self, c, sources):
+        for source in sources:
+            await c.execute(
+                "INSERT INTO player_price_source_conflict(source_id) VALUES(%s) ON CONFLICT DO NOTHING",
+                (source,),
+            )
+        if sources:
+            await c.execute(
+                "UPDATE player_price_sale SET excluded=true WHERE source_id=ANY(%s)",
+                (list(sources),),
+            )
+
+    async def store_sales(self, c, player_id, rows):
+        for r in rows:
+            await c.execute(
+                """INSERT INTO player_price_sale(source_id,player_id,card_key,
+                identity,sale_price,occurred_at,source_url,raw_title,excluded)
+                VALUES(%s,%s,%s,%s,%s,%s,%s,%s,EXISTS(
+                    SELECT 1 FROM player_price_source_conflict WHERE source_id=%s)) ON CONFLICT(source_id) DO UPDATE SET
+                  excluded=player_price_sale.excluded OR
+                    player_price_sale.player_id<>EXCLUDED.player_id OR
+                    player_price_sale.card_key<>EXCLUDED.card_key OR
+                    player_price_sale.sale_price<>EXCLUDED.sale_price OR
+                    player_price_sale.occurred_at<>EXCLUDED.occurred_at,
+                  observed_at=now()""",
+                (
+                    r["source_id"],
+                    player_id,
+                    r["card_key"],
+                    Jsonb(r["identity"]),
+                    r["sale_price"],
+                    r["occurred_at"],
+                    r["source_url"],
+                    r["raw_title"],
+                    r["source_id"],
+                ),
+            )
+
+    async def sales(self, c, player_id, report_date):
+        end = day_end(report_date)
+        return await (
+            await c.execute(
+                """SELECT source_id,card_key,identity,sale_price,
+            occurred_at,source_url,raw_title FROM player_price_sale WHERE player_id=%s
+              AND NOT excluded AND occurred_at >= %s AND occurred_at < %s
+            ORDER BY occurred_at DESC,source_id""",
+                (player_id, end - timedelta(days=90), end),
+            )
+        ).fetchall()
+
+    async def basket(self, c, player_id, report_date):
+        row = await (
+            await c.execute(
+                """SELECT cards,selected_on FROM player_price_basket
+            WHERE player_id=%s AND month=%s""",
+                (player_id, report_date.replace(day=1)),
+            )
+        ).fetchone()
+        return row
+
+    async def compute(self, c, player_id, report_date, *, coverage=None):
+        await c.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,81))", (str(player_id),))
+        rows = await self.sales(c, player_id, report_date)
+        saved = await self.basket(c, player_id, report_date)
+        cards = saved["cards"] if saved else select_basket(rows, report_date)
+        selected_on = saved["selected_on"] if saved else report_date
+        # Insufficient first discovery must not freeze an empty basket for a month.
+        if saved is None and len(cards) == 3:
+            await c.execute(
+                """INSERT INTO player_price_basket(player_id,month,selected_on,cards)
+                VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
+                (player_id, report_date.replace(day=1), report_date, Jsonb(cards)),
+            )
+        snapshot = calculate_snapshot(rows, cards, report_date)
+        snapshot.update(
+            basket_selected_on=selected_on.isoformat(),
+            basket_month=report_date.replace(day=1).isoformat(),
+            basket_frozen=len(cards) == 3,
+            basket_rebased=selected_on == report_date,
+        )
+        if coverage is not None:
+            snapshot["coverage"] = coverage
+        await c.execute(
+            """INSERT INTO player_price_snapshot(player_id,report_date,result)
+            VALUES(%s,%s,%s) ON CONFLICT(player_id,report_date) DO UPDATE SET
+              result=EXCLUDED.result,computed_at=now()""",
+            (player_id, report_date, Jsonb(snapshot)),
+        )
+        return snapshot
+
+    async def board(self, c, owner_id, report_date: date, direction: str):
+        roster = await self.roster(c, owner_id)
+        ids = [p["id"] for p in roster]
+        data = (
+            await (
+                await c.execute(
+                    """SELECT p.id,p.full_name,snap.result,snap.computed_at,
+                s.last_attempt_at,s.last_success_at,s.requested_at,s.error,s.coverage
+            FROM player p LEFT JOIN LATERAL (SELECT result,computed_at,report_date FROM player_price_snapshot
+                WHERE player_id=p.id AND report_date<=%s ORDER BY report_date DESC LIMIT 1) snap ON true
+            LEFT JOIN player_price_state s ON s.player_id=p.id WHERE p.id=ANY(%s)""",
+                    (report_date, ids),
+                )
+            ).fetchall()
+            if ids
+            else []
+        )
+        players = []
+        for row in data:
+            snapshot = row["result"] or {"status": "pending", "change_pct": None, "cards": []}
+            if snapshot.get("report_date") and snapshot["report_date"] != report_date.isoformat():
+                snapshot = {
+                    **snapshot,
+                    "status": "stale",
+                    "last_change_pct": snapshot.get("change_pct"),
+                    "change_pct": None,
+                }
+            queued = row["requested_at"] is not None and (
+                row["last_attempt_at"] is None or row["requested_at"] > row["last_attempt_at"]
+            )
+            players.append(
+                {
+                    **snapshot,
+                    "player_id": str(row["id"]),
+                    "player_name": row["full_name"],
+                    "computed_at": row["computed_at"],
+                    "coverage": snapshot.get("coverage", row["coverage"] or {}),
+                    "refresh": dict(
+                        queued=queued,
+                        error=row["error"],
+                        last_attempt_at=row["last_attempt_at"],
+                        last_success_at=row["last_success_at"],
+                    ),
+                }
+            )
+        players.sort(
+            key=lambda p: (
+                p["change_pct"] is None,
+                (float(p["change_pct"]) * (-1 if direction == "gainers" else 1))
+                if p["change_pct"] is not None
+                else 0,
+                p["player_name"],
+            )
+        )
+        return dict(
+            report_date=report_date.isoformat(),
+            timezone=str(TZ),
+            window_days=7,
+            min_sales=3,
+            currency="CNY",
+            players=players,
+        )

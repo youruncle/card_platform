@@ -7,7 +7,10 @@ import unicodedata
 from typing import Any
 
 from card_platform.domain.card_identity import CardIdentityResolver
+from card_platform.domain.player_aliases import NBA_PREFERRED_QUERY_ALIASES, player_roster_components
+from card_platform.domain.product_identity import MANUFACTURER_PREFIXES, LOW_INFORMATION_PRODUCT_LABELS
 from card_platform.knowledge import KnowledgeResolver, normalize_knowledge_text
+from card_platform.purchase_cost_bundle import purchase_player_aliases
 
 
 MAX_KEYWORD_LENGTH = 120
@@ -28,6 +31,9 @@ _PLAYER_PLACEHOLDERS = {
     "未知",
     "未识别",
     "无法识别",
+    "无法识别球员",
+    "未识别球员",
+    "未知球员",
 }
 
 
@@ -57,6 +63,30 @@ def _name_key(value: str) -> str:
     return normalize_knowledge_text(value)
 
 
+def _specific_product(value: object) -> str:
+    product = _clean_name(value)
+    key = _name_key(product)
+    # This is the actual flagship name; generic brand/sport/card combinations
+    # otherwise identify no specific product and cause noisy discovery.
+    if key == 'topps basketball':
+        return product
+    generic_tokens = {'topps', 'panini', 'nba', 'nfl', 'mlb', 'nhl', 'basketball',
+                      'baseball', 'football', 'soccer', 'hockey', 'sport', 'sports',
+                      'trading', 'collectible', 'card', 'cards', 'product', 'unknown',
+                      '品牌', '产品', '產品', '体育', '體育', '篮球', '籃球', '球星卡', '卡片'}
+    generic_tokens.update(token for manufacturer in (*MANUFACTURER_PREFIXES, 'leaf')
+                          for token in _name_key(manufacturer).split())
+    generic_tokens.add('品牌产品')
+    if (re.fullmatch(r'(?:未知|未识别|未識別|无法识别|無法識別)(?:品牌)?(?:产品|產品)', product)
+            or re.fullmatch(r'(?:体育|體育|篮球|籃球|球星卡|卡片)+', product)
+            or key in LOW_INFORMATION_PRODUCT_LABELS or set(key.split()) <= generic_tokens):
+        return ''
+    return product if key not in {
+        '', 'base', 'basketball', 'nba', 'unknown', 'panini', 'topps', '无法识别产品',
+        'sports', 'sport', 'card', 'cards', '球星卡', '篮球',
+    } else ''
+
+
 def _player_candidates(card: dict[str, Any], player: str, knowledge: KnowledgeResolver):
     explicit = card.get("player_name_aliases") or []
     if isinstance(explicit, str):
@@ -71,9 +101,20 @@ def _player_candidates(card: dict[str, Any], player: str, knowledge: KnowledgeRe
     if not seed:
         return []
     canonical = _clean_name(knowledge.resolve("player", seed).canonical_value) or seed
+    resolution = knowledge.resolve('player', seed)
+    entity = knowledge.entities.get(resolution.entity_id)
+    preferred = NBA_PREFERRED_QUERY_ALIASES.get(re.sub(r'[^\w]+', ' ', canonical.casefold()).strip(), ())
+    authoritative = list(explicit)
+    if entity and 'nba_id' not in entity.attributes:
+        authoritative.extend(knowledge.aliases_for('player', seed))
+        authoritative.extend(knowledge.query_aliases_for('player', seed))
+    authoritative_keys = {_name_key(v) for raw in authoritative if (v := _clean_name(raw))}
+    preferred_keys = {_name_key(v) for v in preferred}
+    folded = ''.join(c for c in unicodedata.normalize('NFKD', canonical) if not unicodedata.combining(c))
+    spelling_keys = {_name_key(folded), _name_key(re.sub(r"['’.]", '', canonical))} - {_name_key(canonical)}
     candidates = [(canonical, "canonical_player")]
     seen = {_name_key(canonical)}
-    for raw in (original, *knowledge.aliases_for("player", seed), *explicit):
+    for raw in (original, *authoritative, *preferred, *purchase_player_aliases(seed, knowledge, discovery=True)):
         alias = _clean_name(raw)
         key = _name_key(alias)
         if alias and key not in seen:
@@ -89,6 +130,7 @@ def _player_candidates(card: dict[str, Any], player: str, knowledge: KnowledgeRe
     alternatives = candidates[1:]
     alternatives.sort(
         key=lambda entry: (
+            0 if _name_key(entry[0]) in authoritative_keys else 1 if _name_key(entry[0]) in preferred_keys or _name_key(entry[0]) in spelling_keys else 2,
             not bool(_HAN.search(entry[0])),
             len(entry[0]) if _HAN.search(entry[0]) else 0,
         )
@@ -120,6 +162,15 @@ def build_purchase_cost_search_plan(
     knowledge = knowledge or KnowledgeResolver()
     identity = CardIdentityResolver().resolve(card)
     players = _player_candidates(card, identity.player_name, knowledge)
+    roster = player_roster_components(_clean_name(identity.player_name))
+    if len(roster) > 1:
+        # Round-robin by subject before spending a limited query budget on
+        # one person's aliases. These terms discover, never verify, a roster.
+        per_subject = [_player_candidates({}, subject, knowledge) for subject in roster]
+        players = [(group[index][0], 'roster_subject')
+                   for index in range(max(map(len, per_subject), default=0))
+                   for group in per_subject if index < len(group)]
+    product = _specific_product(identity.product_name)
     label = (
         " ".join(
             str(value)
@@ -140,6 +191,16 @@ def build_purchase_cost_search_plan(
             (number, "public_item_number") for number in _PUBLIC_ITEM_NUMBER.findall(context)
         )
     candidates.extend(players)
+    if not players and card.get('image_front_url'):
+        # A scene/vehicle card can have a printed work title without a person.
+        # These are discovery terms only; matching still needs a valid identity.
+        work_title = _clean_name(identity.insert or '')
+        non_sport = re.search(r'\bstar wars\b|\bstar trek\b|\bmarvel\b|\bdisney\b|星球大战|星球大戰|星战|星戰|漫威|迪士尼', product, re.I)
+        if (non_sport and len(work_title) >= 4
+                and _name_key(work_title) not in {'base','refractor','parallel','unknown','特卡','折射'}):
+            candidates.extend(((work_title, 'non_player_title'), (product, 'product')))
+        elif product:
+            candidates.append((product, 'product'))
 
     keywords: list[str] = []
     sources: list[str] = []
@@ -167,6 +228,8 @@ def build_purchase_cost_search_plan(
         "label": label,
         "keywords": keywords,
         "keyword_sources": sources,
+        # Seller names can be wrong. This is discovery only, never identity proof.
+        "fallback_keywords": [product] if players and card.get("image_front_url") and product else [],
         "status": "ready" if keywords else "skipped",
         "reason": "" if keywords else "现有卡片信息不足以自动定位订单，已跳过",
     }

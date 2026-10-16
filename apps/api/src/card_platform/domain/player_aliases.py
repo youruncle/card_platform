@@ -1,8 +1,14 @@
 "Shared deterministic player aliases; query-only ambiguous names are excluded from matching."
 
 import re
+import unicodedata
 
+# The printed Topps Chrome Updates SE-13 name includes III; marketplace
+# listings use Tre Johnson. This is a reviewed full-name alias, not a rule
+# that strips generational suffixes from arbitrary players.
 PLAYER_SEARCH_ALIASES = {
+    "tre johnson": ("Tre Johnson III",),
+    "tre johnson iii": ("Tre Johnson", "特雷 约翰逊"),
     "jaren jackson jr": ("小贾伦 杰克逊", "贾伦 杰克逊", "JJJ"),
     "lebron james": ("勒布朗 詹姆斯", "勒布朗詹姆斯", "詹姆斯"),
     "stephen curry": ("斯蒂芬 库里", "库里"),
@@ -73,6 +79,8 @@ PLAYER_MATCH_ALIAS_EXCLUSIONS = {
     # “基德” is useful discovery vocabulary but is a substring of Kerry
     # Kittles' common Chinese name “基德尔斯”; require Jason/贾森 for identity.
     "jason kidd": {"基德"},
+    # Tristan and Oscar share 达席尔瓦; a roster alias must identify both subjects.
+    "matas buzelis tristan da silva": {"布泽利斯 达席尔瓦"},
 }
 
 
@@ -81,6 +89,9 @@ PLAYER_MATCH_ALIAS_EXCLUSIONS = {
 # title naming only one subject cannot satisfy the identity gate as an alias of
 # the whole roster.  This is domain vocabulary, not card-number/version logic.
 PLAYER_ROSTER_COMPONENTS = {
+    # Reviewed three-subject label; bare surnames are never global player aliases.
+    "curry james durant": ("Stephen Curry", "LeBron James", "Kevin Durant"),
+    "库里 詹姆斯 杜兰特": ("Stephen Curry", "LeBron James", "Kevin Durant"),
     "matas buzelis tristan da silva": (
         "Matas Buzelis",
         "Tristan da Silva",
@@ -93,6 +104,10 @@ def player_roster_components(player_name: object) -> tuple[str, ...]:
     canonical = str(player_name or "").strip()
     if not canonical:
         return ()
+    roster_key = re.sub(r"[,/&]+", " ", canonical.casefold())
+    roster_key = " ".join(roster_key.split())
+    if roster_key in PLAYER_ROSTER_COMPONENTS:
+        return PLAYER_ROSTER_COMPONENTS[roster_key]
     explicit = tuple(
         part.strip()
         for part in re.split(r",|\s+&\s+|\s+and\s+|\s+/\s+", canonical, flags=re.I)
@@ -123,9 +138,11 @@ REVIEWED_QUERY_ALIASES = {"trae young": ("特雷 杨", "特雷杨", "吹杨")}
 
 
 def query_player_aliases(player_name: object) -> tuple[str, ...]:
-    normalized = " ".join(str(player_name or "").casefold().split())
-    if normalized in REVIEWED_QUERY_ALIASES:
-        return REVIEWED_QUERY_ALIASES[normalized]
+    normalized = re.sub(r'[^\w]+', ' ', str(player_name or '').casefold()).strip()
+    reviewed = REVIEWED_QUERY_ALIASES.get(normalized, ())
+    catalog = NBA_QUERY_ALIASES.get(normalized, ())
+    if reviewed or catalog:
+        return tuple(dict.fromkeys((*reviewed, *catalog)))
     # Restrict OCR correction to mixed Latin/Cyrillic strings that resolve to
     # an entire reviewed entity. Never expose this substitution to matching.
     if re.search(r"[a-z]", normalized) and re.search(r"[а-я]", normalized):
@@ -133,3 +150,40 @@ def query_player_aliases(player_name: object) -> tuple[str, ...]:
         if corrected in REVIEWED_QUERY_ALIASES:
             return (corrected, *REVIEWED_QUERY_ALIASES[corrected])
     return ()
+
+
+def _load_nba_catalog() -> dict[str, tuple[str, ...]]:
+    from card_platform.domain.nba_player_catalog import nba_player_manifest
+
+    queries = {}
+    legacy = dict(PLAYER_SEARCH_ALIASES)
+    for entity in nba_player_manifest()['entities']:
+        identity = tuple(a['value'] for a in entity['aliases'])
+        discovery = tuple(entity['attributes'].get('query_aliases', ()))
+        # Ambiguous bare names intentionally have no identity entry. A bracketed
+        # NBA ID is a catalog label, never an inferred identity for an old card.
+        names = list((entity['canonical_name'], *identity))
+        # Existing title consumers fold accents and unsupported Latin letters.
+        names += [re.sub(r'[^0-9a-z\u4e00-\u9fff]+', ' ', ''.join(
+            c for c in unicodedata.normalize('NFKD', name.casefold())
+            if not unicodedata.combining(c))).strip() for name in names]
+        for name in names:
+            normalized = re.sub(r'[^\w]+', ' ', name.casefold()).strip()
+            reviewed = REVIEWED_QUERY_ALIASES.get(normalized, ())
+            preferred = tuple(entity['attributes'].get('preferred_query_aliases', ()))
+            aliases = tuple(dict.fromkeys((*legacy.get(normalized, ()), *reviewed, *preferred, *identity, *discovery)))
+            PLAYER_SEARCH_ALIASES[normalized] = aliases
+            PLAYER_MATCH_ALIAS_EXCLUSIONS.setdefault(normalized, set()).update((*discovery, *reviewed))
+            queries[normalized] = tuple(dict.fromkeys((*reviewed, *preferred, *discovery)))
+            NBA_PREFERRED_QUERY_ALIASES[normalized] = tuple(dict.fromkeys((*reviewed, *preferred)))
+    return queries
+
+
+NBA_PREFERRED_QUERY_ALIASES: dict[str, tuple[str, ...]] = {}
+NBA_QUERY_ALIASES = _load_nba_catalog()
+
+# These full names are unambiguous identity aliases even when the catalog also
+# recommends them for discovery. Keep bare 詹姆斯 excluded.
+PLAYER_MATCH_ALIAS_EXCLUSIONS['lebron james'].difference_update(
+    {'勒布朗 詹姆斯', '勒布朗詹姆斯'}
+)

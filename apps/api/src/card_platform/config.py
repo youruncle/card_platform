@@ -2,6 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
 
 
 class Settings(BaseSettings):
@@ -19,6 +20,7 @@ class Settings(BaseSettings):
     vision_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     vision_model: str = "qwen3-vl-flash"
     vision_plus_model: str = "qwen3-vl-plus"
+    vision_finish_confirmation_model: str = "qwen3-vl-plus"
     vision_max_model: str = "qwen3.8-max"
     vision_plus_threshold: float = 0.88
     vision_max_threshold: float = 0.74
@@ -34,6 +36,10 @@ class Settings(BaseSettings):
     recognition_concurrency: int = 4
     valuation_search_model: str = "qwen-plus"
     valuation_search_timeout_seconds: float = 90.0
+    valuation_visual_concurrency: int = Field(default=2, ge=1, le=8)
+    valuation_visual_stage_timeout_seconds: float = Field(default=180.0, gt=0, le=600)
+    valuation_visual_request_timeout_seconds: float = Field(default=90.0, gt=0, le=180)
+    player_price_worker_enabled: bool = True
     purchase_cost_worker_enabled: bool = True
     valuation_worker_enabled: bool = True
     valuation_worker_concurrency: int = 3
@@ -41,6 +47,9 @@ class Settings(BaseSettings):
     valuation_worker_poll_seconds: float = 2.0
     valuation_verify_sources: bool = True
     valuation_cardhobby_only: bool = True
+    valuation_public_image_index_path: str | None = str(
+        Path(__file__).resolve().parents[4] / '.runtime/public-image-index.sqlite'
+    )
     valuation_source_verify_timeout_seconds: float = 8.0
     search_index_brave_api_key: str | None = None
     search_index_serpapi_key: str | None = None

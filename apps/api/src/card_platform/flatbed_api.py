@@ -359,12 +359,20 @@ async def capture_sheet(
             phase="processing",
         )
         native_resolution = (completed or {}).get("source_resolution")
+
+        def report_processing(completed_count, total_count):
+            _publish_capture_progress(
+                progress_id, owner_id=user.id, session_id=session_id, side=side,
+                phase="processing", detail=f"已处理 {completed_count}/{total_count} 张卡片",
+            )
+
         stored = await service().store_sheet(
             db, user.id, session_id, side, path.read_bytes(), "image/png",
             source_resolution={
                 **(native_resolution if isinstance(native_resolution, dict) else {}),
                 "capture_kind": "preview" if preview else "scan",
             },
+            on_progress=report_processing,
         )
         path.unlink()
         try:

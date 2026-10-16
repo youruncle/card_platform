@@ -292,9 +292,17 @@ class MarketRepository:
             """
             SELECT id, valued_at, currency, low_value, fair_value, high_value,
                    confidence, evidence, model_version
-            FROM valuation_snapshot
+            FROM valuation_snapshot v
             WHERE collection_item_id = %s AND method = 'ai_estimate'
-              AND (%s IS NULL OR valued_at >= %s)
+              AND identity_compatibility <> 'incompatible'
+              AND (%s::timestamptz IS NULL OR valued_at >= %s OR (
+                  model_version = 'codex-independent-fallback-v1' AND id = (
+                      SELECT current_value.id FROM valuation_snapshot current_value
+                      WHERE current_value.collection_item_id = v.collection_item_id
+                        AND current_value.identity_compatibility <> 'incompatible'
+                      ORDER BY current_value.valued_at DESC, current_value.created_at DESC LIMIT 1
+                  )
+              ))
             ORDER BY valued_at DESC, created_at DESC LIMIT 1
             """,
             (

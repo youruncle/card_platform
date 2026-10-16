@@ -6,6 +6,8 @@ import json
 import os
 import signal
 import re
+from dataclasses import replace
+from collections.abc import Callable
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -30,7 +32,9 @@ from card_platform.flatbed_detection import (
 )
 from card_platform.flatbed_matching import CardRegion, propose_pairs
 from card_platform.flatbed_ml import refine_with_sam2
-from card_platform.flatbed_object_quality import audit_object_crop_integrity
+from card_platform.flatbed_object_quality import audit_object_crop_integrity, audit_original_content_integrity, restore_content_preserving_quads
+from card_platform.flatbed_object_quads import resolve_object_layout
+from card_platform.local_vision_process import LocalVisionCircuitOpen, run_local_vision
 
 
 class FlatbedBridgeError(RuntimeError):
@@ -268,6 +272,7 @@ class FlatbedService:
         self.ml_worker_script = ml_worker_script
         self.ml_checkpoint = ml_checkpoint
         self.ml_timeout_seconds = ml_timeout_seconds
+        self._ocr_timed_out = False
         self.orientation_classifier = AppleVisionOrientationClassifier(
             str(self.bridge_script.with_name("orient_card_images.swift"))
         )
@@ -275,18 +280,22 @@ class FlatbedService:
     async def ocr_signals(self, image_path: Path) -> dict:
         if self.ocr_script is None or not self.ocr_script.is_file():
             return {}
+        if self._ocr_timed_out:
+            return {"ocr_failure": "local_vision_timeout"}
         try:
-            process = await asyncio.create_subprocess_exec(
+            stdout, _, returncode = await run_local_vision(
                 str(self.ocr_script),
                 str(image_path),
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.DEVNULL,
             )
-            stdout, _ = await asyncio.wait_for(process.communicate(), timeout=20)
-            if process.returncode:
+            if returncode:
                 return {"ocr_failure": "local_vision_failed"}
             payload = json.loads(stdout.decode())
-        except (OSError, asyncio.TimeoutError, json.JSONDecodeError):
+        except LocalVisionCircuitOpen:
+            return {"ocr_failure": "local_vision_timeout"}
+        except TimeoutError:
+            self._ocr_timed_out = True
+            return {"ocr_failure": "local_vision_timeout"}
+        except (OSError, json.JSONDecodeError):
             return {"ocr_failure": "local_vision_failed"}
         text = str(payload.get("text") or "")
         tokens = sorted(set(re.findall(r"[A-Za-z0-9#/-]{2,}", text.casefold())))
@@ -383,15 +392,20 @@ class FlatbedService:
         content_type: str,
         detections_override: list[Detection] | None = None,
         source_resolution: dict | None = None,
+        on_progress: Callable[[int, int], None] | None = None,
     ) -> dict:
         session_result = await connection.execute(
-            "SELECT * FROM flatbed_scan_session WHERE id=%s AND owner_id=%s FOR UPDATE",
+            "SELECT * FROM flatbed_scan_session WHERE id=%s AND owner_id=%s",
             (session_id, owner_id),
         )
         session = await session_result.fetchone()
         if session is None:
             raise LookupError("扫描会话不存在")
-        decoded = cv2.imdecode(np.frombuffer(content, np.uint8), cv2.IMREAD_COLOR)
+        if session.get("submitted_at") is not None or session.get("status") == "submitted":
+            raise ValueError("扫描会话已经录入，请创建新会话")
+        decoded = await asyncio.to_thread(
+            cv2.imdecode, np.frombuffer(content, np.uint8), cv2.IMREAD_COLOR
+        )
         if decoded is None:
             raise ValueError("无法解码扫描图像")
         height, width = decoded.shape[:2]
@@ -419,11 +433,12 @@ class FlatbedService:
                 signals={"source": "user_confirmed_quads"},
             )
             if detections_override is not None
-            else detect_layout(
-                content,
-                dpi=effective_dpi,
+            else await asyncio.to_thread(
+                detect_layout, content, dpi=effective_dpi,
             )
         )
+        if detections_override is None:
+            layout = await asyncio.to_thread(resolve_object_layout, content, layout)
         detections = (
             detections_override if detections_override is not None else list(layout.detections)
         )
@@ -445,16 +460,33 @@ class FlatbedService:
                 worker_script=self.ml_worker_script,
                 checkpoint=self.ml_checkpoint,
                 timeout_seconds=self.ml_timeout_seconds,
+                content_guarded=True,
+            )
+        content_refinement = {"fallback_indices": [], "fallback_count": 0}
+        if detections_override is None and ml_refinement.get("status") == "accepted":
+            detections, content_refinement = await asyncio.to_thread(
+                restore_content_preserving_quads, decoded, detections, layout.detections,
+                layout.object_references, layout.search_regions,
             )
         detector_version = (
             f"{DETECTOR_VERSION}+sam2.1-tiny"
             if ml_refinement.get("status") == "accepted"
             else DETECTOR_VERSION
         )
-        quality_reports = assess_sheet_crop_quality(decoded, detections)
-        quality_reports, object_integrity = audit_object_crop_integrity(
-            quality_reports, detections, layout.detections
+        quality_reports = await asyncio.to_thread(assess_sheet_crop_quality, decoded, detections)
+        quality_reports, object_integrity = await asyncio.to_thread(
+            audit_object_crop_integrity, quality_reports, detections, layout.object_references,
+            check_polygon_coverage=False, reference_set_complete=False,
         )
+        quality_reports, original_content_integrity = await asyncio.to_thread(
+            audit_original_content_integrity, quality_reports, detections, decoded,
+            layout.object_references, layout.search_regions,
+        )
+        detections = [replace(d, failure="card_outline_unresolved", confidence=min(d.confidence, .49),
+                              evidence=(*d.evidence, "quad_unresolved", "original_content_missing"))
+                      if any(v.code in {"original_card_content_missing", "unexplained_card_content"}
+                             for v in report.violations) else d
+                      for d, report in zip(detections, quality_reports, strict=True)]
         quality_error_codes = list(
             dict.fromkeys(
                 violation.code
@@ -480,7 +512,7 @@ class FlatbedService:
                 4,
             ),
         }
-        detection_failures = explain_detection(content, detections)
+        detection_failures = await asyncio.to_thread(explain_detection, content, detections)
         detection_failures.extend(f"crop_quality_{code}" for code in quality_error_codes)
         detection_failures.extend(
             f"crop_quality_{code}" for code in object_integrity.get("error_codes", [])
@@ -490,11 +522,6 @@ class FlatbedService:
             detection_failures.append("front_back_count_mismatch")
         if layout.score < 0.78 or any(item.failure for item in detections):
             detection_failures.append("layout_requires_review")
-        revision_result = await connection.execute(
-            "SELECT COALESCE(max(revision),0)+1 AS revision FROM flatbed_scan_sheet WHERE session_id=%s AND side=%s",
-            (session_id, side),
-        )
-        revision = (await revision_result.fetchone())["revision"]
         sheet_id = uuid4()
         directory = self.root / str(owner_id) / str(session_id) / str(sheet_id)
         directory.mkdir(parents=True, exist_ok=False)
@@ -505,6 +532,188 @@ class FlatbedService:
             stream.write(content)
         height, width = decoded.shape[:2]
         relative_original = str(original.relative_to(self.root))
+        limit = asyncio.Semaphore(2)
+        completed_regions = 0
+        if on_progress:
+            on_progress(0, len(detections))
+
+        async def prepare_region(ordinal, detection, quality_report):
+            nonlocal completed_regions
+            async with limit:
+                region_id = uuid4()
+                x1 = max(0, int(detection.x * width))
+                y1 = max(0, int(detection.y * height))
+                x2 = min(width, int((detection.x + detection.width) * width))
+                y2 = min(height, int((detection.y + detection.height) * height))
+                crop = decoded[y1:y2, x1:x2]
+                if detection.points:
+                    source = np.array(
+                        [[point[0] * width, point[1] * height] for point in detection.points],
+                        dtype=np.float32,
+                    )
+                    ordered = ordered_source_quad(source)
+                    crop_padding_ratio = (
+                        0.0
+                        if any(
+                            evidence in detection.evidence
+                            for evidence in (
+                                "ink_extent_refinement",
+                                "current_candidate_inward_edges",
+                                "current_instance_grid_reconciliation",
+                                "original_content_verified",
+                            )
+                        )
+                        else CROP_SHORT_AXIS_PADDING_RATIO
+                    )
+                    crop_padding_ratio = peer_safe_padding_ratio(
+                        ordered, detections, ordinal, width, height, crop_padding_ratio
+                    )
+                    ordered = padded_source_quad(
+                        ordered, width, height, padding_ratio=crop_padding_ratio
+                    )
+                    top_left, top_right, bottom_right, bottom_left = ordered
+                    target_width = max(
+                        1,
+                        round(
+                            max(
+                                np.linalg.norm(top_right - top_left),
+                                np.linalg.norm(bottom_right - bottom_left),
+                            )
+                        ),
+                    )
+                    target_height = max(
+                        1,
+                        round(
+                            max(
+                                np.linalg.norm(bottom_left - top_left),
+                                np.linalg.norm(bottom_right - top_right),
+                            )
+                        ),
+                    )
+                    destination = np.array(
+                        [
+                            [0, 0],
+                            [target_width - 1, 0],
+                            [target_width - 1, target_height - 1],
+                            [0, target_height - 1],
+                        ],
+                        dtype=np.float32,
+                    )
+                    crop = await asyncio.to_thread(
+                        cv2.warpPerspective, decoded,
+                        cv2.getPerspectiveTransform(ordered, destination),
+                        (target_width, target_height),
+                    )
+                if detection.failure != "card_outline_unresolved":
+                    crop = add_output_safety_border(crop)
+                crop_path = directory / f"region-{ordinal}.jpg"
+                ok, encoded = await asyncio.to_thread(
+                    cv2.imencode, ".jpg", crop, [cv2.IMWRITE_JPEG_QUALITY, 95]
+                )
+                unresolved_quad = "quad_unresolved" in detection.evidence
+                if ok and not unresolved_quad:
+                    fd = os.open(crop_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                    with os.fdopen(fd, "wb") as stream:
+                        stream.write(encoded.tobytes())
+                if unresolved_quad:
+                    ok = False
+                orientation = await self.orientation_classifier.classify(crop_path) if ok else None
+                if orientation is not None and orientation.confidence >= 0.35:
+                    rotation = orientation.rotation_degrees
+                elif crop.shape[1] > crop.shape[0] * 1.08:
+                    rotation = 90
+                    orientation = OrientationDecision(rotation, 0.25, "aspect_ratio_fallback")
+                else:
+                    rotation = 0
+                    orientation = orientation or OrientationDecision(0, 0, "unresolved")
+                if ok and rotation:
+                    normalized = await asyncio.to_thread(
+                        rotate_image_content, encoded.tobytes(), rotation
+                    )
+                    temporary = crop_path.with_suffix(".tmp.jpg")
+                    temporary.write_bytes(normalized)
+                    temporary.replace(crop_path)
+                    crop = await asyncio.to_thread(
+                        cv2.imdecode, np.frombuffer(normalized, np.uint8), cv2.IMREAD_COLOR
+                    )
+                signals = await asyncio.to_thread(visual_signals, crop)
+                signals["detection_evidence"] = list(detection.evidence)
+                signals["layout_score"] = layout.score
+                signals["detector_version"] = detector_version
+                signals["orientation_rotation_degrees"] = rotation
+                signals["orientation_confidence"] = round(orientation.confidence, 4)
+                signals["orientation_method"] = orientation.method
+                signals["orientation_text_count"] = orientation.text_count
+                signals["orientation_face_count"] = orientation.face_count
+                signals["crop_quality"] = quality_report.as_dict()
+                if ok:
+                    signals.update(await self.ocr_signals(crop_path))
+                if self.orientation_classifier._timed_out:
+                    signals["orientation_failure"] = "local_vision_timeout"
+                bounds = {
+                    "x": detection.x,
+                    "y": detection.y,
+                    "width": detection.width,
+                    "height": detection.height,
+                    "angle": detection.angle,
+                    "points": [{"x": point[0], "y": point[1]} for point in detection.points or ()],
+                    "source_crop_points": (
+                        [
+                            {"x": float(point[0] / width), "y": float(point[1] / height)}
+                            for point in ordered
+                        ]
+                        if detection.points
+                        else []
+                    ),
+                    "crop_padding_ratio": crop_padding_ratio if detection.points else 0.0,
+                    "output_border_ratio": (
+                        CROP_OUTPUT_BORDER_RATIO
+                        if detection.failure != "card_outline_unresolved"
+                        else 0.0
+                    ),
+                    "crop_padding_axes": {
+                        "short_leading": crop_padding_ratio if detection.points else 0.0,
+                        "short_trailing": crop_padding_ratio if detection.points else 0.0,
+                        "long": CROP_LONG_AXIS_PADDING_RATIO,
+                    },
+                }
+                completed_regions += 1
+                if on_progress:
+                    on_progress(completed_regions, len(detections))
+                return (
+                    (region_id, sheet_id, owner_id, ordinal, Jsonb(bounds),
+                     detection.confidence, detection.failure,
+                     str(crop_path.relative_to(self.root)) if ok else None, Jsonb(signals)),
+                    {"id": region_id, "ordinal": ordinal, "bounds": bounds,
+                     "confidence": detection.confidence, "failure_reason": detection.failure,
+                     "crop_quality": quality_report.as_dict()},
+                )
+
+        tasks = [asyncio.create_task(prepare_region(i, detection, quality))
+                 for i, (detection, quality) in enumerate(zip(detections, quality_reports, strict=True))]
+        try:
+            await asyncio.gather(*tasks)
+        finally:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+        # Slow Vision work has finished. Lock only while allocating the revision
+        # and atomically publishing all regions, so pairing cannot wait on OCR.
+        locked = await connection.execute(
+            "SELECT * FROM flatbed_scan_session WHERE id=%s AND owner_id=%s FOR UPDATE",
+            (session_id, owner_id),
+        )
+        current = await locked.fetchone()
+        if current is None:
+            raise LookupError("扫描会话不存在")
+        if current.get("submitted_at") is not None or current.get("status") == "submitted":
+            raise ValueError("扫描会话已经录入，请创建新会话")
+        revision_result = await connection.execute(
+            "SELECT COALESCE(max(revision),0)+1 AS revision FROM flatbed_scan_sheet WHERE session_id=%s AND side=%s",
+            (session_id, side),
+        )
+        revision = (await revision_result.fetchone())["revision"]
         await connection.execute(
             """INSERT INTO flatbed_scan_sheet(id,session_id,owner_id,side,revision,original_path,content_type,sha256,detector_version,layout_hypothesis,front_to_back_prior,requires_review) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
             (
@@ -526,6 +735,8 @@ class FlatbedService:
                         "crop_quality": crop_quality_summary,
                         "source_resolution": resolution,
                         "object_integrity": object_integrity,
+                        "original_content_integrity": original_content_integrity,
+                        "content_refinement": content_refinement,
                     }
                 ),
                 Jsonb(
@@ -542,156 +753,21 @@ class FlatbedService:
             ),
         )
         regions = []
-        for ordinal, (detection, quality_report) in enumerate(
-            zip(detections, quality_reports, strict=True)
-        ):
-            region_id = uuid4()
-            x1 = max(0, int(detection.x * width))
-            y1 = max(0, int(detection.y * height))
-            x2 = min(width, int((detection.x + detection.width) * width))
-            y2 = min(height, int((detection.y + detection.height) * height))
-            crop = decoded[y1:y2, x1:x2]
-            if detection.points:
-                source = np.array(
-                    [[point[0] * width, point[1] * height] for point in detection.points],
-                    dtype=np.float32,
-                )
-                ordered = ordered_source_quad(source)
-                crop_padding_ratio = (
-                    0.0
-                    if any(
-                        evidence in detection.evidence
-                        for evidence in (
-                            "ink_extent_refinement",
-                            "current_candidate_inward_edges",
-                            "current_instance_grid_reconciliation",
-                        )
-                    )
-                    else CROP_SHORT_AXIS_PADDING_RATIO
-                )
-                crop_padding_ratio = peer_safe_padding_ratio(
-                    ordered, detections, ordinal, width, height, crop_padding_ratio
-                )
-                ordered = padded_source_quad(
-                    ordered, width, height, padding_ratio=crop_padding_ratio
-                )
-                top_left, top_right, bottom_right, bottom_left = ordered
-                target_width = max(
-                    1,
-                    round(
-                        max(
-                            np.linalg.norm(top_right - top_left),
-                            np.linalg.norm(bottom_right - bottom_left),
-                        )
-                    ),
-                )
-                target_height = max(
-                    1,
-                    round(
-                        max(
-                            np.linalg.norm(bottom_left - top_left),
-                            np.linalg.norm(bottom_right - top_right),
-                        )
-                    ),
-                )
-                destination = np.array(
-                    [
-                        [0, 0],
-                        [target_width - 1, 0],
-                        [target_width - 1, target_height - 1],
-                        [0, target_height - 1],
-                    ],
-                    dtype=np.float32,
-                )
-                crop = cv2.warpPerspective(
-                    decoded,
-                    cv2.getPerspectiveTransform(ordered, destination),
-                    (target_width, target_height),
-                )
-            if detection.failure != "card_outline_unresolved":
-                crop = add_output_safety_border(crop)
-            crop_path = directory / f"region-{ordinal}.jpg"
-            ok, encoded = cv2.imencode(".jpg", crop, [cv2.IMWRITE_JPEG_QUALITY, 95])
-            if ok:
-                fd = os.open(crop_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-                with os.fdopen(fd, "wb") as stream:
-                    stream.write(encoded.tobytes())
-            orientation = await self.orientation_classifier.classify(crop_path) if ok else None
-            if orientation is not None and orientation.confidence >= 0.35:
-                rotation = orientation.rotation_degrees
-            elif crop.shape[1] > crop.shape[0] * 1.08:
-                rotation = 90
-                orientation = OrientationDecision(rotation, 0.25, "aspect_ratio_fallback")
-            else:
-                rotation = 0
-                orientation = orientation or OrientationDecision(0, 0, "unresolved")
-            if ok and rotation:
-                normalized = rotate_image_content(encoded.tobytes(), rotation)
-                temporary = crop_path.with_suffix(".tmp.jpg")
-                temporary.write_bytes(normalized)
-                temporary.replace(crop_path)
-                crop = cv2.imdecode(np.frombuffer(normalized, np.uint8), cv2.IMREAD_COLOR)
-            signals = visual_signals(crop)
-            signals["detection_evidence"] = list(detection.evidence)
-            signals["layout_score"] = layout.score
-            signals["detector_version"] = detector_version
-            signals["orientation_rotation_degrees"] = rotation
-            signals["orientation_confidence"] = round(orientation.confidence, 4)
-            signals["orientation_method"] = orientation.method
-            signals["orientation_text_count"] = orientation.text_count
-            signals["orientation_face_count"] = orientation.face_count
-            signals["crop_quality"] = quality_report.as_dict()
-            signals.update(await self.ocr_signals(crop_path))
-            bounds = {
-                "x": detection.x,
-                "y": detection.y,
-                "width": detection.width,
-                "height": detection.height,
-                "angle": detection.angle,
-                "points": [{"x": point[0], "y": point[1]} for point in detection.points or ()],
-                "source_crop_points": (
-                    [
-                        {"x": float(point[0] / width), "y": float(point[1] / height)}
-                        for point in ordered
-                    ]
-                    if detection.points
-                    else []
-                ),
-                "crop_padding_ratio": crop_padding_ratio if detection.points else 0.0,
-                "output_border_ratio": (
-                    CROP_OUTPUT_BORDER_RATIO
-                    if detection.failure != "card_outline_unresolved"
-                    else 0.0
-                ),
-                "crop_padding_axes": {
-                    "short_leading": crop_padding_ratio if detection.points else 0.0,
-                    "short_trailing": crop_padding_ratio if detection.points else 0.0,
-                    "long": CROP_LONG_AXIS_PADDING_RATIO,
-                },
-            }
+        for task in tasks:
+            parameters, region = task.result()
+            signals = parameters[-1].obj
+            if any(signals.get(key) == "local_vision_timeout" for key in ("ocr_failure", "orientation_failure")):
+                if "local_vision_timeout" not in detection_failures:
+                    detection_failures.append("local_vision_timeout")
             await connection.execute(
                 """INSERT INTO flatbed_scan_region(id,sheet_id,owner_id,ordinal,bounds,confidence,failure_reason,crop_path,signals) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                (
-                    region_id,
-                    sheet_id,
-                    owner_id,
-                    ordinal,
-                    Jsonb(bounds),
-                    detection.confidence,
-                    detection.failure,
-                    str(crop_path.relative_to(self.root)) if ok else None,
-                    Jsonb(signals),
-                ),
+                parameters,
             )
-            regions.append(
-                {
-                    "id": region_id,
-                    "ordinal": ordinal,
-                    "bounds": bounds,
-                    "confidence": detection.confidence,
-                    "failure_reason": detection.failure,
-                    "crop_quality": quality_report.as_dict(),
-                }
+            regions.append(region)
+        if "local_vision_timeout" in detection_failures:
+            await connection.execute(
+                "UPDATE flatbed_scan_sheet SET requires_review=true WHERE id=%s AND owner_id=%s",
+                (sheet_id, owner_id),
             )
         status = "front_scanned" if side == "front" else "back_scanned"
         # Any new sheet revision changes the matching input. Keeping proposals
@@ -725,6 +801,8 @@ class FlatbedService:
                 "crop_quality": crop_quality_summary,
                 "source_resolution": resolution,
                 "object_integrity": object_integrity,
+                "original_content_integrity": original_content_integrity,
+                "content_refinement": content_refinement,
             },
             "requires_review": bool(detection_failures),
         }

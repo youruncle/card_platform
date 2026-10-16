@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import hashlib
 from datetime import datetime, time
 from decimal import Decimal
 from uuid import UUID
@@ -7,17 +8,23 @@ from zoneinfo import ZoneInfo
 
 from psycopg.types.json import Jsonb
 
-from card_platform.purchase_cost import allocate_shipping, evidence_hash, order_errors, score_match
+from card_platform.purchase_cost import allocate_shipping, evidence_hash, order_errors, score_match, prepare_purchase_recall
 from card_platform.purchase_cost_search import build_purchase_cost_search_plan
+from card_platform.purchase_cost_bundle import bundle_match, same_bundle_layout
 from card_platform.purchase_cost_visual import load_purchase_visual_reviews, purchase_visual_evidence
-from card_platform.purchase_cost_inference import inference_key, inference_eligible, apply_inference
-from card_platform.comparable_image_verifier import ComparableImageVerifier, VisualCandidate
+from card_platform.purchase_cost_inference import (
+    inference_key, inference_eligible, apply_inference, title_correction_eligible, TITLE_CORRECTION_CONFLICTS,
+)
+from card_platform.comparable_image_verifier import (
+    ComparableImageVerifier, VisualCandidate, visual_asset_binding, normalize_model_visual_decision,
+)
 from card_platform.config import get_settings
 from card_platform.knowledge import KnowledgeResolver
 from card_platform.repository import ConflictError, NotFoundError, PortfolioRepository
 from card_platform.schemas import TransactionCreate, TransactionType
 
 logger = logging.getLogger(__name__)
+FIELD_GATE_KEY = hashlib.sha256(b'purchase-cost-candidate-field-v1').hexdigest()
 
 
 def json_value(value):
@@ -36,10 +43,26 @@ async def owner_lock(conn, owner_id):
 
 
 class PurchaseCostService:
+    async def incomplete_field(self, conn, owner_id, item_id, order_ids):
+        row = await conn.execute('SELECT decision FROM cardhobby_cost_visual_inference WHERE owner_id=%s AND collection_item_id=%s AND fingerprint=%s',
+                                 (owner_id, item_id, FIELD_GATE_KEY))
+        previous = await row.fetchone()
+        pending = set((previous['decision'].get('pending_order_ids') or []) if previous else [])
+        pending.update(order_ids)
+        await conn.execute('''INSERT INTO cardhobby_cost_visual_inference(owner_id,collection_item_id,fingerprint,decision)
+            VALUES(%s,%s,%s,%s) ON CONFLICT(owner_id,collection_item_id,fingerprint)
+            DO UPDATE SET decision=EXCLUDED.decision,created_at=now()''',
+            (owner_id,item_id,FIELD_GATE_KEY,Jsonb(dict(source='cost_candidate_field',status='incomplete',pending_order_ids=sorted(pending)))))
+        # Partial observations must not become unique matches in the synced worker.
+        await conn.execute('''DELETE FROM cardhobby_cost_visual_inference WHERE owner_id=%s AND collection_item_id=%s
+            AND decision->>'source'='cost_visual_inference' AND decision->>'verdict' IN ('same','compatible')''', (owner_id,item_id))
+
     async def sync(self, conn, owner_id, orders):
+        from card_platform.purchase_cost_shipping import apply_collect_shipping_policy
         results = []
         async with conn.transaction():
             await owner_lock(conn, owner_id)
+            orders = await apply_collect_shipping_policy(conn, owner_id, orders)
             for order in orders:
                 errors = order_errors(order)
                 digest = evidence_hash(order)
@@ -88,7 +111,7 @@ class PurchaseCostService:
                         """INSERT INTO cardhobby_purchase_unit
                         (order_id,owner_id,item_id,unit_index,title,unit_price,shipping,active)
                         VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-                        ON CONFLICT(order_id,item_id,unit_index) DO UPDATE SET
+                        ON CONFLICT(order_id,item_id,unit_index,bundle_index) DO UPDATE SET
                         title=EXCLUDED.title,unit_price=EXCLUDED.unit_price,shipping=EXCLUDED.shipping,active=EXCLUDED.active""",
                         (
                             order_id,
@@ -101,6 +124,14 @@ class PurchaseCostService:
                             not errors,
                         ),
                     )
+                if not errors:
+                    await conn.execute("""UPDATE cardhobby_purchase_unit SET active=true
+                        WHERE order_id=%s AND bundle_index>0 AND bundle_evidence->>'order_hash'=%s""",
+                        (order_id, digest))
+                await conn.execute("""UPDATE cardhobby_purchase_unit parent SET active=false
+                    WHERE parent.order_id=%s AND parent.bundle_index=0 AND EXISTS
+                    (SELECT 1 FROM cardhobby_purchase_unit child WHERE child.order_id=parent.order_id
+                     AND child.item_id=parent.item_id AND child.bundle_index>0 AND (child.active OR EXISTS (SELECT 1 FROM cardhobby_cost_assignment a WHERE a.unit_id=child.id)))""", (order_id,))
                 results.append(
                     dict(
                         order_id=order.external_order_id,
@@ -118,7 +149,16 @@ class PurchaseCostService:
             cs.season_start,cs.season_end,cs.product_name,cs.set_name,
             cd.card_number,cd.insert_name,cd.parallel_name,cd.is_rookie,cd.is_autograph,cd.is_memorabilia,
             cd.is_patch,cd.print_run,
-            u.base_currency
+            cd.autograph_type,cd.has_inscription,cd.inscription_text,cd.memorabilia_types,
+            cd.memorabilia_usage,cd.memorabilia_player,
+            EXISTS(SELECT 1 FROM card_identity_version iv
+              WHERE iv.collection_item_id=ci.id AND iv.review_status='confirmed'
+              AND NOT EXISTS(SELECT 1 FROM card_identity_version revoked
+                WHERE revoked.supersedes_id=iv.id AND revoked.review_status='rejected')) AS has_confirmed_identity,
+            u.base_currency,
+            (SELECT sj.result FROM scanner_recognition_job sj
+             WHERE sj.collection_item_id=ci.id AND sj.owner_id=ci.owner_id AND sj.result IS NOT NULL
+             ORDER BY sj.imported_at DESC NULLS LAST,sj.created_at DESC LIMIT 1) AS cost_recognition_evidence
             FROM collection_item ci JOIN card_definition cd ON cd.id=ci.card_definition_id
             JOIN card_set cs ON cs.id=cd.card_set_id JOIN brand b ON b.id=cs.brand_id
             JOIN player p ON p.id=cd.player_id JOIN app_user u ON u.id=ci.owner_id
@@ -129,17 +169,34 @@ class PurchaseCostService:
         card = await result.fetchone()
         if not card:
             raise NotFoundError("卡片不存在")
-        return card
+        # A replaced file at the same URL must invalidate a purchase observation.
+        settings = get_settings()
+        upload_dir = settings.resolved_upload_dir
+        card['image_content_hashes'] = {}
+        for side in ('front', 'back'):
+            image_url = card.get('image_' + side + '_url') or ''
+            path = (upload_dir / image_url.removeprefix('/uploads/')).resolve()
+            if (image_url.startswith('/uploads/') and path.parent == upload_dir
+                    and path.is_file() and path.stat().st_size <= settings.max_image_bytes):
+                card['image_content_hashes'][side] = hashlib.sha256(path.read_bytes()).hexdigest()
+        from card_platform.domain.recognition_evidence import purchase_identity_view
+        return purchase_identity_view(card, card.pop('cost_recognition_evidence', None))
 
-    async def candidates(self, conn, owner_id, item_id, refresh=False):
+    async def candidates(self, conn, owner_id, item_id, refresh=False, order_scope=None, ignore_field_gate=False):
         card = await self.card(conn, owner_id, item_id)
         rows = await conn.execute(
             """SELECT unit.*,o.capture,o.evidence_hash,o.errors,
-            a.collection_item_id AS assigned_item FROM cardhobby_purchase_unit unit
+            a.collection_item_id AS assigned_item,
+            EXISTS(SELECT 1 FROM cardhobby_purchase_unit child
+              JOIN cardhobby_cost_assignment ca ON ca.unit_id=child.id
+              WHERE child.order_id=unit.order_id AND child.item_id=unit.item_id
+                AND child.bundle_index>0) AS assigned_child FROM cardhobby_purchase_unit unit
             JOIN cardhobby_purchase_order o ON o.id=unit.order_id AND o.owner_id=unit.owner_id
             LEFT JOIN cardhobby_cost_assignment a ON a.unit_id=unit.id
-            WHERE unit.owner_id=%s ORDER BY o.external_order_id,unit.item_id,unit.unit_index LIMIT 10001""",
-            (owner_id,),
+            WHERE unit.owner_id=%s"""
+            + (" AND o.external_order_id=ANY(%s)" if order_scope is not None else "")
+            + " ORDER BY o.external_order_id,unit.item_id,unit.unit_index LIMIT 10001",
+            (owner_id, sorted(order_scope)) if order_scope is not None else (owner_id,),
         )
         units = await rows.fetchall()
         if len(units) > 10000:
@@ -151,6 +208,7 @@ class PurchaseCostService:
         )
         knowledge_row = await snapshot.fetchone()
         knowledge = KnowledgeResolver(knowledge_row["snapshot"] if knowledge_row else None)
+        recalled = prepare_purchase_recall(card, knowledge)
         visual_reviews = await load_purchase_visual_reviews(conn, owner_id, item_id, card)
         inference_rows = await conn.execute('SELECT fingerprint,decision FROM cardhobby_cost_visual_inference WHERE owner_id=%s AND collection_item_id=%s AND created_at > now()-interval \'7 days\'', (owner_id,item_id))
         inferences = {row['fingerprint']:row['decision'] for row in await inference_rows.fetchall()}
@@ -162,18 +220,32 @@ class PurchaseCostService:
             )
             if line is None:
                 continue
-            visual = purchase_visual_evidence(card, line, visual_reviews)
-            match = score_match(card, line, knowledge, visual_evidence=visual)
-            match = apply_inference(card, match, inferences.get(inference_key(card,line,unit['evidence_hash'])))
+            decision = inferences.get(inference_key(card,line,unit['evidence_hash']))
+            if unit['bundle_index']:
+                match = bundle_match(decision, unit['bundle_index'])
+                if (unit['bundle_evidence'].get('order_hash') != unit['evidence_hash']
+                        or not decision or unit['bundle_evidence'].get('card_count') != decision.get('card_count')
+                        or not same_bundle_layout(unit['bundle_evidence'], decision)):
+                    continue
+            else:
+                if not recalled(line) and not decision:
+                    continue
+                visual = purchase_visual_evidence(card, line, visual_reviews)
+                match = score_match(card, line, knowledge, visual_evidence=visual)
+                match = apply_inference(card, match, decision)
             if not match["recalled"]:
                 continue
             reasons = match["conflicts"] + unit["errors"]
+            if not unit["bundle_index"] and unit["assigned_child"]:
+                reasons.append("整包已有单卡分摊成本，不能重复分配整包")
             if unit["assigned_item"] and not (refresh and str(unit["assigned_item"]) == str(item_id)):
                 reasons.append("该订单件已被库存卡占用")
             if not unit["active"] and not reasons:
                 reasons.append("订单件已失效")
             if reasons:
-                rejected.append(dict(item_id=unit["item_id"], reasons=reasons))
+                rejected.append(dict(item_id=unit["item_id"], reasons=reasons,
+                                     title=unit['title'], match_reasons=match['reasons'],
+                                     identity_conflicts=match['conflicts']))
                 continue
             candidates.append(
                 dict(
@@ -191,9 +263,15 @@ class PurchaseCostService:
                     item_url=line["item_url"],
                     card_price=str(unit["unit_price"]),
                     shipping=str(unit["shipping"]),
+                    shipping_method=order.get("shipping_method", "prepaid"),
+                    shipping_basis=order.get("shipping_basis", "order"),
                     total_cost=str(unit["unit_price"] + unit["shipping"]),
                     currency="CNY",
-                    allocation_rule="equal_units_remainder_item_id_v1",
+                    allocation_rule=("equal_physical_cards_remainder_item_id_v1"
+                                     if order.get("shipping_method") == "sf_collect" else
+                                     "equal_bundle_cards_remainder_position_v1" if unit['bundle_index'] else "equal_units_remainder_item_id_v1"),
+                    bundle_index=unit['bundle_index'],
+                    bundle_evidence=unit['bundle_evidence'],
                     matcher_version="identity-v5-cost-inference",
                     **json_value(match),
                 )
@@ -206,6 +284,14 @@ class PurchaseCostService:
                 candidate["unit_index"],
             )
         )
+        if not ignore_field_gate:
+            gate = await conn.execute('SELECT decision FROM cardhobby_cost_visual_inference WHERE owner_id=%s AND collection_item_id=%s AND fingerprint=%s',
+                                      (owner_id, item_id, FIELD_GATE_KEY))
+            gate = await gate.fetchone()
+            if gate and gate['decision'].get('status') == 'incomplete':
+                for candidate in candidates:
+                    candidate['automatic'] = False
+                    candidate['missing'] = [*candidate['missing'], '购买候选尚未完整核验']
         return dict(
             candidates=candidates,
             rejected=rejected,
@@ -240,7 +326,10 @@ class PurchaseCostService:
             buys = [row for row in transactions if row['transaction_type'] == 'buy']
             if refresh and transactions and (len(buys) != 1 or buys[0]['quantity'] != 1):
                 raise ConflictError("已重新查询，但此卡有多笔买入或数量不为一，无法确定应更新的成本；原记录保留")
-            preview = await self.candidates(conn, owner_id, item_id, refresh=refresh)
+            # An explicit selection resolves which purchase belongs to this
+            # card. Automatic writes still require the entire field to finish.
+            preview = await self.candidates(conn, owner_id, item_id, refresh=refresh,
+                                            order_scope=order_scope, ignore_field_gate=not automatic)
             candidate = next(
                 (c for c in preview["candidates"] if c["unit_id"] == str(unit_id)), None
             )
@@ -257,7 +346,8 @@ class PurchaseCostService:
                 transacted_at=datetime.combine(datetime.fromisoformat(candidate['ordered_at']).date(), time(), ZoneInfo('Asia/Shanghai')),
                 quantity=1, unit_price=Decimal(candidate['card_price']), fee_amount=Decimal(candidate['shipping']),
                 currency='CNY', venue='CardHobby', external_order_id=candidate['order_id'],
-                notes=f"卡淘商品 {candidate['item_id']}；运费按件均分，余分按商品编号/件序分配",
+                notes=(f"卡淘商品 {candidate['item_id']}；包内第{candidate['bundle_index']}张/{candidate['bundle_evidence']['card_count']}张；商品价与运费分别按张均摊"
+                       if candidate['bundle_index'] else f"卡淘商品 {candidate['item_id']}；运费按件均分，余分按商品编号/件序分配"),
             )
             if refresh and buys:
                 transaction_id = buys[0]['id']
@@ -349,17 +439,21 @@ class PurchaseCostService:
         return dict(item_id=str(item_id), **build_purchase_cost_search_plan(card, knowledge))
 
     async def resolve_search(self, conn, owner_id, item_id, orders, complete, refresh=False):
+        from card_platform.purchase_cost_shipping import apply_collect_shipping_policy
         async with conn.transaction():
             await owner_lock(conn, owner_id)
+            orders = await apply_collect_shipping_policy(conn, owner_id, orders)
             plan = await self.search_plan(conn, owner_id, item_id, refresh=refresh)
             if plan["status"] == "skipped":
                 return dict(status="skipped", reason=plan["reason"], candidates=[], rejected=[])
             if orders:
                 await self.sync(conn, owner_id, orders)
+            visual_summary = {}
             if complete and orders:
-                await self.prepare_visual_inference(conn,owner_id,item_id,orders,refresh)
-            preview = await self.candidates(conn, owner_id, item_id, refresh=refresh)
+                await self.prepare_bundle_inference(conn,owner_id,item_id,orders)
+                visual_summary = await self.prepare_visual_inference(conn,owner_id,item_id,orders,refresh) or {}
             fresh_ids = {order.external_order_id for order in orders}
+            preview = await self.candidates(conn, owner_id, item_id, refresh=refresh, order_scope=fresh_ids)
             # A stale cached result must never substitute for a failed/empty live search.
             preview["candidates"] = [c for c in preview["candidates"] if c["order_id"] in fresh_ids]
             fresh_items = {line.item_id for order in orders for line in order.lines}
@@ -368,6 +462,20 @@ class PurchaseCostService:
             if not complete:
                 return dict(status="incomplete", candidates=[], rejected=[],
                             reason="订单搜索尚未完整结束，本次未填写成本")
+            if visual_summary.get('issues'):
+                # Multiple independently verified purchases can be shown for
+                # selection even when other pictures are unresolved. This
+                # preview must never authorize an automatic write.
+                choices = await self.candidates(conn, owner_id, item_id, refresh=refresh,
+                                                order_scope=fresh_ids, ignore_field_gate=True)
+                verified_choices = [row for row in choices['candidates'] if row['automatic']]
+                if len(verified_choices) > 1:
+                    return dict(status="needs_confirmation", candidates=verified_choices, rejected=[],
+                                verification_issues=visual_summary['issues'],
+                                reason="发现多件同款购买记录，请选择与这张卡对应的一件")
+            if visual_summary.get('issues'):
+                return dict(status='unmatched',candidates=[],rejected=[],verification_issues=visual_summary['issues'],
+                            reason='购买候选的图片核验尚未完整结束，无法确认唯一订单；原成本未修改')
             if len(eligible) > 1:
                 return dict(status="needs_confirmation", candidates=eligible, rejected=[],
                             reason="发现多件同款购买记录，请选择与这张卡对应的一件")
@@ -379,46 +487,253 @@ class PurchaseCostService:
                                 reason="已按图片与核心信息推测录入，请查看订单快照" if candidate.get('match_method') == 'inferred' else "已重新获取并更新购入成本" if refresh else "已自动录入购入成本", recorded=candidate)
                 except ConflictError as error:
                     return dict(status="unmatched" if refresh else "skipped", candidates=[], rejected=[], reason=str(error))
-            found = bool(preview["candidates"] or preview["rejected"] or any(order_errors(order) for order in orders))
+            found = bool(orders or preview["candidates"] or preview["rejected"] or visual_summary.get('attempted')
+                         or visual_summary.get('issues') or any(order_errors(order) for order in orders))
             blockers = list(dict.fromkeys(
                 [reason for row in preview["candidates"] for reason in row["missing"]]
-                + [reason for row in preview["rejected"] for reason in row["reasons"]]
+                + [reason for row in sorted(preview["rejected"],
+                    key=lambda row: (-len(row.get('match_reasons', [])), len(row['reasons'])))[:1]
+                   for reason in row["reasons"]]
                 + [reason for order in orders for reason in order_errors(order)]
             ))
             return dict(status="unmatched" if found else "not_found", candidates=[], rejected=[],
-                        reason=("已读取购买记录，但尚未通过同款核验：" + "；".join(blockers[:3]) + "。原成本未修改") if blockers else
+                        verification_issues=visual_summary.get('issues', []),
+                        reason=("已读取产品相关购买记录，但图片核验未能确认同款；原成本未修改")
+                        if visual_summary.get('issues') else
+                        ("最接近的购买记录尚未通过同款核验：" + "；".join(blockers[:3]) + "。原成本未修改") if blockers else
                         "未能从购买记录中识别出对应卡片，本次未填写成本" if found else
                         "已自动搜索购买记录，未找到这张卡的卡淘购入成本")
 
+    async def store_bundle_observation(self, conn, owner_id, card, order, line, decision):
+        """Persist trusted server-side image observations, never client-supplied prices."""
+        from card_platform.purchase_cost_bundle import bundle_match, split_bundle, same_bundle_layout
+        if (not bundle_match(decision, decision.get('matched_index'))['automatic']
+                or order_errors(order) or line['quantity'] != 1):
+            return False
+        if (order.shipping_method == 'sf_collect'
+                and order.shipping_card_counts.get(line['item_id']) != decision.get('card_count')):
+            return False
+        digest = evidence_hash(order)
+        async with conn.transaction():
+            await owner_lock(conn, owner_id)
+            await self.card(conn, owner_id, card['id'], lock=True)
+            row = await conn.execute('''SELECT u.* FROM cardhobby_purchase_unit u
+                JOIN cardhobby_purchase_order o ON o.id=u.order_id AND o.owner_id=u.owner_id
+                WHERE u.owner_id=%s AND o.external_order_id=%s AND o.evidence_hash=%s
+                  AND u.item_id=%s AND u.unit_index=0 AND u.bundle_index=0 FOR UPDATE OF u''',
+                (owner_id, order.external_order_id, digest, line['item_id']))
+            parent = await row.fetchone()
+            if not parent:
+                return False
+            existing = await conn.execute('''SELECT u.bundle_index,u.bundle_evidence,
+                EXISTS(SELECT 1 FROM cardhobby_cost_assignment a WHERE a.unit_id=u.id) assigned
+                FROM cardhobby_purchase_unit u WHERE u.order_id=%s AND u.item_id=%s''',
+                (parent['order_id'], line['item_id']))
+            children = await existing.fetchall()
+            count = decision['card_count']
+            # Conflicting counts must never silently remap an already split physical lot.
+            if any((r['bundle_index'] == 0 and r['assigned']) or
+                   (r['bundle_index'] > 0 and (r['bundle_evidence'].get('card_count') != count
+                    or not same_bundle_layout(r['bundle_evidence'], decision)
+                    or (r['assigned'] and r['bundle_evidence'].get('order_hash') != digest)))
+                   for r in children):
+                return False
+            metadata = dict(contract='purchase-bundle-v1', card_count=count, order_hash=digest,
+                            bundle_price=str(parent['unit_price']), bundle_shipping=str(parent['shipping']),
+                            card_boxes=decision.get('card_boxes') or [],
+                            candidate_image_hash=(decision.get('image_hashes') or {}).get('candidate'))
+            established = next((r['bundle_evidence'] for r in children if r['bundle_index'] > 0), None)
+            if established:
+                metadata['card_boxes'] = established.get('card_boxes') or []
+                metadata['candidate_image_hash'] = established.get('candidate_image_hash')
+            for child in split_bundle(parent['unit_price'], parent['shipping'], count):
+                await conn.execute('''INSERT INTO cardhobby_purchase_unit
+                    (order_id,owner_id,item_id,unit_index,title,unit_price,shipping,active,bundle_index,bundle_evidence)
+                    VALUES (%s,%s,%s,0,%s,%s,%s,true,%s,%s)
+                    ON CONFLICT(order_id,item_id,unit_index,bundle_index) DO UPDATE SET
+                    unit_price=EXCLUDED.unit_price,shipping=EXCLUDED.shipping,active=true,
+                    title=EXCLUDED.title,bundle_evidence=EXCLUDED.bundle_evidence''',
+                    (parent['order_id'], owner_id, line['item_id'], line['title'], child['unit_price'],
+                     child['shipping'], child['bundle_index'], Jsonb(metadata)))
+            await conn.execute('UPDATE cardhobby_purchase_unit SET active=false WHERE id=%s', (parent['id'],))
+            await conn.execute('''INSERT INTO cardhobby_cost_visual_inference
+                (owner_id,collection_item_id,fingerprint,decision) VALUES(%s,%s,%s,%s)
+                ON CONFLICT(owner_id,collection_item_id,fingerprint) DO UPDATE SET
+                decision=EXCLUDED.decision,created_at=now()''',
+                (owner_id, card['id'], inference_key(card,line,digest), Jsonb(decision)))
+            return True
+
+    async def prepare_bundle_inference(self, conn, owner_id, item_id, orders):
+        from card_platform.purchase_cost import BUNDLE, _phrase_in_title
+        from card_platform.purchase_cost_bundle import purchase_player_aliases, bundle_match
+        from card_platform.purchase_bundle_verifier import PurchaseBundleVerifier
+        from card_platform.domain.card_identity import normalize_text
+        card = await self.card(conn, owner_id, item_id)
+        snapshot = await conn.execute("SELECT kv.snapshot FROM knowledge_workspace kw LEFT JOIN knowledge_version kv ON kv.id=kw.published_version_id WHERE kw.name='Card Platform'")
+        row = await snapshot.fetchone()
+        knowledge = KnowledgeResolver(row['snapshot'] if row else None)
+        aliases = purchase_player_aliases(card['player_name'], knowledge, discovery=True)
+        relevant = [(order, line.model_dump(mode='json')) for order in orders if not order_errors(order)
+                    for line in order.lines if line.quantity == 1 and BUNDLE.search(line.title)
+                    and any(_phrase_in_title(name, normalize_text(line.title)) for name in aliases)]
+        if not relevant or len(relevant) > 6:
+            return
+        verifier = PurchaseBundleVerifier(get_settings())
+        for order, line in relevant:
+            fingerprint = inference_key(card,line,evidence_hash(order))
+            cached = await conn.execute('''SELECT decision FROM cardhobby_cost_visual_inference
+                WHERE owner_id=%s AND collection_item_id=%s AND fingerprint=%s
+                  AND created_at>now()-interval '7 days' ''', (owner_id,item_id,fingerprint))
+            cached = await cached.fetchone()
+            if cached and (bundle_match(cached['decision'],cached['decision'].get('matched_index'))['automatic']
+                           or (cached['decision'].get('source') == 'codex_paired_image_review'
+                               and cached['decision'].get('verdict') == 'different')):
+                continue
+            try:
+                async with asyncio.timeout(65):
+                    decision = await verifier.observe(card,line)
+                if decision:
+                    await self.store_bundle_observation(conn,owner_id,card,order,line,decision)
+            except (TimeoutError, ValueError, OSError) as error:
+                logger.warning('purchase_bundle_observation_failed type=%s', type(error).__name__)
+            except Exception as error:
+                # External model/network failure leaves costs untouched and retryable.
+                logger.warning('purchase_bundle_observation_failed type=%s', type(error).__name__)
+
     async def prepare_visual_inference(self, conn, owner_id, item_id, orders, refresh):
         card = await self.card(conn,owner_id,item_id)
-        preview = await self.candidates(conn,owner_id,item_id,refresh=refresh)
         fresh_ids = {order.external_order_id for order in orders}
+        previous_gate = await (await conn.execute('SELECT decision FROM cardhobby_cost_visual_inference WHERE owner_id=%s AND collection_item_id=%s AND fingerprint=%s',
+            (owner_id,item_id,FIELD_GATE_KEY))).fetchone()
+        pending_orders = set(previous_gate['decision'].get('pending_order_ids', [])) if previous_gate else set()
+        preview = await self.candidates(conn,owner_id,item_id,refresh=refresh,order_scope=fresh_ids,ignore_field_gate=True)
+        unresolved = [dict(order_id=row['order_id'],item_id=row['item_id'],code='candidate_image_missing')
+                      for row in preview['candidates'] if inference_eligible(card,row) and not row['image_urls']]
+        weak_identities = [dict(order_id=row['order_id'],item_id=row['item_id'],code='candidate_identity_incomplete')
+            for row in preview['candidates'] if not row['automatic'] and not row['conflicts']
+            and not inference_eligible(card,row) and not title_correction_eligible(card,row)]
+        unresolved.extend(dict(order_id=order.external_order_id,code='order_evidence_incomplete')
+            for order in orders if order.external_order_id in pending_orders and order_errors(order))
         candidates = [row for row in preview['candidates'] if row['order_id'] in fresh_ids
-                      and inference_eligible(card,row) and row['image_urls'] and not row.get('visual_inference')]
+                      and inference_eligible(card,row) and row['image_urls']]
+        snapshot = await conn.execute("SELECT kv.snapshot FROM knowledge_workspace kw LEFT JOIN knowledge_version kv ON kv.id=kw.published_version_id WHERE kw.name='Card Platform'")
+        snapshot = await snapshot.fetchone()
+        knowledge = KnowledgeResolver(snapshot['snapshot'] if snapshot else None)
+        units = await conn.execute('''SELECT u.id,u.item_id,o.external_order_id
+            FROM cardhobby_purchase_unit u JOIN cardhobby_purchase_order o ON o.id=u.order_id
+            WHERE u.owner_id=%s AND o.owner_id=%s AND o.external_order_id=ANY(%s)
+              AND u.active AND u.bundle_index=0 AND NOT EXISTS
+              (SELECT 1 FROM cardhobby_cost_assignment a WHERE a.unit_id=u.id
+               AND NOT (%s AND a.collection_item_id=%s))''',
+            (owner_id, owner_id, sorted(fresh_ids), refresh, item_id))
+        available = {(row['external_order_id'], row['item_id']): row['id'] for row in await units.fetchall()}
+        for order in orders:
+            if order_errors(order):
+                continue
+            for captured in order.lines:
+                line = captured.model_dump(mode='json')
+                unit = available.get((order.external_order_id, line['item_id']))
+                match = score_match(card, line, knowledge)
+                if (unit and line['quantity'] == 1 and len(line['image_urls']) == 1
+                        and title_correction_eligible(card, match)):
+                    candidates.append(dict(unit_id=str(unit), evidence_hash=evidence_hash(order),
+                                           order_id=order.external_order_id, **line, **match))
+                elif unit and title_correction_eligible(card, match):
+                    unresolved.append(dict(order_id=order.external_order_id,item_id=line['item_id'],code='unsupported_product_candidate'))
+                elif (unit and order.external_order_id in pending_orders and not match['automatic']
+                      and set(match['conflicts']) <= TITLE_CORRECTION_CONFLICTS
+                      and not inference_eligible(card,match)):
+                    # A former suspect cannot disappear simply by losing its
+                    # product/name metadata on a later capture.
+                    unresolved.append(dict(order_id=order.external_order_id,item_id=line['item_id'],code='candidate_identity_incomplete'))
+        candidates = list({row['unit_id']: row for row in candidates}.values())
+        if candidates or pending_orders:
+            # A visual field (or its retry) must account for weak recalled
+            # identities too. Leave the existing pure text matching policy alone.
+            unresolved.extend(weak_identities)
         # Do not partially compare a crowded field and call the first one unique.
         if not candidates or len(candidates)>6 or not card.get('image_front_url'):
-            return
+            issues = [*unresolved, *([{'code': 'image_candidate_budget_exceeded'}] if len(candidates)>6 else []),
+                      *([{'code': 'target_image_missing'}] if candidates and not card.get('image_front_url') else [])]
+            if not candidates and not issues:
+                gate = await (await conn.execute('SELECT decision FROM cardhobby_cost_visual_inference WHERE owner_id=%s AND collection_item_id=%s AND fingerprint=%s',
+                    (owner_id,item_id,FIELD_GATE_KEY))).fetchone()
+                if gate:
+                    if set(gate['decision'].get('pending_order_ids', [])) <= fresh_ids:
+                        # Current text now resolves the full field, without
+                        # requiring the formerly missing visual observations.
+                        await conn.execute('DELETE FROM cardhobby_cost_visual_inference WHERE owner_id=%s AND collection_item_id=%s AND fingerprint=%s',
+                            (owner_id,item_id,FIELD_GATE_KEY))
+                    else:
+                        issues.append(dict(code='previous_candidate_scope_not_covered'))
+            if issues:
+                await self.incomplete_field(conn,owner_id,item_id,
+                    {row['order_id'] for row in candidates} | {row['order_id'] for row in unresolved})
+            return dict(attempted=0, issues=issues)
         try:
             verifier = ComparableImageVerifier(get_settings())
-            async with asyncio.timeout(65):
+            async with asyncio.timeout(150):
                 decisions = await verifier.verify(card['image_front_url'],[
                     VisualCandidate(row['unit_id'],row['title'],row['image_urls'][0]) for row in candidates
                 ],requires_parallel_match=bool(card.get('parallel_name') or card.get('serial_total')),
-                   target_back_image_url=card.get('image_back_url'))
+                   target_back_image_url=card.get('image_back_url'),
+                   identity={**card, 'collection_item_id': str(item_id)})
         except Exception as error:
             logger.warning('purchase_cost_visual_inference error_type=%s',type(error).__name__)
-            return
+            await self.incomplete_field(conn,owner_id,item_id,
+                {row['order_id'] for row in candidates} | {row['order_id'] for row in unresolved})
+            return dict(attempted=len(candidates), issues=[{'code': 'image_observation_failed', 'type': type(error).__name__}])
+        issues = list(unresolved)
+        completed = {}
         for row in candidates:
             decision = decisions.get(row['unit_id'])
-            # Network/model uncertainty must not poison manual retries for seven days.
-            if decision is None or decision.verdict == 'uncertain':
+            if decision is None:
+                issues.append(dict(item_id=row['item_id'],code='image_observation_uncertain'))
                 continue
             evidence = {**decision.model_dump(mode='json'),'source':'cost_visual_inference',
                         'target_front_url':card['image_front_url'],'target_back_url':card.get('image_back_url'),
                         'candidate_image_url':row['image_urls'][0],'candidate_source_url':row['item_url']}
+            expected = visual_asset_binding(card,
+                VisualCandidate(row['unit_id'],row['title'],row['image_urls'][0]),b'',None,b'')
+            binding = evidence.get('evidence_binding') or {}
+            hashes = card.get('image_content_hashes') or {}
+            current = (bool(hashes.get('front'))
+                       and binding.get('target_front_sha256') == hashes.get('front')
+                       and binding.get('target_back_sha256') == hashes.get('back')
+                       and all(binding.get(key) == expected[key] for key in
+                           ('contract','identity_sha256','candidate_title_sha256','source_url','candidate_image_url'))
+                       and isinstance(binding.get('candidate_sha256'),str)
+                       and len(binding['candidate_sha256']) == 64
+                       and all(char in '0123456789abcdef' for char in binding['candidate_sha256']))
+            match = apply_inference(card,row,evidence)
+            accepted = match['automatic'] and (match.get('match_method') != 'image_title_correction' or current)
+            rejected = (current and decision.verdict == 'different' and decision.confidence >= Decimal('.80')
+                        and normalize_model_visual_decision(decision).verdict == 'different')
+            if accepted or rejected:
+                completed[row['unit_id']] = evidence
+            else:
+                issues.append(dict(item_id=row['item_id'],code='image_observation_uncertain'))
+        gate = await conn.execute('SELECT decision FROM cardhobby_cost_visual_inference WHERE owner_id=%s AND collection_item_id=%s AND fingerprint=%s',
+                                 (owner_id,item_id,FIELD_GATE_KEY))
+        gate = await gate.fetchone()
+        if gate and not set(gate['decision'].get('pending_order_ids', [])) <= fresh_ids:
+            issues.append(dict(code='previous_candidate_scope_not_covered'))
+        if issues:
+            await self.incomplete_field(conn,owner_id,item_id,
+                {row['order_id'] for row in candidates} | {row['order_id'] for row in unresolved})
+        else:
+            await conn.execute('DELETE FROM cardhobby_cost_visual_inference WHERE owner_id=%s AND collection_item_id=%s AND fingerprint=%s',
+                               (owner_id,item_id,FIELD_GATE_KEY))
+        for row in candidates:
+            evidence = completed.get(row['unit_id'])
+            # Network/model uncertainty must not poison manual retries for seven days.
+            if evidence is None:
+                continue
+            if issues and evidence['verdict'] != 'different':
+                continue
             await conn.execute('INSERT INTO cardhobby_cost_visual_inference(owner_id,collection_item_id,fingerprint,decision) VALUES(%s,%s,%s,%s) ON CONFLICT(owner_id,collection_item_id,fingerprint) DO UPDATE SET decision=EXCLUDED.decision,created_at=now()',
                                (owner_id,item_id,inference_key(card,row,row['evidence_hash']),Jsonb(evidence)))
+        return dict(attempted=len(candidates), issues=issues)
 
     async def finish_search_step(self, conn, owner_id, job_id, item_id, orders, complete):
         async with conn.transaction():

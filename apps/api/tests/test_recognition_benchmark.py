@@ -2317,3 +2317,32 @@ def test_canonicalize_obscured_insert_transcription() -> None:
 
     assert normalized.insert_name == "Hoopnotic"
     assert any("遮挡转写别名" in caveat for caveat in normalized.caveats)
+
+
+def test_team_golden_text_is_not_a_parallel_or_numbering_evidence():
+    # Real failure: GOLDEN from GOLDEN STATE WARRIORS was promoted into a
+    # parallel; unsourced catalog prose then repeated the same OCR error.
+    result = canonicalize_identity(CardRecognitionResult(
+        player_name='Stephen Curry', product_name='STATUS BASKETBALL',
+        parallel_name='GOLDEN', is_numbered=True, confidence=Decimal('.95'),
+        field_evidence={'parallel_name': [
+            "正面：GOLDEN（球衣/边框配色暗示金色平行，正面可见 GOLDEN 字样）",
+            "联网候选：官方 checklist 中该卡明确列为 GOLDEN parallel",
+        ]},
+    ))
+    assert result.parallel_name is None
+    assert result.is_numbered is None
+    assert any('team_text_not_parallel' in c for c in result.caveats)
+
+
+@pytest.mark.parametrize('parallel,evidence', [
+    ('Gold', '正面金色折射，独立限编 5/10'),
+    ('Golden Treasures', '背面独立版本标记 Golden Treasures 1/1'),
+    ('Blue', '正面蓝色边框；球队 GOLDEN STATE WARRIORS'),
+])
+def test_team_text_guard_preserves_specific_independent_parallel_evidence(parallel,evidence):
+    result = canonicalize_identity(CardRecognitionResult(
+        player_name='Stephen Curry', product_name='Status', parallel_name=parallel,
+        confidence=Decimal('.9'), field_evidence={'parallel_name':[evidence]},
+    ))
+    assert result.parallel_name == parallel

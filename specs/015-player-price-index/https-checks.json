@@ -1,0 +1,19 @@
+{
+  "checks": [
+    "trusted_https_capabilities",
+    "mobile_https_login_bearer_and_logout",
+    "web_https_secure_cookie_and_origin"
+  ],
+  "existing_data_counts_unchanged": true,
+  "temporary_account_removed": true,
+  "routing": "container_to_host_nginx_with_verified_domain_tls",
+  "public_checks": {
+    "public_trusted_tls": true,
+    "prices_page_status": 200,
+    "static_assets_checked": 11,
+    "mobile_login_reachable_status": 401,
+    "anonymous_prices_denied": true,
+    "www_https": true,
+    "http_redirect": true
+  }
+}

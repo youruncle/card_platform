@@ -1,6 +1,7 @@
 """Owner-scoped discovery. Never used to adjudicate valuation/cost identity."""
 
 from decimal import Decimal
+from collections import OrderedDict
 import re
 import unicodedata
 from typing import Annotated, Literal
@@ -17,6 +18,7 @@ Status = Literal["valued", "unvalued", "queued", "running", "failed", "insuffici
 
 class SearchFilters(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    holding_status: Literal["held", "sold"] | None = None
     q: str = Field(default="", max_length=160)
     player: Names = Field(default_factory=list)
     brand: Names = Field(default_factory=list)
@@ -79,12 +81,13 @@ def normalize(value):
 class SearchVocabulary:
     def __init__(self, snapshot=None):
         self.index = {}
+        self.han_terms = set()
         groups = [(kind, group) for kind, values in SEARCH_ALIASES.items() for group in values]
         for entity in (snapshot or {}).get("entities", []):
             kind = entity.get("entity_type")
             if kind in FIELDS:
                 groups.append(
-                    (kind, (entity.get("canonical_name", ""), *entity.get("aliases", [])))
+                    (kind, (entity.get("canonical_name") or "", *(entity.get("aliases") or [])))
                 )
         for kind, group in groups:
             members = player_roster_components(group[0]) if kind == "player" else ()
@@ -100,12 +103,76 @@ class SearchVocabulary:
                 else set()
             )
             for name in group:
-                if normalize(name) in member_names:
+                normalized = normalize(name)
+                if re.fullmatch(r"[\u3400-\u9fff]{2,}", normalized):
+                    self.han_terms.add(normalized)
+                if normalized in member_names:
                     continue
-                self.index.setdefault((kind, normalize(name)), set()).update(group)
+                self.index.setdefault((kind, normalized), set()).update(group)
 
     def values(self, kind, value):
         return (str(value or ""), *self.index.get((kind, normalize(value)), ()))
+
+    def terms(self, query):
+        plain = "".join(c for c in unicodedata.normalize("NFKD", query).casefold()
+                        if not unicodedata.combining(c))
+        tokens = re.findall(r"[\u3400-\u9fff]+|[0-9]+[-/][0-9]+|[a-z0-9]+", plain)
+        terms = []
+        for token in tokens:
+            if not re.fullmatch(r"[\u3400-\u9fff]+", token):
+                terms.append(token)
+                continue
+            # Longest reviewed alias first, retaining unmatched text as a term.
+            # This supports Chinese input without requiring spaces or an NLP service.
+            position, pending = 0, ""
+            while position < len(token):
+                match = next((token[position:end] for end in range(len(token), position + 1, -1)
+                              if token[position:end] in self.han_terms), None)
+                if match:
+                    if pending:
+                        terms.append(pending)
+                        pending = ""
+                    terms.append(match)
+                    position += len(match)
+                else:
+                    pending += token[position]
+                    position += 1
+            if pending:
+                terms.append(pending)
+        return list(dict.fromkeys(terms))
+
+
+# Published vocabulary contains no owner-specific cards. Version IDs change on
+# publication, so a small cache avoids rebuilding it for every private search.
+_vocabulary_cache = OrderedDict()
+
+
+async def search_vocabulary(connection):
+    result = await connection.execute(
+        "SELECT published_version_id FROM knowledge_workspace WHERE name='Card Platform'"
+    )
+    row = await result.fetchone()
+    version = row["published_version_id"] if row else None
+    if version in _vocabulary_cache:
+        _vocabulary_cache.move_to_end(version)
+        return _vocabulary_cache[version]
+    entities = []
+    if version:
+        result = await connection.execute(
+            """SELECT entity->>'entity_type' AS entity_type,
+                      entity->>'canonical_name' AS canonical_name,
+                      entity->'aliases' AS aliases
+               FROM knowledge_version kv,
+                    jsonb_array_elements(kv.snapshot->'entities') AS entity
+               WHERE kv.id=%s AND entity->>'entity_type'=ANY(%s::text[])""",
+            (version, list(FIELDS)),
+        )
+        entities = await result.fetchall()
+    vocabulary = SearchVocabulary({"entities": entities})
+    _vocabulary_cache[version] = vocabulary
+    while len(_vocabulary_cache) > 2:
+        _vocabulary_cache.popitem(last=False)
+    return vocabulary
 
 
 def one_edit(left, right):
@@ -147,6 +214,8 @@ def in_range(value, low, high):
 
 
 def matches(card, filters, snapshot=None):
+    if filters.holding_status is not None and card.get("holding_status", "held") != filters.holding_status:
+        return False
     vocabulary = snapshot if isinstance(snapshot, SearchVocabulary) else SearchVocabulary(snapshot)
     expanded = {key: vocabulary.values(key, card.get(field)) for key, field in FIELDS.items()}
     for key, values in expanded.items():
@@ -195,46 +264,103 @@ def matches(card, filters, snapshot=None):
             states.add("running")
         if not states.intersection(filters.valuation_status):
             return False
-    q = filters.q.strip()
-    if not q:
-        return True
-    exact_id = re.fullmatch(r"(?:id\s*[:#]?\s*|#)?(\d+)", q, re.I)
+    return not filters.q.strip() or keyword_score(card, filters.q, vocabulary) > 0
+
+
+def keyword_score(card, query, vocabulary):
+    """Discovery ranking only: partial terms never become identity evidence."""
+    query = query.strip()
+    exact_id = re.fullmatch(r"(?:id\s*[:#]?\s*|#)?(\d+)", query, re.I)
     if exact_id:
-        return card.get("display_id") == int(exact_id[1])
-    text_values = [v for values in expanded.values() for v in values]
-    all_values = [
-        *text_values,
-        *(
-            str(card.get(k) or "")
-            for k in (
-                "card_number",
-                "season_start",
-                "season_end",
-                "serial_number",
-                "serial_total",
-                "display_id",
-            )
-        ),
-        f"{start}-{str(end)[-2:]}",
-        f"{card.get('serial_number')}/{card.get('serial_total')}",
-    ]
-    if text_match(q, all_values, fuzzy=False):
-        return True
-    tokens = q.split()
-    return bool(tokens) and all(
-        text_match(t, all_values, fuzzy=False) or text_match(t, text_values) for t in tokens
-    )
+        return 1000 if card.get("display_id") == int(exact_id[1]) else 0
+    # Punctuation separates terms; accents/case do not affect recall. Keep
+    # serial/year forms together so 7/50 does not become two broad numbers.
+    terms = vocabulary.terms(query)
+    if not terms:
+        return 0
+    fields = []
+    for kind, weight in (("player", 6), ("product", 4), ("insert", 4), ("parallel", 4), ("brand", 2)):
+        values = vocabulary.values(kind, card.get(FIELDS[kind]))
+        normalized = tuple({normalize(v) for v in values if v})
+        words = {word for v in values for word in re.findall(r"[a-z]{4,}", unicodedata.normalize("NFKD", v).casefold())}
+        fields.append((weight, normalized, words))
+    start, end = card.get("season_start"), card.get("season_end") or card.get("season_start")
+    exact_values = {normalize(card.get(k)) for k in ("card_number", "grade_company", "grade_value", "season_start", "season_end", "serial_number", "serial_total", "display_id")}
+    exact_values.update((normalize(f"{start}-{str(end)[-2:]}"), normalize(f"{card.get('serial_number')}/{card.get('serial_total')}")))
+    if normalize(query) in exact_values:
+        # Preserve literal card numbers such as CH-5 even though Latin hyphens
+        # split free-text queries like Durant-Topps into independent keywords.
+        return 1000
+    score, text_hit = 0, False
+    has_text = any(re.search(r"[a-z\u3400-\u9fff]", t) for t in terms)
+    for term in terms:
+        needle = normalize(term)
+        textual = bool(re.search(r"[a-z\u3400-\u9fff]", term))
+        quality = 0
+        if textual:
+            for weight, values, words in fields:
+                if needle in values:
+                    quality = max(quality, weight * 3)
+                elif any(needle in value for value in values):
+                    quality = max(quality, weight * 2)
+                elif re.fullmatch(r"[a-z]{4,}", term) and any(one_edit(term, word) for word in words):
+                    quality = max(quality, weight)
+        if needle in exact_values:
+            quality = max(quality, 3)
+        if quality:
+            score += 100 + quality
+            text_hit = text_hit or textual
+    # A shared year alone must not return cards for an unrelated player query.
+    if has_text and not text_hit:
+        return 0
+    phrase = normalize(query)
+    if any(phrase == value for _, values, _ in fields for value in values):
+        score += 30
+    return score
+
+
+def structured_sql_filters(filters):
+    """Safe prefilters; text/alias recall and ranking remain in Python."""
+    clauses, parameters = [], []
+
+    def compare(column, operator, value):
+        if value is not None:
+            clauses.append(f"{column} {operator} %s")
+            parameters.append(value)
+
+    compare("ci.holding_status", "=", filters.holding_status)
+    for name, column in (
+        ("rookie", "cd.is_rookie"), ("autograph", "cd.is_autograph"),
+        ("memorabilia", "cd.is_memorabilia"), ("numbered", "ci.is_numbered"),
+    ):
+        compare(column, "=", getattr(filters, name))
+    if filters.graded is not None:
+        clauses.append("COALESCE(ci.grade_company, '') " + ("<> ''" if filters.graded else "= ''"))
+    if filters.has_cost is not None:
+        clauses.append("purchase.total IS " + ("NOT NULL" if filters.has_cost else "NULL"))
+    compare("ci.serial_number", "=", filters.serial_number)
+    compare("COALESCE(cs.season_end, cs.season_start)", ">=", filters.year_min)
+    compare("cs.season_start", "<=", filters.year_max)
+    for prefix, column in (("serial", "ci.serial_total"), ("grade", "ci.grade_value"), ("cost", "purchase.total")):
+        compare(column, ">=", getattr(filters, prefix + "_min"))
+        compare(column, "<=", getattr(filters, prefix + "_max"))
+    return "".join(" AND " + clause for clause in clauses), tuple(parameters)
 
 
 async def search_item_ids(connection, owner_id, filters):
-    snapshot = await connection.execute(
-        "SELECT kv.snapshot FROM knowledge_workspace kw LEFT JOIN knowledge_version kv ON kv.id=kw.published_version_id WHERE kw.name='Card Platform'"
-    )
-    row = await snapshot.fetchone()
-    vocabulary = SearchVocabulary(row["snapshot"] if row else None)
+    if set(filters.model_dump(exclude_defaults=True)) == {"holding_status"}:
+        result = await connection.execute(
+            """SELECT id FROM collection_item
+               WHERE owner_id=%s AND deleted_at IS NULL AND holding_status=%s
+               ORDER BY created_at DESC,id DESC""",
+            (owner_id, filters.holding_status),
+        )
+        return [row["id"] for row in await result.fetchall()]
+    vocabulary = await search_vocabulary(connection)
+    sql_filters, parameters = structured_sql_filters(filters)
     result = await connection.execute(
-        """
-        SELECT ci.id,ci.display_id,ci.is_numbered,ci.serial_number,ci.serial_total,
+        f"""
+        SELECT ci.id,ci.display_id,ci.holding_status,ci.is_numbered,ci.serial_number,ci.serial_total,
                ci.grade_company,ci.grade_value,p.full_name AS player_name,b.name AS brand_name,
                cs.product_name,cs.season_start,cs.season_end,cd.insert_name,cd.parallel_name,
                cd.card_number,cd.is_rookie,cd.is_autograph,cd.is_memorabilia,
@@ -259,8 +385,19 @@ async def search_item_ids(connection, owner_id, filters):
           SELECT status,created_at FROM valuation_job WHERE collection_item_id=ci.id
           ORDER BY created_at DESC LIMIT 1
         ) vj ON true
-        WHERE ci.owner_id=%s AND ci.deleted_at IS NULL ORDER BY ci.created_at DESC,ci.id DESC
+        WHERE ci.owner_id=%s AND ci.deleted_at IS NULL {sql_filters}
+        ORDER BY ci.created_at DESC,ci.id DESC
         """,
-        (owner_id,),
+        (owner_id, *parameters),
     )
-    return [r["id"] for r in await result.fetchall() if matches(r, filters, vocabulary)]
+    strict_filters = filters.model_copy(update={"q": ""})
+    ranked = []
+    for row in await result.fetchall():
+        if not matches(row, strict_filters, vocabulary):
+            continue
+        score = keyword_score(row, filters.q, vocabulary) if filters.q else 1
+        if score > 0:
+            ranked.append((score, row["id"]))
+    # SQL order is the deterministic tie-breaker (newest first, then UUID).
+    ranked.sort(key=lambda pair: pair[0], reverse=True)
+    return [item_id for _, item_id in ranked]

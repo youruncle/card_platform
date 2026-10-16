@@ -1,0 +1,59 @@
+{
+  "elapsed_seconds": 46.7,
+  "regions": 8,
+  "failures": [
+    "source_edge_contact",
+    "low_outline_confidence",
+    "layout_requires_review",
+    "local_vision_timeout"
+  ],
+  "progress": [
+    {
+      "elapsed": 6.53,
+      "done": 0,
+      "total": 8
+    },
+    {
+      "elapsed": 46.57,
+      "done": 1,
+      "total": 8
+    },
+    {
+      "elapsed": 46.59,
+      "done": 2,
+      "total": 8
+    },
+    {
+      "elapsed": 46.61,
+      "done": 3,
+      "total": 8
+    },
+    {
+      "elapsed": 46.63,
+      "done": 4,
+      "total": 8
+    },
+    {
+      "elapsed": 46.65,
+      "done": 5,
+      "total": 8
+    },
+    {
+      "elapsed": 46.67,
+      "done": 6,
+      "total": 8
+    },
+    {
+      "elapsed": 46.69,
+      "done": 7,
+      "total": 8
+    },
+    {
+      "elapsed": 46.69,
+      "done": 8,
+      "total": 8
+    }
+  ],
+  "crop_files": 8,
+  "database_writes": "fake connection only; no real database changes"
+}

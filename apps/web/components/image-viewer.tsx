@@ -38,15 +38,25 @@ export function OpenableImage({
   alt,
   className,
   gallery,
+  displaySrc,
 }: {
   src: string | undefined;
+  displaySrc?: string | null;
   alt: string;
   className?: string;
   gallery?: Array<{ src: string | null | undefined; alt: string }>;
 }) {
+  const [attempt,setAttempt]=useState(0),[failed,setFailed]=useState(false);
+  useEffect(()=>{setAttempt(0);setFailed(false);},[src,displaySrc]);
+  useEffect(()=>{if(!failed || attempt>=2 || !displaySrc)return;const timer=setTimeout(()=>{setAttempt(n=>n+1);setFailed(false);},750*(attempt+1));return()=>clearTimeout(timer);},[failed,attempt,displaySrc]);
+  if(failed)return <button type="button" aria-label={`重新加载${alt}`} onClick={()=>{setAttempt(0);setFailed(false);}}>图片暂不可用 · 重试</button>;
+  const imageSrc=displaySrc ?? src;
   return (
     <img
-      src={src}
+      src={imageSrc && attempt ? `${imageSrc}${imageSrc.includes("?") ? "&" : "?"}_retry=${attempt}` : imageSrc}
+      onError={()=>setFailed(true)}
+      loading="lazy"
+      decoding="async"
       alt={alt}
       className={className}
       role="button"

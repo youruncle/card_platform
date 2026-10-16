@@ -26,3 +26,30 @@ def title_claims_autograph(title: str) -> bool:
     autograph elsewhere still matters, including cards with both kinds.
     """
     return bool(_AUTOGRAPH.search(_NON_AUTOGRAPH.sub(" ", title)))
+
+
+def autograph_claim(title: str) -> bool | None:
+    """None means the seller did not describe the autograph attribute."""
+    if title_claims_autograph(title):
+        return True
+    return False if _NON_AUTOGRAPH.search(title) else None
+
+
+_NON_MEMORABILIA = re.compile(
+    r"(?:无|無|非|没有|沒有|不是|并非|並非)\s*(?:球衣物料|球衣卡?|物料卡?|切割)|"
+    r"\b(?:no|not|without|non[- ])\s*(?:a\s+)?(?:memorabilia|relic|patch|jersey)(?:\s+card)?\b|"
+    r"(?:印刷|印制|印製)\s*(?:球衣|物料|patch|jersey)(?:图案|圖案)?",
+    re.I,
+)
+
+
+def memorabilia_claim(title: str) -> bool | None:
+    """Read material-card claims, preserving uniform-picture descriptions."""
+    from card_platform.domain.listing_title import is_memorabilia_listing
+
+    remaining = _NON_MEMORABILIA.sub(' ', title)
+    if (is_memorabilia_listing(remaining)
+            or re.search(r'\bmem(?:orabilia)?\b|\bgu\b|gu\s*亲穿|硬地英雄|\bsweet strokes?\b|\bhardcourt heroics\b',
+                         remaining, re.I)):
+        return True
+    return False if _NON_MEMORABILIA.search(title) else None

@@ -123,20 +123,22 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
     if (!session) return;
     const captureId = crypto.randomUUID();
     const sideLabel = side === "front" ? "正面" : "背面";
+    const startedAt = Date.now();
     let capturePending = true;
     setBusy(true);
     inform(preview ? `正在进行${sideLabel}概览扫描，请保持扫描仪盖板关闭…` : `正在以 ${dpi} DPI 扫描${sideLabel}整版，请保持扫描仪盖板关闭…`);
     const monitor = (async () => {
       while (capturePending) {
-        await new Promise((resolve) => window.setTimeout(resolve, 350));
+        await new Promise((resolve) => window.setTimeout(resolve, 1000));
         if (!capturePending) return;
         try {
           const progress = await getFlatbedCaptureProgress(captureId);
           if (!capturePending) return;
           if (progress.phase === "processing") {
             const nextAction = side === "front" ? "请将本批卡片翻面；背面会独立识别边界" : "可以更换下一批卡片";
-            inform(`扫描仪已完成${sideLabel}取图，正在裁剪与识别；现在可以打开扫描仪，${nextAction}。`);
-            return;
+            const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+            inform(`扫描仪已完成${sideLabel}取图，正在裁剪与识别（${progress.detail ? `${progress.detail}，` : ""}已等待 ${elapsed} 秒）；现在可以打开扫描仪，${nextAction}。`);
+            continue;
           }
           if (progress.phase === "failed" || progress.phase === "completed") return;
         } catch {
@@ -299,6 +301,7 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
     return ({
       source_edge_contact: "有卡片贴近扫描边界，留白可能不足（不阻塞录入）",
       front_back_count_mismatch: "正反面数量不同，可先录入完整配对",
+      local_vision_timeout: "本机文字或方向识别超时，已保留裁图并使用降级处理，请核对方向与配对",
       front_layout_merges_current_cards: "正面旧框疑似合并多张卡，背面已按独立卡片重新裁切；请重新核对正面布局",
       front_layout_splits_current_cards: "正面旧框疑似把同一卡片切成多张，背面已按完整卡片重新裁切；请核对正面布局",
       front_layout_conflicts_current_objects: "正面旧框与背面完整卡片位置不一致，请核对正反面布局",

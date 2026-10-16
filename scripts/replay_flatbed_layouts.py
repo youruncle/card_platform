@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
+from dataclasses import replace
 import hashlib
 import json
 from pathlib import Path
@@ -132,9 +134,122 @@ def _validate_pinned_source(
         )
 
 
-def _detect_standalone(content: bytes, dpi: int) -> LayoutHypothesis:
+def _detect_standalone(content: bytes, dpi: int, *, object_quads: bool = False) -> LayoutHypothesis:
     """Run pixels plus recorded DPI only; labels and historical priors stay out."""
-    return detect_layout(content, dpi=dpi)
+    layout = detect_layout(content, dpi=dpi)
+    if object_quads:
+        from card_platform.flatbed_object_quads import resolve_object_layout
+        layout = resolve_object_layout(content, layout)
+    return layout
+
+
+def _gold_crop_detections(
+    boxes: list[Detection], source_crop_points: list | None
+) -> tuple[list[Detection], list[str]]:
+    """Score final source pixels when the service supplied a derived crop quad."""
+    if source_crop_points is None:
+        return boxes, []
+    failures = []
+    if len(source_crop_points) != len(boxes):
+        failures.append("invalid_source_crop_geometry")
+    actual = []
+    for index, item in enumerate(boxes):
+        raw = source_crop_points[index] if index < len(source_crop_points) else None
+        if raw is None:
+            actual.append(item)
+            continue
+        try:
+            points = np.asarray(
+                [(point["x"], point["y"]) if isinstance(point, dict) else point for point in raw],
+                dtype=np.float32,
+            )
+            if (
+                points.shape != (4, 2)
+                or not np.isfinite(points).all()
+                or (points < 0).any()
+                or (points > 1).any()
+                or len(cv2.convexHull(points)) != 4
+                or cv2.contourArea(cv2.convexHull(points)) <= 1e-9
+            ):
+                raise ValueError("invalid_quad")
+            left, top = points.min(axis=0)
+            right, bottom = points.max(axis=0)
+            actual.append(replace(
+                item, x=float(left), y=float(top),
+                width=float(right - left), height=float(bottom - top),
+                points=tuple((float(x), float(y)) for x, y in points),
+            ))
+        except (KeyError, TypeError, ValueError):
+            # A malformed derived quad cannot silently pass using old bounds.
+            failures.append("invalid_source_crop_geometry")
+            actual.append(item)
+    return actual, failures
+
+
+def _content_geometry_failures(boxes: list[Detection], rule: dict) -> list[str]:
+    """Require every part of one object in one crop, and isolate peer objects."""
+    failures = []
+    regions = rule.get("required_content_regions", [])
+    coverage = [
+        [_intersection_coverage(box, _region_detection(region)) for box in boxes]
+        for region in regions
+    ]
+    groups: dict[tuple, list[int]] = {}
+    for index, (region, row) in enumerate(zip(regions, coverage, strict=True)):
+        key = ("object", str(region["object_id"])) if "object_id" in region else ("legacy", index)
+        groups.setdefault(key, []).append(index)
+        if max(row, default=0.0) < region.get("minimum_coverage", 0.98):
+            failures.append("required_content_region_fragmented")
+            if region.get("role") == "label":
+                failures.append("required_label_region_fragmented")
+
+    candidates = {}
+    matched = {}
+    for key, members in groups.items():
+        scores = [min(coverage[member][index] for member in members) for index in range(len(boxes))]
+        matched[key] = int(np.argmax(scores)) if scores else -1
+        candidates[key] = [
+            index for index in range(len(boxes))
+            if all(coverage[member][index] >= regions[member].get("minimum_coverage", 0.98) for member in members)
+        ]
+        if not candidates[key] and len(members) > 1 and all(
+            max(coverage[member], default=0.0) >= regions[member].get("minimum_coverage", 0.98)
+            for member in members
+        ):
+            failures.append("object_content_regions_split")
+
+    distinct = [
+        key for key in groups
+        if (rule.get("require_distinct_content_matches") or key[0] == "object") and candidates[key]
+    ]
+
+    def assign(keys: list[tuple], used: set[int], selected: dict) -> dict | None:
+        if not keys:
+            return selected
+        key = keys[0]
+        for index in candidates[key]:
+            if index not in used:
+                result = assign(keys[1:], used | {index}, {**selected, key: index})
+                if result is not None:
+                    return result
+        return None
+
+    assignment = assign(sorted(distinct, key=lambda key: len(candidates[key])), set(), {})
+    if assignment is None:
+        failures.append("multiple_content_regions_in_one_crop")
+    else:
+        matched.update(assignment)
+
+    if "max_neighbour_content_overlap" in rule:
+        limit = float(rule["max_neighbour_content_overlap"])
+        for key, index in matched.items():
+            if index >= 0 and any(
+                coverage[member][index] > limit
+                for peer_key, members in groups.items() if peer_key != key
+                for member in members
+            ):
+                failures.append("neighbour_content_contamination")
+    return failures
 
 
 def _geometry_failures(
@@ -142,8 +257,10 @@ def _geometry_failures(
     unusable_count: int,
     rules: list[dict],
     layout_signals: dict | None = None,
+    *,
+    source_crop_points: list | None = None,
 ) -> list[str]:
-    failures: list[str] = []
+    boxes, failures = _gold_crop_detections(boxes, source_crop_points)
     layout_signals = layout_signals or {}
     for rule in rules:
         if boxes and max(item.height for item in boxes) > rule.get(
@@ -163,30 +280,7 @@ def _geometry_failures(
         for signal in rule.get("required_layout_signals", []):
             if not layout_signals.get(signal):
                 failures.append(f"required_layout_signal_missing:{signal}")
-        content_regions = rule.get("required_content_regions", [])
-        matched: list[int] = []
-        coverage_matrix: list[list[float]] = []
-        for region in content_regions:
-            required = _region_detection(region)
-            coverages = [_intersection_coverage(box, required) for box in boxes]
-            coverage_matrix.append(coverages)
-            coverage = max(coverages, default=0)
-            matched.append(int(np.argmax(coverages)) if coverages else -1)
-            if coverage < region.get("minimum_coverage", 0.98):
-                failures.append("required_content_region_fragmented")
-        if rule.get("require_distinct_content_matches") and len(set(matched)) != len(
-            matched
-        ):
-            failures.append("multiple_content_regions_in_one_crop")
-        if "max_neighbour_content_overlap" in rule:
-            limit = float(rule["max_neighbour_content_overlap"])
-            for object_index, box_index in enumerate(matched):
-                if box_index >= 0 and any(
-                    coverages[box_index] > limit
-                    for peer_index, coverages in enumerate(coverage_matrix)
-                    if peer_index != object_index
-                ):
-                    failures.append("neighbour_content_contamination")
+        failures.extend(_content_geometry_failures(boxes, rule))
         for region in rule.get("verified_blank_regions", []):
             blank = _region_detection(region)
             maximum_coverage = float(region.get("maximum_detection_coverage", 0.10))
@@ -243,7 +337,11 @@ def main() -> int:
         type=Path,
         help="write the JSON report to this path instead of stdout",
     )
+    parser.add_argument("--object-quads", action="store_true", help="Resolve production current-pixel quads before auditing")
+    parser.add_argument("--sam2", action="store_true", help="Run configured production SAM refinement and object integrity audit (requires --object-quads)")
     args = parser.parse_args()
+    if args.sam2 and not args.object_quads:
+        parser.error("--sam2 requires --object-quads")
     manifest = json.loads(Path(args.manifest).read_text())
     all_paths = [
         path
@@ -275,9 +373,41 @@ def main() -> int:
             raise ValueError(f"无法解码回放图像: {equivalent_paths[0]}")
         for path in equivalent_paths:
             _validate_pinned_source(path, content, image, manifest)
-        layout = _detect_standalone(content, dpi)
+        layout = _detect_standalone(content, dpi, object_quads=True) if args.object_quads else _detect_standalone(content, dpi)
         boxes = list(layout.detections)
+        ml_metadata = {"status": "not_run"}
+        if args.sam2:
+            from card_platform.config import get_settings
+            from card_platform.flatbed_ml import refine_with_sam2
+            settings = get_settings()
+            boxes, ml_metadata = asyncio.run(refine_with_sam2(
+                content, boxes,
+                python_path=settings.flatbed_ml_python,
+                worker_script=settings.flatbed_ml_worker_script,
+                checkpoint=settings.flatbed_ml_checkpoint,
+                timeout_seconds=settings.flatbed_ml_timeout_seconds,
+                content_guarded=True,
+            ))
         reports = assess_sheet_crop_quality(image, boxes)
+        if args.sam2:
+            from card_platform.flatbed_object_quality import (
+                audit_object_crop_integrity, audit_original_content_integrity, restore_content_preserving_quads,
+            )
+            boxes, content_refinement = restore_content_preserving_quads(
+                image, boxes, layout.detections, layout.object_references, layout.search_regions,
+            )
+            reports = assess_sheet_crop_quality(image, boxes)
+            reports, _ = audit_object_crop_integrity(reports, boxes, layout.object_references,
+                check_polygon_coverage=False, reference_set_complete=False)
+            reports, original_content_integrity = audit_original_content_integrity(
+                reports, boxes, image, layout.object_references, layout.search_regions,
+            )
+        if not args.sam2:
+            from card_platform.flatbed_object_quality import audit_original_content_integrity
+            reports, original_content_integrity = audit_original_content_integrity(
+                reports, boxes, image, layout.object_references, layout.search_regions,
+            ) if args.object_quads else (reports, {"status": "not_run"})
+            content_refinement = {"fallback_count": 0}
         duplicates = sum(
             overlap(left, right) > 0.15
             for index, left in enumerate(boxes)
@@ -293,7 +423,10 @@ def main() -> int:
         geometry_failures = _geometry_failures(
             boxes, unusable_count, rules, layout.signals
         )
+        unresolved_count = sum("quad_unresolved" in item.evidence for item in boxes)
         passed = (
+            not unresolved_count
+            and
             len(boxes) == expected
             and not duplicates
             and not whole_sheet
@@ -313,6 +446,10 @@ def main() -> int:
             "duplicates": duplicates,
             "whole_sheet_candidate": whole_sheet,
             "unusable_regions": unusable_count,
+            "unresolved_quads": unresolved_count,
+            "ml_refinement": ml_metadata,
+            "content_refinement": content_refinement,
+            "original_content_integrity": original_content_integrity,
             "crop_quality_errors": sorted(
                 {
                     violation.code
@@ -400,6 +537,8 @@ def main() -> int:
         "metrics": metrics,
         "regressions": regressions,
         "methodology": {
+            "object_quad_resolution": args.object_quads,
+            "sam2_refinement": args.sam2,
             "deduplicated_by_sha256": True,
             "deduplication_key_includes_expected_count_and_dpi": True,
             "detector_receives_expected_count": False,

@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -47,7 +48,17 @@ ATTRIBUTE_FIELDS = {
 
 
 def normalize_knowledge_text(value: object) -> str:
-    return re.sub(r"[^0-9a-z\u4e00-\u9fff]+", " ", str(value or "").casefold()).strip()
+    # Normalize kana width and combining dakuten without changing established
+    # Latin/CJK keys (whole-string NFKC would also rewrite unrelated scripts).
+    text = re.sub(
+        r"[\u3040-\u30ff\u31f0-\u31ff\uff66-\uff9f]+",
+        lambda match: unicodedata.normalize("NFKC", match.group()),
+        str(value or "").casefold(),
+    )
+    return re.sub(
+        r"[^0-9a-z\u4e00-\u9fff\u3041-\u3096\u309d-\u309f\u30a1-\u30fa\u30fc-\u30ff\u31f0-\u31ff]+",
+        " ", text,
+    ).strip()
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,10 +102,16 @@ class KnowledgeResolver:
 
     def __init__(self, snapshot: dict[str, Any] | None = None) -> None:
         snapshot = snapshot or {}
+        from card_platform.knowledge_card_catalog import ScopedCardCatalog
+        from card_platform.reference_catalog import ReviewedReferenceCatalog
+
         self.version = snapshot.get("version")
+        self.reference_catalog = ReviewedReferenceCatalog(snapshot.get("entities", []), version=self.version)
+        self.card_catalog = ScopedCardCatalog(snapshot.get("entities", []), version=self.version, artifacts=snapshot.get("official_artifacts", []))
         self.entities: dict[str, KnowledgeEntity] = {}
         self.alias_index: dict[tuple[str, str], KnowledgeEntity] = {}
         self.conflicts: set[frozenset[str]] = set()
+        ambiguous_player_aliases: set[tuple[str, str]] = set()
         for raw in snapshot.get("entities", []):
             entity = KnowledgeEntity(
                 id=str(raw["id"]),
@@ -107,7 +124,13 @@ class KnowledgeResolver:
             for alias in (entity.canonical_name, *entity.aliases):
                 normalized = normalize_knowledge_text(alias)
                 if normalized:
-                    self.alias_index[(entity.entity_type, normalized)] = entity
+                    key = (entity.entity_type, normalized)
+                    previous = self.alias_index.get(key)
+                    if entity.entity_type == 'player' and previous and previous.id != entity.id:
+                        ambiguous_player_aliases.add(key)
+                    self.alias_index[key] = entity
+        for key in ambiguous_player_aliases:
+            self.alias_index.pop(key, None)
         for relation in snapshot.get("relations", []):
             if relation["relation_type"] in {"conflicts_with", "excludes"}:
                 self.conflicts.add(
@@ -136,7 +159,20 @@ class KnowledgeResolver:
         if resolution.entity_id is None:
             return (str(value).strip(),) if str(value).strip() else ()
         entity = self.entities[resolution.entity_id]
-        return tuple(dict.fromkeys((entity.canonical_name, *entity.aliases)))
+        values = tuple(dict.fromkeys((entity.canonical_name, *entity.aliases)))
+        if entity_type == 'player':
+            return tuple(value for value in values if self.alias_index.get(
+                (entity_type, normalize_knowledge_text(value))
+            ) == entity)
+        return values
+
+    def query_aliases_for(self, entity_type: str, value: object) -> tuple[str, ...]:
+        """Discovery vocabulary never enters the identity alias index."""
+        resolution = self.resolve(entity_type, value)
+        if not resolution.entity_id:
+            return ()
+        values = self.entities[resolution.entity_id].attributes.get('query_aliases', [])
+        return tuple(v for v in values if isinstance(v, str) and v.strip())
 
     def validate_identity(self, identity: dict[str, Any]) -> list[ValidationIssue]:
         issues: list[ValidationIssue] = []
@@ -219,7 +255,10 @@ class KnowledgeResolver:
                     }
                 )
                 normalized[field_name] = result.canonical_value
-        return normalized, corrections
+        normalized, scoped_changes = self.card_catalog.enrich(
+            normalized, player_aliases=self.aliases_for("player", normalized.get("player_name"))
+        )
+        return normalized, corrections + scoped_changes
 
     def build_query_plan(self, identity: dict[str, Any], *, max_stages: int = 12) -> list[QueryStage]:
         normalized, _ = self.normalize_identity(identity)
@@ -233,6 +272,7 @@ class KnowledgeResolver:
                 value
                 for value in (
                     *player_aliases,
+                    *self.query_aliases_for("player", player),
                     *(str(value).strip() for value in explicit_player_aliases),
                 )
                 if value
@@ -262,7 +302,7 @@ class KnowledgeResolver:
             if normalized.get("is_rookie")
             else ""
         )
-        product_aliases = self.aliases_for("product", product) or (product,)
+        product_aliases = tuple(dict.fromkeys((*self.card_catalog.query_products(identity), *(self.aliases_for("product", product) or (product,)))))
         insert_aliases = self.aliases_for("insert", insert) or (insert,)
         candidates: list[tuple[str, tuple[str, ...], str]] = []
         for product_alias in product_aliases[:3]:
@@ -340,6 +380,17 @@ class KnowledgeResolver:
                 *reserved_alias_candidates,
                 *regular_candidates[max(0, max_stages - len(reserved_alias_candidates)) :],
             ]
+        scoped_vocabulary = self.card_catalog.discovery_vocabulary(identity)
+        scoped_products = scoped_vocabulary['product'] or (product,)
+        scoped_candidates = [
+            ('catalog_discovery', (subject, scoped_products[0]),
+             '官方卡号或发行作用域内的检索用词；不作为主体或产品等价依据')
+            for subject in dict.fromkeys((player, *scoped_vocabulary['player']))
+            if subject and scoped_products[0]
+        ] if any(scoped_vocabulary.values()) else []
+        # Provider independently caps all remote requests. Reserve up to two
+        # knowledge slots so exact-title queries cannot hide publisher terms.
+        candidates = [*scoped_candidates[:2], *candidates]
         stages: list[QueryStage] = []
         seen: set[str] = set()
         for name, parts, explanation in candidates:
