@@ -251,6 +251,7 @@ function Workspace({
             api={api}
             user={session.user}
             onOpen={open}
+            onCapture={() => setTab("capture")}
             capabilities={capabilities}
           />
         ) : (

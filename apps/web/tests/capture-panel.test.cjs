@@ -8,6 +8,38 @@ global.HTMLElement=dom.window.HTMLElement;global.React=require('react');
 const {render,screen,fireEvent,cleanup,waitFor}=require('@testing-library/react');
 const {CapturePanel}=require('../components/capture-panel.tsx');
 afterEach(cleanup);
+const pairResult=status=>({confidence:'.9',player_name:'Player',brand_name:'Topps',product_name:'Chrome',season_start:2025,pair_validation:{status,reason_codes:['identity_unverified'],evidence:['背面卡号不可辨认'],image_content_hashes:{front:'front-hash',back:'back-hash'},version:1}});
+function pairJob(status){return {id:'pair-job',status:'succeeded',available_sides:['front','back'],result:pairResult(status),images:{front:{url:'/front.jpg',preview_url:'/front.jpg'},back:{url:'/back.jpg',preview_url:'/back.jpg'}}};}
+test('unknown paired capture requires separate image review and sends the bound hashes to server confirmation',async()=>{
+ let submitted;
+ global.fetch=async(url,init)=>{
+  if(url==='/v1/client-capabilities')return {ok:true,json:async()=>({capture_jobs:true,single_side:true})};
+  if(url.endsWith('/confirm')){submitted=JSON.parse(init.body);return {ok:true,json:async()=>({id:'item'})};}
+  return {ok:true,json:async()=>[pairJob('unknown')]};
+ };
+ render(React.createElement(CapturePanel,{ownerId:'owner',onClose:()=>{},onSaved:()=>{}}));
+ fireEvent.click(await screen.findByRole('button',{name:'查看任务'}));
+ const submit=screen.getByRole('button',{name:'确认入库'});
+ assert.equal(submit.disabled,true);
+ assert.ok(screen.getByAltText('任务正面'));assert.ok(screen.getByAltText('任务背面'));
+ fireEvent.click(screen.getByLabelText('我已查看当前正反面，确认属于同一张卡'));
+ fireEvent.click(submit);
+ await waitFor(()=>assert.deepEqual(submitted.pair_review,{confirmed:true,image_content_hashes:{front:'front-hash',back:'back-hash'}}));
+});
+test('known paired capture conflicts cannot be overridden by a generic confirmation',async()=>{
+ let writes=0;
+ global.fetch=async(url,init)=>{
+  if(init?.method==='POST')writes++;
+  if(url==='/v1/client-capabilities')return {ok:true,json:async()=>({capture_jobs:true,single_side:true})};
+  return {ok:true,json:async()=>[pairJob('conflict')]};
+ };
+ render(React.createElement(CapturePanel,{ownerId:'owner',onClose:()=>{},onSaved:()=>{}}));
+ fireEvent.click(await screen.findByRole('button',{name:'查看任务'}));
+ assert.equal(screen.getByRole('button',{name:'确认入库'}).disabled,true);
+ assert.equal(screen.queryByLabelText('我已查看当前正反面，确认属于同一张卡'),null);
+ assert.match(screen.getByText(/正反面存在明确冲突/).textContent,/重新/);
+ fireEvent.click(screen.getByRole('button',{name:'确认入库'}));assert.equal(writes,0);
+});
 test('only-back capture sends a real back file and keeps the same request id after network failure',async()=>{
  const requests=[];
  global.fetch=async(url,init)=>{
