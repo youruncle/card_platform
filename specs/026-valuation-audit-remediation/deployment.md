@@ -16,3 +16,7 @@
 `1.1.10 (14)`已通过TypeScript/Vite、113项测试和Release真机架构编译，签名`YLV27B9G9U`、应用`cn.cardsp.alpha.local`。指定设备编译等待连接超时，改用同一开发签名的generic iOS目标构建成功。首次覆盖安装因CoreDevice通道超时失败；设备状态随后短暂恢复为available，重试仍报peer no longer reachable。未完成安装或启动回读，待手机解锁并通过数据线恢复通道后继续。已向用户发出连接提示。
 
 私有构建、安装、源码、健康、图片核验日志保留在Git忽略目录`.runtime/releases/20261019-valuation-audit/`。恢复记录和原图不提交仓库。
+
+## 第二批发布接续
+
+后续API已升级valuation4（v21/v7），网页仍valuation2；手机等待记录已确认1.1.10(14)安装、启动待解锁。实际运行核验及本批发布SHA见[deployment-batch02.md](deployment-batch02.md)，本页之前的手机未安装状态保留为首批当时记录。
