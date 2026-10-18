@@ -28,3 +28,6 @@
 剩余277未启动，未新建第四批聊天/批次。本轮源码发布可验收，第三批整体优化和下一批门仍未关闭；#261等需后续材质/多角度对照与真实负例矩阵后再判断。
 
 私有执行回执：.runtime/releases/20261019-valuation-batch03-visual/中的release-verification.json、runtime-final.json、model-verification.json、review/FINAL_REVIEW.md、review/final-integrity-v9.json、cloud-build/activation.txt、production-before/after.json、public-before.json、public-verification.json、retained/verification.json、preservation.json及mobile-followup-update.json。账号/库存、DB备份、原图、原始响应和密钥未提交。
+
+
+材料接续口径更正：原T027最低固定样本条件已由v9的5个真实正常成功及全部负向对照关闭满足，不要求隐含10/10召回。剩余五例的已证实观察错误、物性unknown、原商品补查与具体输入缺口见[verification-batch03-material.md](verification-batch03-material.md)。本报告此前“T027未通过”的管理口径由该接续记录更正；不把剩余缺陷说成已修，不自动放行下一批。

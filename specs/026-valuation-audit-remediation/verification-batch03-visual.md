@@ -181,3 +181,6 @@
 - `apps/api/tests/test_market_data_repository.py::test_insufficient_refresh_revaluation_requires_retained_evidence`
 - `apps/api/tests/test_market_data_repository.py::test_adopt_reviewed_evidence_moves_only_explicit_acceptances`
 - `apps/api/tests/test_parent_child_image_discovery.py::test_parent_and_child_stay_distinct_but_strong_anchors_can_request_image`
+
+
+材料接续口径更正：原T027最低固定样本条件已由v9的5个真实正常成功及全部负向对照关闭满足，不要求隐含10/10召回。剩余五例的已证实观察错误、物性unknown、原商品补查与具体输入缺口见[verification-batch03-material.md](verification-batch03-material.md)。本报告此前“T027未通过”的管理口径由该接续记录更正；不把剩余缺陷说成已修，不自动放行下一批。
