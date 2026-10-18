@@ -161,3 +161,6 @@
 - `apps/api/tests/test_market_data_repository.py::test_insufficient_refresh_revaluation_requires_retained_evidence`
 - `apps/api/tests/test_market_data_repository.py::test_adopt_reviewed_evidence_moves_only_explicit_acceptances`
 - `apps/api/tests/test_parent_child_image_discovery.py::test_parent_and_child_stay_distinct_but_strong_anchors_can_request_image`
+
+
+2026-10-19视觉接续更正：旧19组raw未保存、旧harness实际覆盖冻结身份和344案例来源顺序的限制，以及最终v9的完整新回放，见[verification-batch03-visual.md](verification-batch03-visual.md)；实际valuation6部署见[deployment-batch03-visual.md](deployment-batch03-visual.md)。工程发布不等于第三批整体完成：261仍误拒，T027及下一批未放行。

@@ -26,3 +26,6 @@
 本批工程发布门与健康/源码/worker验收已通过，可交父协调方判断下一批安排；本聊天未启动第四批或深审剩余277。下批继续每批≤200，携带上述未解项，先完整审核再统一优化。
 
 私有执行证据：`.runtime/releases/20261019-valuation-batch03/`中的release-verification.json、cloud-build.txt、cloud-activation.txt、runtime-final.txt、production-before/after.json、public-before.json、public-verification.json、preservation.json和mobile-followup-update.json；完整原审核封存目录未覆盖。
+
+
+2026-10-19视觉接续更正：旧19组raw未保存、旧harness实际覆盖冻结身份和344案例来源顺序的限制，以及最终v9的完整新回放，见[verification-batch03-visual.md](verification-batch03-visual.md)；实际valuation6部署见[deployment-batch03-visual.md](deployment-batch03-visual.md)。工程发布不等于第三批整体完成：261仍误拒，T027及下一批未放行。
