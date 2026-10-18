@@ -243,4 +243,4 @@ def test_scottie_two_exact_sales_produce_sparse_shadow_range() -> None:
     assert Decimal("102") <= estimate.low <= Decimal("106")
     assert Decimal("120") <= estimate.fair <= Decimal("126")
     assert Decimal("143") <= estimate.high <= Decimal("145")
-    assert estimate.confidence == Decimal("0.65")
+    assert estimate.confidence == Decimal("0.45")

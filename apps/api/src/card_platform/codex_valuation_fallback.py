@@ -13,14 +13,22 @@ from uuid import UUID
 from psycopg.types.json import Jsonb
 
 logger = logging.getLogger(__name__)
-MODEL_VERSION = 'codex-independent-fallback-v1'
+MODEL_VERSION = 'codex-researched-fallback-v2'
 
 
 async def promote_codex_valuation(connection, item_id: UUID, upload_dir: Path, *, dry_run=False) -> dict:
     async with connection.transaction():
         item = await (await connection.execute("""
-            SELECT ci.*, u.base_currency FROM collection_item ci
+            SELECT ci.*, u.base_currency, p.full_name AS player_name, b.name AS brand_name,
+                   cs.product_name, cs.season_start, cs.season_end,
+                   cd.card_number, cd.insert_name, cd.parallel_name,
+                   cd.is_autograph, cd.is_memorabilia
+            FROM collection_item ci
             JOIN app_user u ON u.id=ci.owner_id
+            JOIN card_definition cd ON cd.id=ci.card_definition_id
+            JOIN player p ON p.id=cd.player_id
+            JOIN card_set cs ON cs.id=cd.card_set_id
+            JOIN brand b ON b.id=cs.brand_id
             WHERE ci.id=%s AND ci.deleted_at IS NULL AND ci.holding_status='held'
             FOR UPDATE OF ci SKIP LOCKED
         """, (item_id,))).fetchone()
@@ -56,6 +64,9 @@ async def promote_codex_valuation(connection, item_id: UUID, upload_dir: Path, *
                 or source['job_item_id'] != item_id):
             return {**result, 'status': 'invalid_source'}
         raw = source['raw_result'] or {}
+        from card_platform.domain.codex_sales_research import research_backed_prices, research_target_binding_reasons
+        if not research_backed_prices(source):
+            return {**result, 'status': 'historical_analysis_without_qualified_sales_research'}
         if raw.get('collection_item_id') and str(raw['collection_item_id']) != str(item_id):
             return {**result, 'status': 'wrong_item_binding'}
         prices = [source[k] for k in ['fair_value_low', 'fair_value', 'fair_value_high']]
@@ -99,12 +110,18 @@ async def promote_codex_valuation(connection, item_id: UUID, upload_dir: Path, *
             actual = hashlib.sha256(content).hexdigest()
             if actual != expected:
                 return {**result, 'status': f'{side}_image_changed'}
+            if (raw.get('market_research') or {}).get(f'{side}_sha256') != actual:
+                return {**result, 'status': f'{side}_research_image_unbound'}
             hashes[side] = actual
+        binding_reasons = research_target_binding_reasons(raw.get('market_research') or {}, item, hashes)
+        if binding_reasons:
+            return {**result, 'status': 'research_target_unbound', 'reasons': binding_reasons}
         confidence = min(source['valuation_confidence'] if source['valuation_confidence'] is not None
                          else Decimal('.25'), Decimal('.35'))
         evidence = {
-            'strategy': '自动估值暂无可用结果，采用已有 Codex 独立估值（低置信参考）',
-            'pricing_basis': 'codex_independent_fallback',
+            'strategy': 'Codex已实际检索两市场并核验商品级历史成交，保留公开成交观察区间',
+            'pricing_basis': 'codex_researched_observation',
+            'market_research': raw['market_research'],
             'source': 'codex_multimodal',
             'source_analysis_id': str(source['id']),
             'source_analysis_version': source['analysis_version'],
@@ -114,11 +131,11 @@ async def promote_codex_valuation(connection, item_id: UUID, upload_dir: Path, *
             'identity_version_id': str(source['identity_version_id']) if source['identity_version_id'] else None,
             'source_identity_summary': source['identity_summary'],
             'image_sha256': hashes,
-            'formula': '直接沿用 Codex 原始低值、公允值及高值；不作成交价换算。',
+            'formula': '采用已核验独立成交的观察低值、中位数及高值；原币种、日期汇率和运费分列。',
             'used_comparables': [], 'comparables': [], 'evidence_count': 0,
             'notes': [
                 f"来源：Codex 第 {source['analysis_version']} 版独立分析，分析时间 {source['created_at'].isoformat()}。",
-                '此为已有 Codex 判断，未经本轮市场成交验证；置信度不高于35%，后续市场估值成功后可更新。',
+                '这是Codex独立研究参考；已校验两市场检索与商品级成交合同，未冒充卡淘正式provider或付款流水；置信度不高于35%。',
                 *[str(r) for r in (source['risks_and_conflicts'] or [])],
             ],
         }

@@ -493,6 +493,8 @@ INSERT_SEARCH_ALIASES = {
 
 class CardHobbySale(BaseModel):
     item_id: str | None = None
+    seller_id: str | None = None
+    consignment_code: str | None = None
     source_metadata: dict = Field(default_factory=dict)
     source_gallery: dict = Field(default_factory=dict)
     title: str
@@ -1511,6 +1513,22 @@ def assess_cardhobby_candidate(
     failure is a value-bearing card variant difference, never a source,
     player, product, lot, autograph, memorabilia or grade conflict.
     """
+    from card_platform.domain.card_identity import is_placeholder_identity_value
+    subject = identity.get('player_name')
+    work = identity.get('insert_name') or identity.get('set_name')
+    if (not subject or is_placeholder_identity_value(subject)) and work:
+        # With a missing person, require all independent work anchors and an
+        # image. This is discovery only; the formal gate still needs current
+        # identity/image confirmation and every version/condition constraint.
+        if (sale.image_url and identity.get('season_start')
+                and _contains_phrase(sale.title, work)
+                and _contains_card_number(sale.title, identity.get('card_number'))):
+            score, conflicts = _assess_cardhobby_match(
+                identity, sale, resolver=resolver, allow_work_subject_omission=True)
+            if score >= Decimal('.5') and set(conflicts) <= {'目标表面版本未知，需图像确认'}:
+                sale.matching_fields = list(dict.fromkeys([
+                    *sale.matching_fields, 'cardhobby_work_subject_image_required']))
+                return Decimal('.45'), conflicts, 'image_review_candidate'
     if can_use_ungraded_basis(identity, sale.title, sale.grade_company, sale.grade_value):
         # Preserve the printed-card identity while checking grading uncertainty
         # separately; all source, player and version checks still apply.
@@ -1915,6 +1933,9 @@ class CardHobbyProvider:
         )
 
     async def _search_direct(self, identity: dict) -> CardHobbySearchResult:
+        from card_platform.domain.card_identity import is_placeholder_identity_value
+        if is_placeholder_identity_value(identity.get('player_name')):
+            identity = {**identity, 'player_name': '', 'player_name_aliases': []}
         if self.resolver and getattr(self.resolver, "card_catalog", None):
             identity, _ = self.resolver.card_catalog.enrich(
                 identity, player_aliases=self.resolver.aliases_for("player", identity.get("player_name"))
@@ -2315,6 +2336,17 @@ class CardHobbyProvider:
     @staticmethod
     def build_query_plan(identity: dict, *, resolver=None) -> list[tuple[str, str]]:
         """Build short-anchor queries with bounded feedback refinements."""
+        from card_platform.domain.card_identity import is_placeholder_identity_value
+        if is_placeholder_identity_value(identity.get('player_name')) or not identity.get('player_name'):
+            # A work/scene is a retrieval anchor, never an invented person.
+            subject = str(identity.get('insert_name') or identity.get('set_name') or '').strip()
+            product = str(identity.get('product_name') or '').strip()
+            number = str(identity.get('card_number') or '').strip()
+            return [(stage, query) for stage, query in [
+                ('work_number', f'{subject} {number}'.strip()),
+                ('work_product', f'{subject} {product}'.strip()),
+                ('product_number', f'{product} {number}'.strip()),
+            ] if subject and product and number and query]
         parts = player_roster_components(identity.get('player_name'))
         player_groups = _player_components(identity, resolver=resolver)
         if len(player_groups) > 1:

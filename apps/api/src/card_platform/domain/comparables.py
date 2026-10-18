@@ -1128,6 +1128,13 @@ class ComparableClassifier:
         )
         if partial_roster_image_proxy:
             player = True
+        # A scene has no athlete to invent. Require its explicit printed work
+        # and collector anchors plus sealed current paired-image evidence.
+        work_subject_verified = bool(not target.player_name and target.insert and card_number
+            and _contains(text, target.insert) and product and season and paired_finish
+            and comp.visual_verdict == 'same' and visual_confidence >= Decimal('.95'))
+        if work_subject_verified:
+            player = True
         if not player:
             conflicts.append("player_conflict")
         parent_child_image_proxy = bool(
@@ -1299,6 +1306,7 @@ class ComparableClassifier:
             )
 
         fields = {
+            'subject_role': 'work_or_scene' if work_subject_verified else 'person_or_roster',
             "finish_evidence_status": ('paired_front_verified' if paired_finish else 'pending')
                 if unknown_finish else 'named_or_base',
             "player": player,

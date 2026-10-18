@@ -42,6 +42,8 @@ CATALOG_FIELDS = {
     "parallel_name",
 }
 FIELD_ROLE_ISSUES = {
+    'serial_number_has_set_position_role', 'serial_total_has_set_position_role',
+    'serial_number_has_print_quantity_role', 'serial_total_has_print_quantity_role',
     "card_number_is_location_not_catalog_identifier",
     "card_number_is_calendar_date_not_catalog_identifier",
     "card_number_is_fraction_not_catalog_identifier",

@@ -85,6 +85,8 @@ def build_visual_match_facts(identity, candidate_id, title, image_url, raw, *, r
             design_match='same', finish_match='same',
             match_evidence=current.get('visual_match_evidence') or [],
             conflict_evidence=current.get('visual_conflict_evidence') or [],
+            candidate_card_count=(1 if 'candidate_single_physical_card'
+                                  in current.get('visual_reasons', []) else None),
         ))
         if decision.verdict != 'same' or decision.confidence < Decimal('.90'):
             return None

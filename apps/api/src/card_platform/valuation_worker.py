@@ -297,7 +297,13 @@ def empty_valuation_recall_diagnostics(search: "ComparableSearchResult") -> dict
     ]
     raw_count = sum(raw for raw, _ in counts)
     accepted_count = sum(accepted for _, accepted in counts)
-    if search.comparables:
+    from card_platform.domain.model_failures import parse_model_failures
+    upstream_failures = parse_model_failures([
+        *search.notes, *(reason for comp in search.comparables for reason in comp.visual_reasons)])
+    if any(f.get('code') == 'model_access_denied' for f in upstream_failures):
+        code = 'model_access_denied'
+        reason = '模型访问被拒绝，身份/证据分析未完成；不能据此判断市场成交是否存在'
+    elif search.comparables:
         code = "retained_candidates_unavailable_in_valuation_window"
         reason = "已检索到候选，但当前身份下没有可用于估值的已落库成交；需检查日期窗口和落库链路"
     elif accepted_count:
@@ -322,6 +328,9 @@ def empty_valuation_recall_diagnostics(search: "ComparableSearchResult") -> dict
         "raw_result_occurrences": raw_count,
         "accepted_result_occurrences": accepted_count,
         "observed_query_count": len(counts),
+        "search_execution": search.search_execution,
+        "executed_query_count": (0 if search.search_execution == 'cache_replay' else None),
+        "upstream_failures": upstream_failures,
     }
 
 
@@ -683,7 +692,7 @@ def recognition_candidate_overrides(current: dict, recognized) -> dict:
 
 
 def deduplicate_market_rows(
-    rows: list[dict],
+    rows: list[dict], *, identity: dict | None = None,
 ) -> tuple[list[dict], list[dict]]:
     """Collapse aggregator/direct records that point to the same underlying sale."""
     chosen: dict[tuple[str, str], dict] = {}
@@ -853,6 +862,23 @@ def cached_candidate_needs_image_review(
     *, resolver=None,
 ) -> bool:
     """Defer bounded title omissions to images without approving a price."""
+    from card_platform.domain.card_identity import is_placeholder_identity_value
+    subject = identity.get('player_name')
+    if (comp.source_code == 'cardhobby' and comp.image_url
+            and (not subject or is_placeholder_identity_value(subject))
+            and provider_tier == 'image_review_candidate'
+            and set(hard_conflicts) <= {'player_conflict'}):
+        try:
+            sale = CardHobbySale.model_validate(comp.provider_payload).model_copy(
+                update={'conflicts': [], 'matching_fields': []})
+            if (sale.title, sale.source_url, sale.image_url) == (comp.title, comp.source_url, comp.image_url):
+                _, _, tier = assess_cardhobby_candidate(identity, sale, resolver=resolver)
+                if (tier == 'image_review_candidate'
+                        and 'cardhobby_work_subject_image_required' in sale.matching_fields
+                        and not visual_source_rejection_reasons(identity, comp.provider_payload)):
+                    return True
+        except (TypeError, ValueError):
+            pass
     if comp.source_code == 'cardhobby' and provider_tier == 'numbered_parallel_analogue':
         from card_platform.domain.parallel_valuation import assess_parallel_analogue
         try:
@@ -1016,6 +1042,7 @@ class FallbackValuation(BaseModel):
 
 
 class ComparableSearchResult(BaseModel):
+    search_execution: str = 'unknown'
     pending_refresh_job_id: str | None = None
     search_queries: list[str] = Field(default_factory=list)
     comparables: list[DiscoveredComparable] = Field(default_factory=list)
@@ -1453,8 +1480,9 @@ class AutomatedValuationWorker:
             stored["print_run"] = confirmed_identity.get("serial_total")
             stored["is_patch"] = confirmed_identity.get("is_memorabilia", False)
         elif scanner_recognition:
+            from card_platform.image_service import sanitize_identity_field_roles
             scanner_result = normalize_catalog_evidence(canonicalize_identity(
-                CardRecognitionResult.model_validate(scanner_recognition)
+                sanitize_identity_field_roles(CardRecognitionResult.model_validate(scanner_recognition))
             ))
             # Reuse deterministic corrections for already-imported scanner
             # cards.  This repairs structured search anchors without
@@ -2205,6 +2233,7 @@ class AutomatedValuationWorker:
                 "已按卡淘身份契约保留并降低可比层级"
             )
         result = ComparableSearchResult(
+            search_execution='cache_replay',
             pending_refresh_job_id=cached.refresh_job_id,
             search_queries=[
                 f"卡淘已售接口[{query.get('stage', 'cached')}]：{query.get('query', '')} "
@@ -2486,7 +2515,10 @@ class AutomatedValuationWorker:
             notes.append("图片同卡核验达到时限；已保存完成结果，剩余候选待恢复核验")
         except Exception as error:
             stop_reason = "verification_failed"
-            notes.append(f"图片同卡核验部分失败，已保留完成结果：{type(error).__name__}")
+            from card_platform.domain.model_failures import model_failure_reason
+            notes.append(model_failure_reason(error, 'visual_verification'))
+        notes.extend(reason for decision in decisions.values() for reason in decision.reasons
+                     if reason.startswith('model_failure:'))
         updated = []
         for comp in comparables:
             if comp.source_url in post_review_rejected:
@@ -3476,6 +3508,13 @@ class AutomatedValuationWorker:
         self, job_id: UUID, identity: dict, search: ComparableSearchResult
     ) -> None:
         async with self.database.connection() as connection, connection.transaction():
+            from card_platform.domain.model_failures import parse_model_failures
+            await connection.execute(
+                "UPDATE valuation_job SET result_summary=COALESCE(result_summary,'{}'::jsonb)||%s WHERE id=%s",
+                (Jsonb({'upstream_failures': parse_model_failures([
+                    *getattr(search, 'notes', []), *(r for comp in search.comparables for r in getattr(comp, 'visual_reasons', []))]),
+                    'search_execution': getattr(search, 'search_execution', 'unknown'),
+                    'executed_query_count': 0 if getattr(search, 'search_execution', None) == 'cache_replay' else None}), job_id))
             result = await connection.execute(
                 """
                 SELECT market_comp.id, market_comp.occurred_at,
@@ -3556,6 +3595,7 @@ class AutomatedValuationWorker:
                 if source_matches_current_search(row["source_url"], allowed_source_urls)
             ]
             rows, duplicate_sales = deduplicate_market_rows(raw_rows)
+            from card_platform.domain.sale_independence import unique_physical_rows, seller_key
             audit_current = {
                 **identity,
                 "insert_name": identity.get("insert_name"),
@@ -3844,6 +3884,7 @@ class AutomatedValuationWorker:
                 shadow_sales.append(
                     ShadowSale(
                         id=str(row["id"]),
+                        seller_key=seller_key(row),
                         provider_code=row["source_code"],
                         price=row["value_base"],
                         shipping=row["shipping_base"],
@@ -3883,6 +3924,7 @@ class AutomatedValuationWorker:
                 classified.append(
                     ClassifiedSale(
                         id=str(row["id"]),
+                        seller_key=seller_key(row),
                         sale_price_base=row["value_base"],
                         shipping_base=row["shipping_base"],
                         age_days=row["age_days"],
@@ -3890,12 +3932,22 @@ class AutomatedValuationWorker:
                         adjustment=Adjustment(),
                     )
                 )
+            eligible_rows = [rows_by_id[sale.id] for sale in classified]
+            independent_rows, physical_excluded = unique_physical_rows(eligible_rows, identity)
+            independent_ids = {str(row['id']) for row in independent_rows}
+            excluded_ids = {row['dropped_id'] for row in physical_excluded}
+            classified = [sale for sale in classified if sale.id in independent_ids]
+            shadow_sales = [sale for sale in shadow_sales if sale.id not in excluded_ids]
+            duplicate_sales.extend(physical_excluded)
+            rejected.extend({'id':entry['dropped_id'], 'hard_conflicts':[entry['reason_code']],
+                             'raw_weight':'0', 'final_weight':'0'} for entry in physical_excluded)
+            rows_by_id = {key:row for key,row in rows_by_id.items() if key not in excluded_ids}
             shadow = ShadowValuationEstimator().estimate(
                 shadow_sales, identity, require_same_card=True,
             )
-            shadow, parallel_details = estimate_parallel_fallback(
-                identity, list(rows_by_id.values()), shadow, resolver=resolver,
-            )
+            # Different parallels remain contextual evidence. They cannot
+            # create a current same-card price when exact evidence is absent.
+            parallel_details = {}
             for comp_id, detail in parallel_details.items():
                 selected = rows_by_id[comp_id]
                 selected['same_card_classification'] = selected['classification']

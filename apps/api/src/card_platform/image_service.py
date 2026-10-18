@@ -49,6 +49,22 @@ def sanitize_identity_field_roles(result: CardRecognitionResult) -> CardRecognit
     """Reject explicit role confusion; never infer replacement catalog fields."""
     changes, issues = {}, []
     number = str(result.card_number or '').strip()
+    from card_platform.domain.number_roles import non_catalog_number_role, serial_non_unique_role
+    from card_platform.domain.card_identity import is_placeholder_identity_value
+    for field in ('player_name', 'brand_name', 'product_name'):
+        if is_placeholder_identity_value(getattr(result, field)):
+            changes[field] = None
+            issues.append(field + '_is_placeholder')
+    if non_catalog_number_role(number, result.field_evidence.get('card_number', [])):
+        changes['card_number'] = None
+        issues.append('card_number_evidence_has_non_catalog_role')
+    serial_role = serial_non_unique_role([
+        text for field in ('serial_number', 'serial_total', 'is_numbered')
+        for text in result.field_evidence.get(field, [])], number=result.serial_number, total=result.serial_total)
+    if serial_role:
+        changes.update(serial_number=None, serial_total=None, is_numbered=False)
+        issues.extend(['serial_number_has_' + serial_role + '_role',
+                       'serial_total_has_' + serial_role + '_role'])
     def positive_claims(text):
         return re.sub(r'(?:不是|并非|並非|并不是|\bnot\b)[^，。；;,.]*', '', text, flags=re.I)
     number_evidence = positive_claims(' '.join(result.field_evidence.get('card_number', [])))
@@ -603,6 +619,11 @@ class QwenVisionProvider:
                         "无法确认时返回 null 并在 caveats 说明。field_evidence逐项记录图片位置、原文和字段角色。"
                         "名单/清单的行号不是本卡卡号；球队合照不能把名单球员拼成一个球员身份。"
                         "限编35/50这类分数不是card_number；应继续找背面独立卡号。"
+                        "先判断编号角色并写field_evidence：套组顺序如4 of10是第4张/共10张，"
+                        "不是逐张机器限编；1 of11941可能是每张相同印量说明，不能编造唯一流水。"
+                        "必须区分机器烫印流水、套组序号、印量、球衣号、CMP版权生产码、套袋贴纸与版面位置。"
+                        "TOPLEFT/TOPRIGHT不是卡号；不要把贴纸或球衣19覆盖RR-5等独立背面卡号。"
+                        "非人物场景/作品无需虚构球员，player_name=null，保留实际作品/场景名与卡号用于检索。"
                         "Topps Now 的 JUN 23、8.10 等事件日期也不是卡号；优先读取背面独立的数字或字母编号，"
                         "例如 DACU、26。不能把背面左侧日期当成右侧独立编号；没有读清独立编号则留空。"
                         "赛季必须有产品发行行直接证据，版权或统计赛季只能分别记录原文，不能推成发行年份。不要根据球员生涯年份猜测"

@@ -4774,8 +4774,11 @@ function AutomatedValuationDialog({
             <p className="detail-subtitle">
               {item.valuation_synthesis?.status === "joint_recalculated"
                 ? "联合估值已更新" : evidence?.pricing_basis === "codex_independent_fallback"
-                ? "已有 Codex 独立估值 · 低置信参考" : valuationStatusLabels[detail.status ?? ""] ?? "尚未估值"}
+                ? `历史 Codex 参考 · 本轮${valuationStatusLabels[detail.status ?? ""] ?? "尚未验证"}` : valuationStatusLabels[detail.status ?? ""] ?? "尚未估值"}
             </p>
+            {evidence?.pricing_basis === "codex_independent_fallback" && (
+              <p className="detail-subtitle">历史价格未经过本轮成交验证；来源时间：{String(evidence.source_analyzed_at ?? "未记录")}。当前任务状态与历史价格分别保留。</p>
+            )}
           </div>
           <button className="icon-button" onClick={onClose}>
             <X size={20} />

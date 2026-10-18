@@ -30,7 +30,7 @@ from card_platform.visual_checkpoints import VisualCheckpoints
 from card_platform.domain.listing_condition import title_discloses_minor_condition, condition_review_is_current
 
 
-MODEL_OBSERVATION_CONTRACT = 'paired-image-only-evidence-v5'
+MODEL_OBSERVATION_CONTRACT = 'paired-image-only-evidence-v6'
 
 
 class VisualSchemaError(ValueError):
@@ -96,6 +96,8 @@ class VisualDecision(BaseModel):
     evidence_binding: dict | None = None
     independent_confirmation: dict | None = None
     condition_review: VisualConditionReview | None = None
+    candidate_card_count: int | None = Field(default=None, ge=0)
+    candidate_card_count_evidence: str | None = None
 
 
 class VisualComparisonResult(BaseModel):
@@ -126,8 +128,20 @@ def normalize_model_visual_decision(decision: VisualDecision) -> VisualDecision:
     Invalid evidence only requests review; it never establishes a positive match.
     Explicit human/paired-image reviews retain their existing separate contract.
     """
+    if decision.candidate_card_count is not None and decision.candidate_card_count > 1:
+        return decision.model_copy(update={'verdict':'uncertain',
+            'reasons':[*decision.reasons, 'candidate_multiple_physical_cards']})
+    if decision.candidate_card_count != 1 and decision.verdict in {'same', 'compatible', 'uncertain'}:
+        return decision.model_copy(update={'verdict':'uncertain',
+            'reasons':[*decision.reasons, 'candidate_single_card_scope_unverified']})
     decision = enforce_visual_observations(decision)
+    if decision.candidate_card_count == 1:
+        decision = decision.model_copy(update={'reasons':list(dict.fromkeys([
+            *decision.reasons, 'candidate_single_physical_card']))})
     if decision.verdict == 'same':
+        if decision.candidate_card_count != 1:
+            return decision.model_copy(update={'verdict':'uncertain',
+                'reasons':[*decision.reasons, 'candidate_single_card_scope_unverified']})
         generic = {'same', 'matching', 'identical', '一致', '相同', '同款', '匹配', '一样'}
         def valid_front(e):
             return (e.source == 'images' and e.both_visible
@@ -747,7 +761,8 @@ class ComparableImageVerifier:
                             low_resolution_target=low_resolution_target, target_back=target_back,
                             requires_parallel_match=requires_parallel_match)
                     except Exception as error:
-                        failed = failure(candidate, f'vision_batch_failed:{type(error).__name__}')
+                        from card_platform.domain.model_failures import model_failure_reason
+                        failed = failure(candidate, model_failure_reason(error, 'same_card'))
                         if isinstance(error, VisualSchemaError):
                             failed = failed.model_copy(update={'reasons': [*failed.reasons, *error.safe_reasons]})
                         result = {candidate.id: failed}
@@ -762,11 +777,12 @@ class ComparableImageVerifier:
                                     'verdict': 'uncertain', 'design_match': 'unknown', 'finish_match': 'unknown',
                                     'reasons': [*decision.reasons, 'independent_finish_confirmation_requires_review']})
                         except Exception as error:
+                            from card_platform.domain.model_failures import model_failure_reason
                             decision = decision.model_copy(update={
                                 'verdict': 'uncertain', 'confidence': Decimal('0'),
                                 'design_match': 'unknown', 'finish_match': 'unknown',
                                 'independent_confirmation': None,
-                                'reasons': [*decision.reasons, f'independent_finish_failed:{type(error).__name__}',
+                                'reasons': [*decision.reasons, model_failure_reason(error, 'independent_finish'),
                                             *(error.safe_reasons if isinstance(error, VisualSchemaError) else [])]})
                     if decision.condition_review is not None:
                         decision = decision.model_copy(update={'condition_review': decision.condition_review.model_copy(
@@ -898,6 +914,9 @@ class ComparableImageVerifier:
                     "different=有明确相冲突的卡型/固定颜色/纹理/姿态等；"
                     "uncertain=图片或证据不足。compatible不是同款成交确认。"
                     "必须分别填写design_match与finish_match。先独立描述目标和候选的构图与固定表面纹理，再比较。"
+                    "先填写candidate_card_count和candidate_card_count_evidence：候选图实际包含几张不同实卡，"
+                    "同一卡正背并列只算1张，套卡/两张正面算2张以上，卖家条款图算0；遮挡或无法判断填null。"
+                    "有多张不同实卡时，即使其中一张与目标完全相同也不能给单卡same，必须描述分别可见的卡面。"
                     "正证match_evidence.kind只能为layout或finish，不得填写fixed_pattern、printed_color等冲突枚举。"
                     "fixed_pattern仅属于conflict_evidence.kind；相同固定纹理的正证应写kind=finish，具体纹样放target/candidate描述。"
                     "若判same，必须填写match_evidence至少两项kind=layout和finish，分别写出target与candidate"

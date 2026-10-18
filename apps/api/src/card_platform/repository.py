@@ -484,16 +484,16 @@ class PortfolioRepository:
                     '[]'::jsonb
                 ) AS recognition_quality_issues,
                 CASE WHEN vj.created_at > lv.valued_at AND vj.status <> 'succeeded'
-                          AND COALESCE(lv.model_version, '') <> 'codex-independent-fallback-v1'
+                          AND COALESCE(lv.model_version, '') NOT IN ('codex-independent-fallback-v1','codex-researched-fallback-v2')
                      THEN NULL ELSE lv.currency END AS valuation_currency,
                 CASE WHEN vj.created_at > lv.valued_at AND vj.status <> 'succeeded'
-                          AND COALESCE(lv.model_version, '') <> 'codex-independent-fallback-v1'
+                          AND COALESCE(lv.model_version, '') NOT IN ('codex-independent-fallback-v1','codex-researched-fallback-v2')
                      THEN NULL ELSE lv.low_value END AS valuation_low,
                 CASE WHEN vj.created_at > lv.valued_at AND vj.status <> 'succeeded'
-                          AND COALESCE(lv.model_version, '') <> 'codex-independent-fallback-v1'
+                          AND COALESCE(lv.model_version, '') NOT IN ('codex-independent-fallback-v1','codex-researched-fallback-v2')
                      THEN NULL ELSE lv.fair_value END AS fair_value,
                 CASE WHEN vj.created_at > lv.valued_at AND vj.status <> 'succeeded'
-                          AND COALESCE(lv.model_version, '') <> 'codex-independent-fallback-v1'
+                          AND COALESCE(lv.model_version, '') NOT IN ('codex-independent-fallback-v1','codex-researched-fallback-v2')
                      THEN NULL ELSE lv.high_value END AS valuation_high,
                 codex.analysis_version AS codex_analysis_version,
                 codex.currency AS codex_valuation_currency,
@@ -515,13 +515,14 @@ class PortfolioRepository:
                 sv.model_version AS shadow_valuation_model,
                 vj.id AS valuation_job_id,
                 CASE WHEN lv.valued_at > vj.created_at
-                          OR (lv.model_version = 'codex-independent-fallback-v1'
-                              AND COALESCE(vj.status, '') NOT IN ('queued','identifying','searching','calculating'))
+                          AND COALESCE(lv.model_version, '') NOT IN ('codex-independent-fallback-v1','codex-researched-fallback-v2')
                      THEN 'succeeded'
                      ELSE vj.status END AS valuation_status,
-                CASE WHEN lv.valued_at > vj.created_at THEN NULL
+                CASE WHEN lv.valued_at > vj.created_at
+                          AND COALESCE(lv.model_version, '') NOT IN ('codex-independent-fallback-v1','codex-researched-fallback-v2') THEN NULL
                      ELSE vj.error_message END AS valuation_error,
-                CASE WHEN lv.valued_at > vj.created_at THEN '{{}}'::jsonb
+                CASE WHEN lv.valued_at > vj.created_at
+                          AND COALESCE(lv.model_version, '') NOT IN ('codex-independent-fallback-v1','codex-researched-fallback-v2') THEN '{{}}'::jsonb
                      ELSE COALESCE(vj.result_summary, '{{}}'::jsonb)
                 END AS valuation_result_summary,
                 (SELECT COUNT(*) FROM market_comp mc
@@ -649,6 +650,18 @@ class PortfolioRepository:
         items: list[PortfolioItem] = []
         for row in rows:
             original = row.pop("synthesis_original", None)
+            if original and original.get('model_version') in {'codex-independent-fallback-v1','codex-researched-fallback-v2'}:
+                source_evidence = original.get('evidence') or {}
+                row['valuation_result_summary'] = {**(row.get('valuation_result_summary') or {}),
+                    'historical_reference': {
+                        'pricing_basis': source_evidence.get('pricing_basis') or 'codex_independent_fallback',
+                        'source_analysis_id': source_evidence.get('source_analysis_id'),
+                        'source_analyzed_at': source_evidence.get('source_analyzed_at'),
+                        'identity_compatibility': original.get('identity_compatibility', 'unknown'),
+                        'current_job_verified': False,
+                        'current_job_status': row.get('valuation_status'),
+                        'note': '历史Codex参考价保留；本轮任务未验证此价格，不代表新搜索成功',
+                    }}
             row.pop("synthesis_codex", None)
             history = row.pop("synthesis_codex_history", None) or []
             market = row.pop("synthesis_market", None) or []

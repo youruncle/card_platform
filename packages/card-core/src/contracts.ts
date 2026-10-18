@@ -473,6 +473,7 @@ export type AutomatedValuationDetail = {
       risk_flags?: string[];
       selection_policy?: string;
       pricing_basis?: string;
+      source_analyzed_at?: string | null;
       exact_version_verified?: boolean;
       numbered_premium_applied?: boolean;
       grade_premium_applied?: boolean;

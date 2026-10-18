@@ -457,6 +457,9 @@ export function DetailPage({
                 {card.fair_value
                   ? `${card.valuation_currency ?? ""} ${card.fair_value}`
                   : "尚无可靠估值"}
+                {card.fair_value && card.valuation_status !== "succeeded" && (
+                  <small> 历史参考；本轮{statusName(card.valuation_status)}，未验证此价格</small>
+                )}
               </dd>
             </dl>
           </section>

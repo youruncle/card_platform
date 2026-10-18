@@ -22,7 +22,7 @@ from card_platform.domain.listing_condition import (
     title_discloses_damage, title_disclaims_card_condition, condition_rejection_reasons, disclose_minor_condition,
 )
 
-FORMAL_CARDHOBBY_CONTRACT = "same-card-source-revalidated-v19"
+FORMAL_CARDHOBBY_CONTRACT = "same-card-source-revalidated-v20"
 
 
 def _corroborated_same_card(identity, sale, observation, reasons, *, resolver=None):
@@ -48,6 +48,7 @@ def _corroborated_same_card(identity, sale, observation, reasons, *, resolver=No
     current = current_persisted_visual(identity, candidate, observation)
     binding = current.get('visual_evidence_binding') or {}
     if (current.get('visual_verdict') not in {'same', 'compatible', 'uncertain'}
+            or 'candidate_single_physical_card' not in current.get('visual_reasons', [])
             or binding.get('model_observation_contract') != MODEL_OBSERVATION_CONTRACT
             or not re.fullmatch(r'[0-9a-f]{64}', str(binding.get('candidate_sha256') or ''))):
         return None
@@ -129,6 +130,8 @@ def enforce_formal_cardhobby_identity(
     establish a same-card basis; the latter discloses unresolved finish/condition.
     """
     reasons = list(classification.hard_conflicts)
+    reasons.extend(reason for reason in (visual_observation or {}).get('visual_reasons', [])
+                   if reason in {'candidate_multiple_physical_cards', 'candidate_single_card_scope_unverified'})
     reasons.extend(purchase_source_rejection_reasons(identity, provider_payload))
     copyright_label = None
     paired_finish = bool(visual_facts and provider_payload and visual_facts.current_for(
