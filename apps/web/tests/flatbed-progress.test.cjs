@@ -51,3 +51,22 @@ test('explicit next batch creates a fresh session instead of reusing restored sh
  await waitFor(()=>assert.equal(calls.length,1));
  assert.equal(calls[0].new_batch,true);
 });
+
+test('flatbed submit carries the token returned for the confirmed images', async()=>{
+ const response=data=>({ok:true,json:async()=>data});let submitted=null,completed=null;
+ const region={ordinal:0,bounds:{x:.1,y:.1,width:.4,height:.7},confidence:.9};
+ global.fetch=async(url,options={})=>{
+  const path=new URL(url,'http://localhost').pathname;
+  if(path==='/v1/flatbed/device')return response({name:'Canon',serial:'fixture'});
+  if(path==='/v1/flatbed/sessions')return response([{id:'session',submitted_at:null}]);
+  if(path==='/v1/flatbed/sessions/session')return response({id:'session',regions:[{...region,id:'front',side:'front'},{...region,id:'back',side:'back'}],sheets:[],pairs:[{front_region_id:'front',back_region_id:'back',score:.9,confidence_level:'high',identity_status:'unknown',signals:{},conflicts:[],selected:true}]});
+  if(path.endsWith('/pairs'))return response({status:'paired',count:1,confirmation_token:'reviewed-current-images',skipped:{front:0,back:0}});
+  if(path.endsWith('/submit')){submitted=JSON.parse(options.body);return response({status:'submitted',job_ids:['job']});}
+  throw Error(`Unexpected request: ${path}`);
+ };
+ render(React.createElement(FlatbedBatchPanel,{onCompleted:ids=>{completed=ids;}}));
+ const button=await screen.findByRole('button',{name:'确认配对并录入 1 张卡片'});
+ await waitFor(()=>assert.equal(button.disabled,false));fireEvent.click(button);
+ await waitFor(()=>assert.deepEqual(completed,['job']));
+ assert.deepEqual(submitted,{confirmation_token:'reviewed-current-images'});
+});

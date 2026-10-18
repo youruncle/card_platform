@@ -3,7 +3,7 @@
 - **Slug**: inventory-face-mismatch（沿用上下文）
 - **Fixed**: 2026-10-19
 - **Assessment**: ./assessment.md
-- **Status**: partial — 数据恢复完成；录入代码优化和新版本发布正在执行。
+- **Status**: complete — 数据恢复、录入完整性优化及网页/API/iPhone发布验证完成；4张缺背面待补扫。
 
 ## Summary
 
@@ -37,4 +37,4 @@
 
 ## Follow-ups
 
-工程优化、真实样本回归与网页/手机/API发布使用同一套SpecKit规格和任务；完成后更新本记录。
+工程优化与发布使用同一套SpecKit 025规格：独立逐面证据和绑定图片的服务器门禁、OCR/匹配评分、扫描来源与确认凭据、显式新批次、网页/手机审核流程及可重复构建。网页/API 0.6.2、手机1.1.9(13)已经实际部署、安装并验证；生产成本worker持续为true。最终78项纯测试、69项隔离PostgreSQL、157项网页、113项手机测试通过。7组真实双图已回放，合法双主体保留审核而非自动通过；详见specs/025-ingestion-pair-integrity/verification.md及release.md。
