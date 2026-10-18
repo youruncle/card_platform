@@ -37,7 +37,8 @@ def capture(tmp_path, monkeypatch):
 
 
 def _token(client, sid):
-    import hashlib, json
+    import hashlib
+    import json
     snapshot = client.get(f'/v1/flatbed/sessions/{sid}').json().get('confirmed_sources')
     return hashlib.sha256(json.dumps(snapshot, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
@@ -94,7 +95,8 @@ def test_rescan_invalidates_confirmation_and_old_region_ids(capture):
 
 
 def test_late_submit_cannot_use_another_tabs_new_confirmation(capture):
-    import hashlib, json
+    import hashlib
+    import json
     client, sid, _, _ = capture
     old = client.get(f'/v1/flatbed/sessions/{sid}').json()['confirmed_sources']
     old_token = hashlib.sha256(json.dumps(old, sort_keys=True, separators=(',', ':')).encode()).hexdigest()

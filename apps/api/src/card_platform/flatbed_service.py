@@ -5,7 +5,6 @@ import hashlib
 import json
 import os
 import signal
-import re
 from dataclasses import replace
 from collections.abc import Callable
 from pathlib import Path
