@@ -88,7 +88,7 @@ async def test_visual_prompt_contains_target_back_and_parallel_requirement():
     texts = " ".join(item["text"] for item in content if item["type"] == "text")
     assert "目标卡背面（非候选）" in texts
     assert "本次必须确认平行版本" in texts
-    assert "统计年份不是发行年份" in texts
+    assert any(guard in texts for guard in ("统计年份不是发行年份", "统计年不是发行年"))
 
 
 @pytest.mark.parametrize("basis", [None, "ungraded_same_card_no_grade_premium"])

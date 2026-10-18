@@ -30,7 +30,25 @@ from card_platform.visual_checkpoints import VisualCheckpoints
 from card_platform.domain.listing_condition import title_discloses_minor_condition, condition_review_is_current
 
 
-MODEL_OBSERVATION_CONTRACT = 'paired-image-only-evidence-v7'
+MODEL_OBSERVATION_CONTRACT = 'paired-image-only-evidence-v9'
+
+
+PRIMARY_VISUAL_OBSERVATION_INSTRUCTIONS = """核验图中两张实卡是否同一正式卡型、同一选图、同一固定印刷/纹理版本。只据图片，不用标题或产品常识补字。按图像编号辨认：target_front为目标正面，target_back为目标背面；candidate_front为候选主图，candidate_support_1/2为候选画廊，可能是背面、局部或卖家条款，角色必须实看。条款不是卡背。目标背面永远不是候选。没有候选背面时，不能声称看到了候选背面卡号或限编。已编号上传的候选补充背图是该候选的图证；即使与目标背面版式相同，也不能因此误当成目标背面的重复引用而说未提供候选背面。
+交换板/Redemption Card与兑现后的实体卡不是同一形态；须核承诺对象、公共卡号和卡种，禁止输出私人兑换码。物料窗数量/形状及签字区必须逐方核对。生涯统计年不是发行年，版权年不能自动等同发行赛季。先校正透视、倾斜与裁切再比较人物布局，不凭整张照片的拍摄坐标判姿势冲突。
+
+先观察、后比较、最后下结论。正面与背面有不同职责，禁止混写。
+1. 独立观察两张正面。对每张分别写完整且具体的布局、人物照片/插画姿势与手/物体位置、框线/文字位置、固定表面纹理及所在区域。candidate描述必须单独可读；禁用同上、同左、同目标、与目标一致、same as target等指代。只写这张图实际可见内容。
+2. 独立读实际提供的两张背面。核卡号的完整字母前缀及数字、产品发行标记、背面语言/地区印刷、限编分母与版本印字。将实读背号/语言的对照简短写在reasons，不能写进正面match_evidence描述。同号不保证同语言版本。完整字母前缀不可丢失；连字符/空格可以是标点变化，不能把前缀不同的编号合并。未提供或看不清的卡背不能用另一张卡补全；兑换码禁止抄录。流水分子不同本身不属于异版，分母必须核对。
+3. 区分固定油墨/纹理与镭射反光。银箔/全息面随角度产生红橙、蓝紫、绿黄和彩虹渐变；先比同一区域的纹理形状、网格尺度、线条方向，以及不反光的文字/照片/油墨细节。将实际光照差异描述为reflection，不能只把虹彩渐变或曝光导致的色相改变标为printed_color/fixed_pattern。固定蓝框、金色油墨、星形/波纹/碎冰/Scope等明确差异仍是异版；未出现彩虹反射不等于没有全息层；低亮度或不同拍摄角度不能单独证明目标是哑光底材、候选是异版。要判固定工艺不同，须实见纹理结构、固定油墨或印字的冲突。不确定属于哪类就unknown，不能默认都是反光。黑白与彩色选图、人物姿势、背号或语言印刷差异不能被相同模板掩盖。
+4. 最后判断：只有单张实卡、全部可见身份/选图/固定颜色与纹理证据相容，且版本印字得到对应面实图支持才same；有可读背号、语言、选图或固定工艺冲突则different；证据不足uncertain；compatible不是同款成交确认。
+
+输出遵守schema，并按以下职责填写：
+- candidate_card_count：同一卡正背算1；多张实卡/lot大于1，条款0；不清楚null。
+- match_evidence：same时恰好两项kind=layout和finish。target、candidate均是各自独立、具体的【正面】观察，source=images，both_visible=true，target_view/candidate_view=front。这四个描述字符串不得包含“背面/卡背/反面/back”或任何背面事实；背面事实只放reasons和version_marker_observations。
+- finish.version_marker_observations：逐方读PRIZM/REFRACTOR等版本印字。有target_back时target必须view=back、image_ref=target_back；candidate必须引用实际看见的面：candidate_front或candidate_support_1/2。readable要逐字抄实际印字；完整清晰整面未印才not_printed且whole_view_visible=true，没提供/看不清只能not_visible。版本印字专指工艺/平行标签，不是卡号、流水、球衣号、产品Logo或版权文字；没有版本标签就据整面可见性标not_printed，不能把相同卡号冒充相同版本字。产品Logo不能代替背面版本印字。not_visible表示对应面未提供或看不清；not_printed表示整面已清晰可见且确实未印版本字。已提供清晰候选背面但没有版本标签，应为not_printed，不应因没字填not_visible。一方readable而另一方not_printed也属于版本冲突，不能判same。双方对应面均not_printed时，版本字这一项允许相容；它不是缺图，但也不单独证明同款，仍须双方正面固定纹理/颜色/选图证据。只有实际印字相冲突，或任一对应面未提供/无法核实，才不能确认版本字相容。
+- conflict_evidence：different时每项分别写两张图清晰可见且互相冲突的观察，source=images、both_visible=true。纹理结构差异用fixed_pattern，确切固定油墨用printed_color，实读背号/语言用card_text，分母用serial_total（如12/99对7/25）。单独光照/分子/标题不构成异版证据。
+- condition_review：只核双方正面可见四角/实体边缘/表面，分别具体描述；清晰完整才front_complete=true。微瑕可比comparable_minor，实质不同materially_different，不清楚uncertain。不能从同款结论推出品相。
+每张只有一个candidate_id。请保持所有单张描述独立，先写观察字段再填写design_match、finish_match、verdict和confidence。不得用相同照片模板代替真实图证。"""
 
 
 class VisualSchemaError(ValueError):
@@ -948,6 +966,14 @@ class ComparableImageVerifier:
         _, candidate_content, candidate_type = row
         schema = json.dumps(IndependentFinishObservation.model_json_schema(), ensure_ascii=False)
         prompt = '请独立核验两张卡的正面是否同一版式且同一固定表面版本。第一张为候选，第二张为目标。没有标题、没有背面、没有上一轮判断；不要猜官方平行名、卡号、限编或看不见的信息。先分别只描述候选和目标各自可见的外框固定颜色、物理纹理及所在区域、版式。每个描述必须能单独成立，不能写“同上”“同目标”“一样”或把另一张的描述复制过来。人物照片与排版一样不代表表面版本一样。比较全卡外框与图像区域固定纹理，包括网纹、点纹、几何线纹、格纹、碎片；并区分固定红/粉/蓝外框和银箔在光照下的彩虹。记录仅由拍摄产生的反射另作lighting_or_reflection，不把所有颜色差异都当反光；看不清则unknown。先校正拍摄角度再比版式，不以透视小差异拒绝。只有双方正面版式、固定印刷颜色和纹理结构都有具体观察且一致才same。任一固定颜色或纹理存在明确差异则different。所有单张观察须仅据各自图片，不据人物或产品常识补全。输出简洁JSON。'
+        prompt += ('判断固定颜色前，先分别定位每张图可见的金属箔或涂层反射区域，再对齐卡面对应区域。'
+                   '具体观察颜色变化的边界：是沿固定油墨图形或固定纹理边界，还是渐变、高光连续跨过人物、文字与底纹。'
+                   '跨图形的光带、明暗渐变、金属表面随拍摄显现或未显现的虹彩，只记入lighting_or_reflection，'
+                   '不要先把照片中的金/橙/棕等表观色命名为固定油墨，再用该命名证明版本冲突。'
+                   'outer_frame_fixed_color只描述各自图中有可见油墨边界或稳定印刷区域支持的颜色；'
+                   '不能猜被反光遮住的颜色，也不能因一张没有显现虹彩便说没有该涂层。'
+                   '只有双方对应区域清晰，且可见油墨边界、稳定印色或纹理拓扑证明实质差异，才据此different。'
+                   '无法区分固定色与光照时必须unknown/uncertain；这不构成same，仍须逐项取得正面版式、选图、固定印色与纹理的正证。')
         prompt += ('先逐个观察每张卡上的全部主体，按从左到右、从上到下填写artwork_subjects：'
                    '每个人物/角色的躯干和头部朝向、手臂弯曲与手的位置、球或物体相对身体的位置，以及具体选图细节。'
                    '没有球或手臂时明确描述没有，遮挡看不清则visible=false，不能据球员姓名补姿势。'
@@ -971,9 +997,9 @@ class ComparableImageVerifier:
             messages=[{'role': 'system', 'content': f'只输出符合 JSON Schema 的 JSON：{schema}'},
                       {'role': 'user', 'content': [
                           {'type': 'text', 'text': prompt},
-                          {'type': 'text', 'text': '候选正面，图片1'},
+                          {'type': 'text', 'text': '候选正面，图片1 image_ref=candidate_front'},
                           {'type': 'image_url', 'image_url': {'url': self._vision_data_url(candidate_content, candidate_type)}},
-                          {'type': 'text', 'text': '目标正面，图片2'},
+                          {'type': 'text', 'text': '目标正面，图片2 image_ref=target_front'},
                           {'type': 'image_url', 'image_url': {'url': self._vision_data_url(target, target_type)}},
                       ]}],
             response_format={'type': 'json_object'}, extra_body={'enable_thinking': False}, temperature=0)
@@ -1009,81 +1035,7 @@ class ComparableImageVerifier:
             {
                 "type": "text",
                 "text": (
-                    "第一张图片是目标卡。后续图片按候选编号排列。逐张判断候选是否与目标"
-                    "属于同一球员、同一产品、同一正式卡型/insert、同一平行层级和同一"
-                    "限编总数。交换板/Redemption Card 与实际兑换后的实体卡不是同一形态。"
-                    "若提供目标背面，必须用背面的卡号、产品发行标记、限编与评级交叉核验。"
-                    "球员生涯统计年份不是发行年份；版权年份不能自动等同发行赛季。"
-                    "目标正背面是同一张卡，不能把背面当成候选。"
-                    "每张候选只附一张商品图片；没有候选背面时，不能声称看到了候选背面"
-                    "卡号或限编，也不能将目标背面的信息复制给候选。卖家标题只是线索。"
-                    "交换板常共用模板，必须读清球员、承诺卡种、卡号和平行文字，"
-                    "不能凭相同底图判 same；文字不清时返回 uncertain。不要输出兑换码。"
-                    "先分别找出卡片四角，按卡片自身宽高把关键点坐标归一化，"
-                    "不要用整张照片的坐标。位置比较必须先校正拍摄透视与长宽比例，"
-                    "不能把卡片倾斜、扫描与实拍"
-                    "的透视差别当成人物姿态变化。"
-                    "必须逐项比较：球衣号码中心点的横纵坐标、号码"
-                    "整体倾斜角度、号码是否发生透视拉伸、人物头肩和双手姿态、人物在卡面"
-                    "左右位置、Logo、卡名和奖项文字位置。尤其不能把同系列中号码位置或"
-                    "人物姿态不同的两张卡判为同卡。请在 reasons 中明确写出观察到的号码"
-                    "位置（例如中间偏右/左下）、倾斜方向和姿态差异。流水号不同允许；"
-                    "图片裁切、拍摄角度、亮度不同允许。重点比较卡面模板、物料窗数量与"
-                    "形状、签字区、Logo、边框和文字位置。明显为大窗与"
-                    "三窗、不同 insert、不同平行或不同限编时 verdict=different。仅因图片"
-                    "模糊无法判断时 verdict=uncertain，不能猜 same。"
-                    "不同颜色/折射纹理的平行版不能以'正常变体'或'同为基础RC'判same。"
-                    "区分固定油墨/纹理与镭射反光：同一银箔在不同角度可呈红橙、绿或彩虹，"
-                    "不能仅凭整张反光颜色不同断定红折/金折；先看球员照片是否黑白、"
-                    "固定文字颜色、纹理结构、Logo及实卡可见限编。无法区分则uncertain。"
-                    "same=可见证据支持同款同平行；compatible=同系列但平行未确认；"
-                    "different=有明确相冲突的卡型/固定颜色/纹理/姿态等；"
-                    "uncertain=图片或证据不足。compatible不是同款成交确认。"
-                    "必须分别填写design_match与finish_match。先独立描述目标和候选的构图与固定表面纹理，再比较。"
-                    "先填写candidate_card_count和candidate_card_count_evidence：候选图实际包含几张不同实卡，"
-                    "同一卡正背并列只算1张，套卡/两张正面算2张以上，卖家条款图算0；遮挡或无法判断填null。"
-                    "有多张不同实卡时，即使其中一张与目标完全相同也不能给单卡same，必须描述分别可见的卡面。"
-                    "正证match_evidence.kind只能为layout或finish，不得填写fixed_pattern、printed_color等冲突枚举。"
-                    "fixed_pattern仅属于conflict_evidence.kind；相同固定纹理的正证应写kind=finish，具体纹样放target/candidate描述。"
-                    "若判same，必须填写match_evidence至少两项kind=layout和finish，分别写出target与candidate"
-                    "具体可见的正面布局、固定印刷/纹理观察，不能只写相同或匹配；source=images、both_visible=true、"
-                    "target_view与candidate_view均为front。目标背面用于目标身份和版本印字核对，不能替代双方正面纹理或候选图证，"
-                    "不能声称双方背面卡号/限编一致；不能从标题补全看不清的候选纹理。缺少任一正面观察则uncertain。"
-                    "每张的描述必须独立成立，不能用同上、同目标、与目标一致或same as target替代具体观察。"
-                    "finish正证还必须填写version_marker_observations，逐方检查实际可见正面及所提供背面上的版本印字，"
-                    "例如REFRACTOR、PRIZM。读到时status=readable、text逐字记录、view标实际front/back；"
-                    "这些是独立版本印字，不是产品品牌Logo，候选正面Prizm品牌字不能替代目标背面的PRIZM。"
-                    "另一张没有提供对应背面/看不清时必须not_visible，不能用正面的银箔或彩虹反光补出背印。"
-                    "只有整面清晰可见且未印版本字样才not_printed并whole_view_visible=true，不可据未提供背面断言无字。"
-                    "任一方实见版本字样而另一方未实见同字时，finish_match=unknown、verdict=uncertain；"
-                    "双方可见同面均无版本字样时仍须分别具体核正面固定颜色与纹理，不能仅由背面无字推断同款。"
-                    "image_ref必须填写实际图片编号：target_front、target_back、candidate_front或candidate_support_1/2。"
-                    "有目标背面时，target版本标记观察必须覆盖target_back，不能仅记录正面没字。"
-                    "候选补充图只是画廊，不预设正背，可能是条款图；只有实见该卡背面才填back，条款图不能作卡背。"
-                    "没有候选补充背图时candidate背面标记只能not_visible，不得自报back。"
-                    "大星形、细颗粒、方格、碎冰、波纹是不同纹理，不能因相同照片或限编就填same。"
-                    "黑白/负片印刷与彩色照片不同；正常彩虹反光并不改变印刷照片颜色。"
-                    "看不清任一对象的纹理就填unknown。两项均same才允许verdict=same。"
-                    "另行填写condition_review：独立观察双方正面的四角、边缘和表面。"
-                    "记录target_observation与candidate_observation具体可见的磨损、白边、折痕等及可见范围；"
-                    "不能从标题或同款结论推断品相一致。双方正面四角及实体边缘完整清晰才标front_complete=true。"
-                    "均无明显结构损伤且可见品相无实质差异、仅轻微瑕疵可比时verdict=comparable_minor，"
-                    "有实质差异为materially_different，看不清/被遮挡/裁边为uncertain。source=images，"
-                    "scope=visible_front；只描述实际可见正面，不能声称未见背面或保证评级/完美品相。"
-                    "condition_review不改变卡型verdict，evidence_binding留空由服务绑定原图。"
-                    "若判different或任一match为different，必须填写conflict_evidence，"
-                    "每项分别写target和candidate的直接观察，source=images仅用于实际图片证据，"
-                    "双方均清晰可见才填both_visible=true。kind区分layout（布局）、"
-                    "fixed_pattern（固定纹理结构）、printed_color（固定印刷颜色）、"
-                    "card_text（实际可读的身份文字）、serial_total（限编分母）、"
-                    "serial_number（流水号分子）、reflection（拍摄反光）、title_label（标题推断）。"
-                    "serial_total须记录实见完整分数如47/50，或仅可读分母/50；47/50与35/50"
-                    "分母相同不能作为冲突。反光颜色变化只能归reflection，不能归fixed_pattern"
-                    "或printed_color。仅凭卖家标题或缺少平行名文字不能断定冲突；"
-                    "insert名称不等于平行名，例如Shadow Etch不能仅凭名称当作平行差异。"
-                    "card_text仅比较实际可读且相冲突的身份文字，不包含流水号或标题标签。"
-                    "没有清晰的布局、固定纹理/印刷、身份文字或限编分母冲突则返回uncertain。"
-                    "每条候选只写1-2条简短具体理由，合计不超过100字，不要重复推理。"
+                    PRIMARY_VISUAL_OBSERVATION_INSTRUCTIONS
                     + (
                         "本次必须确认平行版本；相同照片/排版不足以证明同平行。"
                         "缩略图看不清折射纹理或限编分母时返回uncertain。"
@@ -1097,6 +1049,7 @@ class ComparableImageVerifier:
                     )
                 ),
             },
+            {"type": "text", "text": "目标正面 image_ref=target_front"},
             {
                 "type": "image_url",
                 "image_url": {"url": self._vision_data_url(target, target_type)},
@@ -1104,7 +1057,7 @@ class ComparableImageVerifier:
         ]
         if target_back is not None:
             content.extend([
-                {"type": "text", "text": "目标卡背面（非候选）"},
+                {"type": "text", "text": "目标卡背面（非候选） image_ref=target_back"},
                 {"type": "image_url", "image_url": {
                     "url": self._vision_data_url(target_back[0], target_back[1]),
                 }},
@@ -1124,7 +1077,7 @@ class ComparableImageVerifier:
                         "type": "text",
                         # Titles are checked by the identity pipeline. Supplying
                         # them here biases purported image-only observations.
-                        "text": f"候选编号 {label}",
+                        "text": f"候选编号 {label} image_ref=candidate_front",
                     },
                     {
                         "type": "image_url",
@@ -1133,7 +1086,7 @@ class ComparableImageVerifier:
                 ]
             )
             for index, (_, support_bytes, support_type) in enumerate(supports,1):
-                content.extend([{'type':'text','text':f'候选编号 {label} 补充图片 candidate_support_{index}（角色需实看，不预设卡背）'},
+                content.extend([{'type':'text','text':f'候选编号 {label} 补充图片 image_ref=candidate_support_{index}（角色需实看，不预设卡背）'},
                     {'type':'image_url','image_url':{'url':self._vision_data_url(support_bytes,support_type)}}])
         response = await traced_completion(self.client.chat.completions.create, stage='same_card',
             model=self.parallel_model if requires_parallel_match else self.model,
@@ -1145,7 +1098,7 @@ class ComparableImageVerifier:
                 {"role": "user", "content": content},
             ],
             response_format={"type": "json_object"},
-            extra_body={"enable_thinking": False},
+            extra_body={"enable_thinking": False}, temperature=0,
         )
         result = response.choices[0].message.content
         if not result:
