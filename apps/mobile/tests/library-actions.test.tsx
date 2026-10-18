@@ -1,0 +1,83 @@
+import React from 'react';
+import {afterEach, beforeEach, expect, it, vi} from 'vitest';
+import {cleanup, fireEvent, render, screen, waitFor, act} from '@testing-library/react';
+import {BulkActions, TrashPage} from '../src/LibraryActions';
+import type {MobileApi} from '../src/api';
+import {fetchPurchaseCost} from '../src/purchaseCostApi';
+vi.mock('../src/purchaseCostApi', () => ({fetchPurchaseCost:vi.fn()}));
+const card = (id:string, price?:string) => ({id,player_name:`Player ${id}`, brand_name:'Brand',product_name:'Product',season_start:2024,remaining_cost:'0',purchase_price:price});
+beforeEach(()=> {vi.clearAllMocks(); vi.spyOn(window,'confirm').mockReturnValue(true);});
+afterEach(()=> {cleanup(); vi.restoreAllMocks();});
+it('keeps failed bulk deletions selected and reports partial success', async()=> {
+ const request=vi.fn(async(path:string)=> {if(path.endsWith('/b')) throw new Error('offline');});
+ const select=vi.fn(), changed=vi.fn();
+ render(<BulkActions api={{request} as unknown as MobileApi} ownerId="owner" items={[card('a'),card('b')]} selected={new Set(['a','b'])} onSelectionChange={select} onChanged={changed} onOpenCost={()=>{}} />);
+ fireEvent.click(screen.getByRole('button',{name:'删除选中 (2)'}));
+ await screen.findByText(/已移入回收站 1 张/);
+ expect(select).toHaveBeenLastCalledWith(new Set(['b']));
+ expect(request).toHaveBeenCalledWith('/v1/portfolio/items/a',expect.objectContaining({method:'DELETE',body:JSON.stringify({owner_id:'owner',reason:'手机批量删除'})}));
+ expect(changed).toHaveBeenCalledOnce();
+});
+it('does not delete when confirmation is dismissed', async()=>{
+ vi.mocked(window.confirm).mockReturnValue(false);
+ const request=vi.fn();
+ render(<BulkActions api={{request} as unknown as MobileApi} ownerId="owner" items={[card('a')]} selected={new Set(['a'])} onSelectionChange={()=>{}} onChanged={()=>{}} onOpenCost={()=>{}} />);
+ fireEvent.click(screen.getByRole('button',{name:'删除选中 (1)'}));
+ expect(request).not.toHaveBeenCalled();
+});
+it('skips known cost including zero and continues after an individual search failure', async()=>{
+ vi.mocked(fetchPurchaseCost).mockRejectedValueOnce(new Error('query failed')).mockResolvedValueOnce({status:'recorded',reason:'recorded',candidates:[],rejected:[]});
+ const changed=vi.fn();
+ render(<BulkActions api={{} as MobileApi} ownerId="owner" items={[card('zero','0'),card('a'),card('b')]} selected={new Set(['zero','a','b'])} onSelectionChange={()=>{}} onChanged={changed} onOpenCost={()=>{}} />);
+ fireEvent.click(screen.getByRole('button',{name:'获取选中成本 (3)'}));
+ await screen.findByText(/批量处理完成/);
+ expect(vi.mocked(fetchPurchaseCost).mock.calls.map(call=>call[1])).toEqual(['a','b']);
+ expect(screen.getByText(/query failed/)).toBeTruthy();
+ expect(fetchPurchaseCost).toHaveBeenCalledWith(expect.anything(),'a',undefined,{refresh:false});
+ expect(screen.getByText("保留已有成本", {exact:true})).toBeTruthy();
+ expect(changed).toHaveBeenCalled();
+});
+it('pauses a batch after the in-flight item when the library becomes inactive', async()=>{
+ let resolve!: (value:any)=>void;
+ vi.mocked(fetchPurchaseCost).mockImplementationOnce(()=>new Promise(r=>{resolve=r;}));
+ const props={api:{} as MobileApi,ownerId:'owner',items:[card('a'),card('b')],selected:new Set(['a','b']),onSelectionChange:()=>{},onChanged:()=>{},onOpenCost:()=>{}};
+ const view=render(<BulkActions {...props}/>);
+ fireEvent.click(screen.getByRole('button',{name:'获取选中成本 (2)'}));
+ view.rerender(<BulkActions {...props} active={false}/>);
+ await act(async()=>resolve({status:'not_found',reason:'无订单',candidates:[],rejected:[]}));
+ expect(fetchPurchaseCost).toHaveBeenCalledOnce();
+ expect(screen.getByText(/已暂停/)).toBeTruthy();
+});
+it('restores a trashed item and requires two confirmations before permanent deletion', async()=>{
+ const get=vi.fn().mockResolvedValue([card('a'),card('b')]);
+ const post=vi.fn().mockResolvedValue(undefined), request=vi.fn().mockResolvedValue(undefined), changed=vi.fn();
+ render(<TrashPage api={{get,post,request} as unknown as MobileApi} ownerId="owner" onBack={()=>{}} onChanged={changed}/>);
+ await screen.findByText('Player a');
+ fireEvent.click(screen.getAllByRole('button',{name:'恢复卡片'})[0]);
+ await waitFor(()=>expect(post).toHaveBeenCalledWith('/v1/portfolio/items/a/restore',{owner_id:'owner'}));
+ await waitFor(()=>expect(screen.queryByText('Player a')).toBeNull());
+ vi.mocked(window.confirm).mockReturnValueOnce(true).mockReturnValueOnce(false);
+ fireEvent.click(screen.getByRole('button',{name:'永久删除'}));
+ expect(request).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('button',{name:'永久删除'}));
+ await waitFor(()=>expect(request).toHaveBeenCalledWith('/v1/portfolio/items/b/permanent',expect.objectContaining({method:'DELETE'})));
+ expect(changed).toHaveBeenCalledTimes(2);
+});
+it('retains trashed cards after a failed restore and allows retry', async()=>{
+ const post=vi.fn().mockRejectedValueOnce(new Error('restore offline')).mockResolvedValue(undefined);
+ render(<TrashPage api={{get:async()=>[card('a')],post} as unknown as MobileApi} ownerId="owner" onBack={()=>{}} onChanged={()=>{}}/>);
+ await screen.findByText('Player a');
+ fireEvent.click(screen.getByRole('button',{name:'恢复卡片'}));
+ await screen.findByText('restore offline');
+ expect(screen.getByText('Player a')).toBeTruthy();
+ fireEvent.click(screen.getByRole('button',{name:'恢复卡片'}));
+ await screen.findByText('回收站为空');
+});
+it('requires reviewing stale selection instead of deleting invisible refreshed cards',async()=>{
+ const request=vi.fn(),selection=vi.fn();
+ render(<BulkActions api={{request} as unknown as MobileApi} ownerId="owner" items={[card('a')]} selected={new Set(['a','gone'])} onSelectionChange={selection} onChanged={()=>{}} onOpenCost={()=>{}}/>);
+ fireEvent.click(screen.getByRole('button',{name:'删除选中 (2)'}));
+ await screen.findByText(/选择已变化/);
+ expect(request).not.toHaveBeenCalled();
+ expect(selection).toHaveBeenCalledWith(new Set(['a']));
+});

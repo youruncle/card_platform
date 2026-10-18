@@ -20,7 +20,7 @@ const {render,screen,fireEvent,cleanup,act}=require('@testing-library/react');
 const Dashboard=require('../app/page.tsx').default;
 require('./cost-legacy-fixture.cjs');
 const response=data=>({ok:true,status:200,json:async()=>data});
-test('web pagination keeps snapshot, sort resets page, and expiry retries first page',async()=>{
+test('web pagination keeps snapshot, sort resets page, and expiry retries the requested page',async()=>{
   const requests=[];
   let expired=false;
   let summaryCalls=0;
@@ -58,9 +58,10 @@ test('web pagination keeps snapshot, sort resets page, and expiry retries first 
     expired=true;
     await act(async()=>fireEvent.click(screen.getByRole('button',{name:'下一页'})));
     assert.equal(requests.at(-2).get('snapshot_token'),'snapshot-fair_value');
-    assert.equal(requests.at(-1).get('page'),'1');
+    assert.equal(requests.at(-1).get('page'),'2');
     assert.equal(requests.at(-1).get('snapshot'),'true');
     assert.equal(requests.at(-1).get('snapshot_token'),null);
+    assert.ok(screen.getByText('第 2 / 3 页'));
     assert.ok(screen.getByText(/结果更新于/));
     await act(async()=>fireEvent.change(screen.getByLabelText('搜索全部卡片'),{target:{value:'杜兰特 黑白'}}));
     await act(async()=>fireEvent.click(screen.getByRole('button',{name:'搜索',exact:true})));
@@ -88,4 +89,17 @@ test('combined portfolio response avoids a duplicate summary computation', async
   assert.equal(requests[0].searchParams.get('include_summary'),'true');
   assert.deepEqual(stats,summary);
   assert.equal(page.snapshot_token,'combined');
+});
+
+test('legacy combined-summary calls retain full snapshot mode across pages',async()=>{
+ const {getPortfolio}=require('../lib/api.ts');
+ const summary={owner_id:'legacy',item_count:50};const queries=[];
+ global.fetch=async url=>{const query=new URL(url,'http://localhost').searchParams;queries.push(query);return response({items:[],page:1,total:50,summary,snapshot_token:'legacy-token'});};
+ await getPortfolio('legacy',1,{},30,{sort_by:'created_at',order:'desc'});
+ await getPortfolio('legacy',2,{},30,{sort_by:'created_at',order:'desc'},'legacy-token',summary);
+ assert.equal(queries[0].get('include_summary'),'true');
+ assert.equal(queries[0].get('snapshot_mode'),null);
+ assert.equal(queries[1].get('snapshot_mode'),null);
+ assert.equal(queries[1].get('snapshot_token'),'legacy-token');
+ assert.equal(queries[1].has('include_summary'),false);
 });

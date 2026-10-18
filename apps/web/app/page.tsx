@@ -6,7 +6,8 @@ import { confirmationPayload } from "../../../packages/card-core/src/confirmatio
 import { HoldingStatusControl } from "../components/holding-status-control";
 import { NewsRiskAlerts } from "../components/news-risk-alerts";
 
-import { PurchaseCostPanel, PurchaseCostAudit, PurchaseCostEvidenceModal } from "../components/purchase-cost-panel";
+import dynamic from "next/dynamic";
+import { deferredPanel, DeferredPanelLoading } from "../components/deferred-panel";
 import { PurchaseCostValues } from "../components/purchase-cost-values";
 import { usePurchaseCostLookup } from "../lib/use-purchase-cost-lookup";
 import { CollectionSearch } from "../components/collection-search";
@@ -40,9 +41,9 @@ import {
 import { FormEvent, MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { GlobalImageViewer, OpenableImage } from "@/components/image-viewer";
-import { CapturePanel } from "@/components/capture-panel";
+
 import { PortfolioImage } from "@/components/portfolio-image";
-import { FlatbedBatchPanel } from "@/components/flatbed-batch-panel";
+
 import {
   acceptedEvidenceComparableIds,
   selectUsedComparableRows,
@@ -127,6 +128,13 @@ import {
   type ScannerRecognitionJob,
   type ScannerCameraControls,
 } from "@/lib/api";
+
+
+const CapturePanel = deferredPanel(() => dynamic(() => import("../components/capture-panel").then(module => module.CapturePanel), { loading: DeferredPanelLoading }));
+const FlatbedBatchPanel = deferredPanel(() => dynamic(() => import("../components/flatbed-batch-panel").then(module => module.FlatbedBatchPanel), { loading: DeferredPanelLoading }));
+const PurchaseCostPanel = deferredPanel(() => dynamic(() => import("../components/purchase-cost-panel").then(module => module.PurchaseCostPanel), { loading: DeferredPanelLoading }));
+const PurchaseCostAudit = deferredPanel(() => dynamic(() => import("../components/purchase-cost-panel").then(module => module.PurchaseCostAudit), { loading: DeferredPanelLoading }));
+const PurchaseCostEvidenceModal = deferredPanel(() => dynamic(() => import("../components/purchase-cost-panel").then(module => module.PurchaseCostEvidenceModal), { loading: DeferredPanelLoading }));
 
 function closeOnBackdrop(
   event: ReactMouseEvent<HTMLDivElement>,
@@ -312,6 +320,7 @@ export default function Dashboard() {
   const portfolioPageRef = useRef(1);
   const portfolioRequestRef = useRef(0);
   const portfolioMetricsRequestRef = useRef(0);
+  const portfolioMetricsOwnerRef = useRef<string | null>(null);
   const portfolioBusyRef = useRef(false);
   const importedScannerItemsRef = useRef(new Set<string>());
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
@@ -414,6 +423,7 @@ export default function Dashboard() {
 
   const refreshMetrics = useCallback((id: string, summarySource?: Promise<PortfolioSummary>) => {
     const version = ++portfolioMetricsRequestRef.current;
+    portfolioMetricsOwnerRef.current = id;
     setPortfolioAuxErrors({summary: "", corrections: ""});
     void (summarySource ?? getPortfolioSummary(id)).then(value => {
       if (version !== portfolioMetricsRequestRef.current) return;
@@ -449,23 +459,20 @@ export default function Dashboard() {
     }
     if (!paginate) portfolioSnapshotRef.current = null;
     try {
-      // If the page already projects the entire account, compute its summary once.
-      // Filtered lists stay independent of the account-wide summary request.
-      const combineSummary = reloadMetrics && Object.keys(searchFiltersRef.current).length === 0;
+      // Render the requested page before starting expensive account-wide metrics.
+      // Combining summary into this request would project every card on first load.
       const loadPage = async () => {
         try {
           return await getPortfolioPage(id, requestedPage, searchFiltersRef.current, portfolioPageSizeRef.current,
-            portfolioSortRef.current, portfolioSnapshotRef.current, combineSummary);
+            portfolioSortRef.current, portfolioSnapshotRef.current);
         } catch (reason) {
           if (!(reason instanceof ApiError) || reason.code !== "snapshot_expired" || requestId !== portfolioRequestRef.current) throw reason;
           portfolioSnapshotRef.current = null;
-          return getPortfolioPage(id, 1, searchFiltersRef.current, portfolioPageSizeRef.current, portfolioSortRef.current, null, combineSummary);
+          // Rebuild the snapshot at the requested page so an idle list still navigates.
+          return getPortfolioPage(id, requestedPage, searchFiltersRef.current, portfolioPageSizeRef.current, portfolioSortRef.current, null);
         }
       };
       const pageRequest = loadPage();
-      if (reloadMetrics) refreshMetrics(id, combineSummary
-        ? pageRequest.then(result => result.summary ?? getPortfolioSummary(id))
-        : undefined);
       const nextPage = await pageRequest;
       // A page change or session change supersedes any earlier response.
       if (requestId !== portfolioRequestRef.current) return false;
@@ -478,6 +485,7 @@ export default function Dashboard() {
       setPortfolioTotalPages(nextPage.total_pages);
       portfolioPageRef.current = nextPage.page;
       setPortfolioError("");
+      if (reloadMetrics || portfolioMetricsOwnerRef.current !== id) refreshMetrics(id);
       return true;
     } catch (reason) {
       if (requestId === portfolioRequestRef.current) {
@@ -593,6 +601,7 @@ export default function Dashboard() {
       active = false;
       ++portfolioRequestRef.current;
       ++portfolioMetricsRequestRef.current;
+      portfolioMetricsOwnerRef.current = null;
       ++detailRequestRef.current;
       portfolioBusyRef.current = false;
     };
@@ -602,6 +611,7 @@ export default function Dashboard() {
     const expireSession = () => {
       ++portfolioRequestRef.current;
       ++portfolioMetricsRequestRef.current;
+      portfolioMetricsOwnerRef.current = null;
       ++detailRequestRef.current;
       setItemDetail(null);
       setItems([]);
@@ -836,6 +846,7 @@ export default function Dashboard() {
     } finally {
       ++portfolioRequestRef.current;
       ++portfolioMetricsRequestRef.current;
+      portfolioMetricsOwnerRef.current = null;
       ++detailRequestRef.current;
       setItemDetail(null);
       portfolioBusyRef.current = false;
@@ -1904,7 +1915,7 @@ export default function Dashboard() {
             <article className="metric-card hero-metric">
               <p>当前总市值</p>
               <strong>
-                {loading && !summary.owner_id
+                {!summary.owner_id
                   ? "—"
                   : money(summary.total_market_value, summary.base_currency)}
               </strong>
@@ -1915,10 +1926,10 @@ export default function Dashboard() {
                   ) : (
                     <ArrowDownRight size={15} />
                   )}
-                  {returnRate.toFixed(1)}%
+                  {summary.owner_id ? `${returnRate.toFixed(1)}%` : "—"}
                 </span>
                 <small>
-                  {summary.unvalued_item_count > 0
+                  {!summary.owner_id ? "统计加载后显示" : summary.unvalued_item_count > 0
                     ? `${summary.unvalued_item_count} 张按成本暂估`
                     : "相对持仓成本"}
                 </small>
@@ -1927,22 +1938,22 @@ export default function Dashboard() {
             <article className="metric-card">
               <p>持仓成本</p>
               <strong>
-                {money(summary.total_cost, summary.base_currency)}
+                {summary.owner_id ? money(summary.total_cost, summary.base_currency) : "—"}
               </strong>
-              <small>{summary.item_count} 张资产卡</small>
+              <small>{summary.owner_id ? `${summary.item_count} 张资产卡` : "统计加载后显示"}</small>
             </article>
             <article className="metric-card">
               <p>未实现盈亏</p>
               <strong
                 className={unrealized >= 0 ? "positive-text" : "negative-text"}
               >
-                {money(summary.unrealized_profit, summary.base_currency)}
+                {summary.owner_id ? money(summary.unrealized_profit, summary.base_currency) : "—"}
               </strong>
-              <small>{summary.valued_item_count} 张已完成估值</small>
+              <small>{summary.owner_id ? `${summary.valued_item_count} 张已完成估值` : "统计加载后显示"}</small>
             </article>
             <article className="metric-card">
               <p>待补充估值</p>
-              <strong>{summary.unvalued_item_count}</strong>
+              <strong>{summary.owner_id ? summary.unvalued_item_count : "—"}</strong>
               <small>完善估值后组合更准确</small>
             </article>
           </section>

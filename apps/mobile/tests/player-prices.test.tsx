@@ -71,6 +71,23 @@ it("marks capped sampling and distinguishes a provisional basket from a frozen b
   render(<PlayerPricesPage api={{get: async () => data} as unknown as MobileApi} onBack={() => {}} />);
   await screen.findByText("采样已达上限，统计仅覆盖已取得的成交样本。");
   fireEvent.click(screen.getByText("Curry"));
-  expect(screen.getByText("代表卡待补齐，凑齐三种后按月固定。")).toBeTruthy();
+  expect(screen.getByText("代表卡待达标，三种均满足7日窗口条件后按月固定。")).toBeTruthy();
   expect(screen.queryByText(/代表卡固定于/)).toBeNull();
+});
+
+it("shows single-card monthly market without a player index and supports targeted refresh", async () => {
+  const data = board();
+  const card = {...data.players[0].cards[0], current_count: 4, previous_count: 4, change_pct: '20'};
+  data.players = [{...data.players[0], cards: [], change_pct: null, status: 'insufficient',
+    market: {report_date:'2026-10-11', window_days:30, min_sales:3, sale_count:8, card_count:1, trend_count:1,
+      latest_sale_at:null, cards_truncated:false, cards:[card]}}];
+  const post = vi.fn(async () => ({queued:1, message:'该球员已排队'}));
+  render(<PlayerPricesPage api={{get:async () => data, post} as unknown as MobileApi} onBack={() => {}} />);
+  await screen.findByText('Curry');
+  fireEvent.click(screen.getByText('Curry'));
+  expect(screen.getByText('近30日中位价')).toBeTruthy();
+  expect(screen.getByText(/1 种可比卡款/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', {name:'更新 Curry 的成交'}));
+  await screen.findByText('该球员已排队');
+  expect(post).toHaveBeenCalledWith('/v1/player-prices/refresh?player_id=up');
 });

@@ -9,6 +9,7 @@ from card_platform.domain.product_identity import product_matches_title
 
 
 INSERT_ALIASES = {
+    "rookie of the year favorites": ("rookie of the year favorites", "roty favorites"),
     "roses": ("roses", "玫瑰", "玫瑰特卡"),
     "playing cards": ("playing cards", "扑克", "扑克牌"),
     # The circular artwork crosses the printed word, so OCR/vision commonly
@@ -394,7 +395,9 @@ class CardIdentityResolver:
         card_number = stored.get("card_number")
         if misplaced_season_numbering:
             card_number = None
-        if is_placeholder_identity_value(card_number):
+        if (is_placeholder_identity_value(card_number)
+                or normalize_text(card_number) in {"top left", "top right", "bottom left", "bottom right",
+                                                   "top center", "bottom center"}):
             card_number = None
         if card_number:
             normalized_number = str(card_number).strip().lstrip("#")

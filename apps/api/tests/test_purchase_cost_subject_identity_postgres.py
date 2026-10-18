@@ -39,20 +39,17 @@ def test_numbered_card_cost_uses_images_for_missing_seller_fields(client,monkeyp
 
     asyncio.run(bind_front())
 
-    async def observe(self,image_url,candidates,**kwargs):
-        from card_platform.comparable_image_verifier import visual_asset_binding
-        return {candidate.id:VisualDecision(candidate_id=candidate.id,verdict='same',confidence=Decimal('.96'),
-            design_match='same',finish_match='same',reasons=['geometry_same_template:matches=180,inliers=150,ratio=0.833'],
-            evidence_binding=visual_asset_binding(kwargs['identity'],candidate,image,None,b'fixture-listing'))
-                for candidate in candidates}
-
-    monkeypatch.setattr(ComparableImageVerifier,'verify',observe)
+    from card_platform.purchase_cost_images import PurchaseImageObserver
+    from purchase_cost_image_fixtures import paired_observation
+    async def observe(self,identity,line,order_hash):
+        return paired_observation(identity,line,order_hash)
+    monkeypatch.setattr(PurchaseImageObserver,'observe',observe)
     captured = order(title=title)
     captured['lines'][0]['image_urls'] = ['https://images.cardhobby.com/fixture.jpg']
     result = client.post(f'/v1/purchase-cost/items/{item_id}/search-result',json={'orders':[captured],'complete':True})
     assert result.status_code == 200, result.text
     assert result.json()['status'] == 'recorded', result.json()
-    assert result.json()['recorded']['match_method'] == 'inferred'
+    assert result.json()['recorded']['match_method'] == 'multi_image_serial'
     assert Decimal(result.json()['recorded']['total_cost']) == Decimal('11.00')
     detail = client.get(f'/v1/portfolio/items/{item_id}/detail').json()
     assert len(detail['transactions']) == 1

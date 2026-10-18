@@ -54,12 +54,14 @@ function AccountPage({
   return (
     <>
       <h1>我的</h1>
-      <button className="wide" onClick={() => setPrices(true)}>
-        球员卡价涨跌
-      </button>
-      <button className="wide" onClick={() => setKnowledge(true)}>
-        知识查询
-      </button>
+      <div className="account-links">
+        <button className="wide" onClick={() => setPrices(true)}>
+          球员卡价涨跌
+        </button>
+        <button className="wide" onClick={() => setKnowledge(true)}>
+          知识查询
+        </button>
+      </div>
       <section className="panel">
         <h2>{user.display_name}</h2>
         <p>{user.email}</p>
@@ -184,7 +186,7 @@ function Workspace({
       </header>
       <main>
         {capabilities && <div hidden={tab !== "library" || !!detail}>
-          <LibraryPage api={api} onOpen={open} capabilities={capabilities} active={tab === "library" && !detail} />
+          <LibraryPage api={api} ownerId={session.user.id} onOpen={open} capabilities={capabilities} active={tab === "library" && !detail} />
         </div>}
         {capabilityError && (
           <p role="alert" className="error">
@@ -209,6 +211,8 @@ function Workspace({
             key={detail}
             api={api}
             id={detail}
+            ownerId={session.user.id}
+            baseCurrency={session.user.base_currency}
             onBack={() => setDetail(null)}
             capabilities={capabilities}
             onSupplement={async (side) => {

@@ -123,6 +123,10 @@ def test_capture_is_idempotent_private_and_requires_confirmation(client):
         assert db.execute(
             "SELECT count(*) FROM collection_item WHERE owner_id=%s", (user["id"],)
         ).fetchone() == (1,)
+        assert db.execute(
+            "SELECT count(*) FROM automatic_purchase_cost WHERE owner_id=%s AND item_id=%s",
+            (user["id"], saved.json()["id"]),
+        ).fetchone() == (1,)
 
 
 def test_mobile_worker_keeps_result_pending_confirmation(client, monkeypatch):

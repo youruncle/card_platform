@@ -58,11 +58,15 @@ it("sorts the entire server library, reuses page snapshot and restarts snapshot 
     />,
   );
   await screen.findByText("共 60 张卡片");
+  const first = new URL(get.mock.calls[0][0], "https://test.example").searchParams;
+  expect(first.getAll("snapshot_mode")).toEqual(["membership"]);
+  expect(first.has("include_summary")).toBe(false);
   fireEvent.click(screen.getByRole("button", { name: "加载更多" }));
   await waitFor(() =>
     expect(get.mock.calls.at(-1)?.[0]).toContain("snapshot_token=snapshot-one"),
   );
   await screen.findByText("2 / 2");
+  expect(new URL(get.mock.calls.at(-1)![0], "https://test.example").searchParams.getAll("snapshot_mode")).toEqual(["membership"]);
   fireEvent.change(screen.getByLabelText("全库排序"), {
     target: { value: "fair_value" },
   });
@@ -70,6 +74,7 @@ it("sorts the entire server library, reuses page snapshot and restarts snapshot 
     expect(get.mock.calls.at(-1)?.[0]).toContain("sort_by=fair_value"),
   );
   expect(get.mock.calls.at(-1)?.[0]).not.toContain("snapshot_token");
+  expect(get.mock.calls.at(-1)?.[0]).not.toContain("membership");
   await screen.findByText("1 / 2");
   get.mockRejectedValueOnce(new ApiError(409, "expired"));
   fireEvent.click(screen.getByRole("button", { name: "加载更多" }));

@@ -87,7 +87,7 @@ async def check():
             # A newly popular identity cannot replace the fixed monthly basket.
             extra = [dict(rows[0], source_id=str(uuid4()), card_key="popular") for _ in range(30)]
             await repo.store_sales(c, player, extra)
-            again = await repo.compute(c, player, date(2026, 10, 11))
+            again = await repo.compute(c, player, date(2026, 10, 11), coverage={"sample_count":48})
             assert {r["card_key"] for r in again["cards"]} == {"a", "b", "c"}
             new_month = await repo.compute(c, player, date(2026, 11, 1))
             assert "popular" in {r["card_key"] for r in new_month["cards"]}
@@ -97,6 +97,15 @@ async def check():
                 "change_pct"
             ] == "0.0000"
             assert (await repo.board(c, uuid4(), D, "gainers"))["players"] == []
+            board = await repo.board(c, owner, D, "gainers")
+            assert board["players"][0]["market"]["sale_count"] == 48
+            assert board["summary"] == dict(tracked=1, with_sales=1, with_trends=0, with_index=1,
+                                             queued=0, source_errors=0)
+            assert (await repo.board(c, owner, date(2026, 9, 1), "gainers"))["players"][0]["market"]["sale_count"] == 0
+            assert await repo.enqueue(c, owner, player_id=player) == 1
+            assert await repo.enqueue(c, uuid4(), player_id=player) == 0
+            assert await repo.basket(c, player, date(2026, 11, 1)) is None
+
 
             # Failure must keep the previous good snapshot.
             async def failure(*args, **kwargs):
@@ -109,6 +118,7 @@ async def check():
             stale = (await repo.board(c, owner, date(2026, 10, 12), "gainers"))["players"][0]
             assert stale["status"] == "stale" and stale["change_pct"] is None
             assert stale["report_date"] == "2026-10-11"
+            assert stale["coverage"]["scope"] == "local_sample"
             await repo.exclude_sources(c, {rows[0]["source_id"]})
             await repo.store_sales(c, player, [rows[0]])
             assert rows[0]["source_id"] not in {
@@ -128,3 +138,30 @@ async def check():
 def test_schedule_uses_last_completed_day_before_seven():
     assert report_day(datetime(2026, 10, 12, 22, 30, tzinfo=timezone.utc)) == date(2026, 10, 11)
     assert report_day(datetime(2026, 10, 12, 23, 0, tzinfo=timezone.utc)) == date(2026, 10, 12)
+
+
+def test_partial_collection_exposes_confirmed_sales_without_marking_daily_success():
+    async def run():
+        from test_player_market import observation
+        async with await psycopg.AsyncConnection.connect(os.environ['TEST_DATABASE_URL'], row_factory=dict_row) as c:
+            try:
+                player = (await (await c.execute(
+                    "INSERT INTO player(full_name,normalized_name) VALUES('Exact Testperson',%s) RETURNING id",
+                    (str(uuid4()),),
+                )).fetchone())['id']
+                obs = observation(int(uuid4().int % 100000000000), '2024-25 Panini Prizm Exact Testperson #23 base')
+                from card_platform.public_source_catalog import store_observations
+                await store_observations(c, [obs])
+                async def partial(name, targets, report_date):
+                    assert targets and targets[0]['identity']['card_number'] == '23'
+                    return [obs], dict(errors=[{'reason':'source timeout'}], pages=2, scope='bounded_sample')
+                result = await refresh_player(c, dict(id=player, full_name='Exact Testperson'), date(2026,10,10), collector=partial)
+                assert result['status'] == 'source_error'
+                assert len(await PriceRepository().sales(c, player, date(2026,10,10))) == 1
+                state = await (await c.execute('SELECT * FROM player_price_state WHERE player_id=%s', (player,))).fetchone()
+                assert state['last_success_at'] is None and state['last_report_date'] is None
+                assert state['coverage']['identified_count'] == 1
+                assert (await (await c.execute('SELECT count(*) AS n FROM player_price_snapshot WHERE player_id=%s', (player,))).fetchone())['n'] == 0
+            finally:
+                await c.rollback()
+    asyncio.run(run())

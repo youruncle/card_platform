@@ -1,8 +1,9 @@
 from datetime import date, timedelta
+from collections import defaultdict
 
 from psycopg.types.json import Jsonb
 
-from card_platform.player_prices.domain import TZ, calculate_snapshot, day_end, select_basket
+from card_platform.player_prices.domain import TZ, calculate_market, calculate_snapshot, day_end, select_basket
 
 ROSTER_SQL = """SELECT DISTINCT p.id, p.full_name FROM player p
     JOIN card_definition cd ON cd.player_id=p.id
@@ -20,8 +21,10 @@ class PriceRepository:
             )
         ).fetchall()
 
-    async def enqueue(self, c, owner_id=None):
+    async def enqueue(self, c, owner_id=None, player_id=None):
         roster = await self.roster(c, owner_id)
+        if player_id is not None:
+            roster = [p for p in roster if p["id"] == player_id]
         for player in roster:
             await c.execute(
                 """INSERT INTO player_price_state(player_id,requested_at)
@@ -124,7 +127,8 @@ class PriceRepository:
         cards = saved["cards"] if saved else select_basket(rows, report_date)
         selected_on = saved["selected_on"] if saved else report_date
         # Insufficient first discovery must not freeze an empty basket for a month.
-        if saved is None and len(cards) == 3:
+        snapshot = calculate_snapshot(rows, cards, report_date)
+        if saved is None and snapshot["status"] == "ready":
             await c.execute(
                 """INSERT INTO player_price_basket(player_id,month,selected_on,cards)
                 VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
@@ -134,7 +138,7 @@ class PriceRepository:
         snapshot.update(
             basket_selected_on=selected_on.isoformat(),
             basket_month=report_date.replace(day=1).isoformat(),
-            basket_frozen=len(cards) == 3,
+            basket_frozen=saved is not None or snapshot["status"] == "ready",
             basket_rebased=selected_on == report_date,
         )
         if coverage is not None:
@@ -164,6 +168,18 @@ class PriceRepository:
             if ids
             else []
         )
+        market_rows = defaultdict(list)
+        if ids:
+            end = day_end(report_date)
+            result = await c.execute(
+                """SELECT player_id,source_id,card_key,identity,sale_price,occurred_at,source_url,raw_title
+                FROM player_price_sale WHERE player_id=ANY(%s) AND NOT excluded
+                  AND occurred_at >= %s AND occurred_at < %s
+                ORDER BY player_id,occurred_at DESC,source_id""",
+                (ids, end - timedelta(days=90), end),
+            )
+            for sale in await result.fetchall():
+                market_rows[sale["player_id"]].append(sale)
         players = []
         for row in data:
             snapshot = row["result"] or {"status": "pending", "change_pct": None, "cards": []}
@@ -183,7 +199,8 @@ class PriceRepository:
                     "player_id": str(row["id"]),
                     "player_name": row["full_name"],
                     "computed_at": row["computed_at"],
-                    "coverage": snapshot.get("coverage", row["coverage"] or {}),
+                    "market": calculate_market(market_rows[row["id"]], report_date),
+                    "coverage": row["coverage"] or snapshot.get("coverage", {}),
                     "refresh": dict(
                         queued=queued,
                         error=row["error"],
@@ -208,4 +225,12 @@ class PriceRepository:
             min_sales=3,
             currency="CNY",
             players=players,
+            summary=dict(
+                tracked=len(players),
+                with_sales=sum(p["market"]["sale_count"] > 0 for p in players),
+                with_trends=sum(p["market"]["trend_count"] > 0 for p in players),
+                with_index=sum(p["change_pct"] is not None for p in players),
+                queued=sum(p["refresh"]["queued"] for p in players),
+                source_errors=sum(bool(p["refresh"]["error"]) for p in players),
+            ),
         )

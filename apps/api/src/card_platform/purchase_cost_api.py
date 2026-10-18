@@ -150,3 +150,22 @@ async def action(
     conn: AsyncConnection = Depends(get_connection),
 ):
     return await domain(service.job(conn, user.id, job_id, action))
+
+
+@router.get("/items/{item_id}/automatic")
+async def automatic_status(
+    item_id: UUID,
+    user: AuthenticatedUser = Depends(current_user),
+    conn: AsyncConnection = Depends(get_connection),
+):
+    # Check card ownership even when no automatic task exists.
+    await domain(service.card(conn, user.id, item_id))
+    result = await conn.execute(
+        """SELECT status, attempts, result, created_at, updated_at
+        FROM automatic_purchase_cost WHERE item_id=%s AND owner_id=%s""",
+        (item_id, user.id),
+    )
+    from card_platform.config import get_settings
+    row = await result.fetchone()
+    return {**(row or dict(status='not_scheduled',attempts=0,result=None)),
+            'worker_enabled':get_settings().purchase_cost_worker_enabled}

@@ -1,4 +1,5 @@
 import { Capacitor, CapacitorHttp, type HttpOptions } from "@capacitor/core";
+export type TimedRequestInit = RequestInit & { requestTimeoutMs?: number };
 function base64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -9,7 +10,7 @@ function base64(blob: Blob): Promise<string> {
 }
 export async function nativeRequestOptions(
   url: string,
-  options: RequestInit,
+  options: TimedRequestInit,
 ): Promise<HttpOptions> {
   const headers = Object.fromEntries(new Headers(options.headers).entries());
   let data: unknown = options.body,
@@ -39,13 +40,14 @@ export async function nativeRequestOptions(
     data,
     dataType,
     disableRedirects: true,
-    connectTimeout: dataType ? 180000 : 30000,
-    readTimeout: dataType ? 180000 : 30000,
+    connectTimeout: options.requestTimeoutMs ?? (dataType ? 180000 : 30000),
+    readTimeout: options.requestTimeoutMs ?? (dataType ? 180000 : 30000),
     responseType: headers.accept === "image/*" ? "arraybuffer" : "json",
   };
 }
 export const platformFetch: typeof fetch = async (input, options = {}) => {
-  if (!Capacitor.isNativePlatform()) return fetch(input, options);
+  const { requestTimeoutMs: _timeout, ...browserOptions } = options as TimedRequestInit;
+  if (!Capacitor.isNativePlatform()) return fetch(input, browserOptions);
   const url =
     typeof input === "string"
       ? input

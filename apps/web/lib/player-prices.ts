@@ -1,6 +1,6 @@
 import type { PriceBoard, PriceCard } from "../../../packages/card-core/src/player-prices";
 export type { PriceSource, PriceCard, PricePlayer, PriceBoard } from "../../../packages/card-core/src/player-prices";
-export { sortPlayers, priceIdentity } from "../../../packages/card-core/src/player-prices";
+export { sortPlayers, priceIdentity, priceSummary, marketDescription, rejectionDescription } from "../../../packages/card-core/src/player-prices";
 export function demoBoard(reportDate:string):PriceBoard {
   const start=new Date(`${reportDate}T00:00:00+08:00`);
   const cards=(change:number|null):PriceCard[]=>["Prizm","Donruss Optic","Hoops"].map((product,i)=>({
@@ -30,8 +30,8 @@ async function request(path:string,method="GET") {
 export async function getPlayerPrices(date?:string):Promise<PriceBoard> {
   return request(`/v1/player-prices${date?`?date=${encodeURIComponent(date)}`:""}`);
 }
-export async function refreshPlayerPrices():Promise<{queued:number;message:string}> {
-  return request("/v1/player-prices/refresh","POST");
+export async function refreshPlayerPrices(playerId?:string):Promise<{queued:number;message:string}> {
+  return request(`/v1/player-prices/refresh${playerId?`?player_id=${encodeURIComponent(playerId)}`:""}`,"POST");
 }
 export function lastCompletedDate() {
   // Calendar subtraction in Shanghai, independent from browser time zone.

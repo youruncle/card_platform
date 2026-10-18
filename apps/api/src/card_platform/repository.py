@@ -162,6 +162,14 @@ class PortfolioRepository:
                         purchase.notes,
                     ),
                 )
+            if payload.purchase is None:
+                # Same transaction as the new card: both clients and scanner/import
+                # paths enqueue durably, without waiting for any external service.
+                await connection.execute(
+                    """INSERT INTO automatic_purchase_cost (item_id, owner_id)
+                    VALUES (%s, %s) ON CONFLICT (item_id) DO NOTHING""",
+                    (item_id, payload.owner_id),
+                )
             await connection.execute(
                 """
                 INSERT INTO valuation_job (collection_item_id, status)

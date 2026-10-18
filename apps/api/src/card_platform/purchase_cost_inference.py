@@ -27,7 +27,7 @@ def inference_key(card, line, order_hash):
     line = {key: line.get(key) for key in ("item_url", "title", "image_urls", "item_id")}
     return hashlib.sha256(
         json.dumps(
-            {"card": card, "line": line, "order_hash": order_hash},
+            {"contract": "purchase-cost-inference-v2", "card": card, "line": line, "order_hash": order_hash},
             sort_keys=True,
             default=str,
             ensure_ascii=False,
@@ -98,6 +98,9 @@ def _current_title_correction(card, decision):
 def apply_inference(card, match, decision):
     if not decision:
         return match
+    if decision.get("source") == "purchase_multi_image":
+        from card_platform.purchase_cost_images import apply_multi_observation
+        return apply_multi_observation(card, match, decision)
     verdict = decision.get("verdict")
     confidence = Decimal(str(decision.get("confidence", 0)))
     result = {**match, "visual_inference": decision}

@@ -1,13 +1,14 @@
 import asyncio
 import logging
+from collections import Counter
 
 import httpx
 from psycopg.types.json import Jsonb
 from datetime import datetime, timedelta
 
 from card_platform.domain.player_aliases import query_player_aliases, matching_player_aliases
-from card_platform.player_prices.discovery import card_key, collect_player, identify_sale
-from card_platform.player_prices.domain import TZ, day_end
+from card_platform.player_prices.discovery import card_key, collect_player, identify_sale, rejection_reason
+from card_platform.player_prices.domain import TZ, day_end, select_basket
 from card_platform.player_prices.repository import PriceRepository
 from card_platform.public_source_catalog import store_observations, validated_sale
 
@@ -59,29 +60,44 @@ def conflicting_sources(observations):
     return {source for source, values in facts.items() if len(values) > 1}
 
 
-def group_observations(observations, name, identities):
-    rows, rejected = [], 0
+def analyze_observations(observations, name, identities):
+    by_source, reasons = {}, Counter()
+    invalid = set()
     for observation in observations:
         try:
             sale, _ = validated_sale(observation)
-            identity = identify_sale(sale, name, identities)
         except (ValueError, KeyError, TypeError):
-            identity = None
-        if identity is None:
-            rejected += 1
+            # Invalid observations have no trusted commodity ID; count unique payloads.
+            import json
+            invalid.add(json.dumps(observation, sort_keys=True, default=str))
             continue
-        rows.append(
-            dict(
-                source_id="item:" + sale.item_id,
-                card_key=card_key(identity),
-                identity=identity,
-                sale_price=sale.sale_price,
-                occurred_at=sale.occurred_at,
-                source_url=sale.source_url,
-                raw_title=sale.title,
-            )
-        )
-    return rows, rejected
+        by_source.setdefault("item:" + sale.item_id, []).append(sale)
+    if invalid:
+        reasons["invalid_observation"] = len(invalid)
+    rows = []
+    for source, sales in by_source.items():
+        if len({(sale.title, sale.sale_price, sale.occurred_at) for sale in sales}) > 1:
+            reasons["conflicting_source"] += 1
+            continue
+        sale = sales[0]
+        identity = identify_sale(sale, name, identities)
+        if identity is None:
+            reasons[rejection_reason(sale)] += 1
+            continue
+        rows.append(dict(source_id=source, card_key=card_key(identity), identity=identity,
+                         sale_price=sale.sale_price, occurred_at=sale.occurred_at,
+                         source_url=sale.source_url, raw_title=sale.title))
+    return rows, dict(sample_count=len(by_source) + len(invalid), identified_count=len(rows),
+                      rejected_count=sum(reasons.values()), rejection_reasons=dict(reasons))
+
+
+def group_observations(observations, name, identities):
+    rows, coverage = analyze_observations(observations, name, identities)
+    return rows, coverage["rejected_count"]
+
+
+def discovery_targets(rows, report_date):
+    return select_basket(rows, report_date)
 
 
 async def refresh_player(c, player, report_date, *, collector=collect_player, fetch=True):
@@ -105,19 +121,6 @@ async def refresh_player(c, player, report_date, *, collector=collect_player, fe
         coverage = {"source": "cardhobby", "scope": "local_sample", "errors": [], "pages": 0}
         try:
             observations = await existing_samples(c, name, report_date)
-            fetched = []
-            if fetch:
-                fetched, coverage = await collector(
-                    name, saved["cards"] if saved else [], report_date
-                )
-                # Partial failures cannot produce a falsely successful daily observation.
-                if coverage["errors"]:
-                    await repo.exclude_sources(c, conflicting_sources(observations + fetched))
-                    await store_observations(c, fetched)
-                    raise ValueError("卡淘部分查询失败，保留上次统计；稍后重试")
-                await repo.exclude_sources(c, conflicting_sources(observations + fetched))
-                await store_observations(c, fetched)
-            observations += fetched
             known = await (
                 await c.execute(
                     """SELECT normalized_identity FROM market_identity_cache
@@ -128,16 +131,28 @@ async def refresh_player(c, player, report_date, *, collector=collect_player, fe
             identities = [r["normalized_identity"] for r in known]
             if saved:
                 identities += [b["identity"] for b in saved["cards"]]
-            rows, rejected = await asyncio.to_thread(
-                group_observations, observations, name, identities
+            fetched = []
+            if fetch:
+                prior_rows, _ = await asyncio.to_thread(analyze_observations, observations, name, identities)
+                targets = saved["cards"] if saved else discovery_targets(
+                    [*await repo.sales(c, player_id, report_date), *prior_rows], report_date
+                )
+                fetched, coverage = await collector(name, targets, report_date)
+                await repo.exclude_sources(c, conflicting_sources(observations + fetched))
+                await store_observations(c, fetched)
+            observations += fetched
+            rows, diagnostics = await asyncio.to_thread(
+                analyze_observations, observations, name, identities
             )
             coverage.update(
-                sample_count=len(observations),
-                identified_count=len(rows),
-                rejected_count=rejected,
+                **diagnostics,
                 local_limit_reached=len(observations) >= 20000,
             )
             await repo.store_sales(c, player_id, rows)
+            # Valid exact-card evidence remains useful even if another query failed.
+            # Do not publish a new daily index or mark the incomplete run successful.
+            if coverage["errors"]:
+                raise ValueError("卡淘部分查询失败，保留上次统计；稍后重试")
             snapshot = await repo.compute(c, player_id, report_date, coverage=coverage)
             await c.execute(
                 """UPDATE player_price_state SET last_success_at=clock_timestamp(),

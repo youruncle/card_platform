@@ -10,6 +10,7 @@ from psycopg.types.json import Jsonb
 
 from card_platform.purchase_cost import allocate_shipping, evidence_hash, order_errors, score_match, prepare_purchase_recall
 from card_platform.purchase_cost_search import build_purchase_cost_search_plan
+from card_platform.purchase_cost_images import multi_review_eligible
 from card_platform.purchase_cost_bundle import bundle_match, same_bundle_layout
 from card_platform.purchase_cost_visual import load_purchase_visual_reviews, purchase_visual_evidence
 from card_platform.purchase_cost_inference import (
@@ -19,7 +20,8 @@ from card_platform.comparable_image_verifier import (
     ComparableImageVerifier, VisualCandidate, visual_asset_binding, normalize_model_visual_decision,
 )
 from card_platform.config import get_settings
-from card_platform.knowledge import KnowledgeResolver
+from card_platform.purchase_cost_knowledge import load_purchase_cost_knowledge
+from card_platform.purchase_cost_diagnostics import summarize_candidates
 from card_platform.repository import ConflictError, NotFoundError, PortfolioRepository
 from card_platform.schemas import TransactionCreate, TransactionType
 
@@ -203,11 +205,7 @@ class PurchaseCostService:
             raise ConflictError(
                 "可用订单超过本次处理上限，已停止自动录入；未将截断结果判断为唯一同款"
             )
-        snapshot = await conn.execute(
-            "SELECT kv.snapshot FROM knowledge_workspace kw LEFT JOIN knowledge_version kv ON kv.id=kw.published_version_id WHERE kw.name='Card Platform'"
-        )
-        knowledge_row = await snapshot.fetchone()
-        knowledge = KnowledgeResolver(knowledge_row["snapshot"] if knowledge_row else None)
+        knowledge = await load_purchase_cost_knowledge(conn, card)
         recalled = prepare_purchase_recall(card, knowledge)
         visual_reviews = await load_purchase_visual_reviews(conn, owner_id, item_id, card)
         inference_rows = await conn.execute('SELECT fingerprint,decision FROM cardhobby_cost_visual_inference WHERE owner_id=%s AND collection_item_id=%s AND created_at > now()-interval \'7 days\'', (owner_id,item_id))
@@ -232,7 +230,8 @@ class PurchaseCostService:
                     continue
                 visual = purchase_visual_evidence(card, line, visual_reviews)
                 match = score_match(card, line, knowledge, visual_evidence=visual)
-                match = apply_inference(card, match, decision)
+                match = apply_inference(card, {**match, "item_id": line["item_id"], "evidence_hash": unit["evidence_hash"]}, decision)
+                match = {k: v for k, v in match.items() if k not in {"item_id", "evidence_hash"}}
             if not match["recalled"]:
                 continue
             reasons = match["conflicts"] + unit["errors"]
@@ -245,7 +244,11 @@ class PurchaseCostService:
             if reasons:
                 rejected.append(dict(item_id=unit["item_id"], reasons=reasons,
                                      title=unit['title'], match_reasons=match['reasons'],
-                                     identity_conflicts=match['conflicts']))
+                                     identity_conflicts=match['conflicts'],
+                                     identity_missing=match['missing'], automatic_identity=match['automatic'],
+                                     order_errors=unit['errors'],
+                                     allocation_blocked=bool((unit['assigned_item'] and not (refresh and str(unit['assigned_item']) == str(item_id)))
+                                         or (not unit['bundle_index'] and unit['assigned_child']))))
                 continue
             candidates.append(
                 dict(
@@ -276,6 +279,31 @@ class PurchaseCostService:
                     **json_value(match),
                 )
             )
+        # Missing shipping/physical bundle counts can legitimately produce no
+        # allocation units. Keep the raw purchase identity visible as rejected
+        # evidence; never invent a zero fee or a confirmable unit for it.
+        blocked_orders = await (await conn.execute(
+            "SELECT id,capture,errors FROM cardhobby_purchase_order WHERE owner_id=%s AND errors<>'[]'::jsonb"
+            + (" AND external_order_id=ANY(%s)" if order_scope is not None else "")
+            + " ORDER BY external_order_id LIMIT 10001",
+            (owner_id, sorted(order_scope)) if order_scope is not None else (owner_id,),
+        )).fetchall()
+        observed = {(str(u['order_id']), u['item_id']) for u in units}
+        line_count = sum(len(o['capture']['lines']) for o in blocked_orders)
+        if len(blocked_orders) > 10000 or line_count > 10000:
+            raise ConflictError('待核验订单超过处理上限，未将截断证据判断为唯一同款')
+        for order in blocked_orders:
+            for line in order['capture']['lines']:
+                if (str(order['id']), line['item_id']) in observed or not recalled(line):
+                    continue
+                match = score_match(card, line, knowledge)
+                if not match['recalled']:
+                    continue
+                rejected.append(dict(item_id=line['item_id'], title=line['title'],
+                    reasons=match['conflicts'] + order['errors'], match_reasons=match['reasons'],
+                    identity_conflicts=match['conflicts'], identity_missing=match['missing'],
+                    automatic_identity=match['automatic'], order_errors=order['errors'],
+                    allocation_blocked=False))
         candidates.sort(
             key=lambda candidate: (
                 -Decimal(candidate["confidence"]),
@@ -295,9 +323,7 @@ class PurchaseCostService:
         return dict(
             candidates=candidates,
             rejected=rejected,
-            reason="未找到可用购买记录，已保留空成本"
-            if not candidates
-            else "已找到购买记录，系统将继续核对同款身份",
+            **summarize_candidates(candidates, rejected),
         )
 
     async def confirm(self, conn, owner_id, item_id, unit_id, digest, automatic=False, order_scope=None, refresh=False):
@@ -431,19 +457,26 @@ class PurchaseCostService:
         if await entries.fetchone() and not refresh:
             return dict(item_id=str(item_id), label=label, keywords=[], status="skipped",
                         reason="此卡已有购入成本或交易，已保留原记录")
-        snapshot = await conn.execute(
-            "SELECT kv.snapshot FROM knowledge_workspace kw LEFT JOIN knowledge_version kv ON kv.id=kw.published_version_id WHERE kw.name='Card Platform'"
-        )
-        row = await snapshot.fetchone()
-        knowledge = KnowledgeResolver(row["snapshot"] if row else None)
+        knowledge = await load_purchase_cost_knowledge(conn, card)
         return dict(item_id=str(item_id), **build_purchase_cost_search_plan(card, knowledge))
 
     async def resolve_search(self, conn, owner_id, item_id, orders, complete, refresh=False):
+        trace = dict(contract='purchase-cost-stages-v1',
+                     trigger=dict(item_id=str(item_id),refresh=refresh),
+                     recall=dict(complete=bool(complete),orders=len(orders)))
+        result = await self._resolve_search(conn,owner_id,item_id,orders,complete,refresh=refresh,trace=trace)
+        trace['allocation'] = dict(status=result['status'],choices=len(result.get('candidates',[])),
+                                  unit_id=(result.get('recorded') or {}).get('unit_id'))
+        trace['commit'] = dict(written=result['status']=='recorded',status=result['status'])
+        return {**result,'trace':trace}
+
+    async def _resolve_search(self, conn, owner_id, item_id, orders, complete, refresh=False, *, trace):
         from card_platform.purchase_cost_shipping import apply_collect_shipping_policy
         async with conn.transaction():
             await owner_lock(conn, owner_id)
             orders = await apply_collect_shipping_policy(conn, owner_id, orders)
             plan = await self.search_plan(conn, owner_id, item_id, refresh=refresh)
+            trace["recall"].update(keywords=plan["keywords"],plan_status=plan["status"])
             if plan["status"] == "skipped":
                 return dict(status="skipped", reason=plan["reason"], candidates=[], rejected=[])
             if orders:
@@ -452,8 +485,10 @@ class PurchaseCostService:
             if complete and orders:
                 await self.prepare_bundle_inference(conn,owner_id,item_id,orders)
                 visual_summary = await self.prepare_visual_inference(conn,owner_id,item_id,orders,refresh) or {}
+            trace['verification'] = visual_summary
             fresh_ids = {order.external_order_id for order in orders}
             preview = await self.candidates(conn, owner_id, item_id, refresh=refresh, order_scope=fresh_ids)
+            trace['identity'] = dict(candidates=len(preview['candidates']),rejected=preview['rejected'])
             # A stale cached result must never substitute for a failed/empty live search.
             preview["candidates"] = [c for c in preview["candidates"] if c["order_id"] in fresh_ids]
             fresh_items = {line.item_id for order in orders for line in order.lines}
@@ -569,9 +604,7 @@ class PurchaseCostService:
         from card_platform.purchase_bundle_verifier import PurchaseBundleVerifier
         from card_platform.domain.card_identity import normalize_text
         card = await self.card(conn, owner_id, item_id)
-        snapshot = await conn.execute("SELECT kv.snapshot FROM knowledge_workspace kw LEFT JOIN knowledge_version kv ON kv.id=kw.published_version_id WHERE kw.name='Card Platform'")
-        row = await snapshot.fetchone()
-        knowledge = KnowledgeResolver(row['snapshot'] if row else None)
+        knowledge = await load_purchase_cost_knowledge(conn, card)
         aliases = purchase_player_aliases(card['player_name'], knowledge, discovery=True)
         relevant = [(order, line.model_dump(mode='json')) for order in orders if not order_errors(order)
                     for line in order.lines if line.quantity == 1 and BUNDLE.search(line.title)
@@ -616,9 +649,7 @@ class PurchaseCostService:
             for order in orders if order.external_order_id in pending_orders and order_errors(order))
         candidates = [row for row in preview['candidates'] if row['order_id'] in fresh_ids
                       and inference_eligible(card,row) and row['image_urls']]
-        snapshot = await conn.execute("SELECT kv.snapshot FROM knowledge_workspace kw LEFT JOIN knowledge_version kv ON kv.id=kw.published_version_id WHERE kw.name='Card Platform'")
-        snapshot = await snapshot.fetchone()
-        knowledge = KnowledgeResolver(snapshot['snapshot'] if snapshot else None)
+        knowledge = await load_purchase_cost_knowledge(conn, card)
         units = await conn.execute('''SELECT u.id,u.item_id,o.external_order_id
             FROM cardhobby_purchase_unit u JOIN cardhobby_purchase_order o ON o.id=u.order_id
             WHERE u.owner_id=%s AND o.owner_id=%s AND o.external_order_id=ANY(%s)
@@ -634,8 +665,12 @@ class PurchaseCostService:
                 line = captured.model_dump(mode='json')
                 unit = available.get((order.external_order_id, line['item_id']))
                 match = score_match(card, line, knowledge)
-                if (unit and line['quantity'] == 1 and len(line['image_urls']) == 1
-                        and title_correction_eligible(card, match)):
+                if any(row['unit_id'] == str(unit) and row['automatic']
+                       and (row.get('visual_inference') or {}).get('source') != 'purchase_multi_image'
+                       for row in preview['candidates']):
+                    continue
+                if (unit and line['quantity'] == 1 and line['image_urls']
+                        and (multi_review_eligible(card, match) or title_correction_eligible(card, match))):
                     candidates.append(dict(unit_id=str(unit), evidence_hash=evidence_hash(order),
                                            order_id=order.external_order_id, **line, **match))
                 elif unit and title_correction_eligible(card, match):
@@ -670,6 +705,20 @@ class PurchaseCostService:
                 await self.incomplete_field(conn,owner_id,item_id,
                     {row['order_id'] for row in candidates} | {row['order_id'] for row in unresolved})
             return dict(attempted=0, issues=issues)
+        if pending_orders - fresh_ids:
+            unresolved.append(dict(code='previous_candidate_scope_not_covered'))
+        # Preserve the independently confirmed legacy title-correction path;
+        # it is limited to single-photo unnumbered cards and cannot bypass
+        # missing serials or true parallel claims.
+        if all(title_correction_eligible(card,row) for row in candidates):
+            if any(len(row['image_urls']) != 1 for row in candidates):
+                unresolved.append(dict(code='legacy_title_correction_requires_multi_photo_review'))
+                await self.incomplete_field(conn,owner_id,item_id,{r['order_id'] for r in candidates})
+                return dict(attempted=0,issues=unresolved)
+            return await self.observe_legacy_title_field(conn,owner_id,item_id,card,candidates,unresolved,fresh_ids)
+        return await self.observe_purchase_field(conn,owner_id,item_id,card,candidates,unresolved)
+
+    async def observe_legacy_title_field(self, conn, owner_id, item_id, card, candidates, unresolved, fresh_ids):
         try:
             verifier = ComparableImageVerifier(get_settings())
             async with asyncio.timeout(150):
@@ -734,6 +783,45 @@ class PurchaseCostService:
             await conn.execute('INSERT INTO cardhobby_cost_visual_inference(owner_id,collection_item_id,fingerprint,decision) VALUES(%s,%s,%s,%s) ON CONFLICT(owner_id,collection_item_id,fingerprint) DO UPDATE SET decision=EXCLUDED.decision,created_at=now()',
                                (owner_id,item_id,inference_key(card,row,row['evidence_hash']),Jsonb(evidence)))
         return dict(attempted=len(candidates), issues=issues)
+
+    async def observe_purchase_field(self, conn, owner_id, item_id, card, candidates, unresolved):
+        from card_platform.purchase_cost_images import PurchaseImageObserver
+        observer = PurchaseImageObserver(get_settings())
+        issues = list(unresolved)
+        decisions = []
+        for row in candidates:
+            try:
+                async with asyncio.timeout(90):
+                    evidence = await observer.observe(card,row,row['evidence_hash'])
+                match = apply_inference(card,row,evidence)
+                verified_rejection = (evidence.get('verdict') == 'different'
+                    and bool(set(match['conflicts']) - set(row['conflicts']))
+                    and match.get('visual_inference') == evidence)
+                if not match['automatic'] and not verified_rejection:
+                    issues.append(dict(order_id=row['order_id'],item_id=row['item_id'],
+                                       code='multi_photo_identity_unconfirmed',reasons=evidence['reasons']))
+                decisions.append((row,evidence))
+            except Exception as error:
+                issues.append(dict(order_id=row['order_id'],item_id=row['item_id'],
+                                   code='multi_photo_observation_failed',type=type(error).__name__))
+        # Store uncertain observations too: they are diagnostics, never negative
+        # cache authority. Fingerprints include target identity and order capture;
+        # the observation additionally binds every participating image hash.
+        for row,evidence in decisions:
+            if issues and evidence['verdict']=='same':
+                evidence={**evidence,'verdict':'uncertain','reasons':[*evidence['reasons'],'candidate_field_incomplete']}
+            await conn.execute('''INSERT INTO cardhobby_cost_visual_inference
+                (owner_id,collection_item_id,fingerprint,decision) VALUES(%s,%s,%s,%s)
+                ON CONFLICT(owner_id,collection_item_id,fingerprint) DO UPDATE SET
+                decision=EXCLUDED.decision,created_at=now()''',
+                (owner_id,item_id,inference_key(card,row,row['evidence_hash']),Jsonb(evidence)))
+        if issues:
+            await self.incomplete_field(conn,owner_id,item_id,{r['order_id'] for r in candidates})
+        else:
+            await conn.execute('DELETE FROM cardhobby_cost_visual_inference WHERE owner_id=%s AND collection_item_id=%s AND fingerprint=%s',
+                               (owner_id,item_id,FIELD_GATE_KEY))
+        return dict(attempted=len(candidates),issues=issues,
+                    observations=[dict(item_id=row['item_id'],verdict=e['verdict'],reasons=e['reasons']) for row,e in decisions])
 
     async def finish_search_step(self, conn, owner_id, job_id, item_id, orders, complete):
         async with conn.transaction():
@@ -904,12 +992,16 @@ class PurchaseCostService:
 
 
 async def run_cost_worker(database):
+    from card_platform.auto_purchase_cost import process_automatic_cost
+
     service = PurchaseCostService()
     while True:
         try:
             async with database.connection() as conn:
+                automatic_worked = await process_automatic_cost(conn, service)
+            async with database.connection() as conn:
                 worked = await service.step(conn)
-            await asyncio.sleep(0.05 if worked else 1)
+            await asyncio.sleep(0.05 if worked or automatic_worked else 1)
         except asyncio.CancelledError:
             raise
         except Exception:

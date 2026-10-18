@@ -551,7 +551,7 @@ export function getPortfolioPage(
   ownerId: string, page: number, filters: SearchFilters, pageSize: number,
   sort: PortfolioSort, snapshotToken?: string | null, includeSummary = false,
 ): Promise<PortfolioPage> {
-  return request(`/v1/portfolio/items/page?owner_id=${ownerId}&page=${page}&page_size=${pageSize}${searchQuery(filters)}${portfolioSortQuery(sort, snapshotToken)}${includeSummary ? '&include_summary=true' : ''}`);
+  return request(`/v1/portfolio/items/page?owner_id=${ownerId}&page=${page}&page_size=${pageSize}${searchQuery(filters)}${portfolioSortQuery(sort, snapshotToken, includeSummary ? 'full' : undefined)}${includeSummary ? '&include_summary=true' : ''}`);
 }
 
 export function getPortfolio(
@@ -566,7 +566,7 @@ export function getPortfolio(
   if (sort) {
     const reuseSummary = snapshotToken && snapshotSummary;
     return request<PortfolioPage>(
-      `/v1/portfolio/items/page?owner_id=${ownerId}&page=${page}&page_size=${pageSize}${searchQuery(filters)}${portfolioSortQuery(sort, snapshotToken)}${reuseSummary ? "" : "&include_summary=true"}`,
+      `/v1/portfolio/items/page?owner_id=${ownerId}&page=${page}&page_size=${pageSize}${searchQuery(filters)}${portfolioSortQuery(sort, snapshotToken, "full")}${reuseSummary ? "" : "&include_summary=true"}`,
     ).then(async result => [
       result.summary ?? (reuseSummary || await request<PortfolioSummary>(`/v1/portfolio/summary?owner_id=${ownerId}`)),
       result,

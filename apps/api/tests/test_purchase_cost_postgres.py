@@ -637,10 +637,13 @@ def test_soft_mismatch_visual_inference_and_duplicate_snapshot(client,monkeypatc
         async with await AsyncConnection.connect(os.environ['TEST_DATABASE_URL']) as c:
             await c.execute("UPDATE collection_item SET image_front_url='/uploads/fixture.jpg' WHERE id=%s",(item_id,))
     asyncio.run(images())
-    async def verify(target,candidates,**kwargs):
-        return {row.id:VisualDecision(candidate_id=row.id,verdict='same',confidence='.92',reasons=['same core printing']) for row in candidates}
+    from purchase_cost_image_fixtures import paired_observation
+    from card_platform.purchase_cost_images import PurchaseImageObserver
+    (get_settings().resolved_upload_dir/'fixture.jpg').write_bytes(b'fixture-model-boundary')
+    async def verify(card,line,order_hash):
+        return paired_observation(card,line,order_hash)
     mock=AsyncMock(side_effect=verify)
-    monkeypatch.setattr(module,'ComparableImageVerifier',lambda _:SimpleNamespace(verify=mock))
+    monkeypatch.setattr(PurchaseImageObserver,'observe',mock)
     player=client.get(f'/v1/portfolio/items/{item_id}/detail').json()['item']['player_name']
     orders=[]
     for index in range(count):
@@ -654,7 +657,7 @@ def test_soft_mismatch_visual_inference_and_duplicate_snapshot(client,monkeypatc
     if not complete:
         assert mock.call_count==0
     else:
-        assert mock.call_count==1
+        assert mock.call_count==count
         candidate=result.get('recorded') or result['candidates'][0]
         assert candidate['match_method']=='inferred'
         assert candidate['visual_inference']['candidate_image_url']
@@ -741,3 +744,41 @@ def test_full_archive_prefilter_preserves_duplicate_candidates_and_linked_unknow
     assert client.post('/v1/purchase-cost/sync', json={'orders': captures[:1]}).status_code == 200
     preview(client, card_id)
     assert '900002' in scored  # exact source remains recallable without a name alias
+
+
+def test_resync_repairs_five_line_snapshot_with_one_remaining_unit_and_preserves_assignment(client):
+    owner=register(client)
+    card=item(client,owner)
+    capture=order(shipping='1.00')
+    capture['lines'] += [{**capture['lines'][0], 'item_id':str(910000+i),
+                           'item_url':f'https://cardhobby.com.cn/market/item/{910000+i}'} for i in range(4)]
+    capture['displayed_total']='51.00'
+    assert client.post('/v1/purchase-cost/sync',json={'orders':[capture]}).status_code==200
+    selected=next(c for c in preview(client,card)['candidates'] if c['item_id']=='900002')
+    assert confirm(client,card,selected).status_code==200
+    async def remove_unassigned():
+        async with await AsyncConnection.connect(os.environ['TEST_DATABASE_URL']) as conn:
+            await conn.execute('DELETE FROM cardhobby_purchase_unit WHERE owner_id=%s AND item_id<>%s',(owner,'900002'))
+    asyncio.run(remove_unassigned())
+    for _ in range(2):
+        result=client.post('/v1/purchase-cost/sync',json={'orders':[capture]})
+        assert result.status_code==200 and result.json()['orders'][0]['status']=='unchanged'
+    async def inspect():
+        async with await AsyncConnection.connect(os.environ['TEST_DATABASE_URL']) as conn:
+            count=await(await conn.execute('SELECT count(*) FROM cardhobby_purchase_unit WHERE owner_id=%s AND active',(owner,))).fetchone()
+            assignments=await(await conn.execute('SELECT count(*) FROM cardhobby_cost_assignment WHERE owner_id=%s AND unit_id=%s',(owner,selected['unit_id']))).fetchone()
+            return count[0],assignments[0]
+    assert asyncio.run(inspect())==(5,1)
+    assert len(client.get(f'/v1/portfolio/items/{card}/detail').json()['transactions'])==1
+
+
+def test_fresh_completed_order_replaces_cached_pending_status_without_cost_write(client):
+    owner=register(client)
+    card=item(client,owner)
+    pending=order();pending['status']='待支付'
+    assert client.post('/v1/purchase-cost/sync',json={'orders':[pending]}).status_code==200
+    assert not any(c['automatic'] for c in preview(client,card)['candidates'])
+    fresh=order();fresh['fetched_at']='2025-09-03T00:00:00Z'
+    assert client.post('/v1/purchase-cost/sync',json={'orders':[fresh]}).status_code==200
+    assert len([c for c in preview(client,card)['candidates'] if c['automatic']])==1
+    assert not client.get(f'/v1/portfolio/items/{card}/detail').json()['transactions']

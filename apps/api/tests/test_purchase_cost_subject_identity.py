@@ -122,7 +122,7 @@ def test_verified_catalog_release_can_replace_a_biography_year(verified):
 def test_roster_discovery_covers_each_subject_within_three_queries():
     plan = build_purchase_cost_search_plan(dict(player_name='Curry / James / Durant',
         product_name='Topps Now',image_front_url='/uploads/front.jpg'))
-    assert plan['keywords'] == ['Stephen Curry','LeBron James','Kevin Durant']
+    assert plan['keywords'] == ['库里','詹姆斯','杜兰特']
     assert plan['keyword_sources'] == ['roster_subject']*3
     assert plan['fallback_keywords'] == ['Topps Now']
 
@@ -130,7 +130,7 @@ def test_roster_discovery_covers_each_subject_within_three_queries():
 def test_roster_query_reserves_public_number_priority_and_respects_budget():
     plan=build_purchase_cost_search_plan(dict(player_name='Curry / James / Durant',
         notes='商品编号：123456',product_name='Topps Now',image_front_url='/uploads/front.jpg'),max_keywords=2)
-    assert plan['keywords'] == ['123456','Stephen Curry']
+    assert plan['keywords'] == ['123456','库里']
 
 
 def test_missing_sports_name_can_recall_specific_product_with_front_image():

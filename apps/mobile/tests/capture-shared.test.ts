@@ -79,3 +79,13 @@ it('private images retry temporary generation failures only a bounded number of 
  await expect(api.image('/uploads/deleted.jpg')).rejects.toThrow();expect(transport).toHaveBeenCalledOnce();
  }finally{api.dispose();vi.useRealTimers();}
 });
+
+it("shared default sorting opts into page-only projection, including subsequent snapshots", async () => {
+  const {portfolioSortQuery, DEFAULT_PORTFOLIO_SORT} = await import("../../../packages/card-core/src/sorting");
+  const first = new URLSearchParams(portfolioSortQuery(DEFAULT_PORTFOLIO_SORT).slice(1));
+  const next = new URLSearchParams(portfolioSortQuery(DEFAULT_PORTFOLIO_SORT, "token").slice(1));
+  expect(first.get("snapshot_mode")).toBe("membership");
+  expect(next.get("snapshot_mode")).toBe("membership");
+  expect(next.get("snapshot_token")).toBe("token");
+  expect(portfolioSortQuery({sort_by:"fair_value",order:"desc"})).not.toContain("membership");
+});
