@@ -59,10 +59,14 @@ def test_single_card_quantity_survives_persisted_fact_reconstruction():
                     image_content_hashes={'front':hashlib.sha256(b'target').hexdigest()})
     candidate = VisualCandidate('https://example.com/1', '2025-26 Topps Chrome Karate Island #169', 'https://example.com/front.jpg')
     evidence = [dict(kind=kind, target=text, candidate=text, source='images', both_visible=True,
-                     target_view='front', candidate_view='front') for kind, text in [
+                     target_view='front', candidate_view='front',
+                     version_marker_observations=dict(target=dict(status='not_printed',view='front',source='images',whole_view_visible=True,image_ref='target_front'),
+                         candidate=dict(status='not_printed',view='front',source='images',whole_view_visible=True,image_ref='candidate_front')) if kind=='finish' else None) for kind, text in [
                         ('layout','Portrait in a tall left frame'), ('finish','Smooth silver with narrow lines')]]
+    preliminary_binding = {**visual_asset_binding(identity,candidate,b'target',None,b'candidate'),
+                           'model_observation_contract':MODEL_OBSERVATION_CONTRACT}
     decision = normalize_model_visual_decision(VisualDecision(candidate_id=candidate.id, verdict='same',
-        confidence=Decimal('.99'), design_match='same', finish_match='same',
+        evidence_binding=preliminary_binding, confidence=Decimal('.99'), design_match='same', finish_match='same',
         candidate_card_count=1, match_evidence=evidence))
     binding = {**visual_asset_binding(identity, candidate, b'target', None, b'candidate'),
                'model_observation_contract':MODEL_OBSERVATION_CONTRACT}

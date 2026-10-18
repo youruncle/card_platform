@@ -1,7 +1,7 @@
 """Roles require local evidence; a numeric shape alone cannot establish rarity."""
 import re
 
-ROLE_VERSION = 'number-roles-1'
+ROLE_VERSION = 'number-roles-2'
 
 
 def is_layout_label(value: object) -> bool:
@@ -18,11 +18,16 @@ def non_catalog_number_role(value: object, evidence: list[str]) -> bool:
         return False
     if is_layout_label(token) or re.fullmatch(r'(?:CODE\s*#?\s*)?CMP\d{5,}', token, re.I):
         return True
-    role = r'(?:球衣[号號]|jersey\s*(?:number|no\.?|#)|(?:外部|价格|售卖|卡套|套袋)?贴纸|貼紙|sticker\s*(?:label|number)|production\s*code|版权生产码)'
+    role = (r'(?:球衣[号號]|jersey\s*(?:number|no\.?|#)|'
+            r'(?:外部|价格|售卖|卡套|套袋)?贴纸|貼紙|壳贴(?:号码)?|'
+            r'sticker\s*(?:label|number)|(?:版权)?生产(?:串码|代码|码)|'
+            r'厂印串码|制造串码|production\s*code|事件日期|event\s*date)')
+    bound_token = r'(?<![\dA-Za-z])' + re.escape(token) + r'(?![\dA-Za-z])'
     for text in evidence:
         text = re.sub(r'(?:不是|并非|並非|not\s+)[^，。；;,.]*', '', str(text), flags=re.I)
-        if re.search(role + r'[^\dA-Za-z，。；;]{0,8}' + re.escape(token)
-                     + r'(?![\dA-Za-z])', text, re.I):
+        if (re.search(role + r'[^\dA-Za-z，。；;]{0,8}' + bound_token, text, re.I)
+                or re.search(bound_token + r'\s*(?:是|为|為|is)\s*(?:底部|背面|外部)?\s*'
+                             + role, text, re.I)):
             return True
     return False
 

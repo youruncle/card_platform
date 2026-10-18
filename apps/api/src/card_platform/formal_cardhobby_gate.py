@@ -22,7 +22,7 @@ from card_platform.domain.listing_condition import (
     title_discloses_damage, title_disclaims_card_condition, condition_rejection_reasons, disclose_minor_condition,
 )
 
-FORMAL_CARDHOBBY_CONTRACT = "same-card-source-revalidated-v20"
+FORMAL_CARDHOBBY_CONTRACT = "same-card-source-revalidated-v21"
 
 
 def _corroborated_same_card(identity, sale, observation, reasons, *, resolver=None):
@@ -137,6 +137,12 @@ def enforce_formal_cardhobby_identity(
     paired_finish = bool(visual_facts and provider_payload and visual_facts.current_for(
         identity, provider_payload.get('source_url'), provider_payload.get('title'),
         provider_payload.get('image_url')))
+    if not paired_finish:
+        # Exact seller text is a discovery anchor, including for a known Base
+        # or Refractor. It cannot establish which player, subset or finish is
+        # actually photographed. Geometry alone also cannot supply that proof.
+        # Keep this outside the corroborated-template omissions below.
+        reasons.append('current_paired_card_image_confirmation_required')
     if (provider_payload and not paired_finish
             and parallel_match_text(str(provider_payload.get('title') or ''), identity, resolver=resolver)
                 != str(provider_payload.get('title') or '')):

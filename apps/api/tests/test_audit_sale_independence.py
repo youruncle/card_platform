@@ -11,13 +11,13 @@ def row(key, **payload):
                 source_reliability=Decimal('.7'))
 
 
-def test_identical_verified_card_face_is_one_physical_card_even_after_relisting():
+def test_identical_verified_photo_is_one_independence_risk_cluster():
     face = dict(visual_verdict='same', visual_confidence='.99',
                 visual_match_evidence=[dict(field='card_number', target='12', candidate='12')],
                 visual_evidence_binding={'candidate_sha256': 'a' * 64})
     chosen, duplicate = deduplicate_market_rows([row('first', **face), row('relisted', **face)])
     assert len(chosen) == 1
-    assert duplicate[0]['reason_code'] == 'same_physical_card_image'
+    assert duplicate[0]['reason_code'] == 'same_card_photo_reuse_risk'
 
 
 def test_shared_terms_gallery_image_does_not_collapse_distinct_card_faces():

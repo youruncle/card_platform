@@ -57,7 +57,7 @@ async def test_normal_raw_card_calculation_must_run_final_source_gate(monkeypatc
 
 @pytest.mark.parametrize('accepted,conflict,title,allowed', [
     (False, '标题未命中目标平行版本', '2023 Fictional Player', False),
-    (True, '标题未命中目标平行版本', '2023 Fictional Player', True),
+    (True, '标题未命中目标平行版本', '2023 Fictional Player', False),
     (True, '标题明确为其他平行版本，与目标平行不一致', '2023 Fictional Player', False),
     (True, '标题未命中目标平行版本', '2023 Fictional Player 全套', False),
 ])

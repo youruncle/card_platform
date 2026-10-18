@@ -13,3 +13,5 @@
 完成后运行`PYTHONPATH=apps/api/src .venv/bin/python scripts/codex_sales_research.py validate <private/research.json>`，检查本地捕获实际存在及卡面哈希。结构通过不能证明研究叙述真实，审核人仍须查看原始捕获。价格证据不足输出null，不凭经验或采购成本补价。当前合同以至少三条近期独立卖家同款公开成交提供观察区间，单市场阻塞须明示；公开落槌不等于取得付款流水。
 
 业务写回须另有明确范围授权。历史Codex快照保留但不能当本轮新研究。`import_codex_multimodal.py`与`import_codex_investment_research.py`的旧硬编码区间已停用，禁止重新导入。正式估值的逻辑版本与研究合同版本分别记录。
+
+公开卡淘直连研究须保存实际请求头与参数，沿用官网/正式provider的Accept、X-Requested-With和Referer。仅User-Agent的审核helper可能得到HTTP200/result=1的空模型：Keyword、Total、TotalCount、PageIndex均null，StatusType=0、列表空；这是查询未证实生效，不能记为市场无成交。有效响应也可能Keyword=null、StatusType=0，不能仅据这两字段误判。2026-10-19对照捕获显示相同参数配正式请求头可返回60条，原空壳捕获继续保留；新捕获单独记录，不能追认原请求成功。

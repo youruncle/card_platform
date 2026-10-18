@@ -2432,7 +2432,17 @@ class AutomatedValuationWorker:
                 for reason in source_reasons:
                     skipped_source_reasons[reason] = skipped_source_reasons.get(reason, 0) + 1
                 continue
-            candidates.append(VisualCandidate(comp.source_url, comp.title, comp.image_url))
+            from card_platform.ingestion.cardhobby_public_item import canonical_public_item_url
+            gallery = comp.provider_payload.get('source_gallery') or {}
+            support_urls = ()
+            if (gallery.get('contract') == 'public-source-gallery-v1'
+                    and gallery.get('primary_image_url') == comp.image_url
+                    and canonical_public_item_url(gallery.get('source_url'))
+                        == canonical_public_item_url(comp.source_url)
+                    and canonical_public_item_url(comp.source_url) is not None):
+                support_urls = tuple(url for url in gallery.get('image_urls', [])
+                                     if isinstance(url,str) and url != comp.image_url)[:2]
+            candidates.append(VisualCandidate(comp.source_url, comp.title, comp.image_url, support_urls))
         parallel_check = bool(identity.get("serial_total")) or (
             str(identity.get("parallel_name") or identity.get("parallel") or "")
             .strip().casefold() not in {"", "base"}

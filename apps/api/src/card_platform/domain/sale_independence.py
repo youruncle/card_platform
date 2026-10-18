@@ -50,7 +50,7 @@ def physical_keys(row: dict) -> list[tuple[str, str]]:
             and confidence >= Decimal('.9')
             and payload.get('visual_match_evidence')
             and re.fullmatch(r'[0-9a-f]{64}', str(digest or ''))):
-        keys.append(('same_physical_card_image', digest))
+        keys.append(('same_card_photo_reuse_risk', digest))
     serial = full_serial(str(row.get('listing_title') or ''))
     if serial:
         keys.append(('same_physical_card_serial', f'{serial[0]}/{serial[1]}'))
@@ -105,6 +105,8 @@ def unique_physical_rows(rows: list[dict], identity: dict | None = None):
     excluded = [dict(dropped_id=str(rows[i].get('id')),
         kept_id=str(rows[anchor].get('id')) if anchor is not None else None,
         reason_code=reason, source_url=rows[i].get('source_url'),
-        reason='本件历史' if reason == 'owned_copy_history' else '同实卡或再上风险，仅保留一条独立样本')
+        reason=('本件历史' if reason == 'owned_copy_history' else
+                '照片复用风险，独立性未证，仅计一次' if reason == 'same_card_photo_reuse_risk' else
+                '同实卡或再上风险，仅保留一条独立样本'))
         for i, anchor, reason in dropped]
     return [rows[i] for i in kept], excluded

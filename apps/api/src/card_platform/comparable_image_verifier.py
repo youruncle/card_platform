@@ -30,7 +30,7 @@ from card_platform.visual_checkpoints import VisualCheckpoints
 from card_platform.domain.listing_condition import title_discloses_minor_condition, condition_review_is_current
 
 
-MODEL_OBSERVATION_CONTRACT = 'paired-image-only-evidence-v6'
+MODEL_OBSERVATION_CONTRACT = 'paired-image-only-evidence-v7'
 
 
 class VisualSchemaError(ValueError):
@@ -47,6 +47,49 @@ class VisualSchemaError(ValueError):
         super().__init__(self.safe_reasons[0])
 
 
+class VersionMarkerObservation(BaseModel):
+    status: Literal['readable', 'not_visible', 'not_printed']
+    view: Literal['front', 'back', 'unknown']
+    text: str | None = None
+    source: Literal['images', 'unknown'] = 'unknown'
+    whole_view_visible: bool = False
+    image_ref: str = 'unknown'
+
+
+class VersionMarkerPair(BaseModel):
+    target: VersionMarkerObservation
+    candidate: VersionMarkerObservation
+
+    def establishes_match(self, binding: dict) -> bool:
+        pair = (self.target, self.candidate)
+        if any(p.source != 'images' or p.view == 'unknown' for p in pair):
+            return False
+        expected_target = 'target_back' if binding.get('target_back_sha256') else 'target_front'
+        if (self.target.image_ref != expected_target
+                or self.target.view != expected_target.split('_')[1]
+                or not re.fullmatch(r'[0-9a-f]{64}', str(binding.get(expected_target + '_sha256') or ''))):
+            return False
+        if self.candidate.view == 'front':
+            if (self.candidate.image_ref != 'candidate_front'
+                    or not re.fullmatch(r'[0-9a-f]{64}', str(binding.get('candidate_sha256') or ''))):
+                return False
+        else:
+            # A self-reported back observation cannot invent an uploaded image.
+            match = re.fullmatch(r'candidate_support_([12])', self.candidate.image_ref)
+            supports = binding.get('candidate_supporting_images') or []
+            if not isinstance(supports,list) or len(supports)>2 or not match or len(supports) < int(match[1]):
+                return False
+            support = supports[int(match[1])-1]
+            if not isinstance(support,dict) or not re.fullmatch(r'[0-9a-f]{64}', str(support.get('sha256') or '')):
+                return False
+        if all(p.status == 'readable' for p in pair):
+            texts = [' '.join((p.text or '').split()).casefold() for p in pair]
+            return bool(texts[0] and texts[0] == texts[1] and self.target.view == self.candidate.view
+                        and texts[0] not in {'same','unknown','none','not_printed','一致','未知','同上'})
+        return (all(p.status == 'not_printed' and p.whole_view_visible and not p.text for p in pair)
+                and self.target.view == self.candidate.view)
+
+
 class VisualMatchEvidence(BaseModel):
     kind: Literal['layout', 'finish'] = Field(
         description='Positive match kind only: layout or finish. Put fixed texture observations under finish; fixed_pattern is a conflict_evidence kind, never a match_evidence kind.'
@@ -57,6 +100,8 @@ class VisualMatchEvidence(BaseModel):
     both_visible: bool = False
     target_view: Literal['front', 'back', 'unknown'] = 'unknown'
     candidate_view: Literal['front', 'back', 'unknown'] = 'unknown'
+    version_marker_observations: VersionMarkerPair | None = Field(default=None,
+        description='Required for finish evidence. Independently read printed version/finish labels (e.g. REFRACTOR/PRIZM) on each actual card, including any supplied back. Never copy the target label onto an unseen candidate back. not_printed requires the entire observed side visible; not_visible means unknown. This is separate from the required paired FRONT layout/texture descriptions.')
 
 
 class VisualConflictEvidence(BaseModel):
@@ -109,6 +154,7 @@ class VisualCandidate:
     id: str
     title: str
     image_url: str
+    supporting_image_urls: tuple[str, ...] = ()
 
 
 def enforce_visual_observations(decision: VisualDecision) -> VisualDecision:
@@ -148,6 +194,7 @@ def normalize_model_visual_decision(decision: VisualDecision) -> VisualDecision:
                     and e.target_view == e.candidate_view == 'front'
                     and all(value.strip() and value.strip().casefold() not in generic
                             and not re.search(r'背面|卡背|反面|\bback(?:side)?\b', value, re.I)
+                            and not re.search(r'同上|同目标|同候选|(?:与|與)(?:目标|目標|候选|候選)(?:完全)?(?:一致|相同)|\b(?:same as|identical to|matches) (?:the )?(?:target|candidate)\b', value, re.I)
                             for value in (e.target, e.candidate)))
 
         valid = {e.kind for e in decision.match_evidence if valid_front(e)}
@@ -155,6 +202,13 @@ def normalize_model_visual_decision(decision: VisualDecision) -> VisualDecision:
             return decision.model_copy(update={
                 'verdict': 'uncertain', 'design_match': 'unknown', 'finish_match': 'unknown',
                 'reasons': [*decision.reasons, 'visual_positive_evidence_requires_review'],
+            })
+        if any(e.kind == 'finish' and (e.version_marker_observations is None
+                or not e.version_marker_observations.establishes_match(decision.evidence_binding or {}))
+               for e in decision.match_evidence):
+            return decision.model_copy(update={
+                'verdict': 'uncertain', 'finish_match': 'unknown',
+                'reasons': [*decision.reasons, 'printed_version_marker_requires_review'],
             })
     if decision.verdict != 'different' and not decision.conflict_evidence:
         return decision
@@ -217,7 +271,7 @@ def normalize_model_visual_decision(decision: VisualDecision) -> VisualDecision:
     })
 
 
-def visual_asset_binding(identity, candidate, target, target_back, candidate_content):
+def visual_asset_binding(identity, candidate, target, target_back, candidate_content, candidate_support=()):
     fields = ('player_name','season_start','season_end','product_name','brand_name','card_number',
               'insert_name','parallel_name','serial_number','serial_total','grade_company','grade_value',
               'is_autograph','is_memorabilia','is_patch','is_redemption','redemption_status','confirmed_identity_version_id')
@@ -227,7 +281,9 @@ def visual_asset_binding(identity, candidate, target, target_back, candidate_con
             'target_back_sha256':content_hash(target_back) if target_back is not None else None,
             'candidate_sha256':content_hash(candidate_content),
             'candidate_title_sha256':content_hash(candidate.title), 'source_url':candidate.id,
-            'candidate_image_url':candidate.image_url}
+            'candidate_image_url':candidate.image_url,
+            'candidate_supporting_images': [{'url':url, 'sha256':content_hash(content)}
+                                             for url, content, _ in candidate_support]}
 
 
 def has_visual_observation(raw):
@@ -449,6 +505,7 @@ class ComparableImageVerifier:
         binding = visual_asset_binding(identity, candidate, target, target_back, b'')
         scope = {key: str(identity.get(key) or '') for key in ('owner_id', 'collection_item_id')}
         return content_hash({**scope, **binding,
+                             'supporting_image_urls': candidate.supporting_image_urls,
                              'model': self.parallel_model if requires_parallel_match else self.model,
                              'model_observation_contract': MODEL_OBSERVATION_CONTRACT,
                              'requires_parallel_match': requires_parallel_match,
@@ -501,6 +558,15 @@ class ComparableImageVerifier:
                     image = self.checkpoints.image(image_key, self.MAX_IMAGE_BYTES)
                     if image is not None:
                         binding = visual_asset_binding(identity, candidate, target, target_back, image[0])
+                        supports = []
+                        for support_url in list(dict.fromkeys(candidate.supporting_image_urls))[:2]:
+                            if support_url == candidate.image_url:
+                                continue
+                            cached = self.checkpoints.image(content_hash({**scope,'image_url':support_url}),self.MAX_IMAGE_BYTES)
+                            if cached is None:
+                                return 2
+                            supports.append((support_url,*cached))
+                        binding = visual_asset_binding(identity,candidate,target,target_back,image[0],supports)
                         expected = {**binding, 'model': model,
                                     'model_observation_contract': MODEL_OBSERVATION_CONTRACT}
                         if stored.evidence_binding == expected:
@@ -523,6 +589,27 @@ class ComparableImageVerifier:
     def _reviewed_asset_decision(self, identity, candidate, review, binding):
         from card_platform.domain.reviewed_visual import build_reviewed_visual_proof
         record = review.get('database_record')
+        recorded_support = (((record or {}).get('visual_review') or {}).get('evidence_binding') or {}).get('candidate_supporting_images')
+        if recorded_support and not binding.get('candidate_supporting_images'):
+            if not isinstance(recorded_support,list) or len(recorded_support) > 2:
+                return None
+            verified_support = []
+            for image in recorded_support:
+                url = image.get('url') if isinstance(image,dict) else None
+                try:
+                    parsed = urlparse(url or '')
+                    if not (parsed.scheme == 'https' and parsed.hostname == 'images.cardhobby.com'
+                            and parsed.port in (None,443) and not parsed.username and not parsed.password):
+                        return None
+                    key = content_hash({key:str(identity.get(key) or '') for key in ('owner_id','collection_item_id')}
+                                       | {'image_url':url})
+                    cached = self.checkpoints.image(key,self.MAX_IMAGE_BYTES)
+                    if cached is None or cv2.imdecode(np.frombuffer(cached[0],dtype=np.uint8),cv2.IMREAD_COLOR) is None:
+                        return None
+                    verified_support.append({'url':url,'sha256':content_hash(cached[0])})
+                except (ValueError,cv2.error):
+                    return None
+            binding = {**binding,'candidate_supporting_images':verified_support}
         source_back_sha = None
         observation = ((record or {}).get('visual_review') or {}).get('source_back_identity')
         if isinstance(observation, dict) and observation.get('image_url'):
@@ -693,8 +780,8 @@ class ComparableImageVerifier:
                     if (manual and manual.verdict == expected and (manual.verdict != 'same'
                         or not title_discloses_minor_condition(candidate.title)
                         or condition_review_is_current(manual.condition_review.model_dump(mode='json')
-                            if manual.condition_review else None, binding))):
-                        await publish(manual, key, record, binding, persist=False)
+                            if manual.condition_review else None, manual.evidence_binding))):
+                        await publish(manual, key, record, manual.evidence_binding, persist=False)
                         return None
                 if (checkpoint_enabled and not completed
                         and self.checkpoints.retry_state(record)[2]):
@@ -727,16 +814,44 @@ class ComparableImageVerifier:
                     await publish(failure(candidate, 'candidate_image_download_failed'), key, state)
                     return None
                 content, content_type = downloaded
+                supports = []
+                for support_url in list(dict.fromkeys(candidate.supporting_image_urls))[:2]:
+                    if support_url == candidate.image_url:
+                        continue
+                    try:
+                        parsed_support = urlparse(support_url)
+                        if not (parsed_support.scheme == 'https' and parsed_support.hostname == 'images.cardhobby.com'
+                                and parsed_support.port in (None,443) and not parsed_support.username
+                                and not parsed_support.password):
+                            continue
+                        support_key = content_hash({**scope, 'image_url': support_url})
+                        support = self.checkpoints.image(support_key, self.MAX_IMAGE_BYTES) if checkpoint_enabled else None
+                        if support is None:
+                            async with self._download_slots:
+                                response = await client.get(support_url)
+                            response.raise_for_status()
+                            support_type = response.headers.get('content-type','').split(';',1)[0]
+                            support_content = response.content
+                            if (support_type not in {'image/jpeg','image/png','image/webp'}
+                                    or not support_content or len(support_content) > self.MAX_IMAGE_BYTES
+                                    or cv2.imdecode(np.frombuffer(support_content,dtype=np.uint8),cv2.IMREAD_COLOR) is None):
+                                continue
+                            support = support_content, support_type
+                            if checkpoint_enabled:
+                                self.checkpoints.save_image(support_key,*support)
+                        supports.append((support_url,*support))
+                    except (httpx.HTTPError,ValueError):
+                        continue
                 binding = visual_asset_binding(identity, candidate, target,
-                                               target_back[0] if target_back else None, content)
+                                               target_back[0] if target_back else None, content, supports)
                 manual = self._reviewed_asset_decision(identity, candidate, review, binding)
                 expected = {'accepted': 'same', 'rejected': 'different'}.get(review.get('decision'))
                 if (manual and manual.verdict == expected and (manual.verdict != 'same'
                         or not title_discloses_minor_condition(candidate.title)
                         or condition_review_is_current(manual.condition_review.model_dump(mode='json')
-                            if manual.condition_review else None, binding))):
+                            if manual.condition_review else None, manual.evidence_binding))):
                     # Manual reviews remain authoritative in their own store.
-                    await publish(manual, key, state, binding, persist=False)
+                    await publish(manual, key, state, manual.evidence_binding, persist=False)
                     return None
                 expected_binding = {**binding, 'model_observation_contract': MODEL_OBSERVATION_CONTRACT, 'model': model}
                 if (completed and stored.evidence_binding == expected_binding
@@ -746,12 +861,12 @@ class ComparableImageVerifier:
                                   key, state, persist=False)
                     return None
                 geometry = await asyncio.to_thread(self._geometric_template_score, target_image, content)
-                return (candidate, content, content_type), key, state, expected_binding, geometry
+                return (candidate, content, content_type), key, state, expected_binding, geometry, supports
 
             async def compare_prepared(prepared):
                 if prepared is None:
                     return
-                row, key, record, binding, geometry = prepared
+                row, key, record, binding, geometry, supports = prepared
                 candidate = row[0]
                 async with self._slots('models'):
                     # Waiting for provider capacity is not an inference attempt.
@@ -759,6 +874,7 @@ class ComparableImageVerifier:
                     try:
                         result = await self._compare_batch(target, target_type, [row],
                             low_resolution_target=low_resolution_target, target_back=target_back,
+                            candidate_support={candidate.id:supports},
                             requires_parallel_match=requires_parallel_match)
                     except Exception as error:
                         from card_platform.domain.model_failures import model_failure_reason
@@ -875,9 +991,19 @@ class ComparableImageVerifier:
         low_resolution_target: bool,
         target_back: tuple[bytes, str] | None = None,
         requires_parallel_match: bool = False,
+        candidate_support: dict | None = None,
     ) -> dict[str, VisualDecision]:
         primary_schema = VisualComparisonResult.model_json_schema()
         primary_schema['$defs']['VisualDecision']['properties'].pop('independent_confirmation', None)
+        if target_back is not None:
+            marker_schema = primary_schema['$defs']['VersionMarkerObservation']
+            primary_schema['$defs']['TargetVersionMarkerObservation'] = {
+                **marker_schema, 'properties': {**marker_schema['properties'],
+                    'view': {'type':'string','const':'back'},
+                    'image_ref': {'type':'string','const':'target_back'}},
+                'required': list(dict.fromkeys([*marker_schema.get('required',[]),'image_ref']))}
+            primary_schema['$defs']['VersionMarkerPair']['properties']['target'] = {
+                '$ref':'#/$defs/TargetVersionMarkerObservation'}
         schema = json.dumps(primary_schema, ensure_ascii=False)
         content: list[dict] = [
             {
@@ -921,8 +1047,20 @@ class ComparableImageVerifier:
                     "fixed_pattern仅属于conflict_evidence.kind；相同固定纹理的正证应写kind=finish，具体纹样放target/candidate描述。"
                     "若判same，必须填写match_evidence至少两项kind=layout和finish，分别写出target与candidate"
                     "具体可见的正面布局、固定印刷/纹理观察，不能只写相同或匹配；source=images、both_visible=true、"
-                    "target_view与candidate_view均为front。目标背面只用于目标身份核对，不能作为候选的正证据，"
+                    "target_view与candidate_view均为front。目标背面用于目标身份和版本印字核对，不能替代双方正面纹理或候选图证，"
                     "不能声称双方背面卡号/限编一致；不能从标题补全看不清的候选纹理。缺少任一正面观察则uncertain。"
+                    "每张的描述必须独立成立，不能用同上、同目标、与目标一致或same as target替代具体观察。"
+                    "finish正证还必须填写version_marker_observations，逐方检查实际可见正面及所提供背面上的版本印字，"
+                    "例如REFRACTOR、PRIZM。读到时status=readable、text逐字记录、view标实际front/back；"
+                    "这些是独立版本印字，不是产品品牌Logo，候选正面Prizm品牌字不能替代目标背面的PRIZM。"
+                    "另一张没有提供对应背面/看不清时必须not_visible，不能用正面的银箔或彩虹反光补出背印。"
+                    "只有整面清晰可见且未印版本字样才not_printed并whole_view_visible=true，不可据未提供背面断言无字。"
+                    "任一方实见版本字样而另一方未实见同字时，finish_match=unknown、verdict=uncertain；"
+                    "双方可见同面均无版本字样时仍须分别具体核正面固定颜色与纹理，不能仅由背面无字推断同款。"
+                    "image_ref必须填写实际图片编号：target_front、target_back、candidate_front或candidate_support_1/2。"
+                    "有目标背面时，target版本标记观察必须覆盖target_back，不能仅记录正面没字。"
+                    "候选补充图只是画廊，不预设正背，可能是条款图；只有实见该卡背面才填back，条款图不能作卡背。"
+                    "没有候选补充背图时candidate背面标记只能not_visible，不得自报back。"
                     "大星形、细颗粒、方格、碎冰、波纹是不同纹理，不能因相同照片或限编就填same。"
                     "黑白/负片印刷与彩色照片不同；正常彩虹反光并不改变印刷照片颜色。"
                     "看不清任一对象的纹理就填unknown。两项均same才允许verdict=same。"
@@ -972,9 +1110,14 @@ class ComparableImageVerifier:
                 }},
             ])
         labels: dict[str, VisualCandidate] = {}
+        image_bindings = {}
         for index, (candidate, image, content_type) in enumerate(downloaded, start=1):
             label = f"candidate_{index}"
             labels[label] = candidate
+            supports = (candidate_support or {}).get(candidate.id, [])[:2]
+            image_bindings[label] = {**visual_asset_binding({},candidate,target,
+                target_back[0] if target_back else None,image,supports),
+                'model_observation_contract':MODEL_OBSERVATION_CONTRACT}
             content.extend(
                 [
                     {
@@ -989,6 +1132,9 @@ class ComparableImageVerifier:
                     },
                 ]
             )
+            for index, (_, support_bytes, support_type) in enumerate(supports,1):
+                content.extend([{'type':'text','text':f'候选编号 {label} 补充图片 candidate_support_{index}（角色需实看，不预设卡背）'},
+                    {'type':'image_url','image_url':{'url':self._vision_data_url(support_bytes,support_type)}}])
         response = await traced_completion(self.client.chat.completions.create, stage='same_card',
             model=self.parallel_model if requires_parallel_match else self.model,
             messages=[
@@ -1011,20 +1157,17 @@ class ComparableImageVerifier:
                     "candidate_id": labels[decision.candidate_id].id,
                     "independent_confirmation": None,
                     "confidence": min(decision.confidence, Decimal("0.79")),
-                    "evidence_binding": {
-                        "model_observation_contract": MODEL_OBSERVATION_CONTRACT,
-                    },
+                    "evidence_binding": image_bindings[decision.candidate_id],
                 }
             )
             if low_resolution_target
             else decision.model_copy(
                 update={"candidate_id": labels[decision.candidate_id].id,
                         "independent_confirmation": None,
-                        "evidence_binding": {
-                            "model_observation_contract": MODEL_OBSERVATION_CONTRACT,
-                        }}
+                        "evidence_binding": image_bindings[decision.candidate_id]}
             )
             for raw_decision in parsed.decisions
-            for decision in [normalize_model_visual_decision(raw_decision)]
+            for decision in [normalize_model_visual_decision(raw_decision.model_copy(
+                update={'evidence_binding':image_bindings.get(raw_decision.candidate_id,{})}))]
             if decision.candidate_id in labels
         }

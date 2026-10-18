@@ -1797,6 +1797,17 @@ class CardHobbyProvider:
                     data = payload.get("data")
                     if not isinstance(data, dict) or not isinstance(data.get("PagedMarketItemList"), list):
                         raise ValueError("卡淘公开接口缺少成交列表，不能作为零成交")
+                    if (not data['PagedMarketItemList']
+                            and all(key in data and data[key] is None
+                                    for key in ('Keyword', 'Total', 'TotalCount', 'PageIndex'))
+                            and data.get('StatusType') == 0):
+                        # A public request without the expected browser headers
+                        # can return result=1 with an uninitialized search model.
+                        # Real responses can also have Keyword=null/StatusType=0,
+                        # so pagination/counts, not these two fields alone, are
+                        # the distinguishing evidence. Keep the working request
+                        # parameters and classify this shell as transport failure.
+                        raise ValueError('unbound_search_response: 卡淘查询未绑定有效分页，不能作为零成交')
                     return payload
                 except httpx.HTTPStatusError as error:
                     last_error = error

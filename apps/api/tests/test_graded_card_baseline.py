@@ -152,7 +152,7 @@ def test_same_card_basis_outweighs_high_price_ordinary_t2_analogs():
 
 
 @pytest.mark.parametrize("parallel", ["Gold", "Blue"])
-def test_named_numbered_parallel_uses_its_same_card_ungraded_basis(parallel):
+def test_named_numbered_parallel_requires_paired_images_before_ungraded_basis(parallel):
     identity = {
         "player_name": "Example Player", "brand_name": "Panini",
         "product_name": "Prizm", "season_start": 2023, "season_end": 2024,
@@ -161,11 +161,8 @@ def test_named_numbered_parallel_uses_its_same_card_ungraded_basis(parallel):
     }
     candidate = sale(f"2023-24 Panini Prizm Example Player #19 {parallel} /10")
     result = classify(identity, candidate)
-    assert result.tier == ComparableTier.T2 and not result.hard_conflicts
-    assert result.field_matches["parallel"] is True
-    assert result.field_matches["serial_total"] is True
-    assert result.field_matches[UNGRADED_SAME_CARD_BASIS] is True
-    assert ShadowValuationEstimator().estimate([shadow_sale(result)], identity).fair == Decimal("3.20")
+    assert result.tier == ComparableTier.REJECTED
+    assert 'current_paired_card_image_confirmation_required' in result.hard_conflicts
 
 
 @pytest.mark.parametrize(("target_parallel", "sale_parallel", "sale_total"), [

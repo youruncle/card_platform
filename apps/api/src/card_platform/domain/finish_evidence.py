@@ -84,6 +84,7 @@ def build_visual_match_facts(identity, candidate_id, title, image_url, raw, *, r
             confidence=current.get('visual_confidence') or 0,
             design_match='same', finish_match='same',
             match_evidence=current.get('visual_match_evidence') or [],
+            evidence_binding=binding,
             conflict_evidence=current.get('visual_conflict_evidence') or [],
             candidate_card_count=(1 if 'candidate_single_physical_card'
                                   in current.get('visual_reasons', []) else None),
