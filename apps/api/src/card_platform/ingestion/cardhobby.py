@@ -1958,6 +1958,10 @@ class CardHobbyProvider:
                 *(self.resolver.aliases_for("player", identity.get("player_name")) if self.resolver else ()),
             ],
         }
+        from card_platform.domain.number_roles import non_catalog_number_role
+        if non_catalog_number_role(query_identity.get('card_number'),
+                                   (query_identity.get('field_evidence') or {}).get('card_number', [])):
+            query_identity = {**query_identity, 'card_number': None}
         query_plan = (self.build_query_plan(query_identity, resolver=self.resolver)
                       if self.resolver else self.build_query_plan(query_identity))
         if self.resolver and self.resolver.entities:
@@ -2027,6 +2031,7 @@ class CardHobbyProvider:
             # already chosen above before reserving optional alias requests.
             protected = set(provider_queries[:2])
             for protected_stage in (
+                "multi_subject_insert",
                 "subject_print_run",
                 "collector_prefix",
                 "short_insert",
@@ -2082,7 +2087,7 @@ class CardHobbyProvider:
             # families before redundant aliases when seeds consume a slot.
             remaining = self.max_search_pages - len(source_urls)
             preferred = list(query_plan[:2])
-            for stage in ("subject_print_run", "collector_prefix", "short_insert", "relax_product", "brand_release_product", "refine_print_run", "player_release_recovery", "player_alias_rotation",
+            for stage in ("multi_subject_insert", "subject_print_run", "collector_prefix", "short_insert", "relax_product", "brand_release_product", "refine_print_run", "player_release_recovery", "player_alias_rotation",
                           "product_alias_rotation", "product_spelling_rotation", "refine_product",
                           "season_insert", "release_parallel", "explicit_base"):
                 candidate = next((item for item in query_plan if item[0] == stage), None)
@@ -2348,6 +2353,10 @@ class CardHobbyProvider:
     def build_query_plan(identity: dict, *, resolver=None) -> list[tuple[str, str]]:
         """Build short-anchor queries with bounded feedback refinements."""
         from card_platform.domain.card_identity import is_placeholder_identity_value
+        from card_platform.domain.number_roles import non_catalog_number_role
+        if non_catalog_number_role(identity.get('card_number'),
+                                   (identity.get('field_evidence') or {}).get('card_number', [])):
+            identity = {**identity, 'card_number': None}
         if is_placeholder_identity_value(identity.get('player_name')) or not identity.get('player_name'):
             # A work/scene is a retrieval anchor, never an invented person.
             subject = str(identity.get('insert_name') or identity.get('set_name') or '').strip()
@@ -2364,16 +2373,18 @@ class CardHobbyProvider:
             # Search each subject independently. CardHobby's token matcher is
             # effectively AND-based, so concatenating every printed name is
             # much less reliable than one recognizable player + insert/serial.
+            from card_platform.domain.player_aliases import NBA_PREFERRED_QUERY_ALIASES
             ordered_players = list(
                 dict.fromkeys(
-                    min(
+                    next((alias for alias in NBA_PREFERRED_QUERY_ALIASES.get(_normalized(part), ())
+                          if re.search(r"[\u4e00-\u9fff]", alias)), None) or min(
                         group,
                         key=lambda value: (
                             not bool(re.search(r"[\u4e00-\u9fff]", value)),
                             len(value),
                         ),
                     )
-                    for group in player_groups
+                    for part, group in zip(parts, player_groups)
                     if group
                 )
             )
@@ -2527,6 +2538,10 @@ class CardHobbyProvider:
                 plan.append(("strong_anchor", query(player, card_number)))
             if primary_insert:
                 plan.append(("strong_anchor", query(player, primary_insert)))
+        if len(player_groups) == 2 and len(ordered_players) == 2 and primary_insert:
+            # Query-only common names may improve recall without becoming
+            # matching evidence for either subject in the printed roster.
+            plan.append(("multi_subject_insert", query(*ordered_players, primary_insert)))
         # Descriptive wrappers occur on card backs but may be absent from
         # seller titles. Preserve the full label, plus a bounded subject/type
         # lane independent of year/product. This never adds matching aliases.
@@ -2694,6 +2709,7 @@ class CardHobbyProvider:
         prefix_lane = next((item for item in unique if item[0] == "collector_prefix"), None)
         required = set(unique[:1] if prefix_lane else unique[:2])
         for stage in (
+            "multi_subject_insert",
             "subject_print_run",
             "collector_prefix",
             "short_insert",
@@ -2740,6 +2756,12 @@ class CardHobbyProvider:
         # Only rebalance when the extra joint lane is actually present.
         # Structured-code and unknown-scope plans retain their original order.
         if joint_scope:
+            if len(player_groups) == 2 and len(ordered_players) == 2 and primary_insert:
+                for player in ordered_players:
+                    candidate = next((item for item in unique
+                        if item == ('strong_anchor', query(player, primary_insert))), None)
+                    if candidate is not None and len(required) < 12:
+                        required.add(candidate)
             # Keep both primary subject/name spellings for the year+insert lane
             # before filling with duplicate player+number anchors. Multi-player
             # cards need the second subject too, not just the first name.

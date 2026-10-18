@@ -55,7 +55,9 @@ def sanitize_identity_field_roles(result: CardRecognitionResult) -> CardRecognit
         if is_placeholder_identity_value(getattr(result, field)):
             changes[field] = None
             issues.append(field + '_is_placeholder')
-    if non_catalog_number_role(number, result.field_evidence.get('card_number', [])):
+    if non_catalog_number_role(number, [
+        *result.field_evidence.get('card_number', []), *result.caveats,
+    ]):
         changes['card_number'] = None
         issues.append('card_number_evidence_has_non_catalog_role')
     serial_role = serial_non_unique_role([
@@ -81,7 +83,7 @@ def sanitize_identity_field_roles(result: CardRecognitionResult) -> CardRecognit
         changes['card_number'] = None
         issues.append('card_number_is_fraction_not_catalog_identifier')
     elif re.fullmatch(r'\d+(?:\s*[-–—]\s*\d+)?', number) and re.search(
-        r'(?:名单|名單|清单|清單).{0,8}(?:行号|行號|序号|序號|编号|編號)|(?:checklist|roster).{0,20}(?:row number|entry number)|球衣号|球衣號|jersey number', number_evidence, re.I
+        r'(?:名单|名單|清单|清單).{0,8}(?:行号|行號|序号|序號|编号|編號)|(?:checklist|roster).{0,20}(?:row number|entry number)', number_evidence, re.I
     ):
         changes['card_number'] = None
         issues.append('card_number_evidence_has_non_catalog_role')
