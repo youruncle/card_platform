@@ -24,6 +24,7 @@ from card_platform.repository import PortfolioRepository
 from card_platform.recognition_benchmark_predictor import canonicalize_identity
 from card_platform.vision_routing import finalize_recognition_status
 from card_platform.domain.recognition_evidence import bind_recognition_storage
+from card_platform.pair_integrity import derive_pair_validation
 from card_platform.schemas import (
     CardIdentityInput,
     CardRecognitionResult,
@@ -575,6 +576,16 @@ class ScannerRecognitionWorker:
                 ))
             recognition_ms = round((time.monotonic() - recognition_started) * 1000)
             result = finalize_recognition_status(canonicalize_identity(recognized))
+            pair_needs_review = False
+            if len(contents) == 2:
+                pair_validation = derive_pair_validation(
+                    result.model_dump(mode="json"),
+                    {side: hashlib.sha256(content).hexdigest() for side, content in contents.items()},
+                )
+                result = CardRecognitionResult.model_validate({
+                    **result.model_dump(mode="json"), "pair_validation": pair_validation,
+                })
+                pair_needs_review = pair_validation["status"] != "consistent"
             queue_ms = None
             if job.get("created_at") is not None and job.get("started_at") is not None:
                 queue_ms = max(0, round((job["started_at"] - job["created_at"]).total_seconds() * 1000))
@@ -595,13 +606,14 @@ class ScannerRecognitionWorker:
                 return result.model_copy(update={"recognition_route": [trace, *result.recognition_route]})
 
             # Phone captures remain drafts until explicit owner confirmation.
-            if job.get("require_confirmation", False):
+            if job.get("require_confirmation", False) or pair_needs_review:
                 async with self.database.connection() as connection:
                     if not await can_publish(connection):
                         return
                     await connection.execute(
                         """UPDATE scanner_recognition_job
                         SET status = 'succeeded', result = %s, finished_at = clock_timestamp(),
+                            require_confirmation = true,
                             updated_at = clock_timestamp(), error_message = NULL
                         WHERE id = %s""",
                         (Jsonb(traced_result().model_dump(mode="json")), job_id),

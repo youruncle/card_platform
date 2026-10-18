@@ -803,7 +803,29 @@ class RecognitionFieldAssessment(ApiModel):
     issues: list[str] = Field(default_factory=list)
 
 
+class CardFaceObservation(ApiModel):
+    role: Literal["front", "back", "ad", "unknown"] = "unknown"
+    player_names: list[str] = Field(default_factory=list)
+    brand_name: str | None = None
+    product_name: str | None = None
+    insert_name: str | None = None
+    card_number: str | None = None
+    multi_subject: bool = False
+    evidence: list[str] = Field(default_factory=list)
+
+
+class CardPairValidation(ApiModel):
+    status: Literal["consistent", "conflict", "unknown"] = "unknown"
+    reason_codes: list[str] = Field(default_factory=list)
+    evidence: list[str] = Field(default_factory=list)
+    front: CardFaceObservation = Field(default_factory=CardFaceObservation)
+    back: CardFaceObservation = Field(default_factory=CardFaceObservation)
+    image_content_hashes: dict[str, str] = Field(default_factory=dict)
+    version: int = 1
+
+
 class CardRecognitionResult(ApiModel):
+    pair_validation: CardPairValidation | None = None
     is_redemption: bool | None = None
     redemption_status: Literal["unknown", "unredeemed", "redeemed", "expired"] = "unknown"
     image_role: Literal["front", "back", "ad", "unknown"] = "unknown"
@@ -870,6 +892,15 @@ class CardRecognitionResult(ApiModel):
         if not isinstance(value, dict):
             return value
         normalized = dict(value)
+        pair = normalized.get("pair_validation")
+        if pair is not None:
+            try:
+                normalized["pair_validation"] = CardPairValidation.model_validate(pair)
+            except (ValueError, TypeError):
+                normalized["pair_validation"] = CardPairValidation(
+                    status="conflict" if isinstance(pair, dict) and pair.get("status") == "conflict" else "unknown",
+                    reason_codes=["invalid_pair_validation"],
+                )
 
         # Providers use null for a status without visible evidence. Keep that
         # uncertainty instead of rejecting the entire card recognition.

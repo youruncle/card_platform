@@ -1,9 +1,13 @@
 """Generic capture contract against disposable PostgreSQL and real image storage."""
 
 import os
+from pathlib import Path
 from uuid import uuid4
 import psycopg
 import pytest
+from psycopg.types.json import Jsonb
+from card_platform.config import get_settings
+from pair_ingestion_fixtures import consistent_pair
 from test_mobile_postgres import account, photos
 from test_mobile_postgres import client as client
 
@@ -23,8 +27,12 @@ def upload(client, headers, sides=("front",), **data):
 
 def succeed(job):
     with psycopg.connect(os.environ["TEST_DATABASE_URL"]) as db:
+        paths = db.execute("SELECT front_image_path,back_image_path FROM scanner_recognition_job WHERE id=%s", (job["id"],)).fetchone()
+        contents = {side: (Path(get_settings().scanner_job_dir).resolve() / relative).read_bytes()
+                    for side, relative in zip(("front", "back"), paths) if relative}
         db.execute(
-            "UPDATE scanner_recognition_job SET status='succeeded' WHERE id=%s", (job["id"],)
+            "UPDATE scanner_recognition_job SET status='succeeded',result=%s WHERE id=%s",
+            (Jsonb({"confidence": ".9", "pair_validation": consistent_pair(contents=contents)}), job["id"]),
         )
 
 

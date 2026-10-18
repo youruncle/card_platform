@@ -1,6 +1,7 @@
 from card_platform.valuation_trace import traced_completion
 import asyncio
 import base64
+import hashlib
 import json
 import re
 from decimal import Decimal
@@ -28,6 +29,7 @@ from card_platform.card_orientation import (
 from card_platform.image_rectification import rectify_card_image
 from card_platform import local_ocr
 from card_platform import serial_ocr
+from card_platform.pair_integrity import derive_pair_validation
 from card_platform.repository import NotFoundError
 from card_platform.schemas import (
     CardRecognitionResult,
@@ -43,6 +45,22 @@ ALLOWED_IMAGE_TYPES = {
     "image/png": ".png",
     "image/webp": ".webp",
 }
+
+PAIR_RECOGNITION_PROMPT = (
+    "两张图片是用户提交的候选正面和候选背面，可能来自不同卡，不能预设同一卡。"
+    "先独立读取每张图，再判断配对；第一张观察写pair_validation.front，第二张写back。"
+    "各面结构为{role:front/back/ad/unknown,player_names:[真正主体姓名],brand_name,"
+    "product_name,insert_name,card_number,multi_subject:boolean,evidence:[位置与可见原文]}。"
+    "role表示实际看到的面，不由上传位置决定。只写该面独立可见的字段，不能从另一面复制缺失值。"
+    "pair_validation同时包含status:consistent/conflict/unknown、reason_codes:[简短原因]、"
+    "evidence:[双面关系的可见依据]。不同产品、卡号、单主体不同人、两张都是正面，须标conflict；"
+    "缺少独立证据或同款同球员实体无法区分时为unknown，不因整体识别confidence高而判consistent。"
+    "正常双方独立主体与产品/编号证据一致可consistent。Generations等多人设计以及Collector's Edge "
+    "Impulse#61可能两面主体不同，应依据共同产品、编号/设计核对；Topps/Bowman为同厂商，"
+    "不能把Logo不同直接当产品冲突。纪念比赛日期、版权年和发行赛季不同也不单独判错配。"
+    "再填联合身份字段；发生明确冲突时不拼成一张不存在的卡，在caveats保留冲突。"
+    "不要把球衣号、文章预告、卡套贴纸当卡号。hashes与version由服务器填写。"
+)
 
 
 def sanitize_identity_field_roles(result: CardRecognitionResult) -> CardRecognitionResult:
@@ -617,7 +635,7 @@ class QwenVisionProvider:
                         "is_autograph、autograph_type、has_inscription、inscription_text、"
                         "is_memorabilia、memorabilia_types、"
                         "memorabilia_usage、memorabilia_player、is_patch、confidence、"
-                        "caveats、field_evidence。"
+                        "caveats、field_evidence、pair_validation。pair_validation逐面结构和判定遵循用户提示；单面可为null。"
                         "出现 REDEMPTION CARD、You are due to receive、交换板或兑换卡时，"
                         "is_redemption=true；球员、产品、卡种、签字和物料属性描述承诺兑换的卡。"
                         "redemption_status 为 unknown/unredeemed/redeemed/expired；没有明确依据填 unknown，"
@@ -711,7 +729,7 @@ class QwenVisionProvider:
                 },
             ],
             response_format={"type": "json_object"},
-            max_tokens=1200,
+            max_tokens=2200 if len(images) == 2 else 1200,
             extra_body={"enable_thinking": False},
         )
         result = response.choices[0].message.content
@@ -869,11 +887,7 @@ class CardVisionService:
         ocr_lines = await local_ocr.recognize_images(images)
         ocr_latency_ms = round((time.monotonic() - ocr_started) * 1000)
         ocr_anchors = local_ocr.extract_anchors(ocr_lines)
-        prompt = (
-                "这两张图片依次是同一张收藏卡的正面和背面，可能是体育、影视或场景卡。联合识别，优先从"
-                "背面读取年份、卡号和版权信息，从正面判断球员、卡种与视觉属性；"
-                "冲突字段写入 caveats，不要把两张图当成两张卡。"
-        )
+        prompt = PAIR_RECOGNITION_PROMPT
         if ocr_lines:
             prompt += (
                 "\n以下是本机 Apple Vision OCR 原文和经过格式校验的锚点。OCR 可能有误，"
@@ -966,7 +980,15 @@ class CardVisionService:
                 "catalog_enrich": {"latency_ms": catalog_latency_ms, "status": catalog_status},
             },
         }
-        return result.model_copy(update={"recognition_route": [trace, *result.recognition_route]})
+        pair_validation = derive_pair_validation(
+            result.model_dump(mode="json"),
+            {"front": hashlib.sha256(front_content).hexdigest(),
+             "back": hashlib.sha256(back_content).hexdigest()},
+        )
+        return CardRecognitionResult.model_validate({
+            **result.model_dump(mode="json"), "pair_validation": pair_validation,
+            "recognition_route": [trace, *result.recognition_route],
+        })
 
     async def recognize_sheet(self, upload: UploadFile) -> SheetCardRecognitionResult:
         if self.provider is None:

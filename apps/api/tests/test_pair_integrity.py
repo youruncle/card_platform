@@ -1,0 +1,212 @@
+"""Pair decisions must follow the two physical faces, not merged identity."""
+import pytest
+from fastapi import HTTPException
+
+from card_platform.schemas import CardRecognitionResult
+
+HASHES = {"front": "a" * 64, "back": "b" * 64}
+
+
+def pair(**changes):
+    value = {
+        "status": "consistent", "evidence": ["Both faces independently read"],
+        "front": {"role": "front", "player_names": ["LeBron James"],
+                  "product_name": "Prizm", "insert_name": "Deep Space",
+                  "evidence": ["Front Prizm / Deep Space title"]},
+        "back": {"role": "back", "player_names": ["LeBron James"],
+                 "product_name": "Prizm", "card_number": "5",
+                 "evidence": ["Back 2024-25 Panini Prizm No.5"]},
+    }
+    value.update(changes)
+    return value
+
+
+def derive(value, **extra):
+    from card_platform.pair_integrity import derive_pair_validation
+    return derive_pair_validation({"pair_validation": value, **extra}, HASHES)
+
+
+def gate(result, hashes=HASHES, review=None):
+    from card_platform.pair_integrity import validate_pair_for_confirmation
+    return validate_pair_for_confirmation(result, hashes, review)
+
+
+def test_schema_preserves_independent_observations():
+    result = CardRecognitionResult.model_validate({"confidence": ".9", "pair_validation": pair()})
+    assert result.model_dump()["pair_validation"]["front"]["product_name"] == "Prizm"
+
+
+def test_missing_model_field_is_unknown_and_requires_hash_bound_review():
+    decision = derive(None)
+    assert decision["status"] == "unknown"
+    with pytest.raises(HTTPException):
+        gate({"pair_validation": decision})
+    gate({"pair_validation": decision}, review={"confirmed": True, "image_content_hashes": HASHES})
+    with pytest.raises(HTTPException):
+        gate({"pair_validation": decision}, review={"confirmed": True, "image_content_hashes": {**HASHES, "back": "c" * 64}})
+
+
+@pytest.mark.parametrize("field,value,reason", [
+    ("product_name", "Instant", "product_conflict"),
+    ("player_names", ["Stephen Curry"], "subject_conflict"),
+    ("role", "front", "duplicate_front"),
+])
+def test_positive_conflicts_override_model_consistent(field, value, reason):
+    raw = pair()
+    raw["back"][field] = value
+    decision = derive(raw)
+    assert decision["status"] == "conflict"
+    assert reason in decision["reason_codes"]
+    with pytest.raises(HTTPException):
+        gate({"pair_validation": decision}, review={"confirmed": True, "image_content_hashes": HASHES})
+
+
+def test_bare_consistent_string_does_not_create_evidence():
+    assert derive({"status": "consistent"})["status"] == "unknown"
+
+
+def test_consistent_requires_current_images_and_preserves_model_conflict():
+    decision = derive(pair())
+    assert decision["status"] == "consistent"
+    gate({"pair_validation": decision})
+    with pytest.raises(HTTPException):
+        gate({"pair_validation": decision}, {**HASHES, "front": "c" * 64})
+    assert derive(pair(status="conflict", reason_codes=["different_cards"]))["status"] == "conflict"
+
+
+@pytest.mark.parametrize("insert,number", [("Generations", "G11"), ("Impulse", "61")])
+def test_legitimate_multi_subject_shared_design_is_not_a_name_conflict(insert, number):
+    raw = pair()
+    raw["front"].update(player_names=["Michael Jordan"], insert_name=insert, card_number=number)
+    raw["back"].update(player_names=["LeBron James"], insert_name=insert, card_number=number)
+    assert derive(raw)["status"] == "consistent"
+
+
+def test_topps_and_bowman_manufacturer_logos_are_compatible():
+    raw = pair()
+    raw["front"].update(product_name="Bowman Chrome", brand_name="Bowman")
+    raw["back"].update(product_name="Topps Chrome", brand_name="Topps")
+    assert derive(raw)["status"] == "consistent"
+
+
+def test_caveat_conflict_and_duplicate_bytes_cannot_be_reviewed_away():
+    assert derive(pair(), caveats=["正面为LeBron James，背面为Stephen Curry，正反面不是同一张卡"])["status"] == "conflict"
+    assert derive(pair(), caveats=["未发现正反面身份冲突"])["status"] == "consistent"
+    with pytest.raises(HTTPException):
+        gate({}, {"front": "a" * 64, "back": "a" * 64}, {"confirmed": True})
+
+
+def test_single_image_keeps_existing_confirmation_behavior():
+    gate({}, {"front": "a" * 64})
+
+
+def test_client_review_cannot_replace_unknown_with_consistent_claim():
+    with pytest.raises(HTTPException):
+        gate({}, review={"status": "consistent", "confirmed": False, "image_content_hashes": HASHES})
+
+
+def test_impulse_61_and_middle_name_variation_are_not_false_subject_conflicts():
+    raw = pair()
+    raw["front"].update(player_names=["Kobe Bryant"], product_name="Collector's Edge Impulse", insert_name=None, card_number="61")
+    raw["back"].update(player_names=["Corey Benjamin"], product_name="Collector's Edge Impulse", insert_name=None, card_number="61", multi_subject=True)
+    assert derive(raw)["status"] != "conflict"
+
+
+def test_malformed_pair_data_remains_unknown_without_losing_card_identity():
+    result = CardRecognitionResult.model_validate({"confidence": ".9", "player_name": "LeBron James",
+                                                 "pair_validation": {"front": "unreadable"}})
+    assert result.player_name == "LeBron James"
+    assert result.pair_validation.status == "unknown"
+
+
+def test_malformed_conflict_still_cannot_be_confirmed():
+    raw = {"status": "conflict", "front": "bad model shape"}
+    with pytest.raises(HTTPException):
+        gate({"pair_validation": raw}, review={"confirmed": True, "image_content_hashes": HASHES})
+
+
+def test_middle_name_variation_is_not_a_definite_subject_conflict():
+    raw = pair()
+    raw["back"]["player_names"] = ["LeBron Raymone James"]
+    assert derive(raw)["status"] != "conflict"
+
+
+def test_verified_impulse_61_front_style_reverse_is_unknown_not_hard_conflict():
+    # Actual bounded vision replay of the verified two-subject design (#849).
+    raw = {"status": "conflict", "reason_codes": ["both_front", "different_players", "different_card_numbers"],
+           "front": {"role": "front", "player_names": ["Kobe Bryant"], "brand_name": "Collector's Edge",
+                     "product_name": "Impulse'98", "card_number": "61", "evidence": ["Kobe Bryant /61"]},
+           "back": {"role": "front", "player_names": ["Corey Benjamin"], "brand_name": "Collector's Edge",
+                    "product_name": "Impulse'98", "card_number": None, "evidence": ["Corey Benjamin; Pick No.28 is draft position"]}}
+    decision = derive(raw)
+    assert decision["status"] == "unknown"
+    gate({"pair_validation": decision}, review={"confirmed": True, "image_content_hashes": HASHES})
+    raw["back"]["product_name"] = "Prizm"
+    assert derive(raw)["status"] == "conflict"
+
+
+def test_manufacturer_prefix_variation_is_not_a_product_conflict():
+    raw = pair()
+    raw["front"]["product_name"] = "Upper Deck Generations"
+    raw["back"]["product_name"] = "Generations"
+    assert derive(raw)["status"] != "conflict"
+
+
+def test_ambiguous_initial_and_shared_insert_without_card_number_stays_unknown():
+    raw = pair()
+    raw["front"].update(player_names=["A. Thompson"], product_name="Hoops", insert_name="Rookie Special", card_number=None)
+    raw["back"].update(player_names=["Ausar Thompson"], product_name="Hoops", insert_name="Rookie Special", card_number="6")
+    assert derive(raw)["status"] == "unknown"
+
+
+@pytest.mark.parametrize("brands", [("UpperDeck", "Upper Deck"), ("Collector's Edge", "CollectorsEdge")])
+def test_known_manufacturer_spacing_is_not_a_conflict(brands):
+    raw = pair()
+    raw["front"]["brand_name"], raw["back"]["brand_name"] = brands
+    assert derive(raw)["status"] != "conflict"
+
+
+def test_uncertain_product_title_variation_requires_review_instead_of_hard_rejection():
+    raw = pair()
+    raw["front"]["product_name"] = "Unclear foil title"
+    raw["back"]["product_name"] = "Unclear title"
+    assert derive(raw)["status"] == "unknown"
+
+
+def test_verified_century_legends_generations_missing_number_requires_review():
+    # Actual vision observations for the source-verified Vince/Oscar Generations card (#340).
+    raw = pair(status="conflict", reason_codes=["different_players"])
+    raw["front"].update(player_names=["Vince Carter"], brand_name="Upper Deck",
+                        product_name="Century Legends", insert_name="Generations", card_number=None)
+    raw["back"].update(player_names=["Oscar Robertson"], brand_name="UD",
+                       product_name="Century Legends", insert_name="Generations", card_number=None)
+    decision = derive(raw)
+    assert decision["status"] == "unknown"
+    with pytest.raises(HTTPException):
+        gate({"pair_validation": decision})
+    gate({"pair_validation": decision}, review={"confirmed": True, "image_content_hashes": HASHES})
+    raw["back"]["card_number"] = "27"
+    assert derive(raw)["status"] == "conflict"
+
+
+def generations_without_printed_number():
+    raw = pair(status='conflict', reason_codes=['different_players', 'no_shared_card_number'])
+    raw['front'].update(player_names=['Vince Carter'], product_name='Century Legends', insert_name='Generations', card_number=None, brand_name='Upper Deck')
+    raw['back'].update(player_names=['Oscar Robertson'], product_name='Century Legends', insert_name='Generations', card_number=None, brand_name='Upper Deck')
+    return raw
+
+
+def test_real_generations_observations_without_visible_number_require_review():
+    raw = generations_without_printed_number()
+    decision = derive(raw, caveats=['两面分别为不同球员，不能配对'])
+    assert decision['status'] == 'unknown'
+    with pytest.raises(HTTPException):
+        gate({'pair_validation': decision})
+    gate({'pair_validation': decision}, review={'confirmed': True, 'image_content_hashes': HASHES})
+
+
+@pytest.mark.parametrize('field,value', [('card_number','G12'), ('product_name','Prizm'), ('brand_name','Panini')])
+def test_generations_design_does_not_override_independent_contradictions(field, value):
+    raw = generations_without_printed_number()
+    raw['back'][field] = value
+    assert derive(raw)['status'] == 'conflict'
