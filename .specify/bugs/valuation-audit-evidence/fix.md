@@ -6,4 +6,6 @@
 
 模型错误保留阶段、错误码和原始诊断；缓存0query不称本次搜索。历史Codex保留来源时间，与最新任务不足/失败分开。联合展示和fallback仅采用当前两市场商品研究合同，并独立绑定持仓、两面SHA、完整身份及本件流水。
 
+无成交样本时的旧模型类比出口也只保留影子记录，不凭模型声明的transaction类型绕过商品证据合同写价。
+
 正常和失败路径、隔离PostgreSQL、真实样本回放及既有失败对照见specs/026-valuation-audit-remediation/verification.md；部署见同目录deployment.md。

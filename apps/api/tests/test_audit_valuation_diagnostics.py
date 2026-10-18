@@ -44,3 +44,33 @@ def test_cache_queries_are_observed_history_and_not_fresh_searches():
     assert result['observed_query_count'] == 1
     assert result['executed_query_count'] == 0
     assert result['search_execution'] == 'cache_replay'
+
+
+@pytest.mark.asyncio
+async def test_model_transaction_claim_without_admitted_item_evidence_stays_shadow(monkeypatch):
+    from contextlib import asynccontextmanager
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from uuid import uuid4
+    from datetime import datetime, timezone
+    import card_platform.valuation_worker as module
+    @asynccontextmanager
+    async def context():
+        yield connection
+    connection=SimpleNamespace(execute=AsyncMock(return_value=SimpleNamespace(
+        fetchall=AsyncMock(return_value=[]),fetchone=AsyncMock(return_value={'id':uuid4()}))),transaction=context)
+    worker=module.AutomatedValuationWorker.__new__(module.AutomatedValuationWorker)
+    worker.database=SimpleNamespace(connection=context);worker.knowledge_runtime=None
+    worker._store_model_fallback_shadow=AsyncMock()
+    monkeypatch.setattr(module.IdentityAuditRepository,'replace_open_suggestions',AsyncMock())
+    search=module.ComparableSearchResult(fallback_valuation=dict(low_value=10,fair_value=20,high_value=30,
+        confidence='.6',methodology='model references',references=[dict(title='claimed sale',
+        source_url='https://www.cardhobby.com.cn/market/item/123',evidence_type='ended_auction',
+        occurred_at=datetime.now(timezone.utc),observed_price_base=20,match_confidence='.9',
+        adjustment='same player',condition_type='raw',player_name='Test Player')]))
+    identity=dict(collection_item_id=uuid4(),card_definition_id=uuid4(),player_name='Test Player',base_currency='CNY')
+    await worker._calculate(uuid4(),identity,search)
+    worker._store_model_fallback_shadow.assert_awaited_once()
+    statements=[str(call.args[0]) for call in connection.execute.await_args_list]
+    assert not any('INSERT INTO valuation_snapshot' in sql for sql in statements)
+    assert any("status = 'insufficient_evidence'" in sql for sql in statements)

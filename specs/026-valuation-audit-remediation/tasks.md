@@ -7,5 +7,7 @@
 - [x] T005 [US2] 修valuation_worker.py诊断及历史Codex状态，保留原错误和0query缓存语义。
 - [x] T006 [US3] 添加Codex实际研究准备/校验入口与严格商品合同，阻止旧经验价导入/提升。
 - [x] T007 运行真实样本与正常对照回放、相关及完整API验证，记录未跑和失败。
-- [ ] T008 发布代码、网页/API，核版本/健康/worker true，手机连接则安装验证。
-- [ ] T009 更新verification.md及deployment.md，列明剩余问题；不启动剩余677张审核。
+- [x] T008 发布代码、网页/API，核版本/健康/worker true；手机签名包构建完成。
+- [x] T009 更新verification.md及deployment.md，列明剩余问题；不启动剩余677张审核。
+
+- [ ] T010 手机通道恢复后覆盖安装1.1.10 (14)，回读版本并启动验证；当前CoreDevice连接超时/peer不可达，两次安装失败。
