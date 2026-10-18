@@ -344,9 +344,9 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
     setBusy(true);
     try {
       inform(`正在确认 ${pairs.length} 对正反面…`);
-      await confirmFlatbedPairs(session.id, pairs.map((pair) => ({ front_region_id: pair.front_id, back_region_id: pair.back_id })));
+      const confirmation = await confirmFlatbedPairs(session.id, pairs.map((pair) => ({ front_region_id: pair.front_id, back_region_id: pair.back_id })));
       inform(`配对已确认，正在录入 ${pairs.length} 张卡片…`);
-      const result = await submitFlatbedSession(session.id);
+      const result = await submitFlatbedSession(session.id, confirmation.confirmation_token);
       succeed(`已提交 ${result.job_ids.length} 对图片；一致的卡片将自动入库，身份冲突或证据不足将保留在待审核。`);
       await onCompleted?.(result.job_ids);
     } catch (error) { fail(error, "提交失败"); }

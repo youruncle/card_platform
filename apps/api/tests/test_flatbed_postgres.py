@@ -105,7 +105,7 @@ def test_flatbed_session_isolated_immutable_manual_and_idempotent(tmp_path) -> N
             # add fake score=1/high rows that erase the original risk signals.
             assert (candidate_count, selected_count, confirmed_count) == (4, 2, 2)
 
-        submitted = client.post(f"/v1/flatbed/sessions/{session_id}/submit")
+        submitted = client.post(f"/v1/flatbed/sessions/{session_id}/submit", json={"confirmation_token": confirmed.json()["confirmation_token"]})
         repeated = client.post(f"/v1/flatbed/sessions/{session_id}/submit")
         assert submitted.status_code == repeated.status_code == 200
         assert len(submitted.json()["job_ids"]) == 2

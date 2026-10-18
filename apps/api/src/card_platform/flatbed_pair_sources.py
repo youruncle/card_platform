@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 from collections.abc import Callable
 from pathlib import Path
 from uuid import UUID
@@ -59,3 +60,8 @@ async def pair_source_snapshot(connection, owner_id: UUID, session_id: UUID, res
         return {'version': 1, 'sheets': [sheets[side] for side in ('front', 'back')], 'pairs': pairs}
 
     return await asyncio.to_thread(build)
+
+
+def confirmation_token(snapshot: dict) -> str:
+    """A client must submit the exact mapping it confirmed, even across tabs."""
+    return hashlib.sha256(json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()).hexdigest()

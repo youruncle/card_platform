@@ -42,6 +42,10 @@ class FlatbedBridgeError(RuntimeError):
     pass
 
 
+class FlatbedSourceConflict(ValueError):
+    pass
+
+
 _bridge_session_lock = asyncio.Lock()
 
 # Independent contour detections get a small, symmetric safety margin. Refined
@@ -385,6 +389,7 @@ class FlatbedService:
         detections_override: list[Detection] | None = None,
         source_resolution: dict | None = None,
         on_progress: Callable[[int, int], None] | None = None,
+        expected_source_sheet_id: UUID | None = None,
     ) -> dict:
         session_result = await connection.execute(
             "SELECT * FROM flatbed_scan_session WHERE id=%s AND owner_id=%s FOR UPDATE",
@@ -394,7 +399,15 @@ class FlatbedService:
         if session is None:
             raise LookupError("扫描会话不存在")
         if session.get("submitted_at") is not None or session.get("status") == "submitted":
-            raise ValueError("扫描会话已经录入，请创建新会话")
+            raise FlatbedSourceConflict("扫描会话已经录入，请创建新会话")
+        if expected_source_sheet_id is not None:
+            latest = await connection.execute(
+                "SELECT id FROM flatbed_scan_sheet WHERE session_id=%s AND owner_id=%s AND side=%s ORDER BY revision DESC LIMIT 1",
+                (session_id, owner_id, side),
+            )
+            latest_row = await latest.fetchone()
+            if latest_row is None or latest_row["id"] != expected_source_sheet_id:
+                raise FlatbedSourceConflict("扫描版本已更换，请打开最新图片后重新校正")
         decoded = await asyncio.to_thread(
             cv2.imdecode, np.frombuffer(content, np.uint8), cv2.IMREAD_COLOR
         )
@@ -700,7 +713,7 @@ class FlatbedService:
         if current is None:
             raise LookupError("扫描会话不存在")
         if current.get("submitted_at") is not None or current.get("status") == "submitted":
-            raise ValueError("扫描会话已经录入，请创建新会话")
+            raise FlatbedSourceConflict("扫描会话已经录入，请创建新会话")
         revision_result = await connection.execute(
             "SELECT COALESCE(max(revision),0)+1 AS revision FROM flatbed_scan_sheet WHERE session_id=%s AND side=%s",
             (session_id, side),
@@ -827,11 +840,13 @@ class FlatbedService:
             "DELETE FROM flatbed_pair_proposal WHERE session_id=%s AND owner_id=%s",
             (session_id, owner_id),
         )
-        selected_keys = {(pair["front_id"], pair["back_id"]) for pair in proposal["pairs"]}
-        for pair in proposal["candidates"]:
+        selected_pairs = {(pair["front_id"], pair["back_id"]): pair for pair in proposal["pairs"]}
+        selected_keys = set(selected_pairs)
+        for candidate in proposal["candidates"]:
+            pair = {**candidate, **selected_pairs.get((candidate["front_id"], candidate["back_id"]), {})}
             confidence_level = (
                 "high"
-                if pair["score"] >= 0.82 and not pair["conflicts"]
+                if pair["score"] >= 0.82 and not pair["conflicts"] and pair.get("identity_status") == "consistent"
                 else "medium"
                 if pair["score"] >= 0.62
                 else "low"
