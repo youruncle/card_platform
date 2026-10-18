@@ -70,7 +70,9 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
         confidence: Number(item.score), confidence_level: String(item.confidence_level) as "high" | "medium" | "low",
         conflicts: Array.isArray(item.conflicts) ? item.conflicts.map(String) : [],
         signals: typeof item.signals === "object" && item.signals ? item.signals as Record<string, number> : {},
-        requires_review: String(item.confidence_level) !== "high" || (Array.isArray(item.conflicts) && item.conflicts.length > 0),
+        identity_status: (item.identity_status ?? "unknown") as "consistent" | "conflict" | "unknown",
+        identity_reason_codes: Array.isArray(item.identity_reason_codes) ? item.identity_reason_codes.map(String) : [],
+        requires_review: item.identity_status !== "consistent" || String(item.confidence_level) !== "high" || (Array.isArray(item.conflicts) && item.conflicts.length > 0),
       }));
       setPairs(restoredPairs); setOriginalPairs(restoredPairs);
       const pairedFrontIds = new Set(restoredPairs.map((item) => item.front_id));
@@ -105,7 +107,7 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
 
   async function start() {
     setBusy(true); inform("正在创建扫描会话…");
-    try { setSession(await createFlatbedSession(dpi)); setFronts([]); setBacks([]); setSheets({}); setPairs([]); setMissingFront([]); setMissingBack([]); succeed(`已创建 ${dpi} DPI 扫描会话，可以直接扫描正面。`); }
+    try { setSession(await createFlatbedSession(dpi, true)); setFronts([]); setBacks([]); setSheets({}); setPairs([]); setOriginalPairs([]); setMissingFront([]); setMissingBack([]); succeed(`已创建 ${dpi} DPI 扫描会话，可以直接扫描正面。`); }
     catch (error) { fail(error, "无法创建会话"); }
     finally { setBusy(false); }
   }
@@ -135,7 +137,7 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
           const progress = await getFlatbedCaptureProgress(captureId);
           if (!capturePending) return;
           if (progress.phase === "processing") {
-            const nextAction = side === "front" ? "请将本批卡片翻面；背面会独立识别边界" : "可以更换下一批卡片";
+            const nextAction = side === "front" ? "请将本批卡片翻面；背面会独立识别边界" : "请保留本批卡片，核对正反面后再开始下一批";
             const elapsed = Math.floor((Date.now() - startedAt) / 1000);
             inform(`扫描仪已完成${sideLabel}取图，正在裁剪与识别（${progress.detail ? `${progress.detail}，` : ""}已等待 ${elapsed} 秒）；现在可以打开扫描仪，${nextAction}。`);
             continue;
@@ -156,8 +158,8 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
     finally { capturePending = false; setBusy(false); }
   }
 
-  async function acceptSheet(side: "front" | "back", result: { id: string; regions: FlatbedRegion[]; failures: string[] }) {
-    setSheets((current) => ({ ...current, [side]: { id: result.id, side, revision: 0 } }));
+  async function acceptSheet(side: "front" | "back", result: { id: string; revision?: number; regions: FlatbedRegion[]; failures: string[] }) {
+    setSheets((current) => ({ ...current, [side]: { id: result.id, side, revision: result.revision ?? (current[side]?.revision ?? 0) + 1 } }));
     const warning = result.failures.length
       ? ` 检测提示：${[...new Set(result.failures)].map(failureLabel).join("；")}。`
       : "";
@@ -266,6 +268,7 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
       if (other < 0 || other === index) return current;
       const next = current.map((pair) => ({ ...pair }));
       [next[index].back_id, next[other].back_id] = [next[other].back_id, next[index].back_id];
+      for (const changed of [index, other]) { next[changed].identity_status = "unknown"; next[changed].identity_reason_codes = ["manual_pair_requires_recheck"]; }
       return next;
     });
   }
@@ -273,6 +276,22 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
   function conflictLabel(value: string) {
     return ({
       ocr_identity_conflict: "OCR 身份信息不一致",
+      ocr_identity_unverified: "文字证据不足，请逐对核对",
+      same_design_copy_unverified: "同款卡片无法仅凭文字区分实体副本",
+      multi_subject_design_requires_review: "双主体版式，请核对当前两面",
+      manual_pair_requires_recheck: "已手动调整配对，入库前将重新核验身份",
+      ocr_product_conflict: "正反面产品系列不一致",
+      ocr_insert_conflict: "正反面特卡系列不一致",
+      ocr_player_conflict: "正反面球员信息不一致",
+      ocr_card_number_conflict: "正反面卡号不一致",
+      ocr_serial_conflict: "正反面限编信息不一致",
+      ocr_season_conflict: "正反面明确发行赛季不一致",
+      identity_unverified: "文字证据不足，请逐对核对",
+      identity_ambiguous: "存在同款卡片，无法仅凭文字区分实体副本",
+      product_conflict: "正反面产品系列不一致",
+      insert_conflict: "正反面特卡系列不一致",
+      player_conflict: "正反面球员信息不一致",
+      card_number_conflict: "正反面卡号不一致",
       geometry_conflict: "摆放位置存在冲突",
       visual_conflict: "画面特征不一致",
       low_signal: "可用特征不足",
@@ -328,7 +347,7 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
       await confirmFlatbedPairs(session.id, pairs.map((pair) => ({ front_region_id: pair.front_id, back_region_id: pair.back_id })));
       inform(`配对已确认，正在录入 ${pairs.length} 张卡片…`);
       const result = await submitFlatbedSession(session.id);
-      succeed(`已录入 ${result.job_ids.length} 张卡片，识别和估值将在后台继续。`);
+      succeed(`已提交 ${result.job_ids.length} 对图片；一致的卡片将自动入库，身份冲突或证据不足将保留在待审核。`);
       await onCompleted?.(result.job_ids);
     } catch (error) { fail(error, "提交失败"); }
     finally { setBusy(false); }
@@ -336,13 +355,14 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
 
   return <section className="flatbed-panel">
     <div className="flatbed-heading"><div><strong>Canon 扫描仪批量录入</strong><small>{device}</small></div><label>DPI <select value={dpi} onChange={(event) => setDpi(Number(event.target.value) as 300 | 600)} disabled={!!session}><option>300</option><option>600</option></select></label></div>
+    {session && <div className="flatbed-pair-title"><small>当前批次 {session.id.slice(0, 8)} · 更换整批卡片时请开始下一批；本批重扫会重新生成配对。</small><button type="button" className="ghost-button" disabled={busy} onClick={() => void start()}>开始下一批</button></div>}
     {message && <p className={`flatbed-status ${messageTone}`} role={messageTone === "error" ? "alert" : "status"}>{busy && <span className="valuation-spinner" />} {message}</p>}
     {!session && !busy && <button type="button" className="primary-button" onClick={start}>重新创建扫描会话</button>}
     {session && <div className="flatbed-steps">
-      <label><b>1. 扫描正面</b><small>支持单张、多行多列、卡片与卡砖混合</small><span className="flatbed-scan-actions"><button type="button" onClick={() => void scan("front", true)} disabled={busy}>概览</button><button type="button" onClick={() => void scan("front", false)} disabled={busy}>正式扫描</button></span><input title="也可导入已有整版图" type="file" accept="image/jpeg,image/png" onChange={(e) => void sheet("front", e.target.files?.[0])} disabled={busy} /></label>
+      <label><b>1. 扫描正面{fronts.length > 0 ? ` · 版本 ${sheets.front?.revision ?? 1}` : ""}</b><small>支持单张、多行多列、卡片与卡砖混合</small><span className="flatbed-scan-actions"><button type="button" onClick={() => void scan("front", true)} disabled={busy}>概览</button><button type="button" onClick={() => void scan("front", false)} disabled={busy}>正式扫描</button></span><input title="也可导入已有整版图" type="file" accept="image/jpeg,image/png" onChange={(e) => void sheet("front", e.target.files?.[0])} disabled={busy} /></label>
       <span className={fronts.length ? "done" : ""}>{fronts.length} 张</span>
       <SheetPreview side="front" regions={fronts} />
-      <label><b>2. 翻面后扫描背面</b><small>背面独立识别卡片边界，不套用正面位置；保持大致顺序有助于配对，数量或配对有疑问时会提示确认</small><span className="flatbed-scan-actions"><button type="button" onClick={() => void scan("back", true)} disabled={busy || !fronts.length}>概览</button><button type="button" onClick={() => void scan("back", false)} disabled={busy || !fronts.length}>正式扫描</button></span><input title="也可导入已有整版图" type="file" accept="image/jpeg,image/png" onChange={(e) => void sheet("back", e.target.files?.[0])} disabled={busy || !fronts.length} /></label>
+      <label><b>2. 翻面后扫描背面{backs.length > 0 ? ` · 版本 ${sheets.back?.revision ?? 1}` : ""}</b><small>背面独立识别卡片边界，不套用正面位置；保持大致顺序有助于配对，数量或配对有疑问时会提示确认</small><span className="flatbed-scan-actions"><button type="button" onClick={() => void scan("back", true)} disabled={busy || !fronts.length}>概览</button><button type="button" onClick={() => void scan("back", false)} disabled={busy || !fronts.length}>正式扫描</button></span><input title="也可导入已有整版图" type="file" accept="image/jpeg,image/png" onChange={(e) => void sheet("back", e.target.files?.[0])} disabled={busy || !fronts.length} /></label>
       <span className={backs.length ? "done" : ""}>{backs.length} 张</span>
       <SheetPreview side="back" regions={backs} />
     </div>}
@@ -352,7 +372,7 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
     </div>}
     {(pairs.length > 0 || missingFront.length > 0 || missingBack.length > 0) && <div className="flatbed-pairs"><div className="flatbed-pair-title"><strong>正反面配对</strong><button type="button" className="ghost-button" onClick={() => setPairs(originalPairs)}>撤销调整</button></div>
       {(missingFront.length > 0 || missingBack.length > 0) && <p className="recognition-error">未配对：正面 {missingBack.length} 张，背面 {missingFront.length} 张。你可以先录入下方完整的 {pairs.length} 对；未配对图片本次不会录入，如需纳入请先校正布局或补扫。</p>}
-      <div className="flatbed-submit-bar"><span><strong>本次录入 {pairs.length} 张</strong><small role={messageTone === "error" ? "alert" : undefined}>{messageTone === "error" ? message : busy ? message : missingFront.length + missingBack.length > 0 ? `另有 ${missingFront.length + missingBack.length} 张本次不录入，不阻塞完整配对` : "低置信度和质量提示不会阻塞录入"}</small></span><button type="button" className="primary-button" onClick={confirmAndSubmit} disabled={busy || pairs.length === 0}>{busy ? "处理中…" : `确认配对并录入 ${pairs.length} 张卡片`}</button></div>
+      <div className="flatbed-submit-bar"><span><strong>本次录入 {pairs.length} 张</strong><small role={messageTone === "error" ? "alert" : undefined}>{messageTone === "error" ? message : busy ? message : missingFront.length + missingBack.length > 0 ? `另有 ${missingFront.length + missingBack.length} 张本次不录入，不阻塞完整配对` : "裁切质量提示可人工核对；身份冲突会停止自动入库"}</small></span><button type="button" className="primary-button" onClick={confirmAndSubmit} disabled={busy || pairs.length === 0}>{busy ? "处理中…" : `确认配对并录入 ${pairs.length} 张卡片`}</button></div>
       <div className="flatbed-pair-grid">{pairs.map((pair, index) => {
         const front = fronts.find((item) => item.id === pair.front_id);
         const back = backs.find((item) => item.id === pair.back_id);
@@ -361,13 +381,13 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
         const frontUrl = assetUrl(`/v1/flatbed/regions/${pair.front_id}/image`) ?? "";
         const backUrl = assetUrl(`/v1/flatbed/regions/${pair.back_id}/image`) ?? "";
         return <article key={pair.front_id} className={`flatbed-pair-card ${pair.requires_review ? "review" : ""}`}>
-          <div className="flatbed-pair-card-heading"><strong>卡片 {index + 1}</strong><span className={`flatbed-confidence ${pair.confidence_level}`}>{Math.round(pair.confidence * 100)}% · {pair.confidence_level === "high" ? "高置信度" : pair.confidence_level === "medium" ? "需核对" : "低置信度"}</span></div>
+          <div className="flatbed-pair-card-heading"><strong>卡片 {index + 1}</strong><span className={`flatbed-confidence ${pair.confidence_level}`}>配对分数 {Math.round(pair.confidence * 100)}% · {pair.identity_status === "consistent" ? "文字身份一致" : "身份待核对"}</span></div>
           <div className="flatbed-pair-visuals">
             <button type="button" onClick={() => setLightbox({ url: frontUrl, label: `卡片 ${index + 1} 正面` })}><img src={frontUrl} alt={`卡片 ${index + 1} 正面`} /><span>正面 {frontNumber}</span><small>点击放大</small></button>
             <div className="flatbed-pair-switch"><span aria-hidden="true">⇄</span><label>匹配背面<select value={pair.back_id} onChange={(event) => swapBack(index, event.target.value)}>{backs.map((candidate) => <option key={candidate.id} value={candidate.id}>背面 {candidate.ordinal + 1}</option>)}</select></label></div>
             <button type="button" onClick={() => setLightbox({ url: backUrl, label: `卡片 ${index + 1} 背面` })}><img src={backUrl} alt={`卡片 ${index + 1} 背面`} /><span>背面 {backNumber}</span><small>点击放大</small></button>
           </div>
-          <div className={`flatbed-pair-note ${pair.conflicts.length ? "conflict" : ""}`}>{pair.conflicts.length ? pair.conflicts.map(conflictLabel).join("；") : "未发现配对冲突"}</div>
+          <div className={`flatbed-pair-note ${pair.conflicts.length ? "conflict" : ""}`}>{pair.conflicts.length ? pair.conflicts.map(conflictLabel).join("；") : pair.identity_status === "consistent" ? "已找到一致的文字身份依据，仍请核对实物" : (pair.identity_reason_codes?.length ? pair.identity_reason_codes.map(conflictLabel).join("；") : "身份尚未核验，请查看当前正反面")}</div>
         </article>;
       })}</div>
     </div>}

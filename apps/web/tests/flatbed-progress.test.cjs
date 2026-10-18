@@ -31,3 +31,23 @@ test('back scan keeps reporting crop progress until pairing completes',async()=>
  }finally{finishCapture();}
  await waitFor(()=>assert.match(screen.getByRole('status').textContent,/全部为高置信度配对/));
 });
+
+test('explicit next batch creates a fresh session instead of reusing restored sheets', async()=>{
+ const calls=[];
+ const response=data=>({ok:true,json:async()=>data});
+ global.fetch=async (url,options={})=>{
+  const path=new URL(url,'http://localhost').pathname;
+  if(path==='/v1/flatbed/device')return response({name:'Canon',serial:'fixture'});
+  if(path==='/v1/flatbed/sessions' && options.method==='POST'){
+   calls.push(JSON.parse(options.body));return response({id:'fresh',dpi:300});
+  }
+  if(path==='/v1/flatbed/sessions')return response([{id:'old',submitted_at:null}]);
+  if(path==='/v1/flatbed/sessions/old')return response({id:'old',regions:[],sheets:[],pairs:[]});
+  throw Error(`Unexpected request: ${path}`);
+ };
+ render(React.createElement(FlatbedBatchPanel));
+ await waitFor(()=>assert.match(screen.getByRole('status').textContent,/恢复/));
+ fireEvent.click(screen.getByRole('button',{name:'开始下一批'}));
+ await waitFor(()=>assert.equal(calls.length,1));
+ assert.equal(calls[0].new_batch,true);
+});

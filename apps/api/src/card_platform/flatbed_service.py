@@ -31,6 +31,7 @@ from card_platform.flatbed_detection import (
     visual_signals,
 )
 from card_platform.flatbed_matching import CardRegion, propose_pairs
+from card_platform.flatbed_pair_signals import extract_pair_signals
 from card_platform.flatbed_ml import refine_with_sam2
 from card_platform.flatbed_object_quality import audit_object_crop_integrity, audit_original_content_integrity, restore_content_preserving_quads
 from card_platform.flatbed_object_quads import resolve_object_layout
@@ -298,16 +299,7 @@ class FlatbedService:
         except (OSError, json.JSONDecodeError):
             return {"ocr_failure": "local_vision_failed"}
         text = str(payload.get("text") or "")
-        tokens = sorted(set(re.findall(r"[A-Za-z0-9#/-]{2,}", text.casefold())))
-        signals: dict = {"ocr_text": text, "ocr_tokens": tokens}
-        if match := re.search(r"\b(?:19|20)\d{2}\b", text):
-            signals["year"] = match.group(0)
-        if match := re.search(r"\b(\d{1,4})\s*/\s*(\d{1,4})\b", text):
-            signals["serial_number"] = match.group(1)
-            signals["serial_total"] = match.group(2)
-        if match := re.search(r"(?:NO\.?|#)\s*([A-Z0-9-]{1,12})", text, re.IGNORECASE):
-            signals["card_number"] = match.group(1)
-        return signals
+        return extract_pair_signals(text)
 
     async def bridge(
         self, command: str, *, output: Path | None = None, dpi: int = 300, timeout: float = 60
@@ -359,7 +351,7 @@ class FlatbedService:
             raise FlatbedBridgeError(message)
         return events
 
-    async def create_session(self, connection, owner_id: UUID, dpi: int) -> dict:
+    async def create_session(self, connection, owner_id: UUID, dpi: int, *, new_batch: bool = False) -> dict:
         # Opening the scanner tab and React development strict-mode can issue
         # concurrent initialization requests. Serialize them per account and
         # reuse the unfinished session instead of creating duplicate batches.
@@ -374,7 +366,7 @@ class FlatbedService:
             (owner_id,),
         )
         row = await existing.fetchone()
-        if row is not None:
+        if row is not None and not new_batch:
             return dict(row)
         row = await connection.execute(
             """INSERT INTO flatbed_scan_session(owner_id,device_serial,dpi) VALUES (%s,'4706E5',%s) RETURNING *""",
@@ -395,7 +387,7 @@ class FlatbedService:
         on_progress: Callable[[int, int], None] | None = None,
     ) -> dict:
         session_result = await connection.execute(
-            "SELECT * FROM flatbed_scan_session WHERE id=%s AND owner_id=%s",
+            "SELECT * FROM flatbed_scan_session WHERE id=%s AND owner_id=%s FOR UPDATE",
             (session_id, owner_id),
         )
         session = await session_result.fetchone()
@@ -778,7 +770,7 @@ class FlatbedService:
             (session_id, owner_id),
         )
         await connection.execute(
-            "UPDATE flatbed_scan_session SET status=%s,pairing_requires_review=true,pairing_transform=NULL,updated_at=now() WHERE id=%s",
+            "UPDATE flatbed_scan_session SET status=%s,pairing_requires_review=true,pairing_transform=NULL,confirmed_sources=NULL,updated_at=now() WHERE id=%s",
             (status, session_id),
         )
         if detections_override is not None:
@@ -845,7 +837,7 @@ class FlatbedService:
                 else "low"
             )
             await connection.execute(
-                """INSERT INTO flatbed_pair_proposal(session_id,owner_id,front_region_id,back_region_id,score,confidence_level,transform,signals,conflicts,selected) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                """INSERT INTO flatbed_pair_proposal(session_id,owner_id,front_region_id,back_region_id,score,confidence_level,transform,signals,conflicts,selected,identity_status,identity_reason_codes) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                 (
                     session_id,
                     owner_id,
@@ -857,10 +849,12 @@ class FlatbedService:
                     Jsonb(pair["signals"]),
                     Jsonb(list(pair["conflicts"])),
                     (pair["front_id"], pair["back_id"]) in selected_keys,
+                    pair.get("identity_status", "unknown"),
+                    Jsonb(pair.get("identity_reason_codes", [])),
                 ),
             )
         await connection.execute(
-            "UPDATE flatbed_scan_session SET status='pairing',pairing_transform=%s,pairing_requires_review=%s,updated_at=now() WHERE id=%s AND owner_id=%s",
+            "UPDATE flatbed_scan_session SET status='pairing',pairing_transform=%s,pairing_requires_review=%s,confirmed_sources=NULL,updated_at=now() WHERE id=%s AND owner_id=%s",
             (proposal["transform"], proposal["requires_review"], session_id, owner_id),
         )
         return proposal
