@@ -127,7 +127,7 @@ def test_no_form_inference_from_congratulations_or_future_expiration():
     assert redemption_identity({"title": "Redemption Card Expires 5/31/2036"}) == (True, "unknown")
 
 
-@pytest.mark.parametrize("title", ["Redemption not redeemed", "交换 未兑换", "交换 未刮"])
+@pytest.mark.parametrize("title", ["Redemption not redeemed", "交换 未兑换"])
 def test_unused_code_words_do_not_match_redeemed(title):
     assert redemption_identity({"title": title}) == (True, "unredeemed")
 

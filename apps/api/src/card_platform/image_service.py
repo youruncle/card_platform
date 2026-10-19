@@ -49,7 +49,9 @@ def sanitize_identity_field_roles(result: CardRecognitionResult) -> CardRecognit
     """Reject explicit role confusion; never infer replacement catalog fields."""
     changes, issues = {}, []
     number = str(result.card_number or '').strip()
-    from card_platform.domain.number_roles import non_catalog_number_role, serial_non_unique_role
+    from card_platform.domain.number_roles import (
+        first_appearance_number_role, non_catalog_number_role, serial_non_unique_role,
+    )
     from card_platform.domain.card_identity import is_placeholder_identity_value
     for field in ('player_name', 'brand_name', 'product_name'):
         if is_placeholder_identity_value(getattr(result, field)):
@@ -120,6 +122,8 @@ def sanitize_identity_field_roles(result: CardRecognitionResult) -> CardRecognit
             and result.catalog_verified_fields.get(field) == getattr(result,field)
             and any(candidate_supports_resolved_field(candidate,field,getattr(result,field))
                     for candidate in result.web_candidates))
+        wrong_role = wrong_role or first_appearance_number_role(
+            getattr(result, field), claims, year=True)
         if getattr(result, field) is not None and wrong_role and not (release_line or catalog_release):
             changes[field] = None
             issues.append(field+'_not_direct_release_evidence')

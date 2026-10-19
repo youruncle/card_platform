@@ -5,7 +5,7 @@ from decimal import Decimal
 from card_platform.domain.card_identity import CardIdentityResolver
 from card_platform.domain.finish_evidence import VisualMatchFacts, finish_state
 from card_platform.domain.auction_evidence import public_auction_rejection_reasons
-from card_platform.domain.redemption import redemption_conflict
+from card_platform.domain.redemption import redemption_conflict, redemption_identity
 from card_platform.domain.product_identity import reviewed_parent_product_confirmation
 from card_platform.domain.scoped_parallel_names import parallel_match_text
 from card_platform.domain.comparables import (
@@ -22,7 +22,7 @@ from card_platform.domain.listing_condition import (
     title_discloses_damage, title_disclaims_card_condition, condition_rejection_reasons, disclose_minor_condition,
 )
 
-FORMAL_CARDHOBBY_CONTRACT = "same-card-source-revalidated-v21"
+FORMAL_CARDHOBBY_CONTRACT = "same-card-source-revalidated-v22"
 
 
 def _corroborated_same_card(identity, sale, observation, reasons, *, resolver=None):
@@ -193,6 +193,12 @@ def enforce_formal_cardhobby_identity(
         voucher_conflict = redemption_conflict(identity, sale.title)
         if voucher_conflict:
             reasons.append(voucher_conflict)
+        target_voucher, target_usage = redemption_identity(identity)
+        sale_voucher, sale_usage = redemption_identity({"title": sale.title})
+        if target_voucher and sale_voucher and "unknown" in {target_usage, sale_usage}:
+            # Matching printed vouchers cannot establish equal usable rights.
+            # Keep unknown usage as a candidate, without publishing its price.
+            reasons.append("redemption_usage_status_unverified")
         if is_multi_card_listing(sale.title, identity.get("product_name")):
             reasons.append("multi_card_listing_not_single_card_evidence")
         if not identity.get("grade_company") and is_graded_listing(sale.title):

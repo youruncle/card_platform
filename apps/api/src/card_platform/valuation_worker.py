@@ -16,6 +16,7 @@ from uuid import UUID
 
 import httpx
 from openai import AsyncOpenAI
+from psycopg.errors import DeadlockDetected
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field, model_validator
 
@@ -3315,6 +3316,21 @@ class AutomatedValuationWorker:
     async def _store_comparables(self, identity: dict, search: ComparableSearchResult) -> None:
         if not search.comparables:
             return
+        # A competing writer can hold a row needed by this batch. Retry only
+        # after the entire transaction has rolled back, without repeating the
+        # market search or its model calls. Other database failures still fail
+        # the job with their original diagnostic.
+        for attempt in range(3):
+            try:
+                await self._store_comparables_once(identity, search)
+                return
+            except DeadlockDetected:
+                if attempt == 2:
+                    raise
+                logger.warning("market_comp transaction deadlocked; retry %s/2", attempt + 1)
+                await asyncio.sleep(0.05 * (2 ** attempt))
+
+    async def _store_comparables_once(self, identity: dict, search: ComparableSearchResult) -> None:
         async with self.database.connection() as connection, connection.transaction():
             sources = await connection.execute(
                 "SELECT id, code FROM data_source "
@@ -3323,6 +3339,7 @@ class AutomatedValuationWorker:
                 "'public_market_research')"
             )
             source_ids = {row["code"]: row["id"] for row in await sources.fetchall()}
+            ordered = []
             for comp in search.comparables:
                 cardhobby_key = cardhobby_external_id(
                     comp.source_url, comp.title, comp.occurred_at, comp.sale_price
@@ -3339,6 +3356,11 @@ class AutomatedValuationWorker:
                     if ebay_key is not None
                     else comp.source_url
                 )
+                ordered.append((source_id, external_id, comp, source_code, ebay_key))
+            # Lock the actual conflict keys in one order even when searches
+            # return the same sales in different orders or URL aliases.
+            ordered.sort(key=lambda item: (str(item[0]), item[1]))
+            for source_id, external_id, comp, source_code, ebay_key in ordered:
                 classification = (
                     {"origin_source_code": "ebay", "ebay_item_id": ebay_key}
                     if ebay_key is not None
