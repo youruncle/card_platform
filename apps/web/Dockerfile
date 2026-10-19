@@ -15,7 +15,7 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY apps/web .
 COPY packages /packages
-RUN ./node_modules/.bin/next build
+RUN NODE_OPTIONS=--max-old-space-size=512 ./node_modules/.bin/next build
 
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production \

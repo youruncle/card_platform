@@ -700,7 +700,7 @@ export type CardRecognition = {
   recognition_model?: string | null;
   recognition_status?: "resolved" | "research_required";
   recognition_quality_issues?: string[];
-  recognition_estimated_cost_cny?: string;
+  recognition_estimated_cost_cny?: string | null;
   recognition_route?: Array<{
     tier: string; model: string; reason: string; status?: string;
     latency_ms?: number; prompt_tokens?: number | null; completion_tokens?: number | null;

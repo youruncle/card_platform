@@ -1145,7 +1145,7 @@ export default function Dashboard() {
       setRecognitionProgress((current) => {
         const next = Math.min(current + (current < 45 ? 7 : 3), 90);
         if (next >= 62) setRecognitionPhase("正在联网核验目录与候选");
-        else if (next >= 24) setRecognitionPhase("Qwen3-VL 正在提取卡面信息");
+        else if (next >= 24) setRecognitionPhase("正在提取卡面信息");
         return next;
       });
     }, 900);
