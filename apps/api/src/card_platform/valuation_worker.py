@@ -2357,7 +2357,7 @@ class AutomatedValuationWorker:
         Final publication still revalidates persisted source facts and decisions.
         This predicate never approves an evidence row or a price.
         """
-        if (decision.verdict != "same" or decision.confidence < Decimal(".90")
+        if (decision.verdict != "same" or decision.confidence < Decimal(".80")
                 or decision.design_match != "same" or decision.finish_match != "same"
                 or not 0 <= (datetime.now(UTC) - comp.occurred_at).days <= 730
                 or evidence_grade(comp.evidence_level) not in {EvidenceGrade.E0, EvidenceGrade.E1, EvidenceGrade.E2}):
@@ -2379,7 +2379,7 @@ class AutomatedValuationWorker:
             visual_verdict=decision.verdict, visual_confidence=decision.confidence,
             visual_reasons=tuple(decision.reasons), visual_facts=visual_facts,
         ))
-        if comp.source_code == "cardhobby":
+        if comp.source_code in {"cardhobby", "cardhobby_provider"}:
             tier, reasons = revalidated_cardhobby_assessment(identity, comp.provider_payload,
                 resolver=self.knowledge_runtime.resolver if self.knowledge_runtime else None)
             judged, _ = reconcile_cardhobby_classification(judged, tier, provider_rejection_reasons=reasons)

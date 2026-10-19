@@ -18,6 +18,7 @@ from card_platform.image_service import (
 from card_platform.image_rectification import rectify_card_image, RectifiedImage
 from card_platform.scanner_queue import ScannerQueueService
 from card_platform.repository import PortfolioRepository
+from card_platform.pair_integrity import validate_pair_for_confirmation
 from card_platform.schemas import (
     CaptureJob,
     CollectionItemCreate,
@@ -397,6 +398,18 @@ class CaptureService:
                     raise HTTPException(409, "原卡片已删除，任务不能再次创建卡片")
                 if job["status"] != "succeeded":
                     raise HTTPException(409, "识别尚未完成")
+                body = dict(body or {})
+                pair_review = body.pop("pair_review", None)
+                image_hashes = {}
+                processed_contents = {}
+                for side in ("front", "back"):
+                    if job.get(f"{side}_image_path"):
+                        path = self.queue.image_path(job[f"{side}_image_path"])
+                        if not path.is_file():
+                            raise HTTPException(409, "任务照片缺失，请重新上传")
+                        processed_contents[side] = path.read_bytes()
+                        image_hashes[side] = hashlib.sha256(processed_contents[side]).hexdigest()
+                validate_pair_for_confirmation(job.get("result") or {}, image_hashes, pair_review)
                 if job.get("target_item_id"):
                     await self.target(db, owner_id, job["target_item_id"], job["expected_revision"])
                     item_id = job["target_item_id"]
@@ -433,7 +446,7 @@ class CaptureService:
                     image = await ImageStorageService(
                         self.settings
                     ).save_preprocessed_item_image_content(
-                        db, item_id, owner_id, side, path.read_bytes(), job[f"{side}_content_type"]
+                        db, item_id, owner_id, side, processed_contents[side], job[f"{side}_content_type"]
                     )
                     saved.append(
                         self.settings.resolved_upload_dir / image.image_url.rsplit("/", 1)[-1]

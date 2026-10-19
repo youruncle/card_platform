@@ -1,4 +1,5 @@
 """Final same-card admission, independent of discovery tiers and stale markers."""
+import json
 import re
 from decimal import Decimal
 
@@ -22,7 +23,7 @@ from card_platform.domain.listing_condition import (
     title_discloses_damage, title_disclaims_card_condition, condition_rejection_reasons, disclose_minor_condition,
 )
 
-FORMAL_CARDHOBBY_CONTRACT = "same-card-source-revalidated-v22"
+FORMAL_CARDHOBBY_CONTRACT = "same-card-source-revalidated-v23"
 
 
 def _corroborated_same_card(identity, sale, observation, reasons, *, resolver=None):
@@ -284,6 +285,34 @@ def enforce_formal_cardhobby_identity(
     except (TypeError, ValueError):
         conflicts, tier = [], None
         reasons.append("cardhobby_source_payload_not_verifiable")
+    if (sale and paired_finish
+            and classification.field_matches.get('image_similar_same_card') is True):
+        # Provider recall is title-led; a sealed current image comparison can
+        # supply an omitted card number/finish. Recompute the underlying identity
+        # so a persisted marker cannot conceal a real source contradiction.
+        observed = json.loads(visual_facts.raw_json)
+        image_classification = ComparableClassifier(resolver).classify(
+            CardIdentityResolver().resolve(identity),
+            ComparableInput(title=sale.title, source_code='cardhobby',
+                grade_company=sale.grade_company, grade_value=sale.grade_value,
+                visual_verdict=observed.get('visual_verdict'),
+                visual_confidence=Decimal(str(observed.get('visual_confidence') or 0)),
+                visual_facts=visual_facts),
+        )
+        if image_classification.field_matches.get('image_similar_same_card') is True:
+            supplied_by_images = {
+                'cardhobby_provider_identity_conflict',
+                'target_parallel_abbreviation_unconfirmed',
+                '标题未命中目标平行版本', '目标表面版本未知，需图像确认',
+                '标题未命中目标卡号或卡种', '标题未命中目标卡种，需图像确认',
+                '标题未命中目标卡号，基础/原生闪卡需图像确认',
+                '标题为比目标更具体的其他平行版本',
+                '标题明确为其他平行版本，与目标平行不一致',
+            }
+            if not (set(conflicts) - supplied_by_images):
+                classification = image_classification
+                reasons = [reason for reason in reasons if reason not in supplied_by_images]
+                tier, conflicts = 'image_review_candidate', []
     if tier == UNGRADED_SAME_CARD_BASIS:
         # This is an explicitly disclosed basis, not an exact-grade sale.
         # Reclassify the underlying card from immutable source facts. Only the

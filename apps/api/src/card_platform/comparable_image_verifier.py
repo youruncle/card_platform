@@ -17,10 +17,9 @@ import numpy as np
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field, PrivateAttr, ValidationError
 
-from card_platform.domain.finish_evidence import finish_state
 from card_platform.domain.listing_title import explicit_print_runs
 from card_platform.domain.independent_finish import (
-    INDEPENDENT_FINISH_CONTRACT, IndependentFinishObservation, independent_finish_is_current,
+    INDEPENDENT_FINISH_CONTRACT, IndependentFinishObservation,
     requires_text_only_reobservation,
 )
 from card_platform.config import Settings
@@ -30,7 +29,7 @@ from card_platform.visual_checkpoints import VisualCheckpoints
 from card_platform.domain.listing_condition import title_discloses_minor_condition, condition_review_is_current
 
 
-MODEL_OBSERVATION_CONTRACT = 'paired-image-only-evidence-v9'
+MODEL_OBSERVATION_CONTRACT = 'paired-image-similar-finish-v10'
 
 
 PRIMARY_VISUAL_OBSERVATION_INSTRUCTIONS = """核验图中两张实卡是否同一正式卡型、同一选图、同一固定印刷/纹理版本。只据图片，不用标题或产品常识补字。按图像编号辨认：target_front为目标正面，target_back为目标背面；candidate_front为候选主图，candidate_support_1/2为候选画廊，可能是背面、局部或卖家条款，角色必须实看。条款不是卡背。目标背面永远不是候选。没有候选背面时，不能声称看到了候选背面卡号或限编。已编号上传的候选补充背图是该候选的图证；即使与目标背面版式相同，也不能因此误当成目标背面的重复引用而说未提供候选背面。
@@ -40,12 +39,12 @@ PRIMARY_VISUAL_OBSERVATION_INSTRUCTIONS = """核验图中两张实卡是否同�
 1. 独立观察两张正面。对每张分别写完整且具体的布局、人物照片/插画姿势与手/物体位置、框线/文字位置、固定表面纹理及所在区域。candidate描述必须单独可读；禁用同上、同左、同目标、与目标一致、same as target等指代。只写这张图实际可见内容。
 2. 独立读实际提供的两张背面。核卡号的完整字母前缀及数字、产品发行标记、背面语言/地区印刷、限编分母与版本印字。将实读背号/语言的对照简短写在reasons，不能写进正面match_evidence描述。同号不保证同语言版本。完整字母前缀不可丢失；连字符/空格可以是标点变化，不能把前缀不同的编号合并。未提供或看不清的卡背不能用另一张卡补全；兑换码禁止抄录。流水分子不同本身不属于异版，分母必须核对。
 3. 区分固定油墨/纹理与镭射反光。银箔/全息面随角度产生红橙、蓝紫、绿黄和彩虹渐变；先比同一区域的纹理形状、网格尺度、线条方向，以及不反光的文字/照片/油墨细节。将实际光照差异描述为reflection，不能只把虹彩渐变或曝光导致的色相改变标为printed_color/fixed_pattern。固定蓝框、金色油墨、星形/波纹/碎冰/Scope等明确差异仍是异版；未出现彩虹反射不等于没有全息层；低亮度或不同拍摄角度不能单独证明目标是哑光底材、候选是异版。要判固定工艺不同，须实见纹理结构、固定油墨或印字的冲突。不确定属于哪类就unknown，不能默认都是反光。黑白与彩色选图、人物姿势、背号或语言印刷差异不能被相同模板掩盖。
-4. 最后判断：只有单张实卡、全部可见身份/选图/固定颜色与纹理证据相容，且版本印字得到对应面实图支持才same；有可读背号、语言、选图或固定工艺冲突则different；证据不足uncertain；compatible不是同款成交确认。
+4. 最后判断：只有单张实卡、全部可见身份/选图/固定颜色与纹理证据相容，且花纹相似、固定颜色无明显差异、总限编相同或双方无编号即允许same；不必核实官方平行名称或取得背面版本印字，轻微反光色差允许；有可读背号、语言、选图或固定工艺冲突则different；证据不足uncertain；compatible不是同款成交确认。
 
 输出遵守schema，并按以下职责填写：
 - candidate_card_count：同一卡正背算1；多张实卡/lot大于1，条款0；不清楚null。
 - match_evidence：same时恰好两项kind=layout和finish。target、candidate均是各自独立、具体的【正面】观察，source=images，both_visible=true，target_view/candidate_view=front。这四个描述字符串不得包含“背面/卡背/反面/back”或任何背面事实；背面事实只放reasons和version_marker_observations。
-- finish.version_marker_observations：逐方读PRIZM/REFRACTOR等版本印字。有target_back时target必须view=back、image_ref=target_back；candidate必须引用实际看见的面：candidate_front或candidate_support_1/2。readable要逐字抄实际印字；完整清晰整面未印才not_printed且whole_view_visible=true，没提供/看不清只能not_visible。版本印字专指工艺/平行标签，不是卡号、流水、球衣号、产品Logo或版权文字；没有版本标签就据整面可见性标not_printed，不能把相同卡号冒充相同版本字。产品Logo不能代替背面版本印字。not_visible表示对应面未提供或看不清；not_printed表示整面已清晰可见且确实未印版本字。已提供清晰候选背面但没有版本标签，应为not_printed，不应因没字填not_visible。一方readable而另一方not_printed也属于版本冲突，不能判same。双方对应面均not_printed时，版本字这一项允许相容；它不是缺图，但也不单独证明同款，仍须双方正面固定纹理/颜色/选图证据。只有实际印字相冲突，或任一对应面未提供/无法核实，才不能确认版本字相容。
+- finish.version_marker_observations：如实际可见则逐方读PRIZM/REFRACTOR等版本印字。有target_back时target必须view=back、image_ref=target_back；candidate必须引用实际看见的面：candidate_front或candidate_support_1/2。readable要逐字抄实际印字；完整清晰整面未印才not_printed且whole_view_visible=true，没提供/看不清只能not_visible。版本印字专指工艺/平行标签，不是卡号、流水、球衣号、产品Logo或版权文字；没有版本标签就据整面可见性标not_printed，不能把相同卡号冒充相同版本字。产品Logo不能代替背面版本印字。not_visible表示对应面未提供或看不清；not_printed表示整面已清晰可见且确实未印版本字。已提供清晰候选背面但没有版本标签，应为not_printed，不应因没字填not_visible。一方readable而另一方not_printed也属于版本冲突，不能判same。双方对应面均not_printed时，版本字这一项允许相容；它不是缺图，但也不单独证明同款，仍须双方正面固定纹理/颜色/选图证据。只有实际印字相冲突，才属于明确冲突；缺少版本标签或背图不单独阻止正面图片相似匹配。
 - conflict_evidence：different时每项分别写两张图清晰可见且互相冲突的观察，source=images、both_visible=true。纹理结构差异用fixed_pattern，确切固定油墨用printed_color，实读背号/语言用card_text，分母用serial_total（如12/99对7/25）。单独光照/分子/标题不构成异版证据。
 - condition_review：只核双方正面可见四角/实体边缘/表面，分别具体描述；清晰完整才front_complete=true。微瑕可比comparable_minor，实质不同materially_different，不清楚uncertain。不能从同款结论推出品相。
 每张只有一个candidate_id。请保持所有单张描述独立，先写观察字段再填写design_match、finish_match、verdict和confidence。不得用相同照片模板代替真实图证。"""
@@ -119,7 +118,7 @@ class VisualMatchEvidence(BaseModel):
     target_view: Literal['front', 'back', 'unknown'] = 'unknown'
     candidate_view: Literal['front', 'back', 'unknown'] = 'unknown'
     version_marker_observations: VersionMarkerPair | None = Field(default=None,
-        description='Required for finish evidence. Independently read printed version/finish labels (e.g. REFRACTOR/PRIZM) on each actual card, including any supplied back. Never copy the target label onto an unseen candidate back. not_printed requires the entire observed side visible; not_visible means unknown. This is separate from the required paired FRONT layout/texture descriptions.')
+        description='Optional supporting finish evidence. Independently read printed version/finish labels (e.g. REFRACTOR/PRIZM) on each actual card, including any supplied back. Never copy the target label onto an unseen candidate back. not_printed requires the entire observed side visible; not_visible means unknown. This is separate from the required paired FRONT layout/texture descriptions.')
 
 
 class VisualConflictEvidence(BaseModel):
@@ -221,13 +220,22 @@ def normalize_model_visual_decision(decision: VisualDecision) -> VisualDecision:
                 'verdict': 'uncertain', 'design_match': 'unknown', 'finish_match': 'unknown',
                 'reasons': [*decision.reasons, 'visual_positive_evidence_requires_review'],
             })
-        if any(e.kind == 'finish' and (e.version_marker_observations is None
-                or not e.version_marker_observations.establishes_match(decision.evidence_binding or {}))
-               for e in decision.match_evidence):
-            return decision.model_copy(update={
-                'verdict': 'uncertain', 'finish_match': 'unknown',
-                'reasons': [*decision.reasons, 'printed_version_marker_requires_review'],
-            })
+        # Missing finish labels do not block similar pictured versions. An
+        # actually readable contradiction still excludes the candidate.
+        for evidence in decision.match_evidence:
+            pair = evidence.version_marker_observations
+            if evidence.kind != 'finish' or pair is None:
+                continue
+            a, b = pair.target, pair.candidate
+            if a.source == b.source == 'images' and (
+                a.status == b.status == 'readable'
+                and ' '.join((a.text or '').split()).casefold()
+                    != ' '.join((b.text or '').split()).casefold()
+                or {a.status, b.status} == {'readable', 'not_printed'}
+                and (a.whole_view_visible if a.status == 'not_printed' else b.whole_view_visible)
+            ):
+                return decision.model_copy(update={'verdict': 'different',
+                    'reasons': [*decision.reasons, 'explicit_printed_version_conflict']})
     if decision.verdict != 'different' and not decision.conflict_evidence:
         return decision
 
@@ -526,9 +534,7 @@ class ComparableImageVerifier:
                              'supporting_image_urls': candidate.supporting_image_urls,
                              'model': self.parallel_model if requires_parallel_match else self.model,
                              'model_observation_contract': MODEL_OBSERVATION_CONTRACT,
-                             'requires_parallel_match': requires_parallel_match,
-                             'independent_finish_contract': INDEPENDENT_FINISH_CONTRACT if finish_state(identity) == 'unknown' else None,
-                             'confirmation_model': self.confirmation_model if finish_state(identity) == 'unknown' else None})
+                             'requires_parallel_match': requires_parallel_match})
 
     def order_candidates(
         self, target_image_url: str | None, candidates: list[VisualCandidate], *,
@@ -872,9 +878,7 @@ class ComparableImageVerifier:
                     await publish(manual, key, state, manual.evidence_binding, persist=False)
                     return None
                 expected_binding = {**binding, 'model_observation_contract': MODEL_OBSERVATION_CONTRACT, 'model': model}
-                if (completed and stored.evidence_binding == expected_binding
-                        and (finish_state(identity) != 'unknown' or stored.verdict != 'same'
-                             or independent_finish_is_current(stored.independent_confirmation, expected_binding))):
+                if completed and stored.evidence_binding == expected_binding:
                     await publish(stored.model_copy(update={'reasons': [*stored.reasons, 'visual_checkpoint_reused']}),
                                   key, state, persist=False)
                     return None
@@ -901,23 +905,8 @@ class ComparableImageVerifier:
                             failed = failed.model_copy(update={'reasons': [*failed.reasons, *error.safe_reasons]})
                         result = {candidate.id: failed}
                     decision = result.get(candidate.id) or failure(candidate, 'vision_model_omitted_candidate')
-                    if (finish_state(identity) == 'unknown' and decision.verdict == 'same'
-                            and decision.confidence >= Decimal('.90')):
-                        try:
-                            confirmation = await self._confirm_unknown_finish(target, target_type, row, binding)
-                            decision = decision.model_copy(update={'independent_confirmation': confirmation})
-                            if not independent_finish_is_current(confirmation, binding):
-                                decision = decision.model_copy(update={
-                                    'verdict': 'uncertain', 'design_match': 'unknown', 'finish_match': 'unknown',
-                                    'reasons': [*decision.reasons, 'independent_finish_confirmation_requires_review']})
-                        except Exception as error:
-                            from card_platform.domain.model_failures import model_failure_reason
-                            decision = decision.model_copy(update={
-                                'verdict': 'uncertain', 'confidence': Decimal('0'),
-                                'design_match': 'unknown', 'finish_match': 'unknown',
-                                'independent_confirmation': None,
-                                'reasons': [*decision.reasons, model_failure_reason(error, 'independent_finish'),
-                                            *(error.safe_reasons if isinstance(error, VisualSchemaError) else [])]})
+                    # One concrete comparison of the current paired images is
+                    # sufficient; an unknown catalog finish needs no second vote.
                     if decision.condition_review is not None:
                         decision = decision.model_copy(update={'condition_review': decision.condition_review.model_copy(
                             update={'evidence_binding': binding})})
@@ -1037,8 +1026,8 @@ class ComparableImageVerifier:
                 "text": (
                     PRIMARY_VISUAL_OBSERVATION_INSTRUCTIONS
                     + (
-                        "本次必须确认平行版本；相同照片/排版不足以证明同平行。"
-                        "缩略图看不清折射纹理或限编分母时返回uncertain。"
+                        "本次按花纹相似、固定颜色无明显差异及相同总限编或双方无编号判断同款，不要求官方平行名称完全一致。"
+                        "大类花纹可比较即可，无需逐点核验；图像完全无法比较时返回uncertain。"
                         if requires_parallel_match else ""
                     )
                     + (

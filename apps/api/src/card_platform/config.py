@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     valuation_visual_request_timeout_seconds: float = Field(default=90.0, gt=0, le=180)
     player_price_worker_enabled: bool = True
     purchase_cost_worker_enabled: bool = True
+    purchase_cost_archive_dir: str | None = None
     valuation_worker_enabled: bool = True
     valuation_worker_concurrency: int = 3
     recognition_worker_enabled: bool = True

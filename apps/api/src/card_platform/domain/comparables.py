@@ -1300,12 +1300,40 @@ class ComparableClassifier:
             known_other_insert = True
         if known_other_insert:
             conflicts.append("insert_conflict")
+        if target.insert and is_explicit_base_listing(text) and not insert:
+            conflicts.append('insert_conflict')
+        # A current paired image comparison supplies the physical finish, even
+        # when seller/recognition parallel names differ or the title omits #208.
+        # Compare edition denominators, never the copy's individual numerator.
+        image_similar_same_card = bool(
+            comp.source_code in {'cardhobby', 'cardhobby_provider'} and paired_finish
+            and comp.visual_verdict == 'same' and visual_confidence >= Decimal('.80')
+            and not target.is_redemption and player and season and product
+            and (totals == {int(target_total)} if target_total else not totals)
+        )
+        if image_similar_same_card:
+            conflicts = [reason for reason in conflicts if reason != 'parallel_conflict']
         if conflicts:
             return Classification(
                 ComparableTier.REJECTED,
                 Decimal("0"),
                 comp.source_reliability,
                 hard_conflicts=conflicts,
+            )
+
+        if image_similar_same_card:
+            return Classification(
+                ComparableTier.T1, Decimal('.86'), comp.source_reliability,
+                field_matches={
+                    'player': True, 'season': True, 'product': True, 'grade': True,
+                    'card_number': card_number, 'insert': insert,
+                    'parallel': True, 'serial_total': bool(target_total),
+                    'visual': True, 'visual_same_template_anchor': True,
+                    'image_similar_same_card': True,
+                    'finish_evidence_status': 'similar_pattern_color_and_numbering',
+                    'exact_finish_verified': False,
+                    'valuation_limitations': ['按图片花纹、颜色及编号兼容性判断同款，未独立核实平行名称'],
+                },
             )
 
         fields = {
@@ -1384,14 +1412,6 @@ class ComparableClassifier:
         identity_anchor = insert if target.insert else card_number or serial_total
         visual_exact_template = geometry_same_template
         explicit_base_title = is_explicit_base_listing(text)
-        if target.insert and explicit_base_title and not insert:
-            conflicts.append("insert_conflict")
-            return Classification(
-                ComparableTier.REJECTED,
-                Decimal("0"),
-                comp.source_reliability,
-                hard_conflicts=conflicts,
-            )
         visual_base_anchor = bool(
             target.card_number
             and not target.insert

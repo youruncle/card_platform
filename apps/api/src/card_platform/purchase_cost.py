@@ -241,14 +241,23 @@ def _same_source_item(card: dict, line: dict) -> bool:
     return bool(item_id) and any(_source_item_id(url) == item_id for url in urls)
 
 
+def prepared_purchase_identity(card, knowledge):
+    from card_platform.purchase_cost_knowledge import memoize_purchase_value
+
+    def build():
+        normalized, _ = knowledge.normalize_identity(card)
+        return CardIdentityResolver().resolve(normalized)
+
+    return memoize_purchase_value(knowledge, 'prepared_identity', card, build)
+
+
 def prepare_purchase_recall(card: dict, knowledge: KnowledgeResolver):
     """Prepare only the existing recall gate; full scoring still decides identity.
 
     Cost lookup sees every purchase unit, but unrelated subjects need not run
     product/parallel validation. Preserve source, image and multi-subject paths.
     """
-    normalized, _ = knowledge.normalize_identity(card)
-    identity = CardIdentityResolver().resolve(normalized)
+    identity = prepared_purchase_identity(card, knowledge)
     names = [identity.player_name, *player_roster_components(identity.player_name)]
     aliases = tuple(dict.fromkeys(a for name in names for a in purchase_player_aliases(name, knowledge)))
 
@@ -296,8 +305,7 @@ def _specific_product_alias(alias: str, product: str | None) -> bool:
 
 def score_match(card: dict, line: dict, knowledge: KnowledgeResolver | None = None, *, visual_evidence: dict | None = None) -> dict:
     knowledge = knowledge or KnowledgeResolver()
-    normalized_card, _ = knowledge.normalize_identity(card)
-    identity = CardIdentityResolver().resolve(normalized_card)
+    identity = prepared_purchase_identity(card, knowledge)
     sketch = is_sketch_card(identity.insert)
     # A trailing consignor/warehouse label is not a card subject or insert.
     # Keep the original title in the order snapshot; only identity parsing uses

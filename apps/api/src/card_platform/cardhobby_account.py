@@ -1,6 +1,7 @@
 """Owner-isolated CardHobby sessions. Credentials never leave the backend."""
 
 import asyncio
+import hashlib
 import logging
 import math
 import re
@@ -141,6 +142,58 @@ class CardHobbySession:
         if not await self.check():
             raise AccountError('LOGIN_REJECTED', '卡淘登录未成功，请核对账号密码；如有风控限制，请稍后重试')
         return None
+
+    @staticmethod
+    def history_url(cursor=None):
+        scope = dict(status='0', code='', idcardName='', searchTxt='', Order_Tag='',
+                     beginDate='2000-01-01 00:00:00',
+                     endDate=f'{datetime.now().year}-12-31 23:59:59')
+        if cursor is None:
+            return ORIGIN+'/order/myorders?'+urlencode(scope)
+        safe_url(cursor, 'list')
+        query = parse_qs(urlsplit(cursor).query, keep_blank_values=True)
+        if any(query.get(k, [''] if v == '' else None) != [v] for k, v in scope.items()):
+            raise ValueError('历史分页改变了订单范围，请重新同步')
+        if set(query) - set(scope) - {'page', 'pageIndex', 'pageindex', 'pageSize'}:
+            raise ValueError('历史分页参数未识别，请重新同步')
+        page = {k:query[k][0] for k in ('page','pageIndex','pageindex','pageSize') if k in query}
+        if any(not re.fullmatch(r'[1-9]\d{0,5}', v) for v in page.values()):
+            raise ValueError('历史分页编号未识别')
+        return ORIGIN+'/order/myorders?'+urlencode({**scope, **page})
+
+    async def read_history_page(self, cursor=None):
+        url = self.history_url(cursor)
+        response = await self.request(url, stage='order_search')
+        if re.match(r'/verify(?:/|$)', response.url.path, re.I):
+            raise login_required()
+        self.history_url(str(response.url))
+        doc = Document(response.text)
+        if not recognized_list(doc):
+            raise ValueError('历史订单页面结构未识别，未标记同步完成')
+        orders = parse_orders(doc)
+        if len(orders) > 100:
+            raise ValueError('单页历史订单超过处理上限')
+        captures = []
+        for order in orders:
+            detail = await self.request(safe_url(order.source_url, 'detail'), stage='order_detail')
+            if re.match(r'/verify(?:/|$)', detail.url.path, re.I):
+                raise login_required()
+            safe_url(str(detail.url), 'detail')
+            updated = OrderCapture.model_validate({
+                **order.model_dump(), **detail_amounts(Document(detail.text)),
+            })
+            if updated.paid_total is None:
+                raise ValueError('历史订单详情实付金额未核实，未推进分页')
+            captures.append(updated.model_dump(mode='json'))
+            await asyncio.sleep(.15)
+        next_link = next((a for a in doc.all('a') if a.text() in {'»', '下一页', '›'}
+                         and not any('disabled' in n.attrs or n.attrs.get('aria-disabled') == 'true'
+                                     or 'disabled' in n.attrs.get('class', '').split()
+                                     for n in (a, a.parent) if n)), None)
+        following = self.history_url(urljoin(url, next_link.attrs.get('href', ''))) if next_link else None
+        if following == url:
+            raise ValueError('历史订单分页重复，未标记同步完成')
+        return dict(orders=captures, next_cursor=following, complete=following is None)
 
     async def read_orders(self, keywords, max_pages=10, max_orders=100):
         orders, seen = {}, set()
@@ -326,6 +379,32 @@ class CardHobbyAccountService:
         await self.save_session(conn, owner, client, credentials)
 
     async def search(self, conn, owner, keywords):
+        archived = await self.archive_orders(conn, owner)
+        if archived is not None:
+            # Existing clients submit this empty capture back to resolve_search.
+            # The server loads the owner's complete corpus, so private history
+            # need not be shipped to the browser or capped by its 100-order DTO.
+            return dict(orders=[], complete=True)
+        return await self._read(conn, owner, lambda session: session.read_orders(keywords))
+
+    async def archive_orders(self, conn, owner, *, require_fresh=True):
+        from card_platform.config import get_settings
+        from card_platform.purchase_cost_archive import PurchaseArchive
+        archive = PurchaseArchive.configured(get_settings(), owner)
+        if not archive.state()['complete']:
+            return None
+        row = await (await conn.execute(
+            'SELECT credentials_enc,state FROM cardhobby_account WHERE owner_id=%s', (owner,))).fetchone()
+        if not row or row['state'] != 'connected' or not row['credentials_enc']:
+            return None
+        credentials = self.cipher.decrypt(owner, 'credentials', row['credentials_enc'])
+        account = hashlib.sha256((str(owner)+':'+credentials['username'].strip().casefold()).encode()).hexdigest()
+        return archive.orders(account, require_fresh=require_fresh)
+
+    async def history_page(self, conn, owner, cursor=None):
+        return await self._read(conn, owner, lambda session: session.read_history_page(cursor), bind_account=True)
+
+    async def _read(self, conn, owner, reader, *, bind_account=False):
         row = await self.row(conn, owner)
         if row['state'] == 'verification_required':
             raise AccountError('VERIFICATION_REQUIRED', '卡淘要求短信验证，请先完成验证')
@@ -341,12 +420,16 @@ class CardHobbyAccountService:
             if not logged_in:
                 await self.perform_login(conn, owner, client, credentials)
             try:
-                result = await session.read_orders(keywords)
+                result = await reader(session)
             except AccountError as error:
                 if error.code != 'LOGIN_REQUIRED' or not logged_in:
                     raise
                 # One recovery attempt if the session expires during pagination, then restart all reads.
                 await self.perform_login(conn, owner, client, credentials)
-                result = await session.read_orders(keywords)
+                result = await reader(session)
             await self.save_session(conn, owner, client)
+            if bind_account:
+                result['account_key'] = hashlib.sha256(
+                    (str(owner)+':'+credentials['username'].strip().casefold()).encode()
+                ).hexdigest()
             return result

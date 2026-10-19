@@ -1,11 +1,10 @@
 """Unknown finish is a request for evidence, never an assertion of Base."""
-from dataclasses import dataclass
-from decimal import Decimal
 import json
 import re
+from dataclasses import dataclass
+from decimal import Decimal
 
 from card_platform.domain.card_identity import CardIdentityResolver, normalize_text
-
 
 _VERIFIED_FACTS = object()
 
@@ -21,7 +20,9 @@ def explicit_visual_version_conflict(observation: dict) -> bool:
         return False
     reasons = observation.get('visual_reasons')
     conflicts = observation.get('visual_conflict_evidence')
-    return (isinstance(reasons, list) and 'explicit_design_or_finish_conflict' in reasons
+    return (isinstance(reasons, list) and any(reason in reasons for reason in (
+                'explicit_design_or_finish_conflict', 'explicit_printed_version_conflict',
+            ))
             or any(isinstance(entry, dict) and entry.get('source') == 'images'
                    and entry.get('both_visible') is True
                    and entry.get('kind') in ('layout', 'fixed_pattern', 'printed_color', 'card_text')
@@ -71,16 +72,18 @@ class VisualMatchFacts:
 
 
 def build_visual_match_facts(identity, candidate_id, title, image_url, raw, *, reviewed_proof=None) -> VisualMatchFacts | None:
-    """Validate current asset binding plus specific paired-front observations and independent finish proof.
+    """Validate current assets and a single concrete paired-front comparison.
 
     This checks the content digests captured at observation time; it does not
     claim a remote image URL is immutable. Callers must invalidate changed assets.
     """
     from card_platform.comparable_image_verifier import (
-        MODEL_OBSERVATION_CONTRACT, VisualCandidate, VisualDecision,
-        current_persisted_visual, normalize_model_visual_decision,
+        MODEL_OBSERVATION_CONTRACT,
+        VisualCandidate,
+        VisualDecision,
+        current_persisted_visual,
+        normalize_model_visual_decision,
     )
-    from card_platform.domain.independent_finish import independent_finish_is_current
     from card_platform.domain.reviewed_visual import ReviewedVisualProof
     if not image_url:
         return None
@@ -89,9 +92,6 @@ def build_visual_match_facts(identity, candidate_id, title, image_url, raw, *, r
         return VisualMatchFacts(candidate_id, title, image_url, json.dumps(raw, default=str, sort_keys=True),
             _target_key(CardIdentityResolver().resolve(identity)), _VERIFIED_FACTS, reviewed_proof)
     binding = raw.get('visual_evidence_binding') or {}
-    if (finish_state(identity) == 'unknown' and not independent_finish_is_current(
-            raw.get('visual_independent_confirmation'), binding)):
-        return None
     if binding.get('model_observation_contract') != MODEL_OBSERVATION_CONTRACT:
         return None
     if not re.fullmatch(r'[0-9a-f]{64}', str(binding.get('candidate_sha256') or '')):
@@ -110,7 +110,7 @@ def build_visual_match_facts(identity, candidate_id, title, image_url, raw, *, r
             candidate_card_count=(1 if 'candidate_single_physical_card'
                                   in current.get('visual_reasons', []) else None),
         ))
-        if decision.verdict != 'same' or decision.confidence < Decimal('.90'):
+        if decision.verdict != 'same' or decision.confidence < Decimal('.80'):
             return None
         return VisualMatchFacts(candidate_id,title,image_url,json.dumps(raw,default=str,sort_keys=True),
                                 _target_key(CardIdentityResolver().resolve(identity)), _VERIFIED_FACTS)

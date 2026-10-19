@@ -207,6 +207,18 @@ def identify_sale(sale, player_name: str, known_identities: list[dict]) -> dict 
     return next(iter(matches.values())) if len(matches) == 1 else None
 
 
+def rejection_reason(sale) -> str:
+    """Report observable missing anchors; do not invent an identity or reason."""
+    title = title_without_inventory_hash_tail(sale.title)
+    if is_multi_card_listing(title):
+        return "multi_card"
+    if (is_graded_listing(title) or re.search(rf"(?<![A-Za-z])(?:{GRADING_COMPANIES})(?![A-Za-z])", title, re.I)) and not GRADING_DETAIL_PATTERN.search(title):
+        return "grade_unclear"
+    if len(re.findall(r"\b(20\d{2}|19\d{2})(?:[-/](20\d{2}|19\d{2}|\d{2}))?\b", title)) != 1:
+        return "season_unclear"
+    return "identity_unresolved"
+
+
 async def collect_player(
     player_name: str, basket: list[dict], report_date: date, *, provider=None, page_budget=12
 ) -> tuple[list[dict], dict]:
