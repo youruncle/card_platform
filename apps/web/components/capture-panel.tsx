@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { captureForm, type CaptureDraft, type ClientCapabilities, type Quad, type Side } from "../../../packages/card-core/src/capture";
 import { confirmationPayload } from "../../../packages/card-core/src/confirmation";
 import type { RecognitionInput } from "../../../packages/card-core/src/recognition";
+import {pairReviewState,pairReviewPayload,type PairReview} from "../../../packages/card-core/src/recognition";
+import {PairReviewFields} from "./pair-review-fields";
 
 import {identitySuggestions,acceptIdentitySuggestions,supplementIdentityLabels,type Identity} from "../../../packages/card-core/src/supplement";
 
@@ -42,6 +44,9 @@ export function CapturePanel({ownerId,target,onClose,onSaved}:{ownerId:string;ta
  const identityRequest=useRef(0);
  const suggestions=currentIdentity&&selected?identitySuggestions(currentIdentity,selected.result??{}):[];
  const [values,setValues]=useState<Record<string,string>>({});
+ const [pairReview,setPairReview]=useState<PairReview|null>(null);
+ const selectedPaired=!!selected?.available_sides.includes('front')&&!!selected?.available_sides.includes('back');
+ const pairState=pairReviewState(selected?.result??{},selectedPaired,pairReview);
  const [error,setError]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
  const [crop,setCrop]=useState<{side:Side;proposal:Proposal;quad:Quad}|null>(null);
  const active=useRef(true),drag=useRef<number|null>(null);
@@ -67,7 +72,7 @@ export function CapturePanel({ownerId,target,onClose,onSaved}:{ownerId:string;ta
   setDraft(old=>({...old,requestId:crypto.randomUUID(),[crop.side]:blob,recipes:{...old.recipes,[crop.side]:{quad,source_hash:result.source_hash,confirmed:true}}}));setCrop(null);setNotice(quad?'已确认裁切':'已保留原图');
  });}
  function openJob(job:Job){
-  const sequence=++identityRequest.current;setSelected(job);setCurrentIdentity(null);setAcceptedKeys([]);setAcceptanceAllowed(true);setAcceptanceReason(null);
+  const sequence=++identityRequest.current;setSelected(job);setPairReview(null);setCurrentIdentity(null);setAcceptedKeys([]);setAcceptanceAllowed(true);setAcceptanceReason(null);
   setValues(Object.fromEntries(Object.keys(fields).map(k=>[k,String(job.result?.[k as keyof RecognitionInput]??'')])));
   if(job.target_item_id)void request<{identity:Identity;can_accept_identity?:boolean;identity_acceptance_reason?:string|null}>(`/v1/capture/items/${job.target_item_id}`).then(info=>{if(active.current&&sequence===identityRequest.current){setCurrentIdentity(info.identity??null);setAcceptanceAllowed(info.can_accept_identity!==false);setAcceptanceReason(info.identity_acceptance_reason??null);}}).catch(e=>{if(active.current&&sequence===identityRequest.current)setError(e.message);});
  }
@@ -82,7 +87,7 @@ export function CapturePanel({ownerId,target,onClose,onSaved}:{ownerId:string;ta
  });}
  async function confirm(acceptFields=false){if(!selected)return;await run(async()=>{
   if(acceptFields&&(!acceptanceAllowed||!currentIdentity||!acceptedKeys.length))throw Error('请先选择要接受的身份字段');
-  const body=selected.target_item_id?(acceptFields?{accepted_identity:acceptIdentitySuggestions(currentIdentity!,suggestions,acceptedKeys)}:{}):confirmationPayload(ownerId,selected.result??{confidence:0},values);
+  const body={...(selected.target_item_id?(acceptFields?{accepted_identity:acceptIdentitySuggestions(currentIdentity!,suggestions,acceptedKeys)}:{}):confirmationPayload(ownerId,selected.result??{confidence:0},values)),...pairReviewPayload(selected.result??{},selectedPaired,pairReview)};
   await request(`/v1/capture/jobs/${selected.id}/confirm`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!active.current)return;setJobs(old=>old.filter(j=>j.id!==selected.id));setSelected(null);setNotice('已保存到卡库');await onSaved();if(active.current)onClose();
  });}
@@ -100,8 +105,9 @@ export function CapturePanel({ownerId,target,onClose,onSaved}:{ownerId:string;ta
     <button disabled={busy} onClick={()=>void apply(crop.quad)}>接受这次裁切</button><button disabled={busy} onClick={()=>void apply(null)}>保留原图</button><button disabled={busy} onClick={()=>setCrop(null)}>取消</button></section>}
    <h3>我的录卡任务</h3>{jobs.length===0&&<p>暂无任务</p>}{jobs.filter(j=>!j.collection_item_id).map(job=><article key={job.id} style={{borderBottom:'1px solid #ddd',padding:12}}><span>{job.available_sides.map(s=>s==='front'?'正面':'背面').join(' + ')} · {statusLabels[job.status]??job.status}{job.target_item_id?' · 补拍':''}</span>{job.error_message&&<p>{job.error_message}</p>}<button disabled={job.status!=='succeeded'} onClick={()=>openJob(job)}>查看任务</button>{job.status==='failed'&&<button disabled={busy} onClick={()=>void run(async()=>{const retry=await request<Job>(`/v1/capture/jobs/${job.id}/retry`,{method:'POST'});if(active.current)setJobs(old=>old.map(j=>j.id===retry.id?retry:j));})}>重试识别</button>}</article>)}
    {selected&&<section><h3>识别结果确认</h3>{selected.available_sides.length===1&&<p>仅有{selected.available_sides[0]==='front'?'正面':'背面'}，缺失信息保持未知。</p>}<div style={{display:'flex',gap:12}}>{selected.available_sides.map(side=>selected.images[side]&&<img key={side} src={endpoint(selected.images[side]!.preview_url??selected.images[side]!.url)} alt={side==='front'?'任务正面':'任务背面'} style={{maxWidth:'45%',maxHeight:240,objectFit:'contain'}}/>)}</div>
-    {selected.target_item_id?<section><p>默认只补拍图片。可勾选球员、品牌、赛季、产品、系列、卡号、特卡和平行建议；未知值不作为清空建议。签名、材质、限编及其他原字段保持不变。</p>{!currentIdentity&&<p>正在读取原身份；仍可只确认图片。</p>}{acceptanceReason&&<p role="status">{acceptanceReason}</p>}{currentIdentity&&suggestions.length===0&&<p>没有可接受的主身份差异。</p>}{suggestions.length>0&&<table><thead><tr><th>接受</th><th>字段</th><th>原人工确认值</th><th>新识别建议</th></tr></thead><tbody>{suggestions.map(suggestion=><tr key={suggestion.key}><td><input type="checkbox" aria-label={`接受${suggestion.label}建议`} disabled={!acceptanceAllowed||busy} checked={acceptedKeys.includes(suggestion.key)} onChange={e=>setAcceptedKeys(old=>e.target.checked?[...old,suggestion.key]:old.filter(key=>key!==suggestion.key))}/></td><td>{suggestion.label}</td><td>{displayIdentity(suggestion.current)}</td><td>{displayIdentity(suggestion.suggested)}</td></tr>)}</tbody></table>}{currentIdentity&&<details><summary>其他已确认身份（保持不变）</summary><dl>{Object.entries(currentIdentity).filter(([key])=>!(key in supplementIdentityLabels)).map(([key,value])=><div key={key}><dt>{retainedLabels[key]??key}</dt><dd>{displayIdentity(value)}</dd></div>)}</dl></details>}<button disabled={busy||!acceptanceAllowed||!currentIdentity||acceptedKeys.length===0||selected.status!=='succeeded'} onClick={()=>void confirm(true)}>接受所选字段并补拍</button></section>:<div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10}}>{Object.entries(fields).map(([key,label])=><label key={key}>{label}<input aria-label={label} value={values[key]??''} onChange={e=>setValues(old=>({...old,[key]:e.target.value}))}/></label>)}</div>}
-    <button disabled={busy||selected.status!=='succeeded'||!!selected.collection_item_id} onClick={()=>void confirm()}>{selected.target_item_id?'确认补拍（保留身份）':'确认入库'}</button><button onClick={()=>setSelected(null)}>收起结果</button></section>}
+    <PairReviewFields result={selected.result??{}} paired={selectedPaired} review={pairReview} onChange={setPairReview} disabled={busy}/>
+    {selected.target_item_id?<section><p>默认只补拍图片。可勾选球员、品牌、赛季、产品、系列、卡号、特卡和平行建议；未知值不作为清空建议。签名、材质、限编及其他原字段保持不变。</p>{!currentIdentity&&<p>正在读取原身份；仍可只确认图片。</p>}{acceptanceReason&&<p role="status">{acceptanceReason}</p>}{currentIdentity&&suggestions.length===0&&<p>没有可接受的主身份差异。</p>}{suggestions.length>0&&<table><thead><tr><th>接受</th><th>字段</th><th>原人工确认值</th><th>新识别建议</th></tr></thead><tbody>{suggestions.map(suggestion=><tr key={suggestion.key}><td><input type="checkbox" aria-label={`接受${suggestion.label}建议`} disabled={!acceptanceAllowed||busy} checked={acceptedKeys.includes(suggestion.key)} onChange={e=>setAcceptedKeys(old=>e.target.checked?[...old,suggestion.key]:old.filter(key=>key!==suggestion.key))}/></td><td>{suggestion.label}</td><td>{displayIdentity(suggestion.current)}</td><td>{displayIdentity(suggestion.suggested)}</td></tr>)}</tbody></table>}{currentIdentity&&<details><summary>其他已确认身份（保持不变）</summary><dl>{Object.entries(currentIdentity).filter(([key])=>!(key in supplementIdentityLabels)).map(([key,value])=><div key={key}><dt>{retainedLabels[key]??key}</dt><dd>{displayIdentity(value)}</dd></div>)}</dl></details>}<button disabled={busy||pairState.blocked||!acceptanceAllowed||!currentIdentity||acceptedKeys.length===0||selected.status!=='succeeded'} onClick={()=>void confirm(true)}>接受所选字段并补拍</button></section>:<div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10}}>{Object.entries(fields).map(([key,label])=><label key={key}>{label}<input aria-label={label} value={values[key]??''} onChange={e=>setValues(old=>({...old,[key]:e.target.value}))}/></label>)}</div>}
+    <button disabled={busy||pairState.blocked||selected.status!=='succeeded'||!!selected.collection_item_id} onClick={()=>void confirm()}>{selected.target_item_id?'确认补拍（保留身份）':'确认入库'}</button><button onClick={()=>setSelected(null)}>收起结果</button></section>}
   </>}
  </section></div>;
 }

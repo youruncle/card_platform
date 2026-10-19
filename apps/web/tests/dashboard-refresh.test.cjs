@@ -93,6 +93,7 @@ test('cards render without waiting for summary or correction counts', async () =
   };
   await mount();
   assert.ok(screen.getByRole('button', {name:'Fixture Page 1'}));
+  assert.equal(total(),'—','pending account metrics are not shown as zero');
   assert.equal(next().disabled, false);
 });
 
@@ -201,7 +202,7 @@ test('search, sorting and page size reuse metrics while an explicit refresh relo
   assert.equal(summaries,2);
 });
 
-test('unfiltered loading uses a combined projection once and background refresh replaces the frozen snapshot',async()=>{
+test('unfiltered loading projects only the page and refresh keeps metrics independent',async()=>{
  const state=fixture();const original=global.fetch;const params=[];let summaryCalls=0;
  global.fetch=async(url,options)=>{
   const path=new URL(url,'http://localhost');
@@ -213,11 +214,13 @@ test('unfiltered loading uses a combined projection once and background refresh 
   return original(url,options);
  };
  await mount();
- assert.equal(params[0].get('include_summary'),'true');
- assert.equal(summaryCalls,0,'the full projection already contains the summary');
+ assert.equal(params[0].has('include_summary'),false);
+ assert.equal(params[0].get('snapshot_mode'),'membership');
+ assert.equal(summaryCalls,1,'account metrics load independently');
  await tick(3000);
  assert.equal(params.at(-1).get('snapshot_token'),null,'polling needs fresh valuations');
- assert.equal(params.at(-1).get('include_summary'),'true');
+ assert.equal(params.at(-1).has('include_summary'),false);
+ assert.equal(params.at(-1).get('snapshot_mode'),'membership');
 });
 
 test('collection search is beside holdings and queries the whole account, preserving filters across pagination',async()=>{
@@ -613,7 +616,7 @@ test('duplicate purchases wait in the row and opening their choice uses the alre
   assert.doesNotMatch(costCell().textContent, /成本获取中/);
   const choice = within(cardRow()).getByRole('button', { name: '选择对应订单' });
   await act(async () => { fireEvent.click(choice); });
-  const dialog = screen.getByRole('dialog');
+  const dialog = await screen.findByRole('dialog');
   assert.equal(within(dialog).getAllByRole('radio').length, 2);
   assert.equal(searches(state).length, 1);
   assert.equal(state.costCalls.filter(call => call.action === 'search-plan').length, 1);
@@ -640,7 +643,7 @@ test('a missing connection stops row loading and opens connection instructions o
   assert.equal(screen.queryByRole('dialog'), null);
   const connect = within(cardRow()).getByRole('button', { name: '连接卡淘' });
   await act(async () => { fireEvent.click(connect); });
-  const dialog = screen.getByRole('dialog');
+  const dialog = await screen.findByRole('dialog');
   assert.ok(within(dialog).getByRole('link', { name: '打开卡淘订单页' }));
   assert.equal(searches(state).length, 0);
   assert.equal(state.costCalls.filter(call => call.action === 'search-plan').length, 1, 'opening instructions must not repeat the failed lookup');
@@ -816,4 +819,61 @@ test('marking sold and restoring refresh both card state and portfolio metrics',
  await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'恢复持有'}));});
  assert.deepEqual(writes,[{holding_status:'sold'},{holding_status:'held'}]);
  assert.match(total(),/599/);
+});
+
+
+test('first page is requested without competing full-account metrics',async()=>{
+ const state=fixture();const original=global.fetch;const held=deferred();let metrics=0;
+ global.fetch=(url,options)=>{
+  const path=new URL(url,'http://localhost');
+  if(path.pathname==='/v1/portfolio/summary'||path.pathname==='/v1/portfolio/identity-corrections')metrics++;
+  if(path.pathname==='/v1/portfolio/items/page')return held.promise;
+  return original(url,options);
+ };
+ await mount();assert.equal(metrics,0,'heavy metrics start after first-page response');
+ await act(async()=>held.resolve(response(pageData(1))));
+ assert.ok(screen.getByRole('button',{name:'Fixture Page 1'}));
+ assert.equal(metrics,2);
+});
+
+test('next page rebuilds an expired snapshot without returning to page one', async () => {
+  fixture();
+  const original = global.fetch;
+  const queries = [];
+  global.fetch = async (url, options) => {
+    const path = new URL(url, 'http://localhost');
+    if (path.pathname !== '/v1/portfolio/items/page') return original(url, options);
+    queries.push(path.searchParams);
+    if (queries.length === 2) return {ok:false,status:409,json:async()=>({detail:{code:'snapshot_expired',message:'expired'}})};
+    return response({...pageData(Number(path.searchParams.get('page'))), snapshot_token: queries.length === 1 ? 'old-token' : 'fresh-token'});
+  };
+  await mount();
+  await act(async () => fireEvent.click(next()));
+  assert.ok(screen.getByRole('button', {name:'Fixture Page 2'}));
+  assert.ok(screen.getByText('第 2 / 4 页'));
+  assert.equal(queries[1].get('snapshot_token'), 'old-token');
+  assert.equal(queries[2].get('snapshot'), 'true');
+  assert.equal(queries[2].get('snapshot_token'), null);
+  await act(async () => fireEvent.click(next()));
+  assert.ok(screen.getByRole('button', {name:'Fixture Page 3'}));
+  assert.equal(queries[3].get('snapshot_token'), 'fresh-token');
+});
+
+test('search superseding the first load still starts initial account metrics once',async()=>{
+ fixture();const original=global.fetch;const initial=deferred();let pageCalls=0,metrics=0;
+ global.fetch=(url,options)=>{
+  const path=new URL(url,'http://localhost').pathname;
+  if(path==='/v1/portfolio/items/page'&&++pageCalls===1)return initial.promise;
+  if(path==='/v1/portfolio/summary')metrics++;
+  return original(url,options);
+ };
+ await mount();assert.equal(metrics,0);
+ await act(async()=>{
+  fireEvent.change(screen.getByLabelText('搜索全部卡片'),{target:{value:'Fixture'}});
+  fireEvent.click(screen.getByRole('button',{name:'搜索',exact:true}));
+ });
+ assert.ok(screen.getByRole('button',{name:'Fixture Page 1'}));
+ assert.equal(metrics,1,'the latest page must initialize metrics even if a filtered refresh');
+ await act(async()=>initial.resolve(response(pageData(1))));
+ assert.equal(metrics,1,'superseded first response cannot initialize duplicate metrics');
 });

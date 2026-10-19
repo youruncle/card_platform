@@ -100,7 +100,7 @@ export type FlatbedRegion = {
   crop_quality?: FlatbedCropQuality;
   signals?: { crop_quality?: FlatbedCropQuality; [key: string]: unknown };
 };
-export type FlatbedPair = { front_id: string; back_id: string; confidence: number; confidence_level: "high" | "medium" | "low"; conflicts: string[]; signals: Record<string, number>; requires_review: boolean };
+export type FlatbedPair = { front_id: string; back_id: string; confidence: number; confidence_level: "high" | "medium" | "low"; conflicts: string[]; signals: Record<string, number>; requires_review: boolean; identity_status?: "consistent" | "conflict" | "unknown"; identity_reason_codes?: string[]; identity_ambiguous?: boolean };
 export type FlatbedSheet = { id: string; side: "front" | "back"; revision: number; content_type?: string; created_at?: string; detector_version?: string; layout_hypothesis?: Record<string, unknown>; requires_review?: boolean };
 export type FlatbedSession = { id: string; status: string; dpi: 300 | 600; pairing_requires_review: boolean; pairing_transform: string | null; submitted_at: string | null; pairs?: Array<Record<string, unknown>>; regions?: Array<FlatbedRegion & { side: "front" | "back" }>; sheets?: FlatbedSheet[] };
 export type FlatbedCaptureProgress = { capture_id: string; session_id: string; side: "front" | "back"; phase: "scanning" | "processing" | "completed" | "failed"; detail: string | null; updated_at: string };
@@ -651,7 +651,29 @@ export type IdentityReviewDetail = {
   };
 };
 
+export type CardFaceObservation = {
+  role: "front" | "back" | "ad" | "unknown";
+  player_names: string[];
+  brand_name: string | null;
+  product_name: string | null;
+  insert_name: string | null;
+  card_number: string | null;
+  multi_subject: boolean;
+  evidence: string[];
+};
+
+export type CardPairValidation = {
+  status: "consistent" | "conflict" | "unknown";
+  reason_codes: string[];
+  evidence: string[];
+  front?: CardFaceObservation;
+  back?: CardFaceObservation;
+  image_content_hashes: Record<string, string>;
+  version: number;
+};
+
 export type CardRecognition = {
+  pair_validation?: CardPairValidation | null;
   player_name: string | null;
   season_start: number | null;
   season_end: number | null;
@@ -678,7 +700,7 @@ export type CardRecognition = {
   recognition_model?: string | null;
   recognition_status?: "resolved" | "research_required";
   recognition_quality_issues?: string[];
-  recognition_estimated_cost_cny?: string | null;
+  recognition_estimated_cost_cny?: string;
   recognition_route?: Array<{
     tier: string; model: string; reason: string; status?: string;
     latency_ms?: number; prompt_tokens?: number | null; completion_tokens?: number | null;
