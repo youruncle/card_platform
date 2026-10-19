@@ -121,3 +121,12 @@ UTC 08:57，针对匹配批次exit137/OOM，仅更新受限CLI与私有父驱动
 
 私有证据入口：`.runtime/cost-history-20261019/published-source-diff.json`、`checkpoint-runtime-check.provider403.json`、`public-runtime-current.json`、`mobile-verification.current.json`、`provider-denial-20261019.json`及`validation-hold.provider403.json`。
 
+
+
+## 2026-10-20：DeepSeek Flash 非思考视觉迁移
+
+API/网页`0.6.2-20261020-deepseek1`已发布，源码提交`ae881ecf`已推送`codex/deepseek-flash`。全部视觉调用迁移，独立qwen-plus联网搜索保留原百炼工作空间和独立密钥；未调整套餐。线上真实图片请求确认thinking.type=disabled，190源码/静态数据哈希、健康、worker实际true、公网页面/资源与匿名私有历史401验证通过。
+
+个人签名iPhone版本1.1.11（15）已覆盖安装并复读版本、启动及持续进程；保留此前已发布的全部前端资源，未声明真机端到端识别通过。签名有效期至2026-10-22 UTC。备份位于远端`backups/deepseek-flash-20261020`，包括350040466字节一致数据库备份、原Compose及原环境（受限，不入仓库）。恢复旧镜像时须同时恢复对应视觉配置，并始终保留worker=true；不得整库恢复覆盖本次后续真实交易。
+
+原100张验证已按用户授权恢复：保留57个有效案例，只重试403影响的五例，再接续38例。阶段来源与未完成检查见deepseek-migration.md；不能把发布成功当全100验收完成。
