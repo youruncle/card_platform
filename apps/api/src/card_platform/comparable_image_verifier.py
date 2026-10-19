@@ -1,3 +1,4 @@
+from card_platform.model_requests import nonthinking_extra_body
 from card_platform.valuation_trace import traced_completion, content_hash
 import asyncio
 import base64
@@ -991,7 +992,7 @@ class ComparableImageVerifier:
                           {'type': 'text', 'text': '目标正面，图片2 image_ref=target_front'},
                           {'type': 'image_url', 'image_url': {'url': self._vision_data_url(target, target_type)}},
                       ]}],
-            response_format={'type': 'json_object'}, extra_body={'enable_thinking': False}, temperature=0)
+            response_format={'type': 'json_object'}, extra_body=nonthinking_extra_body(self.confirmation_model), temperature=0)
         observation = self._parse_visual_response(
             response.choices[0].message.content or '', IndependentFinishObservation, 'independent_finish')
         return {'contract': INDEPENDENT_FINISH_CONTRACT, 'model': self.confirmation_model,
@@ -1087,7 +1088,7 @@ class ComparableImageVerifier:
                 {"role": "user", "content": content},
             ],
             response_format={"type": "json_object"},
-            extra_body={"enable_thinking": False}, temperature=0,
+            extra_body=nonthinking_extra_body(self.parallel_model if requires_parallel_match else self.model), temperature=0,
         )
         result = response.choices[0].message.content
         if not result:

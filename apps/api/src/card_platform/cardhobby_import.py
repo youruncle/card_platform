@@ -77,12 +77,12 @@ class CardHobbyOrderParser:
         self.settings = settings
         self.client = (
             AsyncOpenAI(
-                api_key=settings.vision_api_key,
-                base_url=settings.vision_base_url,
+                api_key=settings.resolved_search_api_key,
+                base_url=settings.resolved_search_base_url,
                 timeout=settings.card_search_timeout_seconds,
                 max_retries=1,
             )
-            if settings.vision_api_key
+            if settings.resolved_search_api_key
             else None
         )
 

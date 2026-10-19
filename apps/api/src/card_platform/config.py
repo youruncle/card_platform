@@ -14,19 +14,21 @@ class Settings(BaseSettings):
     ai_provider: str = "deepseek"
     ai_api_key: str | None = None
     ai_base_url: str = "https://api.deepseek.com"
-    ai_model: str = "deepseek-v4-flash"
+    ai_model: str = "deepseek-flash"
     ai_thinking_enabled: bool = False
     vision_api_key: str | None = None
-    vision_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-    vision_model: str = "qwen3-vl-flash"
-    vision_plus_model: str = "qwen3-vl-plus"
-    vision_finish_confirmation_model: str = "qwen3-vl-plus"
-    vision_max_model: str = "qwen3.8-max"
+    vision_base_url: str = "https://api.deepseek.com"
+    vision_model: str = "deepseek-flash"
+    vision_plus_model: str = "deepseek-flash"
+    vision_finish_confirmation_model: str = "deepseek-flash"
+    vision_max_model: str = "deepseek-flash"
     vision_plus_threshold: float = 0.88
     vision_max_threshold: float = 0.74
     vision_max_enabled: bool = True
     vision_thinking_enabled: bool = False
     vision_timeout_seconds: float = 60.0
+    search_api_key: str | None = None
+    search_base_url: str | None = None
     card_search_enabled: bool = True
     card_search_model: str = "qwen-plus"
     card_search_timeout_seconds: float = 45.0
@@ -111,6 +113,22 @@ class Settings(BaseSettings):
     flatbed_ml_worker_script: str = "scripts/flatbed_sam2_worker.py"
     flatbed_ml_checkpoint: str = ".runtime/models/sam2.1_hiera_tiny.pt"
     flatbed_ml_timeout_seconds: float = 20.0
+
+    @property
+    def resolved_search_api_key(self) -> str | None:
+        if self.search_api_key:
+            return self.search_api_key
+        if self.resolved_search_base_url.rstrip('/') == self.vision_base_url.rstrip('/'):
+            return self.vision_api_key
+        return None
+
+    @property
+    def resolved_search_base_url(self) -> str:
+        if self.search_base_url:
+            return self.search_base_url
+        if self.card_search_model.startswith('qwen') or self.valuation_search_model.startswith('qwen'):
+            return 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+        return self.vision_base_url
 
     @property
     def cors_origins(self) -> list[str]:

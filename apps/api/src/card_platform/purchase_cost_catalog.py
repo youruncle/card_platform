@@ -1,4 +1,6 @@
 """Read each purchased product independently; these records never authorize cost."""
+from card_platform.model_requests import nonthinking_extra_body
+
 import asyncio
 import hashlib
 import json
@@ -142,7 +144,7 @@ async def extract_product(archive, observer, line, gallery, images):
                 stage='purchase_product_transcription' if attempt == 0 else 'purchase_product_transcription_repair',
                 model=observer.verifier.parallel_model,
                 messages=[{'role':'user','content':content}], response_format={'type':'json_object'},
-                extra_body={'enable_thinking':False}, temperature=0)
+                extra_body=nonthinking_extra_body(observer.verifier.parallel_model), temperature=0)
         raw = response.choices[0].message.content
         if not isinstance(raw, str) or len(raw.encode()) > 128*1024:
             raise ValueError('product response budget')

@@ -1,4 +1,6 @@
 """Observe a complete bundle image; do not infer count from seller lot labels."""
+from card_platform.model_requests import nonthinking_extra_body
+
 
 import asyncio
 import cv2
@@ -161,7 +163,7 @@ class PurchaseBundleVerifier(ComparableImageVerifier):
                 {"role": "user", "content": content},
             ],
             response_format={"type": "json_object"},
-            extra_body={"enable_thinking": False},
+            extra_body=nonthinking_extra_body(self.parallel_model),
         )
         observation = BundleObservation.model_validate_json(
             response.choices[0].message.content or "{}"

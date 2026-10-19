@@ -881,7 +881,7 @@ class CardRecognitionResult(ApiModel):
     reference_image_match_confidence: Decimal | None = Field(default=None, ge=0, le=1)
     recognition_model: str | None = None
     recognition_route: list[dict[str, object]] = Field(default_factory=list)
-    recognition_estimated_cost_cny: Decimal = Field(default=Decimal("0"), ge=0)
+    recognition_estimated_cost_cny: Decimal | None = Field(default=Decimal("0"), ge=0)
     recognition_status: Literal["resolved", "research_required"] = "resolved"
     recognition_quality_issues: list[str] = Field(default_factory=list)
 

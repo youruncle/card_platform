@@ -1,3 +1,4 @@
+from card_platform.model_requests import nonthinking_extra_body
 from card_platform.valuation_trace import traced_completion
 import asyncio
 import base64
@@ -37,7 +38,7 @@ from card_platform.schemas import (
     SheetCardRecognitionResult,
 )
 from card_platform.vision_routing import (
-    TieredVisionRouter, finalize_recognition_status, sanitize_local_ocr_conflicts,
+    TieredVisionRouter, vision_tier_for_model, finalize_recognition_status, sanitize_local_ocr_conflicts,
 )
 
 ALLOWED_IMAGE_TYPES = {
@@ -586,7 +587,7 @@ class QwenVisionProvider:
             ],
             response_format={"type": "json_object"},
             max_tokens=200,
-            extra_body={"enable_thinking": False},
+            extra_body=nonthinking_extra_body(self.model),
         )
         raw = response.choices[0].message.content
         if not raw:
@@ -757,7 +758,7 @@ class QwenVisionProvider:
             ],
             response_format={"type": "json_object"},
             max_tokens=2200 if len(images) == 2 else 1200,
-            extra_body={"enable_thinking": False},
+            extra_body=nonthinking_extra_body(self.model),
         )
         result = response.choices[0].message.content
         if not result:
@@ -814,7 +815,7 @@ class QwenVisionProvider:
                 },
             ],
             response_format={"type": "json_object"},
-            extra_body={"enable_thinking": False},
+            extra_body=nonthinking_extra_body(self.model),
         )
         result = response.choices[0].message.content
         if not result:
@@ -843,19 +844,23 @@ class CardVisionService:
                 "plus": QwenVisionProvider(
                     settings.vision_api_key, settings.vision_base_url,
                     settings.vision_plus_model, settings.vision_timeout_seconds,
-                ),
+                ) if settings.vision_plus_model != settings.vision_model else None,
                 "max": QwenVisionProvider(
                     settings.vision_api_key, settings.vision_base_url,
                     settings.vision_max_model, settings.vision_timeout_seconds,
-                ) if settings.vision_max_enabled else None,
+                ) if settings.vision_max_enabled and settings.vision_max_model not in {
+                    settings.vision_model, settings.vision_plus_model} else None,
             }
+        self.vision_tiers = tuple(vision_tier_for_model(role, model) for role, model in (
+            ("flash", settings.vision_model), ("plus", settings.vision_plus_model),
+            ("max", settings.vision_max_model)))
         self.plus_threshold = settings.vision_plus_threshold
         self.max_threshold = settings.vision_max_threshold
 
     async def recognize(self, upload: UploadFile) -> CardRecognitionResult:
         if self.provider is None:
             raise RuntimeError(
-                "VISION_API_KEY is required for Qwen3-VL-Flash card image recognition"
+                "VISION_API_KEY is required for card image recognition"
             )
         content = await read_validated_image(upload, self.max_bytes)
         visual = await self.provider.recognize(content, upload.content_type or "image/jpeg")
@@ -881,7 +886,7 @@ class CardVisionService:
     ) -> CardRecognitionResult:
         if self.provider is None:
             raise RuntimeError(
-                "VISION_API_KEY is required for Qwen3-VL-Flash card image recognition"
+                "VISION_API_KEY is required for card image recognition"
             )
         front_content = await read_validated_image(front, self.max_bytes)
         back_content = await read_validated_image(back, self.max_bytes)
@@ -901,7 +906,7 @@ class CardVisionService:
     ) -> CardRecognitionResult:
         if self.provider is None:
             raise RuntimeError(
-                "VISION_API_KEY is required for Qwen3-VL-Flash card image recognition"
+                "VISION_API_KEY is required for card image recognition"
             )
         if not hasattr(self.provider, "recognize_images"):
             raise RuntimeError("configured vision provider does not support paired recognition")
@@ -946,6 +951,7 @@ class CardVisionService:
                 routed_call(self.tiered_providers["max"]),
                 plus_threshold=Decimal(str(self.plus_threshold)),
                 max_threshold=Decimal(str(self.max_threshold)),
+                tiers=self.vision_tiers,
             )
             return await router.recognize()
 
@@ -1020,7 +1026,7 @@ class CardVisionService:
     async def recognize_sheet(self, upload: UploadFile) -> SheetCardRecognitionResult:
         if self.provider is None:
             raise RuntimeError(
-                "VISION_API_KEY is required for Qwen3-VL-Flash card image recognition"
+                "VISION_API_KEY is required for card image recognition"
             )
         content = await read_validated_image(upload, self.max_bytes)
         if not hasattr(self.provider, "recognize_sheet"):

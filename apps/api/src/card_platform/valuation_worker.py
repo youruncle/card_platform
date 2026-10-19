@@ -1,3 +1,4 @@
+from card_platform.model_requests import nonthinking_extra_body
 from card_platform.domain.listing_condition import condition_rejection_reasons, disclose_minor_condition
 from contextlib import nullcontext
 from card_platform.valuation_trace import traced_completion, content_hash
@@ -1120,12 +1121,12 @@ class AutomatedValuationWorker:
         self.knowledge_runtime = knowledge_runtime
         self.client = (
             AsyncOpenAI(
-                api_key=settings.vision_api_key,
-                base_url=settings.vision_base_url,
+                api_key=settings.resolved_search_api_key,
+                base_url=settings.resolved_search_base_url,
                 timeout=settings.valuation_search_timeout_seconds,
                 max_retries=1,
             )
-            if settings.vision_api_key
+            if settings.resolved_search_api_key
             else None
         )
         # CardHobby's public sold-auction API is first-party market evidence and
@@ -1864,7 +1865,7 @@ class AutomatedValuationWorker:
 
     async def _research_visual_identity(self, identity: dict) -> dict | None:
         """Extract structured observations; deterministic checklist code remains authoritative."""
-        if self.client is None:
+        if self.image_verifier.client is None:
             return None
         local_images = []
         for image_url in (identity.get("image_front_url"), identity.get("image_back_url")):
@@ -1961,7 +1962,7 @@ class AutomatedValuationWorker:
             return None
         schema = json.dumps(IdentityVisualObservations.model_json_schema(), ensure_ascii=False)
         try:
-            response = await traced_completion(self.client.chat.completions.create, stage='alias_query',
+            response = await traced_completion(self.image_verifier.client.chat.completions.create, stage='alias_query',
                 model=self.settings.vision_model,
                 messages=[
                     {
@@ -1995,6 +1996,7 @@ class AutomatedValuationWorker:
                     },
                 ],
                 response_format={"type": "json_object"},
+                extra_body=nonthinking_extra_body(self.settings.vision_model),
             )
             content = response.choices[0].message.content
             if not content:

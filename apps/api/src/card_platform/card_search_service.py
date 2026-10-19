@@ -406,12 +406,12 @@ class _CatalogPages:
 
 class CardSearchService:
     def __init__(self, settings: Settings) -> None:
-        self.enabled = settings.card_search_enabled and bool(settings.vision_api_key)
+        self.enabled = settings.card_search_enabled and bool(settings.resolved_search_api_key)
         self.model = settings.card_search_model
         self.client = (
             AsyncOpenAI(
-                api_key=settings.vision_api_key,
-                base_url=settings.vision_base_url,
+                api_key=settings.resolved_search_api_key,
+                base_url=settings.resolved_search_base_url,
                 timeout=settings.card_search_timeout_seconds,
                 max_retries=1,
             )

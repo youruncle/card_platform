@@ -1,4 +1,6 @@
 """Purchase-only multi-photo evidence; no financial or inventory writes."""
+from card_platform.model_requests import nonthinking_extra_body
+
 
 import asyncio
 import hashlib
@@ -597,7 +599,7 @@ class PurchaseImageObserver:
                     model=self.verifier.parallel_model,
                     messages=[{"role": "user", "content": content}],
                     response_format={"type": "json_object"},
-                    extra_body={"enable_thinking": False},
+                    extra_body=nonthinking_extra_body(self.verifier.parallel_model),
                     temperature=0,
                 )
             try:

@@ -1,0 +1,123 @@
+# 024 发布记录
+
+2026-10-18，按用户“部署并发布最新版本”授权完成。
+
+## 发布结果
+
+- 网页：[cardsp.cn](https://cardsp.cn/)，包含 [球员行情](https://cardsp.cn/player-prices)。
+- 网页和 API 镜像均为 `0.6.1-20261018-costmulti1`；云端 API 健康状态 ready，177 个源文件校验一致。
+- 仅应用增量迁移 `0082_auto_purchase_cost.sql`，自动成本任务表为空；自动购买成本 worker 保持关闭，未执行真实成本回填。
+- iPhone 沿用个人开发签名覆盖安装 1.1.8 / build 12，保留应用数据；设备应用列表确认版本，解锁后 devicectl 启动成功。不是 App Store 或 TestFlight 发布。
+- 当前开发签名描述文件有效期至北京时间 2026-10-23 00:56:53。
+
+## 验证
+
+- 网页测试 151 项通过；手机测试 107 项通过，生产构建、Capacitor 同步、Xcode Release 构建及签名校验通过。
+- 购买成本相关 PostgreSQL 隔离回归 459 项通过。
+- 额外行情和手机 API 回归 19 项通过；并发重复上传测试 `test_parallel_duplicate_uploads_create_one_task` 未能结束，终止后单列排除，未计为通过。完整 API 测试套件未全部通过/重跑，历史情况见 validation.md。
+- 公网首页、行情页、client-capabilities 和引用的静态资源返回 200；匿名私有 API 和自动成本状态接口返回 401。
+- 使用真实公网前端资源验证桌面/390px 窄屏搜索、展开、定向刷新交互，无页面脚本错误或水平溢出。业务 API 使用本地只读样本和模拟响应，未向真实业务提交刷新。
+- iPhone 已验证安装版本和进程启动；本次未完成全部真机业务流程回归。
+- 独立三十张成本恢复评估仍为 0/30 → 0/30，C28 等未解决项及真实样本覆盖限制见 validation.md；发布不代表恢复率提升。
+
+## 备份和回滚
+
+发布前数据库备份远端位于 `/home/ubuntu/card-platform/backups/cost-multi-20261018/database.dump`，本地受限副本为 `.runtime/releases/20261018-cost-multi/cloud-before.dump`；335333024 字节，远端 pg_restore 目录检查通过，本地与远端 SHA-256 一致：
+
+`2d87f55dbd4f90c5d8b1d53cf1460ca4b92de7c923e84855196f987ddaf06064`
+
+原 Compose 和镜像记录保存在同一远端备份目录。旧镜像另保留 `card-platform-api:before-cost-multi-20261018`、`card-platform-web:before-cost-multi-20261018` 标签。回滚时只将现有 Compose 的 api/web 镜像恢复为备份记录，再以现有 `.env.cloud` 执行 `docker compose --env-file .env.cloud -f infra/compose.tunnel.yaml up -d --no-build --no-deps api web`。保留增量空表及现有数据库，不恢复整库或删除卷。
+
+## 证据
+
+构建、测试、源文件清单、公网检查、浏览器截图、安装和启动日志均保存在受限目录 `.runtime/releases/20261018-cost-multi/`。业务数据、设备标识、凭据和备份未加入版本库。未重置或提交现有工作区改动。
+
+## 2026-10-19：启用自动成本 worker
+
+用户明确要求开启。已将本地与线上 Compose 的 `PURCHASE_COST_WORKER_ENABLED` 从 false 改为 true，沿用当前 API 镜像，仅重建 API 容器。运行容器设置读取确认为 true，应用启动完成且健康检查通过，公网 client-capabilities 返回 200。开启后只读查询自动任务队列为空，未创建测试业务卡片或批量追溯历史卡库，因此本次未验证真实订单自动写成本成功；以后新入库无采购交易的卡按现有队列和核验规则处理。
+
+此前关闭状态仅描述 10 月 18 日发布时的配置，当前已开启。线上原配置备份位于 `backups/enable-cost-worker-20261019/compose.before.yaml`，验证日志保存在受限 `.runtime/releases/20261019-enable-cost-worker/`。
+
+## 2026-10-19：cost1002发布与当前运行状态
+
+发布`0.6.2-20261019-cost1002`：仅将已验证的`purchase_cost_images.py`、`purchase_cost_knowledge.py`、`purchase_cost_service.py`叠加到当前线上镜像，网页功能代码不变、重新发布当前网页镜像。不复制本地.env、业务数据或其他未验证工作树改动；没有新数据库迁移。
+
+随后并行的估值发布将API更新为`0.6.2-20261019-valuation3`、网页更新为`valuation2`。再次检查：三成本模块SHA256与cost1002发布包完全相同，合同`purchase-multi-photo-v2`、worker=true、API就绪、公网首页/能力接口与静态资源均正常。没有回滚其他发布；中断的核验事务不计成功，补跑使用同一镜像、相同正常成本服务和校验的临时隔离容器，结束后自动移除，临时环境文件删除。
+
+验证文件保存在私有`.runtime/releases/20261019-cost1002/`，包括最终源码/运行配置/健康、公共资源检查与清理记录。100例私有证据在`.runtime/cost-audit-100-20261019/`。生产worker持续开启，历史旧文档或旧脚本中的false设置不能恢复到生产。
+
+iPhone实体设备不可用，按用户授权延后安装验证；本线程已建立静默的连接后接续任务，读取`mobile-followup.json`。本次成本逻辑全在云端，移动业务代码没有修改；接续安装优先最新已验证包，禁止用旧包降级更高版本客户端。
+
+## 2026-10-19：完整历史资料库
+
+云端API发布`0.6.2-20261019-history2`，网页发布`0.6.2-20261019-history1`。以实际最新valuation7 API、valuation2网页为基线，仅叠加本轮九个成本/账号/配置模块；网页复用已验证资产，没有新移动业务代码或数据库迁移。源文件校验、API健康、worker实际true、首页/行情静态资源和私有历史接口鉴权通过。
+
+完整下载7页216笔购买订单、793个商品条目；多图与独立文字准备和随后完整100例正常成本重试由私有持久任务接续，不能把同步订单数或离线身份结论计作已恢复成本。最新相关隔离PostgreSQL回归605项通过，独立复核通过。全API旧audit_trace测试问题仍单列，未称全套通过。
+
+备份及原镜像/compose位于远端`backups/cost-history-20261019`，私有源码清单、构建、激活、真实结果和接续说明位于隔离工作树`.runtime/cost-history-20261019`及远端同名staging目录。原始业务数据和设备标识不入版本库。
+
+手机仍沿用先前已验证1.1.10(14)兼容客户端；本轮检查实体设备处于unavailable，尚未完成本轮启动/生产成本请求复验，未删除重装或降级。历史发布记录中的worker关闭仅描述当时旧状态，当前持续开启。
+
+### history3 商品文字重读增量
+
+2026-10-19 10:14（北京时间）发布 API `0.6.2-20261019-history3`，在当时运行的 history2 上仅叠加商品文字和准备服务两个模块。真实准备复现了手写签名来源枚举错误，以及流水号同时误填卡号的问题；增加一次同图重读，保留两次原始响应，并阻断删除有效身份字段或更改照片角色的修复。独立审查发现的配对默认字段误拒绝也已按失败测试修复。相关隔离 PostgreSQL/单元测试最终 610 项通过。
+
+运行容器九模块 SHA256、健康和 worker=true 验证通过。网页仍为已发布 history1：首页 12 个、行情页 11 个静态资源均返回 200；`/v1/client-capabilities` 返回 200，匿名 `/v1/purchase-cost/history/status` 返回 401。没有新移动业务代码或迁移。
+
+停止唯一旧准备容器后，从逐商品检查点恢复，CLI 每批排队 10 件但并发仍为 2 件。首次恢复因脚本读取权限失败，已修正为受限容器用户组可读并重启；原资料和业务账本保留。全量准备及 100 例实际获取仍运行中，不能据此宣布全量验证完成或新增成本数量。
+
+### history4 原图大小一致性修复
+
+全量准备发现有效 3024×4032 JPEG 原图为 10,251,231 字节：低于平台既有 10MiB 上传范围，却被成本链路额外的 8MB 上限拒绝。失败复现后，将购买原图、目标图与归档读取上限统一到 10MiB；网页 HTML 仍显式限制 8,000,000 字节，6 图、32M 像素、域名及禁止跳转规则保持执行。真实原图校验和实际视觉编码通过，模型图为 1152×1536。
+
+相关隔离 PostgreSQL/单元回归 **613 passed**，独立范围审查无阻断问题。发布 API `0.6.2-20261019-history4`，在当时运行的 history3 上只叠加上述图片模块增量；九模块哈希、健康和 worker=true 验证通过，唯一准备任务从检查点接续。未做 900MB 容器峰值压力测试，容器仍受原内存上限和两商品并发限制。
+## 2026-10-19：history5 纯评分性能增量
+
+以当时实际线上 `card-platform-api:0.6.2-20261019-history4` 为基线，只叠加 `purchase_cost_catalog.py`、`purchase_cost_knowledge.py`；发布为 `card-platform-api:0.6.2-20261019-history5`。10 个成本源码模块 SHA、API 健康和运行容器 `purchase_cost_worker_enabled=True` 已核验。网页沿用已发布的 `card-platform-web:0.6.2-20261019-history1`。
+
+相关隔离 PostgreSQL/单元套件 621 通过、独立审查无阻断；真实 793 行纯评分两轮结果哈希一致。旧单例驱动停止并排空准备容器后，在进程锁内替换驱动，使用原生 history5 镜像从商品检查点继续；没有重新读取已完成商品，也没有因性能改动反复重读失败图像。准备及 100 例真实成本回归仍在进行，未把启动流程当作最终验收。
+
+## 2026-10-19：history6 资料时效与批处理保护
+
+627 项相关测试及独立复核通过后，以当时实际线上 history5 为基线，仅覆盖 `purchase_cost_archive.py`、`purchase_cost_history.py`、`purchase_cost_service.py`，发布为 `card-platform-api:0.6.2-20261019-history6`。10 个成本源码模块 SHA、API 健康、运行容器 worker=true 已核验；网页仍为 history1。
+
+准备子进程自然完成全部 793 件（752 就绪、41 失败）后，在锁内恢复唯一驱动。正式 100 例于 UTC 04:44:36 进入 match 阶段，使用原生 history6 镜像；未强制确认、重置原账本或重读有效负例。实际结果仍待全量完成及账本审计。
+
+## 2026-10-19：history7 首次评分纯计算复用
+
+632 项相关回归、Ruff、真实 793 行输出一致性基准及独立审查通过后，以当时线上 history6 为基线，仅覆盖 `purchase_cost.py`、`purchase_cost_bundle.py`、`purchase_cost_knowledge.py`。API 镜像为 `card-platform-api:0.6.2-20261019-history7`；源码核对扩为 12 个成本模块，健康及实际 worker=true 已核验，网页仍为 history1。
+
+本增量只复用当前操作的身份归一化及姓名别名，不改变匹配、财务或唯一性规则。匹配驱动在案例检查点切换，保留此前 history6 已完成的案例和原始 3/100 账本基线，继续余下案例；最终报告须注明各执行阶段，不能把已启动或部分完成称作完整 100 例验收。
+
+## 2026-10-19：history8 逐商品待核验范围
+
+639 项相关回归、Ruff 与独立复核通过后，以当时实际线上 history7 为基线，仅覆盖 `purchase_cost_service.py`，发布 `card-platform-api:0.6.2-20261019-history8`。12 个成本模块 SHA、健康和实际 worker=true 核验通过。旧订单级未知范围继续阻断，新范围不再扩散到同单无关商品，真实前候选消失不会自动清闸。
+
+旧唯一驱动及匹配容器停止并排空后，在锁内保存六例 history6/7 部分结果，再以原始 3/100 账本基线启动唯一 history8 驱动，完整重跑相同100例。原图、准备结果、有效成对观察及交易均保留；不重试全部失败文字、不强制选订单。新驱动仍可从逐例检查点恢复。
+
+UTC 05:40:55 公网首页、行情页和能力接口返回200，12+11静态资源全部200，匿名历史状态接口401。网页继续使用已发布 history1。实体 iPhone 再查仍 unavailable，未覆盖安装或声称完成本轮真机启动验证。
+
+## 2026-10-19：history9 打包外部调用尝试控制
+
+647 项相关回归、Ruff 与独立复核通过后，以上线的 history8 为基线，仅覆盖成本服务和操作作用域两个模块，发布 `card-platform-api:0.6.2-20261019-history9`。12 模块哈希、健康与运行容器 worker=true 验证通过。尝试记录独立于纯评分缓存，不保留模型结论，不改变匹配、财务或唯一性规则。
+
+保留 history8 完成的八例（7 未匹配、1 待选择5件同款），并在 A009 第一轮检查点排空旧匹配容器后，使用原生 history9 镜像恢复唯一驱动。原账本3笔、图片及有效观察保持。100例仍执行中，新增成本数量待完整账本审计。
+
+## 2026-10-19：history10 保留逐候选同款证据
+
+653 项相关回归、Ruff 与独立复核通过后，以当时实际线上 history9 为基线，仅覆盖成本服务一个模块，发布 `card-platform-api:0.6.2-20261019-history10`。12 模块源码、健康与实际 worker=true 验证通过。原始same保留，未完成总闸继续拦截自动写账；多件已验证同款沿用现有明确人工选择流程，不自动替用户选择。
+
+UTC 08:57，针对匹配批次exit137/OOM，仅更新受限CLI与私有父驱动为逐卡原生进程；无API业务代码或迁移。恢复时实际线上镜像已由其他发布更新为`card-platform-api:0.6.2-20261019-valuation-quality1`，12个成本模块与history10清单逐项一致、健康且worker=true，因此继续使用当前镜像，保留该估值发布。原18例、原账本3笔及有效观察保留；唯一父驱动使用flock、固定容器名、源文件校验和环境临时文件finally清理，仍为900MiB/1400MiB。每进程最多新完成一例，卡内完整核验和现行写账保护不变。A019/A020已完成，100例仍待继续。
+
+在 A012 轮次检查点排空旧匹配容器，保存 history8/9 的11例部分结果后，按原始3/100账本基线启动唯一 history10 全100重跑。已有原图和有效观察继续复用，图片模型协议及负例判断规则未改变；旧阶段结果不冒充最终验收。网页仍为已发布 history1，手机暂无新增业务代码，真机复验继续按设备连接情况记录。
+
+## 2026-10-20 00:10–00:14 CST：当前发布与实体手机复验
+
+实际API为`card-platform-api:0.6.2-20261019-valuation-final877`（容器UTC09:46启动），网页为`card-platform-web:0.6.2-20261019-valuation-quality1`；保留其他发布，不回滚为history10标签。不可变镜像ID的全包比较确认186个Python文件与history10完全一致，12个成本模块及受限CLI哈希一致。API健康，实际容器ENV及应用设置的`PURCHASE_COST_WORKER_ENABLED`均为true。公网首页、行情页、能力接口和12＋11静态资源全200，匿名历史状态接口401。未执行会写入测试账号或卡片的线上smoke脚本。
+
+实体个人iPhone 16 Plus已连接。沿既有个人开发签名渠道，对已验证包`1.1.10（14）`完成覆盖安装；安装后再次读取包版本、启动并在后续进程列表确认仍运行。签名验证通过，实体设备包含在配置文件中，签名配置有效期至2026-10-22 UTC。包为原发布目录`20261019-valuation-audit/DerivedData/Build/Products/Release-iphoneos/App.app`，未从当前未提交源码重建或降级。没有声明完成新的端到端图片识别测试。
+
+100张成本验证在62张后因上游`qwen3-vl-plus`连续HTTP403/`AccessDenied.Unpurchased`停住私有父驱动；API和worker持续开启。当前没有运行中的原生财务子容器或遗留临时环境文件，旧账本与62例结果已私有冻结。A058–A062受影响、38张尚未执行，完整验收及最终收敛未完成；恢复要求见validation.md。没有因此调整密钥、模型、套餐或费用设置。
+
+私有证据入口：`.runtime/cost-history-20261019/published-source-diff.json`、`checkpoint-runtime-check.provider403.json`、`public-runtime-current.json`、`mobile-verification.current.json`、`provider-denial-20261019.json`及`validation-hold.provider403.json`。
+
