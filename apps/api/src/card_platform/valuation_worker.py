@@ -1378,6 +1378,7 @@ class AutomatedValuationWorker:
                        cd.is_memorabilia, cd.memorabilia_types,
                        cd.is_patch, cd.print_run,
                        ci.serial_number, ci.serial_total, ci.grade_company, ci.grade_value,
+                       ci.grade_cert_number,
                        ci.image_front_url, ci.image_back_url, ci.notes,
                        purchase.notes AS purchase_context,
                        purchase.venue AS purchase_venue,
@@ -2350,7 +2351,7 @@ class AutomatedValuationWorker:
             ]],
         })
 
-    def _visual_candidate_can_stop(self, identity, comp, decision) -> bool:
+    def _visual_candidate_can_stop(self, identity, comp, decision, *, admitted_rows=None) -> bool:
         """Only a formally admissible same-card lead ends further image discovery.
 
         Final publication still revalidates persisted source facts and decisions.
@@ -2387,7 +2388,27 @@ class AutomatedValuationWorker:
                 visual_facts=visual_facts,
                 resolver=self.knowledge_runtime.resolver if self.knowledge_runtime else None,
             )
-        return judged.tier in {ComparableTier.T0, ComparableTier.T1} and not judged.hard_conflicts
+        if judged.tier not in {ComparableTier.T0, ComparableTier.T1} or judged.hard_conflicts:
+            return False
+        from card_platform.domain.sale_independence import unique_physical_rows
+        row = {
+            'id': comp.source_url, 'source_code': comp.source_code,
+            'source_url': comp.source_url, 'listing_title': comp.title,
+            'grade_company': comp.grade_company,
+            'comparable_tier': judged.tier.value,
+            'provider_raw_payload': comp.provider_payload,
+            'raw_payload': {
+                'visual_verdict': decision.verdict, 'visual_confidence': decision.confidence,
+                'visual_evidence_binding': decision.evidence_binding,
+                'visual_match_evidence': [item.model_dump(mode='json') for item in decision.match_evidence],
+            },
+        }
+        # Keep only formally admitted observations in this local stage's pool.
+        # An owned source can also identify its same-photo relisting transitively.
+        pool = admitted_rows if admitted_rows is not None else []
+        pool.append(row)
+        independent, _ = unique_physical_rows(pool, identity)
+        return any(item['id'] == row['id'] for item in independent)
 
     async def _verify_comparable_images(
         self, identity: dict, search: ComparableSearchResult, *, reviewed_urls: set[str] | None = None,
@@ -2458,6 +2479,7 @@ class AutomatedValuationWorker:
         new_count = 0
         evidence_review_attempt_count = 0
         post_review_rejected = {}
+        admitted_visual_rows = []
         stop_reason = "candidate_pool_exhausted"
         notes = list(search.notes)
 
@@ -2496,7 +2518,8 @@ class AutomatedValuationWorker:
                                 for c in batch
                             )
                         stop_candidate = next((c for c in batch if c.id in decisions
-                            and self._visual_candidate_can_stop(identity, by_url[c.id], decisions[c.id])), None)
+                            and self._visual_candidate_can_stop(
+                                identity, by_url[c.id], decisions[c.id], admitted_rows=admitted_visual_rows)), None)
                         if stop_candidate is not None:
                             if (getattr(self, 'evidence_reviewer', None) is not None
                                     and stop_candidate.id not in reviewed_urls):
@@ -2513,6 +2536,8 @@ class AutomatedValuationWorker:
                                 )
                                 notes.extend(checked.notes)
                                 if not checked.comparables:
+                                    admitted_visual_rows[:] = [row for row in admitted_visual_rows
+                                                              if row['id'] != stop_candidate.id]
                                     post_review_rejected[stop_candidate.id] = next(
                                         (item for item in checked.rejected_candidates
                                          if item.get('source_url') == stop_candidate.id),

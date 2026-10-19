@@ -7,6 +7,8 @@ from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
 from card_platform.domain.redemption import redemption_identity
+from card_platform.purchase_source_roles import PURCHASE_SOURCE_LATERAL
+from card_platform.domain.market_price_projection import apply_market_snapshot_read_contract
 from card_platform.domain.codex_joint_valuation import joint_valuation
 from card_platform.codex_joint_context import current_image_hashes, recovery_reviews
 from card_platform.domain.portfolio import LedgerEntry, TransactionKind, calculate_position
@@ -471,6 +473,7 @@ class PortfolioRepository:
                 ci.is_numbered,
                 ci.serial_number, ci.serial_total, ci.grade_company, ci.grade_value,
                 ci.strategy_tags, ci.image_front_url, ci.image_back_url, u.base_currency,
+                purchase_sources.sources AS market_purchase_sources,
                 purchase.unit_price AS purchase_price,
                 purchase.unit_price * purchase.quantity + purchase.fee_amount AS purchase_total_cost,
                 purchase.currency AS purchase_currency,
@@ -533,6 +536,7 @@ class PortfolioRepository:
             JOIN player p ON p.id = cd.player_id
             JOIN card_set cs ON cs.id = cd.card_set_id
             JOIN brand b ON b.id = cs.brand_id
+            {PURCHASE_SOURCE_LATERAL}
             LEFT JOIN LATERAL (
                 SELECT s.*, to_jsonb(s) AS snapshot
                 FROM valuation_snapshot s
@@ -650,6 +654,7 @@ class PortfolioRepository:
         items: list[PortfolioItem] = []
         for row in rows:
             original = row.pop("synthesis_original", None)
+            row, original = apply_market_snapshot_read_contract(row, original)
             if original and original.get('model_version') in {'codex-independent-fallback-v1','codex-researched-fallback-v2'}:
                 source_evidence = original.get('evidence') or {}
                 row['valuation_result_summary'] = {**(row.get('valuation_result_summary') or {}),

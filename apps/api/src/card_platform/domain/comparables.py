@@ -160,13 +160,16 @@ def _contains_player(text: str, value: object, *, minimum_matches: int | None = 
 
     def contains_part(part: str) -> bool:
         normalized_part = normalize_text(part)
-        published = {normalize_text(a) for a in published_subject_aliases(part, resolver)}
         # Initial punctuation varies across labels and seller titles (C.J./CJ).
-        # Collapse only adjacent one-letter initials, not arbitrary name words.
+        # Use the same bounded normalization for alias lookup as literal names;
+        # otherwise a translated title loses a roster member despite its alias.
         compact_part = re.sub(r"\b([a-z])\s+([a-z])\b", r"\1\2", normalized_part)
+        lookup_names = tuple(dict.fromkeys((part, normalized_part, compact_part)))
+        published = {normalize_text(a) for name in lookup_names
+                     for a in published_subject_aliases(name, resolver)}
         compact_title = re.sub(r"\b([a-z])\s+([a-z])\b", r"\1\2", normalize_text(text))
         return (
-            published_subject_matches(text, part, resolver)
+            any(published_subject_matches(text, name, resolver) for name in lookup_names)
             or (normalized_part not in published and _contains(text, part))
             or bool(
                 normalized_part not in published and re.search(
@@ -178,7 +181,7 @@ def _contains_player(text: str, value: object, *, minimum_matches: int | None = 
                 _contains(text, alias)
                 for alias in (
                     *aliases.get(normalized_part, ()),
-                    *matching_player_aliases(normalized_part),
+                    *(alias for name in lookup_names for alias in matching_player_aliases(name)),
                 )
                 if alias not in PLAYER_MATCH_ALIAS_EXCLUSIONS.get(normalized_part, set())
                 and normalize_text(alias) not in published

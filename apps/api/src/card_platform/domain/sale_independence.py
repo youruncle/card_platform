@@ -36,7 +36,67 @@ def full_serial(title: str) -> tuple[int, int] | None:
     return next(iter(pairs)) if len(pairs) == 1 else None
 
 
-def physical_keys(row: dict) -> list[tuple[str, str]]:
+_VERSION_FIELDS = (
+    'card_definition_id', 'brand_name', 'season_start', 'season_end', 'product_name',
+    'set_name', 'card_number', 'insert_name', 'parallel_name', 'serial_total',
+    'is_autograph', 'is_memorabilia', 'is_patch', 'is_redemption', 'redemption_status',
+)
+
+
+def _version_values(row):
+    from card_platform.domain.card_identity import normalize_text
+    values = dict(row.get('identity') or {})
+    values.update({key: row[key] for key in _VERSION_FIELDS if key in row})
+    return {key: normalize_text(value) for key, value in values.items()
+            if key in _VERSION_FIELDS and value is not None}
+
+
+def _same_printed_version(row, identity):
+    # Callers first admit the full current identity/finish. Explicit differing
+    # versions still must not share a copy key or claim the target's serial.
+    tier = row.get('comparable_tier')
+    if tier is not None and str(tier) not in {'T0', 'T1'}:
+        return False
+    target, candidate = _version_values(identity), _version_values(row)
+    return not any(target[key] != value for key, value in candidate.items() if key in target)
+
+
+def _certificate_key(row):
+    source = row.get('provider_raw_payload') or {}
+    company = str(row.get('grade_company') or source.get('grade_company') or '').strip().casefold()
+    certificate = str(row.get('grade_cert_number') or source.get('grade_cert_number') or '').strip().casefold()
+    # Only explicit structured certificate fields; never arbitrary title/order
+    # numbers or a common company+grade label. Companies have separate namespaces.
+    if company and re.fullmatch(r'[a-z0-9-]{4,80}', certificate):
+        return f'{company}:{certificate}'
+    return None
+
+
+def owned_copy_history(row: dict, identity: dict | None = None) -> bool:
+    """Whether an admitted current source is this held physical card's history.
+
+    A cached classification boolean, notes URL or purchase amount is not proof.
+    The source binding must validate for this owner/item; serial/certificate
+    comparisons apply only after full same-version admission by the caller.
+    """
+    from card_platform.purchase_source_roles import is_owned_purchase_source
+    identity = identity or {}
+    source = row.get('provider_raw_payload') or {}
+    if is_owned_purchase_source(identity, {'source_url': row.get('source_url') or source.get('source_url')}):
+        return True
+    if not _same_printed_version(row, identity):
+        return False
+    certificate = _certificate_key(row)
+    if certificate and certificate == _certificate_key(identity):
+        return True
+    try:
+        owned = (int(identity['serial_number']), int(identity['serial_total']))
+    except (KeyError, TypeError, ValueError, OverflowError):
+        return False
+    return 0 < owned[0] <= owned[1] and full_serial(str(row.get('listing_title') or '')) == owned
+
+
+def physical_keys(row: dict, identity: dict | None = None) -> list[tuple[str, str]]:
     payload = row.get('raw_payload') or {}
     keys = []
     binding = payload.get('visual_evidence_binding') or {}
@@ -54,6 +114,9 @@ def physical_keys(row: dict) -> list[tuple[str, str]]:
     serial = full_serial(str(row.get('listing_title') or ''))
     if serial:
         keys.append(('same_physical_card_serial', f'{serial[0]}/{serial[1]}'))
+    certificate = _certificate_key(row)
+    if certificate:
+        keys.append(('same_physical_card_certificate', certificate))
     # Only explicit seller-scoped consignment codes, never arbitrary trailing
     # warehouse IDs or similar photographs alone, establish duplicate risk.
     source = row.get('provider_raw_payload') or payload
@@ -61,7 +124,28 @@ def physical_keys(row: dict) -> list[tuple[str, str]]:
     code = str(source.get('consignment_code') or '').strip()
     if seller and code:
         keys.append(('same_seller_consignment', f'{row.get("source_code")}:{seller}:{code}'))
-    return keys
+    # The worker supplies one fully admitted version. Keep explicit row scopes
+    # separate as well: repeated serial/cert digits across products are not copies.
+    scope = {**_version_values(identity or {}), **_version_values(row)}
+    prefix = repr(tuple(sorted(scope.items())))
+    tier = row.get('comparable_tier')
+    contextual = tier is not None and str(tier) not in {'T0', 'T1'}
+    contextual_prefix = prefix
+    owned_photo = False
+    if contextual:
+        # Contextual rows can reach _calculate without hard conflicts, but their
+        # complete finish/version is unproven. Purchase ownership proves this
+        # source's history, not its title serial/certificate/consignment claims.
+        # Only its already observed primary photo may propagate that ownership.
+        contextual_scope = {**scope, 'non_same_card_source': str(row.get('id') or row.get('source_url') or '')}
+        contextual_prefix = repr(tuple(sorted(contextual_scope.items())))
+        owned_photo = owned_copy_history(row, identity)
+    scoped_keys = []
+    for kind, value in keys:
+        share_owned_photo = owned_photo and kind == 'same_card_photo_reuse_risk'
+        key_prefix = contextual_prefix if contextual and not share_owned_photo else prefix
+        scoped_keys.append((kind, f'{key_prefix}:{value}'))
+    return scoped_keys
 
 
 def cluster_copy_records(records):
@@ -97,10 +181,8 @@ def cluster_copy_records(records):
 
 def unique_physical_rows(rows: list[dict], identity: dict | None = None):
     """Call only after source/identity admission; never merge rejected variants."""
-    owned = ((identity or {}).get('serial_number'), (identity or {}).get('serial_total'))
-    owned = tuple(int(x) for x in owned) if all(owned) else None
-    records = [dict(keys=physical_keys(row), owned=owned is not None and
-                    full_serial(str(row.get('listing_title') or '')) == owned) for row in rows]
+    records = [dict(keys=physical_keys(row, identity), owned=owned_copy_history(row, identity))
+               for row in rows]
     kept, dropped = cluster_copy_records(records)
     excluded = [dict(dropped_id=str(rows[i].get('id')),
         kept_id=str(rows[anchor].get('id')) if anchor is not None else None,
