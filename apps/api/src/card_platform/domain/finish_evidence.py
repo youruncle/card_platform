@@ -10,6 +10,27 @@ from card_platform.domain.card_identity import CardIdentityResolver, normalize_t
 _VERIFIED_FACTS = object()
 
 
+def explicit_visual_version_conflict(observation: dict) -> bool:
+    """A layout/finish rejection cannot become a print-run pricing anchor.
+
+    Serial-total differences and lighting alone remain distinct from a fixed
+    design/material conflict. Historical markers are rejection evidence only;
+    they never authorize a new positive match.
+    """
+    if not isinstance(observation, dict):
+        return False
+    reasons = observation.get('visual_reasons')
+    conflicts = observation.get('visual_conflict_evidence')
+    return (isinstance(reasons, list) and 'explicit_design_or_finish_conflict' in reasons
+            or any(isinstance(entry, dict) and entry.get('source') == 'images'
+                   and entry.get('both_visible') is True
+                   and entry.get('kind') in ('layout', 'fixed_pattern', 'printed_color', 'card_text')
+                   and isinstance(entry.get('target'), str) and isinstance(entry.get('candidate'), str)
+                   and entry['target'].strip() and entry['candidate'].strip()
+                   and ' '.join(entry['target'].casefold().split()) != ' '.join(entry['candidate'].casefold().split())
+                   for entry in (conflicts if isinstance(conflicts, list) else [])))
+
+
 def _target_key(target):
     values = target.as_dict()
     return tuple(normalize_text(values.get(field)) for field in (

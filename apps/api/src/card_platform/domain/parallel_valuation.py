@@ -72,12 +72,17 @@ def assess_parallel_analogue(identity, sale, *, resolver=None):
 
 
 def _base_card_evidence(identity, sale, observation):
+    from card_platform.domain.finish_evidence import explicit_visual_version_conflict
     from card_platform.domain.comparables import _contains_card_number
     from card_platform.comparable_image_verifier import (
         VisualCandidate, current_persisted_visual, MODEL_OBSERVATION_CONTRACT,
         visual_asset_binding, has_visual_observation,
     )
     candidate = VisualCandidate(sale.source_url, sale.title, sale.image_url or '')
+    # Expiring a positive-match binding must not turn an explicit rejection
+    # into title-only authority for a price.
+    if explicit_visual_version_conflict(observation):
+        return None
     current = current_persisted_visual(identity, candidate, observation or {})
     if (current.get('visual_condition_review') or {}).get('verdict') == 'materially_different':
         return None

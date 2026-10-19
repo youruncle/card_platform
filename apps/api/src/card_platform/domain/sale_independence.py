@@ -145,6 +145,13 @@ def physical_keys(row: dict, identity: dict | None = None) -> list[tuple[str, st
         share_owned_photo = owned_photo and kind == 'same_card_photo_reuse_risk'
         key_prefix = contextual_prefix if contextual and not share_owned_photo else prefix
         scoped_keys.append((kind, f'{key_prefix}:{value}'))
+    # A marketplace item is one transaction even when legacy external IDs,
+    # URL casing, or contextual classifications differ. It is independent of
+    # serial/version keys and never links two different items of one seller.
+    from card_platform.ingestion.cardhobby_public_item import canonical_public_item_url
+    transaction = canonical_public_item_url(row.get('source_url'))
+    if transaction:
+        scoped_keys.append(('same_underlying_marketplace_sale', transaction))
     return scoped_keys
 
 

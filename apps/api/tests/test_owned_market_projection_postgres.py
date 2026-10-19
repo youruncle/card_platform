@@ -27,7 +27,13 @@ def test_explicit_manual_price_remains_user_authority():
 
 
 def test_codex_historical_reference_is_not_reclassified_as_new_market_output():
-    asyncio.run(check_case("18.00", owned=True, want=Decimal("18.00"), model="codex-researched-fallback-v2"))
+    asyncio.run(check_case("18.00", owned=True, want=None, model="codex-researched-fallback-v2"))
+
+
+def test_explicit_fixed_finish_conflict_is_not_a_market_center_in_sql_projection():
+    asyncio.run(check_case("43.45", owned=False, want=None, extra_evidence={
+        "used_comparables": [{"source_url":"https://cardhobby.com.cn/Market/Item/124125821",
+                              "visual_reasons":["explicit_design_or_finish_conflict"]}]}))
 
 
 @pytest.mark.parametrize("status", ["queued", "failed"])
@@ -47,7 +53,7 @@ def test_unused_owned_context_does_not_withhold_independent_market_center(eviden
                            evidence_key=evidence_key, center=False))
 
 
-async def check_case(price, *, owned, want, method="ai_estimate", model="relative-multimodal-comps-1.0", job_status="succeeded", evidence_key="used_comparables", center=None):
+async def check_case(price, *, owned, want, method="ai_estimate", model="relative-multimodal-comps-1.0", job_status="succeeded", evidence_key="used_comparables", center=None, extra_evidence=None):
     async with await psycopg.AsyncConnection.connect(os.environ["TEST_DATABASE_URL"], row_factory=dict_row) as c:
         try:
             owner = (await (await c.execute("INSERT INTO app_user(email,display_name) VALUES(%s,'projection test') RETURNING id", (f"{uuid4()}@example.test",))).fetchone())["id"]
@@ -67,6 +73,8 @@ async def check_case(price, *, owned, want, method="ai_estimate", model="relativ
                     entries.append({"source_url": "https://cardhobby.com.cn/Market/Item/789789",
                                     "used_for_center": True, "final_weight": "1"})
                 evidence[evidence_key] = entries
+            if extra_evidence:
+                evidence.update(extra_evidence)
             snapshot = (await (await c.execute("""INSERT INTO valuation_snapshot(collection_item_id,method,currency,low_value,fair_value,high_value,confidence,model_version,evidence) VALUES(%s,%s,'CNY',%s,%s,%s,.45,%s,%s) RETURNING id""", (item,method,price,price,price,model,Jsonb(evidence)))).fetchone())["id"]
             await c.execute("""INSERT INTO valuation_shadow_result(valuation_job_id,collection_item_id,identity_version_id,model_version,status,currency,low_value,fair_value,high_value,confidence,evidence) VALUES(%s,%s,%s,'robust-shadow-1.1','estimated','CNY',%s,%s,%s,.45,'{}')""", (job,item,identity_version,price,price,price))
             if owned:
