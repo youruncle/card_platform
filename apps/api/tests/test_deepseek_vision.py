@@ -21,12 +21,12 @@ def test_defaults_use_flash_for_all_vision_roles_and_separate_search():
     assert {s.vision_model, s.vision_plus_model, s.vision_max_model,
             s.vision_finish_confirmation_model} == {'deepseek-flash'}
     assert s.vision_thinking_enabled is False
-    s = Settings(_env_file=None, vision_api_key='new-vision', search_api_key='old-search',
-                 search_base_url='https://dashscope.aliyuncs.com/compatible-mode/v1')
+    s = Settings(_env_file=None, vision_api_key='new-vision', search_api_key='native-search',
+                 search_base_url='https://api.deepseek.com')
     service = CardVisionService(s)
     assert str(service.provider.client.base_url) == 'https://api.deepseek.com'
-    assert service.search.client.api_key == 'old-search'
-    assert 'dashscope' in str(service.search.client.base_url)
+    assert service.search.client.api_key == 'native-search'
+    assert str(service.search.client.base_url).rstrip('/') == 'https://api.deepseek.com'
     assert service.tiered_providers['plus'] is None
     assert service.tiered_providers['max'] is None
 
@@ -81,11 +81,13 @@ async def test_visual_research_does_not_require_the_separate_search_client():
 
 def test_missing_search_configuration_never_sends_search_key_to_deepseek():
     visual_only = CardVisionService(Settings(_env_file=None, vision_api_key='vision-only'))
-    assert visual_only.search.client is None
+    assert visual_only.search.client.api_key == 'vision-only'
     paired = CardVisionService(Settings(_env_file=None, vision_api_key='vision',
                                        search_api_key='search'))
-    assert paired.search.client.api_key == 'search'
-    assert 'dashscope' in str(paired.search.client.base_url)
+    assert paired.search.client is None
+    legacy = CardVisionService(Settings(_env_file=None, vision_api_key='vision',
+        search_api_key='old-search', search_base_url='https://dashscope.aliyuncs.com/compatible-mode/v1'))
+    assert legacy.search.client is None
 
 
 def test_custom_or_disabled_model_does_not_require_a_price_table_entry():
