@@ -51,8 +51,8 @@
 - [x] T34 冻结三卡与当前生产源码，RED复现标题已召回忽略商品图片字段及软差异被拒绝。
 - [x] T35 GREEN实现可追溯多来源复核准入，保留底层冲突/缺失和最终身份门；当前绑定成对核图处理结构化字段疑错与真实图片冲突。
 - [x] T36 完整竞争域重建旧待核验范围，缺图/消失/真实冲突及源变化保持阻断；测试缓存/操作复用边界。
-- [ ] T37 隔离PG及真实三卡、原10负例/100集分层验证，独立审查，真实成本和未知字段单列。
-- [ ] T38 提交推送、发布最新API/网页/个人签名手机，验证源/模型/worker/公网页面与鉴权，完成收敛和报告。
-- [ ] T39 实际855复跑发现旧占用单元无法核图、其他字段差异遮蔽明确卡号负证据；先RED再最小修复，只读排除different，same/unknown占用继续阻断，保留原分配；审查、发布并仅续跑855，完成真实入账/负例与最终审计。
+- [x] T37 隔离PG及真实三卡、原10负例/100集分层验证，独立审查，真实成本和未知字段单列。
+- [x] T38 提交推送、发布最新API/网页/个人签名手机，验证源/模型/worker/公网页面与鉴权，完成收敛和报告。
+- [x] T39 实际855复跑发现旧占用单元无法核图、其他字段差异遮蔽明确卡号负证据；先RED再最小修复，只读排除different，same/unknown占用继续阻断，保留原分配；审查、发布并仅续跑855，完成真实入账/负例与最终审计。
 
-当前检查点：T37已完成成本725测试、隔离PG、三卡身份图证、100例保留观察分层及独立审查。用户已完成卡淘验证，完整7页219订单813行正常同步完成，分批准备813行失效图片资料后接续三卡财务及当前全10负例资格核实。T38源码已提交推送，API/web fusion1已部署并验证，后续deepseekweb1/canon1合法发布中的四个模块完整保留；手机1.1.12（16）已覆盖安装、核版本、启动与持续进程。待本批实际结果、最终收敛与报告完成后再勾选，不重复原100财务驱动。
+Final checkpoint: 743 cost tests passed; changed-file Ruff passed; independent review resolved. Complete history 219 orders / 813 products (799 ready, 14 failed). Normal three-card stage plus ID855-only follow-up produced ID858 CNY6.08 and ID855 CNY6.20; ID861 remains unconfirmed. Both post-write reviews complete. All 10 current negative identity/offer/assignment gates zero; raw unverified recall is reported separately. Original100 transactions, assignments and identities preserved. API/web fusion2 and iPhone1.1.12(16) verified. Final evidence: validation.md, deployment.md, evidence-fusion-report.md. Original100 driver/automation stays stopped; no duplicated financial replay.

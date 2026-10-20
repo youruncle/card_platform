@@ -206,3 +206,19 @@ TDD 初轮5失败14例，补充保留原完整标题路径、旧范围覆盖及�
 
 私有证据：.runtime/evidence-fusion-20261020/ 下的red、review-red/green、caption-red/green、cost-final-green、candidate-final-suite、redemption-baseline、ruff日志，live-preview.jsonl、three-final-policy-recheck.json、offline-audit-final.json、negative-A022.json。当前报告不代表手机已经安装或三卡均已入账。
 
+
+## 2026-10-21 综合证据优化最终验证
+
+完整正常历史同步为7页219订单813件商品，首次采集15:25:21 UTC；准备799 ready、14 failed、remaining=0。私有正常CLI详情请求间隔2秒；准备每20件换原生进程以释放内存，保留检查点和900MiB上限。未跳过订单、伪刷新时间或批量重读失败商品。
+
+三卡初轮：861 unmatched（独立确认不足）、858 recorded、855 unmatched（旧竞争域）；后续仅855在fusion2正常续跑1轮recorded。858实际商品5.01＋订单预付运费分摊1.07＝6.08；855为3.20＋3.00＝6.20。每笔有唯一买入和分配、精确预期来源、完整订单金额及当前原图绑定，无人工覆盖或源变化。两组各六张原图逐张核SHA并实际查看，外部卖家贴纸/广告排除。855双方VFH-21、CHANGE BACK!场景一致，库存VHF-21不改；858双方GR-19、REFRACTOR及设计一致。未证明同一实物、细分官方平行或承运商收据。861未继续追读或降低独立确认阈值。
+
+855补修TDD：占用商品仅进完整旧域的内部只读核验，明确different才排除；same/unknown持续阻断。真实成对卡号/流水号差异先于描述差异处理。独立审查P1指出schema修复丢失有效读字可能误排除；12个普通/内部核验控制先失败，再以“仅单条白名单旧描述冲突可重算different”修复。PG额外验证完整性否决及重复调用仍阻断、原分配保留。最终完整成本40文件743 passed（1条Starlette弃用警告），五个修改文件Ruff通过。最初5个失败来自模拟SQL行缺少新查询occupied列，测试夹具已匹配真实SQL结构；没有在生产数据默认忽略该列。独立复审无剩余Critical/Important。未运行全API、最新网页或手机业务端到端测试；旧基线失败沿前文保留，不宣称全绿。
+
+最新只读负例复核完整10例且均覆盖新鲜历史：错误配对身份合格0、被其他门阻断但身份已接受0、可待选0、错误分配/入账0。原始召回行共9件仍存在但全部不合格，不能把召回行说成已接受，也不能说全部10例已明确判为different。另对原100保存的1207组观察按前后内层规则重算，其中负例272组；新增same为0，1023组uncertain因明确卡号差异优先而变different。这是保留观察的规则检查，不是100张新模型A/B，也不绕过外层缓存完整性否决。855同单原有两件占用分配逐项保留；原100八笔交易/分配及全部身份不变，三卡身份不变、858入账未改。原100历史实际结果仍8/100，不把本次队列外两笔混入恢复率。
+
+最终运行：实际导入包191文件与审核候选逐项一致；API健康，worker ENV/应用设置true，四视觉角色Flash且原生thinking.disabled；219订单813件当前账号资料完整新鲜，基础单元重复分配0，财务子容器与临时执行环境0。当前搜索沿后续合法deepseekweb1发布，不回退搜索/扫描改动。公网两页及能力200、23静态资源200、私有历史匿名401；无写业务cloud-smoke。手机当前复读1.1.12（16），重新启动54810及稍后进程存在；没有卸载数据。
+
+私有证据：`.runtime/evidence-fusion-20261020/followup/full-final.log`、`review-red.log`、`ruff-final.log`、`activation.json`、`final-runtime.json`、`negative-eligibility-preview.json`、`negative-final-summary.json`、`offline-final.json`、`retained-policy-summary.json`、`ledger-final-comparison.json`、`retry855/out`；`three/post-write-review.ID858.json`、`post-write-review.ID855.json`及两组原图/金额核对。没有覆盖三卡初轮结果、原100或原账本副本。
+
+最终speckit-converge已完成：核对6项FR-E、9项FR-H、基础/扩展各7项验收、2项迁移义务、当前6项计划及5项宪法原则；在本次构建范围内无missing/partial/contradicts/unrequested待建项。前后hooks为空，未追加空Convergence章节，任务文件在收敛操作前后SHA一致。861未知、14件商品准备失败及未跑全API/客户端业务E2E是已明确保留的实际结果与验证局限，不冒充已完成识别。私有convergence.json留存证据映射。

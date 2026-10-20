@@ -147,3 +147,18 @@ API/网页`0.6.2-20261020-deepseek1`已发布，源码提交`ae881ecf`已推送`
 
 手机1.1.12（16）个人签名Release已构建，codesign严格校验及保留的6份网页资源SHA检查通过。设备CoreDevice4016拒绝应用查询，尚未安装、核设备版本或启动；已请用户解锁并保持连接，不宣称手机发布完成，也不覆盖无法确认的更高版本。私有证据目录.runtime/evidence-fusion-20261020，详见activation.json、public-runtime-current.json及mobile-build-verification.json。
 
+
+## 2026-10-21 fusion2 最终发布
+
+源码 `codex/purchase-evidence-fusion`：初版6f41bcd7，手机/记录628015fd，后续完整性补修7e48de2a。以当前合法canon1不可变镜像叠加仅purchase_cost_images.py和purchase_cost_service.py，保留deepseekweb1及flatbed后续改动，实际导入包全部191文件逐项核对。源码分支提交是本任务增量，未来发布仍应基于届时最新生产源核对合入，不能用分支旧模块覆盖其他发布。
+
+API：`card-platform-api:0.6.3-20261021-fusion2`，不可变ID `sha256:f79e26b195597e4baa6bfe05e751dd2baeca659a87d59605fb0db13150553763`。
+网页：`card-platform-web:0.6.3-20261021-fusion2`，沿最新已验证资源 `sha256:51a64454a286f1398b1f2aa9b9d8cbb9c52a297c440e7e06c23e0a3f4c97e5fa`；本次行为在云端，未混入未验证前端工作树修改。
+
+发布前核对实际镜像/启动时间/compose哈希；独立新备份 `backups/evidence-fusion-20261021-followup` 含一致性数据库353123360字节及受限配置，未覆盖旧备份。切换仅改API/web镜像，环境文件SHA保持不变；生产worker的ENV和应用设置持续true，视觉四角色均Flash/原生thinking.disabled。当前搜索保持后续合法发布的DeepSeek配置；初版Qwen记录仅表示当时状态。
+
+API健康，公网页面和能力200，12＋11静态资源全200，匿名私有历史401。未使用写测试业务的cloud-smoke。最终运行检查新鲜完整219订单813件，准备799 ready、14 failed；重复分配0，原生财务子容器及临时执行环境0。三卡初轮原样保留，后续独立855清单/账本只执行1轮正常成本服务；新增两笔已完成原图和财务复核。
+
+个人iPhone沿原签名渠道从1.1.11（15）覆盖安装1.1.12（16），保留数据；复读版本、启动和后续进程均成功。fusion2后再次复读仍16，重新启动54810并核实进程存在；本次后端补修无需重装相同客户端资源。签名有效至2026-10-22 16:56:53 UTC，未声称真机业务端到端通过。当前客户资源六文件哈希沿已验证包保留。
+
+回滚仅在确认无其他后续发布且compose仍属于本次时恢复本次前镜像；不得整库恢复覆盖后续真实交易，也不得关闭worker、恢复旧视觉模型或覆盖其他任务源码。原100自动接续保持暂停，不另建驱动或自动化。私有验证、安装、只读GET、完整源码与正常续跑证据见evidence-fusion-report.md及validation.md。
