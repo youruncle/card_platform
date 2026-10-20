@@ -9,6 +9,21 @@ const {render,screen,fireEvent,cleanup,waitFor}=require('@testing-library/react'
 const {FlatbedBatchPanel}=require('../components/flatbed-batch-panel.tsx');
 afterEach(()=>{cleanup();dom.reconfigure({url:'http://localhost:3000'});});
 
+test('restored fronts wait for a back scan and offer reconnection beside the back step',async()=>{
+ dom.reconfigure({url:'https://cardsp.cn/'});
+ const response=data=>({ok:true,json:async()=>data});
+ global.fetch=async url=>{
+  const path=new URL(url,'https://cardsp.cn').pathname;
+  if(path==='/v1/flatbed/sessions')return response([{id:'session',submitted_at:null}]);
+  if(path==='/v1/flatbed/sessions/session')return response({id:'session',regions:[{id:'front',side:'front',ordinal:0,bounds:{x:.1,y:.1,width:.4,height:.7},confidence:.9}],sheets:[],pairs:[]});
+  throw Error(`Unexpected request ${url}`);
+ };
+ render(React.createElement(FlatbedBatchPanel));
+ await waitFor(()=>assert.match(screen.getByRole('status').textContent,/已恢复.*1 张正面.*扫描背面/));
+ assert.equal(screen.queryByRole('button',{name:'确认配对并录入 0 张卡片'}),null);
+ assert.ok(screen.getByRole('button',{name:'连接扫描仪并继续背面扫描'}));
+});
+
 test('cloud Canon scans locally, retains failed upload and retries without scanning twice',async()=>{
  dom.reconfigure({url:'https://cardsp.cn/'});
  const response=data=>({ok:true,json:async()=>data});

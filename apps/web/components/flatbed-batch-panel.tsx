@@ -98,6 +98,10 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
       const pairedBackIds = new Set(restoredPairs.map((item) => item.back_id));
       setMissingBack(restoredFronts.filter((item) => !pairedFrontIds.has(item.id)).map((item) => item.id));
       setMissingFront(restoredBacks.filter((item) => !pairedBackIds.has(item.id)).map((item) => item.id));
+      if (restoredFronts.length > 0 && restoredBacks.length === 0 && !(restored.sheets ?? []).some((item) => item.side === "back")) {
+        inform(`已恢复 ${restoredFronts.length} 张正面，尚未收到背面图，请继续扫描背面。`);
+        return;
+      }
       if (restoredPairs.length > 0 || restoredFronts.length === 0 || restoredBacks.length === 0) {
         const unmatchedCount = restoredFronts.length + restoredBacks.length - restoredPairs.length * 2;
         succeed(unmatchedCount > 0
@@ -447,11 +451,15 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
       <span className={backs.length ? "done" : ""}>{backs.length} 张</span>
       <SheetPreview side="back" regions={backs} />
     </div>}
+    {fronts.length > 0 && backs.length === 0 && !sheets.back && <div className="flatbed-pair-title">
+      <small>{busy || messageTone === "error" ? message : "正面已保存，等待背面图上传后生成配对。"}</small>
+      {localScanner && !deviceReady && <button type="button" className="ghost-button" disabled={busy || connecting} onClick={() => void connectScanner()}>{connecting ? "正在连接…" : "连接扫描仪并继续背面扫描"}</button>}
+    </div>}
     {fronts.length > 0 && backs.length > 0 && pairs.length === 0 && missingFront.length === 0 && missingBack.length === 0 && <div className="flatbed-pairs">
       <p className="recognition-error">正反面都已扫描，但尚未生成配对。</p>
       <button type="button" className="primary-button" onClick={() => void retryPairing()} disabled={busy}>重新生成配对并继续录入</button>
     </div>}
-    {(pairs.length > 0 || missingFront.length > 0 || missingBack.length > 0) && <div className="flatbed-pairs"><div className="flatbed-pair-title"><strong>正反面配对</strong><button type="button" className="ghost-button" onClick={() => setPairs(originalPairs)}>撤销调整</button></div>
+    {(backs.length > 0 || !!sheets.back) && (pairs.length > 0 || missingFront.length > 0 || missingBack.length > 0) && <div className="flatbed-pairs"><div className="flatbed-pair-title"><strong>正反面配对</strong><button type="button" className="ghost-button" onClick={() => setPairs(originalPairs)}>撤销调整</button></div>
       {(missingFront.length > 0 || missingBack.length > 0) && <p className="recognition-error">未配对：正面 {missingBack.length} 张，背面 {missingFront.length} 张。你可以先录入下方完整的 {pairs.length} 对；未配对图片本次不会录入，如需纳入请先校正布局或补扫。</p>}
       <div className="flatbed-submit-bar"><span><strong>本次录入 {pairs.length} 张</strong><small role={messageTone === "error" ? "alert" : undefined}>{messageTone === "error" ? message : busy ? message : missingFront.length + missingBack.length > 0 ? `另有 ${missingFront.length + missingBack.length} 张本次不录入，不阻塞完整配对` : "裁切质量提示可人工核对；身份冲突会停止自动入库"}</small></span><button type="button" className="primary-button" onClick={confirmAndSubmit} disabled={busy || !!pendingScan || pairs.length === 0}>{busy ? "处理中…" : `确认配对并录入 ${pairs.length} 张卡片`}</button></div>
       <div className="flatbed-pair-grid">{pairs.map((pair, index) => {
