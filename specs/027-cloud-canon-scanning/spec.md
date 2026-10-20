@@ -1,7 +1,7 @@
 # Feature Specification: 云端网页使用本机 Canon 扫描
 
 **Created**: 2026-10-20
-**Status**: 实施中；用户已确认“继续在 cardsp.cn 扫描，卡片保存到云端”
+**Status**: 已发布并验证；用户已确认“继续在 cardsp.cn 扫描，卡片保存到云端”。验证范围见 [verification.md](verification.md)。
 **Input**: 网页 Canon 扫描因云服务器尝试执行 Mac 程序报错，需接通真实本机取图与云端卡库。
 
 ## User Scenarios & Testing
