@@ -61,7 +61,7 @@ class PurchaseObservation(BaseModel):
     finish_detail: str = Field(default="", max_length=1000)
 
 
-CONTRACT = "purchase-multi-photo-v3"
+CONTRACT = "purchase-multi-photo-v4"
 MAX_PHOTOS = 6
 # Owned originals support the same bounded size as ordinary card uploads.
 MAX_BYTES = 10 * 1024 * 1024
@@ -338,6 +338,17 @@ def repair_observation_context(response_text):
     return context if len(context.encode()) <= 128 * 1024 else None
 
 
+def small_card_number_typo(stored, observed):
+    """Only an adjacent letter swap; never change numeric identity or a prefix."""
+    if len(stored) != len(observed) or len(stored) < 4:
+        return False
+    changed = [i for i, (a, b) in enumerate(zip(stored, observed)) if a != b]
+    return (len(changed) == 2 and changed[1] == changed[0] + 1
+            and all(stored[i].isalpha() and observed[i].isalpha() for i in changed)
+            and stored[changed[0]] == observed[changed[1]]
+            and stored[changed[1]] == observed[changed[0]])
+
+
 def evaluate_observation(
     observation, card, hashes, *, target_count=2, independent_confirmation=None, binding=None
 ):
@@ -394,12 +405,19 @@ def evaluate_observation(
 
     expected_number = CardIdentityResolver().resolve(card).card_number
     normalized_number = printed_key('card_number', str(expected_number or ""))
-    if normalized_number and ln and ln != {normalized_number}:
-        return {**result, "reasons": ["stored_card_number_conflicts_with_images"]}
     if len(ln) > 1 or len(rn) > 1:
         return {**result, "reasons": ["card_number_reading_inconsistent"]}
     if ln and rn and ln != rn:
         return {**result, "verdict": "different", "reasons": ["printed_card_number_conflict"]}
+    suggestions = {}
+    if normalized_number and ln and ln != {normalized_number}:
+        if (ln == rn and small_card_number_typo(normalized_number, next(iter(ln)))
+                and any(values(left, kind) and values(left, kind) == values(right, kind)
+                        for kind in ('player', 'product', 'insert'))):
+            suggestions['card_number'] = dict(stored=str(expected_number), observed=next(
+                f.value for f in left if f.kind == 'card_number'))
+        else:
+            return {**result, "reasons": ["stored_card_number_conflicts_with_images"]}
     if ls and rs:
         serial = next(iter(ls))
         if (card.get("serial_number") is not None and int(card["serial_number"]) != serial[0]) or (
@@ -443,6 +461,7 @@ def evaluate_observation(
         **result,
         "verdict": "same",
         "physical_anchor": "serial" if ls and rs else None,
+        "identity_suggestions": suggestions,
         "reasons": ["paired_multi_photo_observation", *(
             ["independent_finish_supplement"] if independent and observation.finish_match != "same" else []
         )],
@@ -743,28 +762,22 @@ class ObservationPending(Exception):
 
 
 def multi_review_eligible(card, match):
-    from card_platform.purchase_cost_inference import SOFT_MISSING, TITLE_CORRECTION_CONFLICTS
+    from card_platform.purchase_cost_inference import SOFT_MISSING, TITLE_CORRECTION_CONFLICTS, title_correction_eligible
     from card_platform.domain.sketch_identity import is_sketch_card
 
+    product_review = match.get('review_evidence', {}).get('source') in {'independent_product_images', 'legacy_field_rebuild'}
+    title_review = product_review and title_correction_eligible(card, match)
     return (
         not match["automatic"]
-        and match["recalled"]
+        and (match["recalled"] or title_review)
         and not is_sketch_card(card.get("insert_name"))
-        and not any(
-            card.get(k)
-            for k in (
-                "grade_company",
-                "grade_value",
-                "grade_cert_number",
-                "is_redemption",
-                "is_autograph",
-                "is_memorabilia",
-                "is_patch",
-            )
-        )
-        and set(match["conflicts"]) <= TITLE_CORRECTION_CONFLICTS | {"平行颜色冲突"}
+        and not any(card.get(k) for k in (
+            "grade_company", "grade_value", "grade_cert_number", "is_redemption",
+            "is_autograph", "is_memorabilia", "is_patch"))
+        and set(match["conflicts"]) <= (TITLE_CORRECTION_CONFLICTS | {"平行颜色冲突"}
+            | ({'产品或子系列冲突', 'Insert 冲突'} if product_review else set()))
         and set(match["missing"]) <= SOFT_MISSING | {"球员", "限编"}
-        and ("产品一致" in match["reasons"] or "Insert 一致" in match["reasons"])
+        and (product_review or title_review or "产品一致" in match["reasons"] or "Insert 一致" in match["reasons"])
     )
 
 
@@ -831,8 +844,10 @@ def apply_multi_observation(card, match, decision):
 
     independent = independent_finish_is_current(decision.get("independent_confirmation"), binding)
     soft_compatible = (
-        inference_eligible(card, match)
-        and paired_field("card_number")
+        paired_field("card_number")
+        and (inference_eligible(card, match) or (
+            multi_review_eligible(card, match)
+            and any(paired_field(kind) for kind in ('player', 'product', 'insert'))))
     )
     if (
         not independent
@@ -852,6 +867,7 @@ def apply_multi_observation(card, match, decision):
         "match_method": "multi_image_serial"
         if checked["physical_anchor"] == "serial"
         else "inferred",
+        "identity_suggestions": checked.get("identity_suggestions", {}),
         "seller_title_conflicts": match["conflicts"],
         "seller_title_missing": match["missing"],
         "reasons": [

@@ -139,6 +139,7 @@ async def test_changed_independent_product_words_are_rescored_and_never_authoriz
     product = {
         "observations": {
             "single_card": True,
+            "photos": [{"index": 0, "role": "front"}],
             "fields": [
                 dict(kind=k, value=v, text=v, photo=0, origin="printed")
                 for k, v in [
