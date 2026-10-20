@@ -1,4 +1,5 @@
 """Exercise the real collector and SDK at their external HTTP boundary."""
+import asyncio
 import json
 
 import httpx
@@ -175,3 +176,74 @@ async def test_analysis_receives_actual_capture_and_explicit_non_thinking_reques
     context = json.loads(analysis[0]["messages"][-1]["content"])["web_research"]
     assert context["pages"][0]["content"] == "Kobe Bryant #138"
     assert context["queries"] == capture.queries == ["Kobe 138"]
+
+
+@pytest.mark.asyncio
+async def test_model_failure_preserves_collected_evidence_and_private_archive(tmp_path):
+    from card_platform.deepseek_web import DeepSeekWebResearch
+
+    def handler(request):
+        if request.url.path.endswith("/search"):
+            return httpx.Response(200, json={"results": [{"url": "https://www.tcdb.com/card/138",
+                "content": "Observed card 138"}]})
+        if request.url.path.endswith("/fetch"):
+            return httpx.Response(200, json={"content": "Observed checklist"})
+        return httpx.Response(500, json={"error": {"message": "secret-error-text"}})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        client = AsyncOpenAI(api_key="key", base_url="https://api.deepseek.com", http_client=http,
+                             max_retries=0)
+        response, capture = await DeepSeekWebResearch("key", http_client=http, archive_dir=tmp_path).complete(
+            client, queries=["card"], model="deepseek-flash", messages=[{"role": "user", "content": "card"}])
+    assert response is None
+    assert capture.pages[0]["content"] == "Observed checklist"
+    assert "analysis: http_500" in capture.errors
+    archived = list(tmp_path.glob("*.json"))
+    assert len(archived) == 1
+    assert json.loads(archived[0].read_text()) == capture.as_dict()
+    assert archived[0].stat().st_mode & 0o777 == 0o600
+    assert "secret-error-text" not in archived[0].read_text()
+
+
+@pytest.mark.asyncio
+async def test_url_only_search_and_failed_fetch_skip_analysis_but_keep_capture():
+    from card_platform.deepseek_web import DeepSeekWebResearch
+
+    paths = []
+    def handler(request):
+        paths.append(request.url.path)
+        if request.url.path.endswith("/search"):
+            return httpx.Response(200, json={"results": [{"url": "https://www.tcdb.com/card/138"}]})
+        if request.url.path.endswith("/fetch"):
+            return httpx.Response(404, json={})
+        return httpx.Response(200, json={"id": "test", "object": "chat.completion", "created": 1,
+            "model": "deepseek-flash", "choices": [{"index": 0, "finish_reason": "stop",
+                "message": {"role": "assistant", "content": "{}"}}]})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        client = AsyncOpenAI(api_key="key", base_url="https://api.deepseek.com", http_client=http)
+        response, capture = await DeepSeekWebResearch("key", http_client=http).complete(
+            client, queries=["card"], model="deepseek-flash", messages=[{"role": "user", "content": "card"}])
+    assert response is None
+    assert paths == ["/v1/tools/search", "/v1/tools/fetch"]
+    assert capture.pages[0]["fetch_status"] == "http_404"
+
+
+@pytest.mark.asyncio
+async def test_cancellation_archives_completed_searches_while_other_query_is_pending(tmp_path):
+    from card_platform.deepseek_web import DeepSeekWebResearch
+
+    pending = asyncio.Event()
+    async def handler(request):
+        if json.loads(request.content)["query"] == "done":
+            return httpx.Response(200, json={"results": [{"url": "https://www.tcdb.com/card/138",
+                "content": "Already captured"}]})
+        pending.set()
+        await asyncio.Event().wait()
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        task = asyncio.create_task(DeepSeekWebResearch("key", http_client=http,
+            archive_dir=tmp_path).collect(["done", "pending"]))
+        await pending.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    capture = json.loads(next(tmp_path.glob("*.json")).read_text())
+    assert capture["pages"][0]["search_content"] == "Already captured"

@@ -16,11 +16,11 @@
 
 - [x] T007 [US2] Test and replace ingestion/cardhobby.py discovery fallback, preserving first-party sale gates.
 - [x] T008 [US2] Test and replace valuation_worker.py generic research, rejecting unobserved sources and retaining captures.
-- [ ] T009 [US2] Run related regression suites and real read-only product research; record limitations in validation.md.
+- [x] T009 [US2] Run related regression suites and real read-only product research; record limitations in validation.md.
 
 ## US3: Release
 
-- [ ] T010 [US3] Fresh code review, fixes, current production baseline/source guard and release backup.
+- [x] T010 [US3] Fresh code review, fixes, current production baseline/source guard and release backup.
 - [ ] T011 [US3] Publish API/web, migrate only necessary search settings, verify official models, explicit non-thinking, worker=true and health.
 - [ ] T012 [US3] Build/sign/cover-install new personal iPhone app, verify installed version and launch/process.
 - [ ] T013 [US3] Public pages/assets/runtime checks and spec convergence; record final deployment evidence.

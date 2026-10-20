@@ -14,4 +14,4 @@
 
 - 自动成本 worker 在线上默认且持续开启（`PURCHASE_COST_WORKER_ENABLED=true`）；部署、重启、回滚均须保留开启状态，并验证运行容器实际设置为 true。除非用户明确要求暂停，不得沿用历史关闭配置或发布脚本中的 false 断言。测试环境关闭配置不可复制到生产。
 
-- 线上视觉调用默认统一使用 `deepseek-flash`，请求必须显式携带 `thinking: {type: disabled}`（DeepSeek 默认会开启思考，不能用 Qwen 的 `enable_thinking=false` 代替）。网页、API、CLI、worker、回滚与后续发布都须保留这次迁移。独立 `qwen-plus` 联网搜索保留原百炼端点/密钥，通过 `SEARCH_API_KEY`、`SEARCH_BASE_URL` 与视觉分离；缺配置时不得把搜索密钥发到 DeepSeek。发布应合入已提交的视觉适配，不得从旧源码覆盖线上后仅沿用新环境变量。
+- 线上视觉与联网分析统一使用 `deepseek-flash`，请求显式携带 `thinking: {type: disabled}`。联网由 DeepSeek 官方 Search/Fetch 执行，保留实际查询、捕获和站点核验；停止 Qwen 运行调用。`SEARCH_API_KEY` 仅可搭配明确的官方 `SEARCH_BASE_URL`，缺少独立搜索密钥时可复用同一官方端点的视觉密钥，禁止将遗留百炼或未配对密钥发送给 DeepSeek。网页、API、CLI、worker、回滚与后续发布必须保留已提交的视觉和联网适配，不得只更换环境变量后覆盖旧源码；研究捕获保存在私有 scanner 卷的 `.web-research`，模型失败或取消不得丢失已取得内容。

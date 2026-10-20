@@ -121,6 +121,10 @@ async def test_market_discards_unsupported_price_and_keeps_capture():
     assert result.fallback_valuation is None
     assert "made up" not in result.search_queries
     assert result.web_research["pages"][0]["url"] == "https://www.ebay.com/itm/123"
+    executed = [json.loads(r.content)["query"] for r in requests if r.url.path.endswith("/search")]
+    assert any("site:ebay.com" in q for q in executed)
+    assert any("site:sportscardspro.com/game" in q for q in executed)
+    assert any("site:sportscardinvestor.com/cards" in q for q in executed)
 
 
 @pytest.mark.asyncio

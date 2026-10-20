@@ -1132,7 +1132,8 @@ class AutomatedValuationWorker:
             else None
         )
         self.research = (DeepSeekWebResearch(settings.resolved_search_api_key,
-                                            base_url=settings.resolved_search_base_url)
+                                            base_url=settings.resolved_search_base_url,
+                                            archive_dir=f"{settings.scanner_job_dir}/.web-research")
                          if self.client else None)
         # CardHobby's public sold-auction API is first-party market evidence and
         # does not depend on a multimodal/model API key. The optional client is
@@ -2687,8 +2688,16 @@ class AutomatedValuationWorker:
             )
         schema = json.dumps(ComparableSearchResult.model_json_schema(), ensure_ascii=False)
         query_ladder = market_search_query_ladder(identity)
+        # The completion has no implicit browser. Allocate real tool calls to
+        # each targeted market, rather than leaving those queries in a prompt.
+        third_party_queries = third_party_exact_search_queries(identity)
+        research_queries = [
+            *([f"site:ebay.com {query_ladder[0]} sold"] if query_ladder else []),
+            *third_party_queries,
+            *(query_ladder[1:2] or query_ladder[:1]),
+        ][:4]
         response, capture = await self.research.complete(
-            self.client, queries=query_ladder, allowed_sites=VALUATION_SITES, stage='alias_query',
+            self.client, queries=research_queries, allowed_sites=VALUATION_SITES, stage='alias_query',
             model=self.settings.valuation_search_model,
             messages=[
                 {
@@ -2729,8 +2738,8 @@ class AutomatedValuationWorker:
                         "进入 comparables；可以写入 notes，但不得用于估值。"
                         "不得在 notes 声称 manual inspection、人工检查、exhaustive search 或全部"
                         "查询已执行；来源执行状态只由后端 provider 诊断记录。"
-                        "在宣称第三方无结果前，必须逐条执行输入中的 third_party_exact_search_queries，"
-                        "打开命中的单卡详情页并检查 completed sales/sales history；只能返回页面"
+                        "定向查询已由后端在预算内执行，以 web_research 的实际查询和捕获为准；"
+                        "未抓取或无内容时不得宣称第三方没有成交，必须说明未覆盖范围。只能返回页面"
                         "明确列出的日期和成交价，搜索摘要、当前在售和页面估算价均不得冒充成交。"
                         "评级状态是硬约束：目标为裸卡时，comparables 和 fallback references 只能"
                         "使用 condition_type=raw 且没有评级公司/分数的裸卡；目标为评级卡时，只能"
@@ -2755,17 +2764,7 @@ class AutomatedValuationWorker:
                                 not in {"collection_item_id", "card_definition_id"}
                             },
                             "required_base_currency": identity["base_currency"],
-                            "required_search_query_ladder": query_ladder,
-                            "ebay_completed_search_urls": [
-                                ebay_completed_search_url(query)
-                                for query in query_ladder[:6]
-                            ],
-                            "search_index_discovery_queries": (
-                                search_index_query_ladder(identity)
-                            ),
-                            "third_party_exact_search_queries": (
-                                third_party_exact_search_queries(identity)
-                            ),
+                            "required_search_query_ladder": research_queries,
                         },
                         ensure_ascii=False,
                         default=str,

@@ -9,7 +9,7 @@
 
 ## Technical Context
 
-Storage uses existing recognition/job JSON payloads; no migration. Tests use pytest with HTTP transport fixtures and existing focused regression suites. Production runs Linux containers; iPhone uses existing personal signature. Maximum 4 queries, 8 retained pages, 3 Fetch requests, concurrency 3, 12-second tool timeout, and one retry for transient failures. Each retained body is capped at 6000 characters with a hash and truncation marker. Existing enrichment deadlines remain enforced.
+Storage uses existing recognition/job JSON payloads and private capture archives in the persisted scanner volume; no migration. Tests use pytest with HTTP transport fixtures and existing focused regression suites. Production runs Linux containers; iPhone uses existing personal signature. Maximum 4 queries, 8 retained pages, 3 Fetch requests, concurrency 3, 12-second tool timeout, and one retry for transient failures. Each retained body is capped at 6000 characters with a hash and truncation marker. Existing enrichment deadlines remain enforced.
 
 ## Global Constraints
 

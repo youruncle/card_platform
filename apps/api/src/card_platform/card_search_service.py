@@ -420,7 +420,8 @@ class CardSearchService:
             else None
         )
         self.research = (DeepSeekWebResearch(settings.resolved_search_api_key,
-                                            base_url=settings.resolved_search_base_url)
+                                            base_url=settings.resolved_search_base_url,
+                                            archive_dir=f"{settings.scanner_job_dir}/.web-research")
                          if self.client else None)
 
     async def enrich(
@@ -546,7 +547,9 @@ class CardSearchService:
             if response is None:
                 return visual.model_copy(update={
                     "search_queries": queries, "web_research": capture.as_dict(),
-                    "caveats": [*visual.caveats, "DeepSeek 官方搜索未取得可用来源，保留未核验字段",
+                    "caveats": [*visual.caveats,
+                                ("DeepSeek 来源分析未完成，保留未核验字段" if capture.pages else
+                                 "DeepSeek 官方搜索未取得可用来源，保留未核验字段"),
                                 *capture.errors],
                     "recognition_route": [
                         _stage_trace("catalog_search", llm_started,

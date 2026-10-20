@@ -3,12 +3,16 @@ import asyncio
 import hashlib
 import ipaddress
 import json
+import os
 from itertools import zip_longest
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
+from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
+from uuid import uuid4
 
 import httpx
+from openai import APIError, APITimeoutError
 
 from card_platform.config import is_official_deepseek_url
 
@@ -38,6 +42,7 @@ def source_url(value: str, allowed_sites=()) -> str | None:
 
 @dataclass
 class ResearchCapture:
+    capture_id: str = field(default_factory=lambda: str(uuid4()))
     provider: str = "deepseek"
     captured_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     queries: list[str] = field(default_factory=list)
@@ -54,12 +59,25 @@ class ResearchCapture:
 
 class DeepSeekWebResearch:
     def __init__(self, api_key: str, *, base_url: str = "https://api.deepseek.com",
-                 timeout: float = 12.0, http_client: httpx.AsyncClient | None = None):
+                 timeout: float = 12.0, http_client: httpx.AsyncClient | None = None,
+                 archive_dir: str | Path | None = None):
         if not api_key or not is_official_deepseek_url(base_url):
             raise ValueError("Official DeepSeek credentials and endpoint required")
         self.api_key = api_key
         self.timeout = min(max(timeout, 0.1), 30.0)
         self.http_client = http_client
+        self.archive_dir = Path(archive_dir) if archive_dir else None
+
+    def _archive(self, capture):
+        if self.archive_dir is None:
+            return
+        self.archive_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+        path = self.archive_dir / f"{capture.capture_id}.json"
+        temporary = path.with_suffix(".tmp")
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as output:
+            json.dump(capture.as_dict(), output, ensure_ascii=False)
+        temporary.replace(path)
 
     async def _request(self, client, kind, payload, limit):
         for attempt in range(2):
@@ -87,76 +105,98 @@ class DeepSeekWebResearch:
             await asyncio.sleep(0.25)
         return None, "unavailable"
 
+    def _merge_searches(self, capture, results, allowed_sites):
+        batches = []
+        for query in capture.queries:
+            if query not in results:
+                continue
+            data, status = results[query]
+            if data is None:
+                capture.errors.append(f"search: {status}")
+                continue
+            hits = data.get("results")
+            if not isinstance(hits, list):
+                capture.errors.append("search: invalid_results")
+                continue
+            batches.append([(query, hit) for hit in hits[:8]])
+        seen = set()
+        # Independent queries each get a turn before the next result rank.
+        for row in zip_longest(*batches):
+            for entry in row:
+                if entry is None:
+                    continue
+                query, hit = entry
+                if not isinstance(hit, dict):
+                    continue
+                url = source_url(hit.get("url"), allowed_sites)
+                if not url or url in seen or len(capture.pages) >= 8:
+                    continue
+                seen.add(url)
+                body = hit.get("content") if isinstance(hit.get("content"), str) else ""
+                capture.pages.append({
+                    "query": query, "url": url, "title": str(hit.get("title") or "")[:500],
+                    "summary": str(hit.get("summary") or hit.get("snippet") or "")[:1200],
+                    "search_content": body[:6000],
+                    "search_content_sha256": hashlib.sha256(body.encode()).hexdigest(),
+                    "search_content_truncated": len(body) > 6000,
+                    "result_date": hit.get("date") if isinstance(hit.get("date"), str) else None,
+                    "content": "", "content_sha256": None,
+                    "content_truncated": False, "fetch_status": "not_requested",
+                })
+
     async def collect(self, queries: list[str], *, allowed_sites=()) -> ResearchCapture:
         capture = ResearchCapture(queries=list(dict.fromkeys(
             " ".join(q.split())[:128] for q in queries if isinstance(q, str) and q.strip()
         ))[:4])
         limit = asyncio.Semaphore(3)
         client = self.http_client or httpx.AsyncClient()
-        try:
-            results = await asyncio.gather(*(self._request(client, "search", {
+        results = {}
+        merged = False
+
+        async def search(query):
+            results[query] = await self._request(client, "search", {
                 "query": query, "count": 8, "need_content": True,
-            }, limit) for query in capture.queries))
-            seen = set()
-            batches = []
-            for query, (data, status) in zip(capture.queries, results, strict=True):
-                if data is None:
-                    capture.errors.append(f"search: {status}")
-                    continue
-                hits = data.get("results")
-                if not isinstance(hits, list):
-                    capture.errors.append("search: invalid_results")
-                    continue
-                batches.append([(query, hit) for hit in hits[:8]])
-            # Each independent query gets a turn before the next result rank;
-            # a broad first query must not consume the entire evidence budget.
-            for row in zip_longest(*batches):
-                for entry in row:
-                    if entry is None:
-                        continue
-                    query, hit = entry
-                    if not isinstance(hit, dict):
-                        continue
-                    url = source_url(hit.get("url"), allowed_sites)
-                    if not url or url in seen or len(capture.pages) >= 8:
-                        continue
-                    seen.add(url)
-                    body = str(hit.get("content") or "")
-                    capture.pages.append({
-                        "query": query, "url": url, "title": str(hit.get("title") or "")[:500],
-                        "summary": str(hit.get("summary") or hit.get("snippet") or "")[:1200],
-                        "search_content": body[:6000],
-                        "search_content_sha256": hashlib.sha256(body.encode()).hexdigest(),
-                        "search_content_truncated": len(body) > 6000,
-                        "result_date": hit.get("date") if isinstance(hit.get("date"), str) else None,
-                        "content": "", "content_sha256": None,
-                        "content_truncated": False, "fetch_status": "not_requested",
-                    })
-            selected = capture.pages[:3]
-            fetched = await asyncio.gather(*(self._request(client, "fetch", {
-                "url": page["url"],
-            }, limit) for page in selected))
-            for page, (data, status) in zip(selected, fetched, strict=True):
-                body = data.get("content") if data else None
-                if status == "ok" and (not isinstance(body, str) or not body.strip()):
-                    status = "empty_content"
-                page["fetch_status"] = status
-                if status != "ok":
-                    capture.errors.append(f"fetch: {status}")
-                    continue
-                page.update({"content": body[:6000],
-                             "content_sha256": hashlib.sha256(body.encode()).hexdigest(),
-                             "content_truncated": len(body) > 6000})
+            }, limit)
+
+        async def fetch(page):
+            data, status = await self._request(client, "fetch", {"url": page["url"]}, limit)
+            body = data.get("content") if data else None
+            if status == "ok" and (not isinstance(body, str) or not body.strip()):
+                status = "empty_content"
+            page["fetch_status"] = status
+            if status != "ok":
+                capture.errors.append(f"fetch: {status}")
+                return
+            page.update({"content": body[:6000],
+                         "content_sha256": hashlib.sha256(body.encode()).hexdigest(),
+                         "content_truncated": len(body) > 6000})
+
+        try:
+            await asyncio.gather(*(search(query) for query in capture.queries))
+            self._merge_searches(capture, results, allowed_sites)
+            merged = True
+            await asyncio.gather(*(fetch(page) for page in capture.pages[:3]))
             return capture
+        except asyncio.CancelledError:
+            capture.errors.append("retrieval: cancelled")
+            raise
         finally:
-            if self.http_client is None:
-                await client.aclose()
+            # Keep completed observations even when a peer request or the
+            # enclosing recognition deadline cancels the rest of this work.
+            try:
+                if not merged:
+                    self._merge_searches(capture, results, allowed_sites)
+                self._archive(capture)
+            finally:
+                if self.http_client is None:
+                    await client.aclose()
 
     async def complete(self, client, *, queries, allowed_sites=(), stage=None, **kwargs):
         if not is_official_deepseek_url(str(client.base_url)):
             raise ValueError("Grounded analysis requires the official DeepSeek endpoint")
         capture = await self.collect(queries, allowed_sites=allowed_sites)
-        if not capture.pages:
+        if not any(str(page.get(key) or "").strip() for page in capture.pages
+                   for key in ("title", "summary", "search_content", "content")):
             return None, capture
         messages = [*kwargs.pop("messages"), {
             "role": "system", "content": (
@@ -173,10 +213,22 @@ class DeepSeekWebResearch:
         for legacy in ("enable_search", "search_options", "enable_thinking"):
             extra.pop(legacy, None)
         extra["thinking"] = {"type": "disabled"}
-        if stage:
-            from card_platform.valuation_trace import traced_completion
-            response = await traced_completion(client.chat.completions.create, stage=stage,
-                                               messages=messages, extra_body=extra, **kwargs)
-        else:
-            response = await client.chat.completions.create(messages=messages, extra_body=extra, **kwargs)
+        try:
+            if stage:
+                from card_platform.valuation_trace import traced_completion
+                response = await traced_completion(client.chat.completions.create, stage=stage,
+                                                   messages=messages, extra_body=extra, **kwargs)
+            else:
+                response = await client.chat.completions.create(messages=messages, extra_body=extra, **kwargs)
+        except APIError as error:
+            status = getattr(error, "status_code", None)
+            classification = (f"http_{status}" if status else
+                              "timeout" if isinstance(error, APITimeoutError) else "transport_error")
+            capture.errors.append(f"analysis: {classification}")
+            self._archive(capture)
+            return None, capture
+        except asyncio.CancelledError:
+            capture.errors.append("analysis: cancelled")
+            self._archive(capture)
+            raise
         return response, capture
