@@ -65,7 +65,8 @@ async function readPayload(request) {
 export function createScannerHelper({ bridgeScript = join(ROOT, 'scripts/canon_lide400_bridge.swift'), scanTimeoutMs } = {}) {
   const token = randomBytes(32).toString('hex');
   let busy = false;
-  return createServer(async (request, response) => {
+  let activeController;
+  const server = createServer(async (request, response) => {
     const origin = request.headers.origin;
     const port = request.socket.localPort;
     const allowedHost = [`127.0.0.1:${port}`, `localhost:${port}`].includes(request.headers.host);
@@ -104,6 +105,7 @@ export function createScannerHelper({ bridgeScript = join(ROOT, 'scripts/canon_l
     if (busy) return json(409, { detail: '扫描仪正忙，请等待当前扫描完成。' });
     busy = true;
     const controller = new AbortController();
+    activeController = controller;
     response.on('close', () => { if (!response.writableFinished) controller.abort(); });
     let directory;
     try {
@@ -138,9 +140,16 @@ export function createScannerHelper({ bridgeScript = join(ROOT, 'scripts/canon_l
       json(error.status || 503, { detail: error.status ? error.message : '本机扫描失败，请重新连接扫描仪。' });
     } finally {
       if (directory) await rm(directory, { recursive: true, force: true }).catch(() => {});
+      activeController = undefined;
       busy = false;
     }
   });
+  const close = server.close.bind(server);
+  server.close = callback => {
+    activeController?.abort();
+    return close(callback);
+  };
+  return server;
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -148,4 +157,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   server.requestTimeout = 260_000;
   server.listen(8766, '127.0.0.1', () => console.log('Canon scanner helper listening on 127.0.0.1:8766'));
   server.on('error', error => { console.error(`Canon helper: ${error.code}`); process.exit(1); });
+  for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(1), 7000).unref();
+  });
 }

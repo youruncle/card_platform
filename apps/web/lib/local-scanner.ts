@@ -23,8 +23,8 @@ async function helperRequest(path: string, init: RequestInit, timeout: number, s
   return response;
 }
 
-export async function getLocalScannerDevice(): Promise<{ name: string; serial: string; token: string }> {
-  const response = await helperRequest("/v1/device", {}, 30_000);
+export async function getLocalScannerDevice(signal?: AbortSignal): Promise<{ name: string; serial: string; token: string }> {
+  const response = await helperRequest("/v1/device", {}, 30_000, signal);
   const device = await response.json();
   if (typeof device.token !== "string" || !device.token) throw new Error("扫描助手版本不兼容，请更新本机助手。");
   return device;

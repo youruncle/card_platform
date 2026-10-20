@@ -95,6 +95,23 @@ test('closing cloud scanner aborts local capture and cannot start a late cloud u
  await new Promise(resolve=>setTimeout(resolve,20));assert.equal(uploads,0);
 });
 
+test('closing while connecting aborts the exclusive local device probe',async()=>{
+ dom.reconfigure({url:'https://cardsp.cn/'});
+ const response=data=>({ok:true,json:async()=>data});let probeSignal,finishProbe;
+ global.fetch=async(url,options={})=>{
+  if(String(url).endsWith(':8766/v1/device')){probeSignal=options.signal;return new Promise(resolve=>{finishProbe=()=>resolve(response({name:'Canon',serial:'fixture',token:'token'}));});}
+  const path=new URL(url,'https://cardsp.cn').pathname;
+  if(path==='/v1/flatbed/sessions')return response([{id:'session',submitted_at:null}]);
+  if(path==='/v1/flatbed/sessions/session')return response({id:'session',regions:[],sheets:[],pairs:[]});
+  throw Error(`Unexpected request ${url}`);
+ };
+ const view=render(React.createElement(FlatbedBatchPanel));
+ await waitFor(()=>assert.equal(screen.getByRole('button',{name:'连接本机扫描仪'}).disabled,false));
+ fireEvent.click(screen.getByRole('button',{name:'连接本机扫描仪'}));
+ await waitFor(()=>assert.ok(finishProbe));view.unmount();
+ try {assert.equal(probeSignal.aborted,true);} finally {finishProbe();}
+});
+
 test('back scan keeps reporting crop progress until pairing completes',async()=>{
  let polls=0,finishCapture;
  const region={id:'front',side:'front',ordinal:0,bounds:{x:.1,y:.1,width:.4,height:.7},confidence:.9};

@@ -142,9 +142,12 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
   }
 
   async function connectScanner() {
+    if (connecting || busy) return;
     setConnecting(true);
+    const controller = new AbortController();
+    scannerAbort.current = controller;
     try {
-      const value = await getLocalScannerDevice();
+      const value = await getLocalScannerDevice(controller.signal);
       if (!mounted.current) return;
       scannerToken.current = value.token;
       setDeviceReady(true);

@@ -18,7 +18,7 @@ async function fixture(t, body = '') {
   const headers = { Origin:'https://cardsp.cn','X-Scanner-Client':'cardsp-web-v1' };
   const device = () => fetch(`${url}/v1/device`, { headers });
   const scan = (token, payload={dpi:300,preview:true}) => fetch(`${url}/v1/scan`, {method:'POST',headers:{...headers,'Content-Type':'application/json','X-Scanner-Token':token},body:JSON.stringify(payload)});
-  return {url, headers, device, scan};
+  return {url, headers, device, scan, server};
 }
 
 test('allowed cloud origin gets native PNG and metadata; scan requires process token',async t=>{
@@ -80,4 +80,14 @@ test('disconnect interrupts an active scan and releases the device before timeou
     if(status===200)break;
   }
   assert.equal(status,200);
+});
+
+test('helper shutdown cancels active capture before closing the HTTP server',async t=>{
+  const f=await fixture(t,"process.on('SIGINT',()=>process.exit(130));setInterval(()=>{},100);");
+  const {token}=await (await f.device()).json();
+  const pending=f.scan(token);
+  await new Promise(resolve=>setTimeout(resolve,100));
+  const closed=new Promise(resolve=>f.server.close(resolve));
+  assert.equal((await pending).status,499);
+  await closed;
 });
