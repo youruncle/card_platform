@@ -328,6 +328,15 @@ class FlatbedService:
             process = await asyncio.create_subprocess_exec(
                 *arguments, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
             )
+        except OSError as error:
+            # Cloud containers cannot run the Mac ImageCaptureCore bridge.
+            # Missing scripts/interpreters and execution permissions are a
+            # scanner availability failure, not an unhandled API failure.
+            raise FlatbedBridgeError(
+                "当前服务无法启动 Canon 本机扫描程序。请在连接扫描仪的 Mac 上使用本机网页扫描，"
+                "或先扫描为整版图片后导入。"
+            ) from error
+        try:
             stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout + 5)
         except asyncio.TimeoutError as error:
             process.send_signal(signal.SIGINT)

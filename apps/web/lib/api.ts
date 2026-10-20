@@ -1014,8 +1014,9 @@ export function createFlatbedSession(dpi: 300 | 600, newBatch = false): Promise<
 export function getFlatbedSessions(): Promise<FlatbedSession[]> { return request("/v1/flatbed/sessions"); }
 export function getFlatbedSession(sessionId: string): Promise<FlatbedSession> { return request(`/v1/flatbed/sessions/${sessionId}`); }
 
-export async function uploadFlatbedSheet(sessionId: string, side: "front" | "back", image: File): Promise<{ id: string; revision: number; regions: FlatbedRegion[]; failures: string[] }> {
+export async function uploadFlatbedSheet(sessionId: string, side: "front" | "back", image: File, sourceResolution?: Record<string, unknown>): Promise<{ id: string; revision: number; regions: FlatbedRegion[]; failures: string[] }> {
   const form = new FormData(); form.append("image", image);
+  if (sourceResolution) form.append("source_resolution", JSON.stringify(sourceResolution));
   const response = await fetch(`${multipartApiUrl()}/v1/flatbed/sessions/${sessionId}/sheets/${side}`, { method: "POST", credentials: "include", body: form });
   if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.detail ?? `扫描整版上传失败 (${response.status})`); }
   return response.json();

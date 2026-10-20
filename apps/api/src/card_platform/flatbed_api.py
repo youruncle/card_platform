@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID, uuid4
 
 import numpy as np
-from fastapi import APIRouter, Body, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
@@ -238,13 +239,22 @@ async def upload_sheet(
     image: UploadFile = File(...),
     user: AuthenticatedUser = Depends(current_user),
     db: AsyncConnection = Depends(connection),
+    source_resolution: str | None = Form(default=None),
 ) -> dict:
     if side not in {"front", "back"}:
         raise HTTPException(404, "扫描面不存在")
     try:
+        metadata = None
+        if source_resolution is not None:
+            if len(source_resolution) > 4096:
+                raise ValueError("扫描分辨率元数据过大")
+            metadata = json.loads(source_resolution)
+            if not isinstance(metadata, dict):
+                raise ValueError("扫描分辨率元数据必须为对象")
         content = await read_validated_image(image, get_settings().max_image_bytes * 8)
         return await service().store_sheet(
-            db, user.id, session_id, side, content, image.content_type or "image/jpeg"
+            db, user.id, session_id, side, content, image.content_type or "image/jpeg",
+            source_resolution=metadata,
         )
     except (InvalidImageError, ValueError) as error:
         raise HTTPException(422, str(error)) from error

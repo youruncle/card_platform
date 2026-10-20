@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { getLocalScannerDevice, scanLocalScanner, usesLocalScannerHelper, type LocalScannerImage } from "../lib/local-scanner";
 import {
   captureFlatbedSheet, confirmFlatbedLayout, confirmFlatbedPairs, createFlatbedSession, getFlatbedCaptureProgress, getFlatbedDevice, getFlatbedSession, getFlatbedSessions,
   proposeFlatbedPairs, submitFlatbedSession, uploadFlatbedSheet, assetUrl,
@@ -9,6 +10,13 @@ import {
 
 export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: string[]) => void | Promise<void> }) {
   const [device, setDevice] = useState("正在探测 Canon 扫描仪…");
+  const [deviceReady, setDeviceReady] = useState(false);
+  const [localScanner] = useState(usesLocalScannerHelper);
+  const [connecting, setConnecting] = useState(false);
+  const scannerToken = useRef<string | null>(null);
+  const scannerAbort = useRef<AbortController | null>(null);
+  const mounted = useRef(true);
+  const [pendingScan, setPendingScan] = useState<(LocalScannerImage & { side: "front" | "back" }) | null>(null);
   const [dpi, setDpi] = useState<300 | 600>(300);
   const [session, setSession] = useState<FlatbedSession | null>(null);
   const [fronts, setFronts] = useState<FlatbedRegion[]>([]);
@@ -44,7 +52,17 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
 
   useEffect(() => {
     let active = true;
-    getFlatbedDevice().then((value) => setDevice(`${value.name} · ${value.serial} · 已就绪`)).catch((error) => setDevice(`设备不可用：${error.message}`));
+    mounted.current = true;
+    if (localScanner) setDevice("请连接这台 Mac 上的 Canon 扫描仪，扫描图将保存到当前云端批次。");
+    else getFlatbedDevice().then((value) => {
+      if (!active) return;
+      setDevice(`${value.name} · ${value.serial} · 已就绪`);
+      setDeviceReady(true);
+    }).catch((error) => {
+      if (!active) return;
+      setDevice(`设备不可用：${error.message}`);
+      setDeviceReady(false);
+    });
     const initialize = async () => {
       setBusy(true);
       const items = await getFlatbedSessions();
@@ -60,6 +78,7 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
       const restored = await getFlatbedSession(unfinished.id);
       if (!active) return;
       setSession(restored);
+      if (restored.dpi === 300 || restored.dpi === 600) setDpi(restored.dpi);
       const restoredFronts = (restored.regions ?? []).filter((item) => item.side === "front");
       const restoredBacks = (restored.regions ?? []).filter((item) => item.side === "back");
       setFronts(restoredFronts);
@@ -95,7 +114,7 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
     void initialize()
       .catch((error) => fail(error, "自动创建扫描会话失败"))
       .finally(() => { if (active) setBusy(false); });
-    return () => { active = false; };
+    return () => { active = false; mounted.current = false; scannerAbort.current?.abort(); };
   }, []);
 
   useEffect(() => {
@@ -106,6 +125,7 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
   }, [lightbox]);
 
   async function start() {
+    if (pendingScan) return;
     setBusy(true); inform("正在创建扫描会话…");
     try { setSession(await createFlatbedSession(dpi, true)); setFronts([]); setBacks([]); setSheets({}); setPairs([]); setOriginalPairs([]); setMissingFront([]); setMissingBack([]); succeed(`已创建 ${dpi} DPI 扫描会话，可以直接扫描正面。`); }
     catch (error) { fail(error, "无法创建会话"); }
@@ -113,7 +133,7 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
   }
 
   async function sheet(side: "front" | "back", file?: File) {
-    if (!session || !file) return;
+    if (!session || !file || pendingScan) return;
     setBusy(true); inform("正在上传整版图片并裁剪识别…");
     try {
       await acceptSheet(side, await uploadFlatbedSheet(session.id, side, file));
@@ -121,8 +141,64 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
     finally { setBusy(false); }
   }
 
-  async function scan(side: "front" | "back", preview: boolean) {
+  async function connectScanner() {
+    setConnecting(true);
+    try {
+      const value = await getLocalScannerDevice();
+      if (!mounted.current) return;
+      scannerToken.current = value.token;
+      setDeviceReady(true);
+      setDevice(`${value.name} · ${value.serial} · 本机已连接，扫描图保存到云端`);
+    } catch (error) {
+      if (!mounted.current) return;
+      scannerToken.current = null;
+      setDeviceReady(false);
+      setDevice(error instanceof Error ? error.message : "本机扫描助手连接失败，请重试。");
+    } finally { setConnecting(false); }
+  }
+
+  async function uploadLocalScan(image: LocalScannerImage & { side: "front" | "back" }) {
     if (!session) return;
+    inform("本机已完成取图，正在上传到云端并裁剪识别…");
+    const result = await uploadFlatbedSheet(session.id, image.side, image.file, image.sourceResolution);
+    setPendingScan(null);
+    await acceptSheet(image.side, result);
+  }
+
+  async function retryLocalUpload() {
+    if (!pendingScan || busy) return;
+    setBusy(true);
+    try { await uploadLocalScan(pendingScan); }
+    catch (error) { fail(error, "扫描图上传失败，请重试上传。"); }
+    finally { setBusy(false); }
+  }
+
+  function downloadPendingScan() {
+    if (!pendingScan) return;
+    const url = URL.createObjectURL(pendingScan.file);
+    const link = document.createElement("a");
+    link.href = url; link.download = `canon-${pendingScan.side}-${session?.id ?? "scan"}.png`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function scan(side: "front" | "back", preview: boolean) {
+    if (!session || !deviceReady || pendingScan || busy || connecting) return;
+    if (localScanner) {
+      if (!scannerToken.current) return;
+      setBusy(true);
+      const controller = new AbortController();
+      scannerAbort.current = controller;
+      inform(`正在使用本机 Canon ${preview ? "概览" : `${dpi} DPI`}扫描${side === "front" ? "正面" : "背面"}，请保持盖板关闭…`);
+      try {
+        const image = { ...await scanLocalScanner(dpi, preview, scannerToken.current, controller.signal), side };
+        if (!mounted.current || controller.signal.aborted) return;
+        setPendingScan(image);
+        await uploadLocalScan(image);
+      } catch (error) { fail(error, "本机扫描或云端上传失败，请重试。"); }
+      finally { setBusy(false); }
+      return;
+    }
     const captureId = crypto.randomUUID();
     const sideLabel = side === "front" ? "正面" : "背面";
     const startedAt = Date.now();
@@ -340,7 +416,7 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
   }
 
   async function confirmAndSubmit() {
-    if (!session || pairs.length === 0) return;
+    if (!session || pairs.length === 0 || pendingScan) return;
     setBusy(true);
     try {
       inform(`正在确认 ${pairs.length} 对正反面…`);
@@ -355,14 +431,16 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
 
   return <section className="flatbed-panel">
     <div className="flatbed-heading"><div><strong>Canon 扫描仪批量录入</strong><small>{device}</small></div><label>DPI <select value={dpi} onChange={(event) => setDpi(Number(event.target.value) as 300 | 600)} disabled={!!session}><option>300</option><option>600</option></select></label></div>
-    {session && <div className="flatbed-pair-title"><small>当前批次 {session.id.slice(0, 8)} · 更换整批卡片时请开始下一批；本批重扫会重新生成配对。</small><button type="button" className="ghost-button" disabled={busy} onClick={() => void start()}>开始下一批</button></div>}
+    {localScanner && <div className="flatbed-pair-title"><small>首次连接时，请允许浏览器访问本机网络。扫描助手需在连接 Canon 的 Mac 上运行。</small><button type="button" className="ghost-button" disabled={busy || connecting} onClick={() => void connectScanner()}>{connecting ? "正在连接…" : deviceReady ? "重新连接扫描仪" : "连接本机扫描仪"}</button></div>}
+    {session && <div className="flatbed-pair-title"><small>当前批次 {session.id.slice(0, 8)} · 更换整批卡片时请开始下一批；本批重扫会重新生成配对。</small><button type="button" className="ghost-button" disabled={busy || !!pendingScan} onClick={() => void start()}>开始下一批</button></div>}
     {message && <p className={`flatbed-status ${messageTone}`} role={messageTone === "error" ? "alert" : "status"}>{busy && <span className="valuation-spinner" />} {message}</p>}
+    {pendingScan && !busy && <div className="flatbed-pair-title"><small>扫描图已保留在当前页面，重试上传不会重新扫描；关闭页面前可先保存原图。</small><button type="button" className="primary-button" onClick={() => void retryLocalUpload()}>重试上传扫描图</button><button type="button" className="ghost-button" onClick={downloadPendingScan}>保存扫描原图</button></div>}
     {!session && !busy && <button type="button" className="primary-button" onClick={start}>重新创建扫描会话</button>}
     {session && <div className="flatbed-steps">
-      <label><b>1. 扫描正面{fronts.length > 0 ? ` · 版本 ${sheets.front?.revision ?? 1}` : ""}</b><small>支持单张、多行多列、卡片与卡砖混合</small><span className="flatbed-scan-actions"><button type="button" onClick={() => void scan("front", true)} disabled={busy}>概览</button><button type="button" onClick={() => void scan("front", false)} disabled={busy}>正式扫描</button></span><input title="也可导入已有整版图" type="file" accept="image/jpeg,image/png" onChange={(e) => void sheet("front", e.target.files?.[0])} disabled={busy} /></label>
+      <label><b>1. 扫描正面{fronts.length > 0 ? ` · 版本 ${sheets.front?.revision ?? 1}` : ""}</b><small>支持单张、多行多列、卡片与卡砖混合</small><span className="flatbed-scan-actions"><button type="button" onClick={() => void scan("front", true)} disabled={busy || connecting || !deviceReady || !!pendingScan}>概览</button><button type="button" onClick={() => void scan("front", false)} disabled={busy || connecting || !deviceReady || !!pendingScan}>正式扫描</button></span><input title="也可导入已有整版图" type="file" accept="image/jpeg,image/png" onChange={(e) => void sheet("front", e.target.files?.[0])} disabled={busy || !!pendingScan} /></label>
       <span className={fronts.length ? "done" : ""}>{fronts.length} 张</span>
       <SheetPreview side="front" regions={fronts} />
-      <label><b>2. 翻面后扫描背面{backs.length > 0 ? ` · 版本 ${sheets.back?.revision ?? 1}` : ""}</b><small>背面独立识别卡片边界，不套用正面位置；保持大致顺序有助于配对，数量或配对有疑问时会提示确认</small><span className="flatbed-scan-actions"><button type="button" onClick={() => void scan("back", true)} disabled={busy || !fronts.length}>概览</button><button type="button" onClick={() => void scan("back", false)} disabled={busy || !fronts.length}>正式扫描</button></span><input title="也可导入已有整版图" type="file" accept="image/jpeg,image/png" onChange={(e) => void sheet("back", e.target.files?.[0])} disabled={busy || !fronts.length} /></label>
+      <label><b>2. 翻面后扫描背面{backs.length > 0 ? ` · 版本 ${sheets.back?.revision ?? 1}` : ""}</b><small>背面独立识别卡片边界，不套用正面位置；保持大致顺序有助于配对，数量或配对有疑问时会提示确认</small><span className="flatbed-scan-actions"><button type="button" onClick={() => void scan("back", true)} disabled={busy || connecting || !deviceReady || !!pendingScan || !fronts.length}>概览</button><button type="button" onClick={() => void scan("back", false)} disabled={busy || connecting || !deviceReady || !!pendingScan || !fronts.length}>正式扫描</button></span><input title="也可导入已有整版图" type="file" accept="image/jpeg,image/png" onChange={(e) => void sheet("back", e.target.files?.[0])} disabled={busy || !!pendingScan || !fronts.length} /></label>
       <span className={backs.length ? "done" : ""}>{backs.length} 张</span>
       <SheetPreview side="back" regions={backs} />
     </div>}
@@ -372,7 +450,7 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
     </div>}
     {(pairs.length > 0 || missingFront.length > 0 || missingBack.length > 0) && <div className="flatbed-pairs"><div className="flatbed-pair-title"><strong>正反面配对</strong><button type="button" className="ghost-button" onClick={() => setPairs(originalPairs)}>撤销调整</button></div>
       {(missingFront.length > 0 || missingBack.length > 0) && <p className="recognition-error">未配对：正面 {missingBack.length} 张，背面 {missingFront.length} 张。你可以先录入下方完整的 {pairs.length} 对；未配对图片本次不会录入，如需纳入请先校正布局或补扫。</p>}
-      <div className="flatbed-submit-bar"><span><strong>本次录入 {pairs.length} 张</strong><small role={messageTone === "error" ? "alert" : undefined}>{messageTone === "error" ? message : busy ? message : missingFront.length + missingBack.length > 0 ? `另有 ${missingFront.length + missingBack.length} 张本次不录入，不阻塞完整配对` : "裁切质量提示可人工核对；身份冲突会停止自动入库"}</small></span><button type="button" className="primary-button" onClick={confirmAndSubmit} disabled={busy || pairs.length === 0}>{busy ? "处理中…" : `确认配对并录入 ${pairs.length} 张卡片`}</button></div>
+      <div className="flatbed-submit-bar"><span><strong>本次录入 {pairs.length} 张</strong><small role={messageTone === "error" ? "alert" : undefined}>{messageTone === "error" ? message : busy ? message : missingFront.length + missingBack.length > 0 ? `另有 ${missingFront.length + missingBack.length} 张本次不录入，不阻塞完整配对` : "裁切质量提示可人工核对；身份冲突会停止自动入库"}</small></span><button type="button" className="primary-button" onClick={confirmAndSubmit} disabled={busy || !!pendingScan || pairs.length === 0}>{busy ? "处理中…" : `确认配对并录入 ${pairs.length} 张卡片`}</button></div>
       <div className="flatbed-pair-grid">{pairs.map((pair, index) => {
         const front = fronts.find((item) => item.id === pair.front_id);
         const back = backs.find((item) => item.id === pair.back_id);
