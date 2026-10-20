@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 from psycopg.types.json import Jsonb
 
-from card_platform.purchase_cost import allocate_shipping, evidence_hash, order_errors, score_match, prepare_purchase_recall
+from card_platform.purchase_cost import OrderCapture, allocate_shipping, evidence_hash, order_errors, score_match, prepare_purchase_recall
 from card_platform.purchase_cost_search import build_purchase_cost_search_plan
 from card_platform.purchase_cost_images import multi_review_eligible
 from card_platform.purchase_cost_bundle import bundle_match, same_bundle_layout
@@ -41,6 +41,28 @@ def field_scope(decision):
     if decision.get('scope_version') != 2:
         legacy.update(orders)
     return orders, refs, legacy
+
+
+def legacy_rebuild_refs(legacy_orders, orders, historical, units):
+    """Prove full retained order coverage before replacing an unknown old scope."""
+    current = {o['external_order_id']: o for o in orders}
+    refs = set()
+    for order_id in legacy_orders:
+        previous = [o for o in historical if o['external_order_id'] == order_id]
+        if not previous or order_id not in current:
+            return set()
+        lines = current[order_id]['lines']
+        seen = {line['item_id'] for order in previous for line in order['lines']}
+        if not seen <= {line['item_id'] for line in lines}:
+            return set()
+        for line in lines:
+            rows = [u for u in units if u['external_order_id'] == order_id
+                    and u['item_id'] == line['item_id'] and u['bundle_index'] == 0]
+            if (line['quantity'] != 1 or not line['image_urls'] or len(rows) != 1
+                    or not rows[0]['active']):
+                return set()
+            refs.add((order_id, line['item_id']))
+    return refs
 
 
 def field_refs(*groups):
@@ -251,7 +273,7 @@ class PurchaseCostService:
                         or not same_bundle_layout(unit['bundle_evidence'], decision)):
                     continue
             else:
-                product = None if recalled(line) else archive.product(line, verify_images=False)
+                product = archive.product(line, verify_images=False)
                 if not recalled(line) and not decision and not product:
                     continue
                 visual = purchase_visual_evidence(card, line, visual_reviews)
@@ -320,7 +342,7 @@ class PurchaseCostService:
             raise ConflictError('待核验订单超过处理上限，未将截断证据判断为唯一同款')
         for order in blocked_orders:
             for line in order['capture']['lines']:
-                product = None if recalled(line) else archive.product(line, verify_images=False)
+                product = archive.product(line, verify_images=False)
                 if (str(order['id']), line['item_id']) in observed or (not recalled(line) and not product):
                     continue
                 match = score_from_product(card, line, knowledge, product, scorer=score_match)
@@ -697,8 +719,28 @@ class PurchaseCostService:
             and not inference_eligible(card,row) and not title_correction_eligible(card,row)]
         unresolved.extend(dict(order_id=order.external_order_id,code='order_evidence_incomplete')
             for order in orders if order.external_order_id in pending_orders and order_errors(order))
+        rebuilt_refs = set()
+        if legacy_orders and archive.fresh():
+            from card_platform.cardhobby_account_api import account_service
+            snapshots = await account_service().archive_orders(conn, owner_id)
+            snapshot_map = {o['external_order_id']: o for o in snapshots or []}
+            current_map = {o.external_order_id: o for o in orders}
+            if all(o in snapshot_map and o in current_map
+                   and evidence_hash(OrderCapture.model_validate(snapshot_map[o])) == evidence_hash(current_map[o])
+                   for o in legacy_orders):
+                historical = await (await conn.execute('''SELECT e.capture FROM cardhobby_order_evidence e
+                    JOIN cardhobby_purchase_order o ON o.id=e.order_id
+                    WHERE o.owner_id=%s AND o.external_order_id=ANY(%s)''',
+                    (owner_id, sorted(legacy_orders)))).fetchall()
+                unit_rows = await (await conn.execute('''SELECT u.item_id,u.active,u.bundle_index,o.external_order_id
+                    FROM cardhobby_purchase_unit u JOIN cardhobby_purchase_order o ON o.id=u.order_id
+                    WHERE u.owner_id=%s AND o.external_order_id=ANY(%s)''',
+                    (owner_id, sorted(legacy_orders)))).fetchall()
+                rebuilt_refs = legacy_rebuild_refs(legacy_orders,
+                    [o.model_dump(mode='json') for o in orders], [r['capture'] for r in historical], unit_rows)
+        rebuilt_orders = {o for o, _ in rebuilt_refs}
         unresolved.extend(dict(order_id=order,code='legacy_candidate_scope_unresolved')
-                          for order in sorted(legacy_orders))
+                          for order in sorted(legacy_orders - rebuilt_orders))
         current_refs = {(order.external_order_id,line.item_id) for order in orders for line in order.lines}
         unresolved.extend(dict(order_id=order,item_id=item,code='previous_candidate_scope_not_covered')
                           for order,item in sorted(pending_refs - current_refs))
@@ -720,16 +762,19 @@ class PurchaseCostService:
                 line = captured.model_dump(mode='json')
                 ref = (order.external_order_id, line['item_id'])
                 unit = available.get(ref)
-                if ref in pending_refs and not unit:
+                if ref in pending_refs | rebuilt_refs and not unit:
                     unresolved.append(dict(order_id=ref[0],item_id=ref[1],code='previous_candidate_unavailable'))
                 product = archive.product(line, verify_images=False)
                 match = score_from_product(card, line, knowledge, product, scorer=score_match)
-                if any(row['unit_id'] == str(unit) and row['automatic']
+                if ref in rebuilt_refs:
+                    match = {**match, 'recalled': True, 'automatic': False,
+                             'review_evidence': dict(source='legacy_field_rebuild')}
+                if ref not in rebuilt_refs and any(row['unit_id'] == str(unit) and row['automatic']
                        and (row.get('visual_inference') or {}).get('source') != 'purchase_multi_image'
                        for row in preview['candidates']):
                     continue
                 if (unit and line['quantity'] == 1 and line['image_urls']
-                        and (multi_review_eligible(card, match) or title_correction_eligible(card, match))):
+                        and (multi_review_eligible(card, match) or title_correction_eligible(card, match) or ref in rebuilt_refs)):
                     candidates.append(dict(unit_id=str(unit), evidence_hash=evidence_hash(order),
                                            order_id=order.external_order_id, **line, **match))
                 elif unit and title_correction_eligible(card, match):
@@ -779,7 +824,8 @@ class PurchaseCostService:
         # Preserve the independently confirmed legacy title-correction path;
         # it is limited to single-photo unnumbered cards and cannot bypass
         # missing serials or true parallel claims.
-        if len(candidates) <= 6 and all(title_correction_eligible(card,row) for row in candidates):
+        if len(candidates) <= 6 and all(
+                title_correction_eligible(card,row) and not multi_review_eligible(card,row) for row in candidates):
             if any(len(row['image_urls']) != 1 for row in candidates):
                 unresolved.append(dict(code='legacy_title_correction_requires_multi_photo_review'))
                 await self.incomplete_field(conn,owner_id,item_id,{r['order_id'] for r in candidates},

@@ -43,6 +43,16 @@ def _specific_text(value: str | None) -> bool:
     ))
 
 
+def _describes_back_view(value: str) -> bool:
+    # A printed caption such as CHANGE BACK! is not a claim that the viewed
+    # surface is the reverse. Keep explicit reverse-side descriptions blocked.
+    return bool(re.search(
+        r"背面|卡背|反面|\b(?:card\s+back|back(?:side)?[ -]+(?:of|view|side|layout|design|border|surface|only)"
+        r"|on\s+(?:the\s+)?back|reverse[ -]+side)\b|^\s*back(?:side)?[.!:]?\s*$",
+        value, re.I,
+    ))
+
+
 def _matching_text_only(target, candidate) -> bool:
     observations = (target, candidate)
     if any(view.artwork_kind != "text_only" or view.artwork_subjects
@@ -160,7 +170,7 @@ class IndependentFinishObservation(BaseModel):
                 and all(
                     value.strip()
                     and value.strip().casefold() not in generic
-                    and not re.search(r"背面|卡背|反面|\bback(?:side)?\b", value, re.I)
+                    and not _describes_back_view(value)
                     and not re.fullmatch(
                         r"(?:same as|identical to|matches) (?:the )?(?:target|candidate)[.!]?",
                         value.strip(),

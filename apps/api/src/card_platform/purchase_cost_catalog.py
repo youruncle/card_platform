@@ -4,6 +4,7 @@ from card_platform.model_requests import nonthinking_extra_body
 import asyncio
 import hashlib
 import json
+import re
 from copy import deepcopy
 from typing import get_args
 
@@ -41,19 +42,38 @@ def score_from_product(card, line, knowledge, product=None, *, visual_evidence=N
     from card_platform.purchase_cost import score_match as default_score
     score_match = scorer or default_score
     base = _pure_score(card, line, knowledge, score_match, visual_evidence)
-    if not product or base['recalled'] or not product['observations'].get('single_card'):
+    if base['automatic'] or not product or not product['observations'].get('single_card'):
         return base
-    fields = product['observations'].get('fields', [])
+    from card_platform.purchase_cost_images import printed_key, small_card_number_typo
+    roles = {p['index']: p['role'] for p in product['observations'].get('photos', [])}
+    fields = [f for f in product['observations'].get('fields', [])
+              if f.get('origin') == 'printed' and roles.get(f.get('photo')) in {'front', 'back', 'detail'}]
     text = ' '.join(f['value'] for kind in ('season','brand','product','insert','player','card_number')
-                    for f in fields if f.get('origin') == 'printed' and f['kind'] == kind)
+                    for f in fields if f['kind'] == kind)
     discovery = _pure_score(card, {**line, 'title':text}, knowledge, score_match)
     core = [r for r in discovery['reasons'] if r in {'产品一致','Insert 一致'}]
-    if not discovery['recalled'] or not core:
+    from card_platform.domain.card_identity import CardIdentityResolver
+    number = CardIdentityResolver().resolve(card).card_number
+    numbers = {printed_key('card_number', f['value']) for f in fields if f['kind'] == 'card_number'
+               and not re.search(r'\d+\s*/\s*\d+', f['value'])}
+    subject = ('球员姓名或知识库别名一致' in base['reasons']
+               or '球员姓名或知识库别名一致' in discovery['reasons'])
+    number_match = bool(number) and numbers == {printed_key('card_number', str(number))}
+    from card_platform.purchase_cost_inference import title_correction_eligible
+    scene_review = (title_correction_eligible(card, base)
+                    and {'产品一致', 'Insert 一致'} <= set(base['reasons'])
+                    and len(numbers) == 1 and bool(number)
+                    and (number_match or small_card_number_typo(
+                        printed_key('card_number', str(number)), next(iter(numbers)))))
+    if not scene_review and (not subject or not (number_match or (discovery['recalled'] and core))):
         return base
-    # This only admits a candidate to the picture review field. Neither OCR
-    # similarity nor its inferred title can clear a seller conflict or buy cost.
-    return {**base, 'recalled':True, 'automatic':False,
-            'reasons':list(dict.fromkeys([*base['reasons'], *core, '商品图文字召回']))}
+    # Discovery is not a second vote on identity. Preserve all original seller
+    # conflicts/missing fields, and require a fresh bound pair for authorization.
+    return {**base, 'recalled': True, 'automatic': False,
+            'review_evidence': dict(source='independent_product_images',
+                                    printed_card_number=next(iter(numbers)) if len(numbers) == 1 else None,
+                                    core_agreement=core),
+            'reasons': list(dict.fromkeys([*base['reasons'], *core, '商品图文字召回']))}
 
 
 class ProductObservation(BaseModel):
