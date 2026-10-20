@@ -10,6 +10,7 @@ import httpx
 from openai import APITimeoutError, AsyncOpenAI
 
 from card_platform.config import Settings
+from card_platform.deepseek_web import DeepSeekWebResearch
 from card_platform.domain.serial_evidence import (
     serial_field_evidence,
     visible_serial_evidence,
@@ -418,6 +419,9 @@ class CardSearchService:
             if self.enabled
             else None
         )
+        self.research = (DeepSeekWebResearch(settings.resolved_search_api_key,
+                                            base_url=settings.resolved_search_base_url)
+                         if self.client else None)
 
     async def enrich(
         self, visual: CardRecognitionResult, context: str | None = None
@@ -476,8 +480,10 @@ class CardSearchService:
             return visual.model_copy(update={"search_queries": queries})
         schema = json.dumps(CardSearchEnrichment.model_json_schema(), ensure_ascii=False)
         llm_started = time.monotonic()
+        capture = None
         try:
-            response = await self.client.chat.completions.create(
+            response, capture = await self.research.complete(
+                self.client, queries=queries, allowed_sites=TRUSTED_SITES,
                 model=self.model,
                 messages=[
                     {
@@ -535,15 +541,21 @@ class CardSearchService:
                     },
                 ],
                 response_format={"type": "json_object"},
-                extra_body={
-                    "enable_search": True,
-                    "search_options": {
-                        "forced_search": True,
-                        "search_strategy": "turbo",
-                        "assigned_site_list": TRUSTED_SITES,
-                    },
-                },
             )
+            queries = capture.queries
+            if response is None:
+                return visual.model_copy(update={
+                    "search_queries": queries, "web_research": capture.as_dict(),
+                    "caveats": [*visual.caveats, "DeepSeek 官方搜索未取得可用来源，保留未核验字段",
+                                *capture.errors],
+                    "recognition_route": [
+                        _stage_trace("catalog_search", llm_started,
+                                     "failed" if capture.errors else "succeeded", outcome="empty"),
+                        *[_stage_trace(tier, None, "skipped") for tier in
+                          ("catalog_llm", "catalog_sources", "catalog_images")],
+                        *visual.recognition_route,
+                    ],
+                })
             content = response.choices[0].message.content
             if not content:
                 raise RuntimeError("web search returned an empty response")
@@ -552,6 +564,7 @@ class CardSearchService:
             return visual.model_copy(
                 update={
                     "search_queries": queries,
+                    "web_research": capture.as_dict() if capture else {},
                     "caveats": [*visual.caveats, f"联网目录核验失败：{str(error)[:180]}"],
                     "recognition_route": [
                         _stage_trace("catalog_llm", llm_started, _failure_status(error)),
@@ -569,6 +582,7 @@ class CardSearchService:
                 url
                 for url in candidate.source_urls
                 if urlparse(url).scheme in {"http", "https"} and is_trusted_catalog_url(url)
+                and capture.observed(url)
             ]
             candidates.append(candidate.model_copy(update={"source_urls": valid_urls}))
         pages = _CatalogPages()
@@ -628,10 +642,11 @@ class CardSearchService:
             update={
                 **updates,
                 "search_queries": queries,
+                "web_research": capture.as_dict(),
                 "field_evidence": merge_search_evidence(visual, enrichment, updates),
                 "catalog_verified_fields": dict(updates),
                 "web_candidates": candidates,
-                "caveats": [*visual.caveats, *enrichment.caveats],
+                "caveats": [*visual.caveats, *enrichment.caveats, *capture.errors],
                 "recognition_route": [*traces, *visual.recognition_route],
             }
         )

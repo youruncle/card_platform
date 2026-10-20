@@ -11,11 +11,11 @@ from card_platform.ingestion.cardhobby import CardHobbyProvider
 
 async def main() -> None:
     settings = Settings()
-    if not settings.vision_api_key:
-        raise SystemExit("VISION_API_KEY is not configured")
+    if not settings.resolved_search_api_key:
+        raise SystemExit("Official DeepSeek search credentials are not configured")
     client = AsyncOpenAI(
-        api_key=settings.vision_api_key,
-        base_url=settings.vision_base_url,
+        api_key=settings.resolved_search_api_key,
+        base_url=settings.resolved_search_base_url,
         timeout=settings.valuation_search_timeout_seconds,
         max_retries=1,
     )

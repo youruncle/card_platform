@@ -200,7 +200,8 @@ async def test_process_claimed_refresh_uses_shared_persistence_path() -> None:
         finish_refresh=AsyncMock(),
         fail_refresh=AsyncMock(),
     )
-    fetch_sales = AsyncMock(return_value=ProviderFetchResult(provider_code="cardhobby"))
+    fetch_sales = AsyncMock(return_value=ProviderFetchResult(provider_code="cardhobby",
+        web_research={"provider": "deepseek", "queries": ["card"], "pages": []}))
     provider = SimpleNamespace(
         provider=SimpleNamespace(code="cardhobby"),
         fetch_sales=fetch_sales,
@@ -220,6 +221,8 @@ async def test_process_claimed_refresh_uses_shared_persistence_path() -> None:
     )
     repository.finish_refresh.assert_awaited_once()
     assert repository.finish_refresh.await_args.args[3] == Freshness.INSUFFICIENT
+    assert repository.finish_refresh.await_args.kwargs["result_summary"]["providers"][0]["web_research"] == {
+        "provider": "deepseek", "queries": ["card"], "pages": []}
     repository.fail_refresh.assert_not_awaited()
 
 

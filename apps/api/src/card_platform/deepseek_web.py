@@ -3,6 +3,7 @@ import asyncio
 import hashlib
 import ipaddress
 import json
+from itertools import zip_longest
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from urllib.parse import urlsplit, urlunsplit
@@ -97,6 +98,7 @@ class DeepSeekWebResearch:
                 "query": query, "count": 8, "need_content": True,
             }, limit) for query in capture.queries))
             seen = set()
+            batches = []
             for query, (data, status) in zip(capture.queries, results, strict=True):
                 if data is None:
                     capture.errors.append(f"search: {status}")
@@ -105,7 +107,14 @@ class DeepSeekWebResearch:
                 if not isinstance(hits, list):
                     capture.errors.append("search: invalid_results")
                     continue
-                for hit in hits:
+                batches.append([(query, hit) for hit in hits[:8]])
+            # Each independent query gets a turn before the next result rank;
+            # a broad first query must not consume the entire evidence budget.
+            for row in zip_longest(*batches):
+                for entry in row:
+                    if entry is None:
+                        continue
+                    query, hit = entry
                     if not isinstance(hit, dict):
                         continue
                     url = source_url(hit.get("url"), allowed_sites)
@@ -143,7 +152,7 @@ class DeepSeekWebResearch:
             if self.http_client is None:
                 await client.aclose()
 
-    async def complete(self, client, *, queries, allowed_sites=(), **kwargs):
+    async def complete(self, client, *, queries, allowed_sites=(), stage=None, **kwargs):
         if not is_official_deepseek_url(str(client.base_url)):
             raise ValueError("Grounded analysis requires the official DeepSeek endpoint")
         capture = await self.collect(queries, allowed_sites=allowed_sites)
@@ -164,5 +173,10 @@ class DeepSeekWebResearch:
         for legacy in ("enable_search", "search_options", "enable_thinking"):
             extra.pop(legacy, None)
         extra["thinking"] = {"type": "disabled"}
-        response = await client.chat.completions.create(messages=messages, extra_body=extra, **kwargs)
+        if stage:
+            from card_platform.valuation_trace import traced_completion
+            response = await traced_completion(client.chat.completions.create, stage=stage,
+                                               messages=messages, extra_body=extra, **kwargs)
+        else:
+            response = await client.chat.completions.create(messages=messages, extra_body=extra, **kwargs)
         return response, capture

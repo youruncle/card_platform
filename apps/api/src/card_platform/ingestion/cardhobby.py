@@ -1,6 +1,7 @@
 from card_platform.ingestion.query_feedback import BoundedAliasFeedback, discovery_subject, short_insert_query_term
 from card_platform.ingestion.cardhobby_public_item import canonical_public_item_url, parse_public_item_html, public_gallery_for_primary
-from card_platform.valuation_trace import traced_completion, emit, content_hash
+from card_platform.valuation_trace import emit, content_hash
+from card_platform.deepseek_web import DeepSeekWebResearch
 from time import perf_counter
 import asyncio
 import hashlib
@@ -580,6 +581,7 @@ class CardHobbySearchResult(BaseModel):
         return self._public_source_pool
 
     search_queries: list[str] = Field(default_factory=list)
+    web_research: dict = Field(default_factory=dict)
     sales: list[CardHobbySale] = Field(default_factory=list)
     # None preserves the contract for older clients; [] is an explicitly empty
     # public-source pool. Display sales remain limited independently.
@@ -1754,11 +1756,13 @@ class CardHobbyProvider:
         resolver: KnowledgeResolver | None = None,
         min_interval: float = 0.2,
         max_search_pages: int = 12,
+        research: DeepSeekWebResearch | None = None,
     ) -> None:
         if not 1 <= max_search_pages <= 12:
             raise ValueError('search page budget must be between 1 and 12')
         self.max_search_pages = max_search_pages
         self.client = client
+        self.research = research
         self.model = model
         self.timeout = timeout
         self.resolver = resolver
@@ -3099,7 +3103,11 @@ class CardHobbyProvider:
 
     async def _search_model(self, identity: dict) -> CardHobbySearchResult:
         schema = json.dumps(CardHobbySearchResult.model_json_schema(), ensure_ascii=False)
-        response = await traced_completion(self.client.chat.completions.create, stage='retrieval',
+        research = self.research or DeepSeekWebResearch(
+            self.client.api_key, base_url=str(self.client.base_url))
+        queries = [f"{query[:98]} site:cardhobby.com.cn" for query in self.build_queries(identity)[:4]]
+        response, capture = await research.complete(
+            self.client, queries=queries, allowed_sites=["cardhobby.com.cn"], stage='retrieval',
             model=self.model,
             messages=[
                 {
@@ -3150,20 +3158,16 @@ class CardHobbyProvider:
                 },
             ],
             response_format={"type": "json_object"},
-            extra_body={
-                "enable_search": True,
-                "search_options": {
-                    "forced_search": True,
-                    "search_strategy": "turbo",
-                },
-            },
         )
-        content = response.choices[0].message.content
+        content = response.choices[0].message.content if response else None
         if not content:
-            return CardHobbySearchResult(notes=["卡淘定向检索未返回结果"])
+            return CardHobbySearchResult(search_queries=capture.queries, web_research=capture.as_dict(),
+                notes=["卡淘定向检索未取得可用来源", *capture.errors])
         parsed = CardHobbySearchResult.model_validate_json(content)
         accepted: list[CardHobbySale] = []
         for sale in parsed.sales:
+            if not capture.observed(sale.source_url):
+                continue
             score, conflicts, tier = assess_cardhobby_candidate(identity, sale, resolver=self.resolver)
             if score < Decimal("0.35"):
                 continue
@@ -3178,4 +3182,6 @@ class CardHobbyProvider:
                     }
                 )
             )
-        return parsed.model_copy(update={"sales": accepted[:20]})
+        return parsed.model_copy(update={"sales": accepted[:20], "search_queries": capture.queries,
+                                        "web_research": capture.as_dict(),
+                                        "notes": [*parsed.notes, *capture.errors]})

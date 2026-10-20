@@ -87,6 +87,7 @@ async def test_queries_and_fetches_have_fixed_budgets():
     assert all(1 <= len(q["query"]) <= 128 for q in searches)
     assert all(q["need_content"] is True for q in searches)
     assert len(capture.pages) == 8
+    assert {page["query"] for page in capture.pages} == {"A" * 128, "B", "C", "D"}
     assert len(fetches) == 3
 
 

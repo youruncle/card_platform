@@ -5,17 +5,17 @@
 - [x] T001 Inspect current production, preserve existing DeepSeek visual migration and create isolated branch.
 - [x] T002 Execute real read-only Search/Fetch feasibility probes and record partial site failures.
 - [x] T003 Maintain one spec/plan/tasks set and review constitution; no active extension hooks.
-- [ ] T004 Add failing collector/config boundary tests in apps/api/tests/test_deepseek_web.py.
-- [ ] T005 Implement bounded official research collector in apps/api/src/card_platform/deepseek_web.py and safe config resolution.
+- [x] T004 Add failing collector/config boundary tests in apps/api/tests/test_deepseek_web.py.
+- [x] T005 Implement bounded official research collector in apps/api/src/card_platform/deepseek_web.py and safe config resolution.
 
 ## US1: Card catalog
 
-- [ ] T006 [US1] Test and replace card_search_service.py Qwen search with captured DeepSeek evidence; retain source/image verification.
+- [x] T006 [US1] Test and replace card_search_service.py Qwen search with captured DeepSeek evidence; retain source/image verification.
 
 ## US2: Market research
 
-- [ ] T007 [US2] Test and replace ingestion/cardhobby.py discovery fallback, preserving first-party sale gates.
-- [ ] T008 [US2] Test and replace valuation_worker.py generic research, rejecting unobserved sources and retaining captures.
+- [x] T007 [US2] Test and replace ingestion/cardhobby.py discovery fallback, preserving first-party sale gates.
+- [x] T008 [US2] Test and replace valuation_worker.py generic research, rejecting unobserved sources and retaining captures.
 - [ ] T009 [US2] Run related regression suites and real read-only product research; record limitations in validation.md.
 
 ## US3: Release

@@ -868,6 +868,7 @@ class CardRecognitionResult(ApiModel):
     confidence: Decimal = Field(ge=0, le=1)
     caveats: list[str] = Field(default_factory=list)
     search_queries: list[str] = Field(default_factory=list)
+    web_research: dict[str, object] = Field(default_factory=dict)
     field_evidence: dict[str, list[str]] = Field(default_factory=dict)
     field_assessments: dict[str, RecognitionFieldAssessment] = Field(default_factory=dict)
     identity_storage_binding: dict[str, object] = Field(default_factory=dict)

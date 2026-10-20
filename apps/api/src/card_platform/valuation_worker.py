@@ -22,6 +22,7 @@ from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field, model_validator
 
 from card_platform.config import Settings
+from card_platform.deepseek_web import DeepSeekWebResearch
 from card_platform.catalog_evidence import normalize_catalog_evidence
 from card_platform.comparable_image_verifier import (
     ComparableImageVerifier,
@@ -1047,6 +1048,7 @@ class ComparableSearchResult(BaseModel):
     search_execution: str = 'unknown'
     pending_refresh_job_id: str | None = None
     search_queries: list[str] = Field(default_factory=list)
+    web_research: dict = Field(default_factory=dict)
     comparables: list[DiscoveredComparable] = Field(default_factory=list)
     resolved_identity: dict[str, str | int | bool | list[str] | None] = Field(
         default_factory=dict
@@ -1129,6 +1131,9 @@ class AutomatedValuationWorker:
             if settings.resolved_search_api_key
             else None
         )
+        self.research = (DeepSeekWebResearch(settings.resolved_search_api_key,
+                                            base_url=settings.resolved_search_base_url)
+                         if self.client else None)
         # CardHobby's public sold-auction API is first-party market evidence and
         # does not depend on a multimodal/model API key. The optional client is
         # used only for discovery fallback after direct retrieval is empty.
@@ -1138,6 +1143,7 @@ class AutomatedValuationWorker:
             timeout=settings.provider_timeout_seconds,
             resolver=knowledge_runtime.resolver if knowledge_runtime else None,
             min_interval=settings.cardhobby_min_interval_ms / 1000,
+            research=self.research,
         )
         self.search_index = SearchIndexResearch(
             brave_api_key=settings.search_index_brave_api_key,
@@ -1317,11 +1323,14 @@ class AutomatedValuationWorker:
                 # conditional defer. Read its result once; a completed empty
                 # search must become a truthful terminal outcome, not a loop.
                 search = await self._search(identity)
-            if search.visual_progress:
+            progress = {key: value for key, value in {
+                "visual_progress": search.visual_progress, "web_research": search.web_research,
+            }.items() if value}
+            if progress:
                 async with self.database.connection() as connection:
                     await connection.execute(
                         "UPDATE valuation_job SET result_summary = COALESCE(result_summary, '{}'::jsonb) || %s WHERE id = %s",
-                        (Jsonb({"visual_progress": search.visual_progress}), job_id),
+                        (Jsonb(progress), job_id),
                     )
             await self._store_comparables(identity, search)
             await self._set_status(job_id, "calculating")
@@ -2593,7 +2602,7 @@ class AutomatedValuationWorker:
     async def _search_external_legacy(
         self, identity: dict, *, include_cardhobby: bool = True
     ) -> ComparableSearchResult:
-        """Deprecated synchronous search retained temporarily for migration rollback only."""
+        """Source-grounded external discovery when first-party evidence is sparse."""
         cardhobby_result = None
         if include_cardhobby and self.cardhobby is not None:
             try:
@@ -2678,7 +2687,8 @@ class AutomatedValuationWorker:
             )
         schema = json.dumps(ComparableSearchResult.model_json_schema(), ensure_ascii=False)
         query_ladder = market_search_query_ladder(identity)
-        response = await traced_completion(self.client.chat.completions.create, stage='alias_query',
+        response, capture = await self.research.complete(
+            self.client, queries=query_ladder, allowed_sites=VALUATION_SITES, stage='alias_query',
             model=self.settings.valuation_search_model,
             messages=[
                 {
@@ -2763,16 +2773,8 @@ class AutomatedValuationWorker:
                 },
             ],
             response_format={"type": "json_object"},
-            extra_body={
-                "enable_search": True,
-                "search_options": {
-                    "forced_search": True,
-                    "search_strategy": "turbo",
-                    "assigned_site_list": VALUATION_SITES,
-                },
-            },
         )
-        content = response.choices[0].message.content
+        content = response.choices[0].message.content if response else None
         if not content:
             parsed = ComparableSearchResult(notes=["通用市场检索未返回结果"])
         else:
@@ -2784,6 +2786,20 @@ class AutomatedValuationWorker:
                     ]
                 }
             )
+        fallback = parsed.fallback_valuation
+        if fallback is not None:
+            references = [ref for ref in fallback.references if capture.observed(ref.source_url)]
+            fallback = fallback.model_copy(update={"references": references}) if references else None
+        parsed = parsed.model_copy(update={
+            "search_queries": capture.queries, "web_research": capture.as_dict(),
+            "comparables": [comp for comp in parsed.comparables if capture.observed(comp.source_url)],
+            "fallback_valuation": fallback,
+            "player_adjustments": [adjustment.model_copy(update={"pairs": [
+                pair for pair in adjustment.pairs
+                if capture.observed(pair.target_url) and capture.observed(pair.reference_url)
+            ]}) for adjustment in parsed.player_adjustments],
+            "notes": [*parsed.notes, *capture.errors],
+        })
         if cardhobby_result is not None:
             parsed = parsed.model_copy(
                 update={

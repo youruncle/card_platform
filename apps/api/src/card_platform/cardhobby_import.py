@@ -119,6 +119,7 @@ class CardHobbyOrderParser:
                 },
             ],
             response_format={"type": "json_object"},
+            extra_body={"thinking": {"type": "disabled"}},
         )
         content = response.choices[0].message.content
         if not content or content.strip() == "{}":

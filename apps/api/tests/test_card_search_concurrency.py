@@ -5,6 +5,7 @@ import httpx
 import pytest
 
 from card_platform.card_search_service import CardSearchService
+from card_platform.deepseek_web import DeepSeekWebResearch
 from card_platform.config import Settings
 from card_platform.schemas import CardRecognitionResult, CardWebCandidate
 
@@ -26,9 +27,16 @@ async def test_catalog_and_reference_queries_overlap(monkeypatch):
                                source_url="https://example.test/item", match_confidence="0.98")
 
     monkeypatch.setattr("card_platform.card_search_service.CardHobbyProvider.reference_images", reference)
-    service = CardSearchService(Settings(card_search_enabled=False))
-    service.client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
-    result = await service.enrich(CardRecognitionResult(player_name="Kobe Bryant", confidence="0.97"))
+    service = CardSearchService(Settings(_env_file=None, card_search_enabled=False))
+    service.client = SimpleNamespace(base_url="https://api.deepseek.com",
+        chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+    def handler(request):
+        return httpx.Response(200, json={"results": [{"url": "https://www.tcdb.com/card/138",
+            "content": "Kobe Bryant"}]} if request.url.path.endswith("search")
+            else {"title": "Kobe Bryant", "content": "Card 138"})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        service.research = DeepSeekWebResearch("key", http_client=http)
+        result = await service.enrich(CardRecognitionResult(player_name="Kobe Bryant", confidence="0.97"))
     assert not any("联网目录核验失败" in c for c in result.caveats)
     assert result.reference_image_front_url == "https://example.test/front.jpg"
 
