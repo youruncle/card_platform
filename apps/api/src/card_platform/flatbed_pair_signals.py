@@ -88,6 +88,10 @@ def _extract(text: str) -> dict:
         "ocr_tokens": sorted(set(re.findall(r"[A-Za-z0-9#/-]{2,}", text.casefold()))),
     }
     evidence: dict[str, str] = {}
+    brands = {name for pattern, name in ((r"\bupper\s*deck\b", "Upper Deck"), (r"\bpanini\b", "Panini"), (r"\btopps\b|\bbowman\b", "Topps")) if re.search(pattern, normalized)}
+    if len(brands) == 1:
+        signals["brand_name"] = brands.pop()
+        evidence["brand_name"] = signals["brand_name"]
     releases = set()
     for line in lines:
         match = RELEASE.search(line)
@@ -151,6 +155,14 @@ def _extract(text: str) -> dict:
             if normalized_text(line) in _player_labels()
         }
     )
+    # Scene OCR may split a printed name over two adjacent lines or collapse
+    # spaces. Match complete pinned names only; never infer from a surname.
+    compact_labels = {name.replace(" ", ""): canonical for name, canonical in _player_labels().items()}
+    observed = [*lines]
+    for left, right in zip(lines, lines[1:]):
+        if len(normalized_text(left).split()) == len(normalized_text(right).split()) == 1:
+            observed.extend((left+" "+right, right+" "+left))
+    names = sorted(set(names) | {compact_labels[normalized_text(line).replace(" ", "")] for line in observed if normalized_text(line).replace(" ", "") in compact_labels})
     if len(names) == 1:
         signals["player_name"] = names[0]
         evidence["player_name"] = names[0]

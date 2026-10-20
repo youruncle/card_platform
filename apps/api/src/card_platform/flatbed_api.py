@@ -142,6 +142,11 @@ async def connection(request: Request):
 
 def service() -> FlatbedService:
     settings = get_settings()
+    import sys
+    from card_platform.flatbed_local_ocr import LinuxLocalOCRObserver
+    observer = None
+    if sys.platform != "darwin":
+        observer = LinuxLocalOCRObserver()
     return FlatbedService(
         settings.flatbed_scan_dir,
         settings.flatbed_bridge_script,
@@ -151,6 +156,7 @@ def service() -> FlatbedService:
         ml_worker_script=settings.flatbed_ml_worker_script,
         ml_checkpoint=settings.flatbed_ml_checkpoint,
         ml_timeout_seconds=settings.flatbed_ml_timeout_seconds,
+        cloud_observer=observer,
     )
 
 

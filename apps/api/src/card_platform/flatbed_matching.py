@@ -118,7 +118,7 @@ def _token_similarity(left: dict, right: dict) -> float | None:
 def _identity_comparison(left: CardRegion, right: CardRegion) -> tuple[float, str, tuple[str, ...]]:
     a, b = _identity_signals(left), _identity_signals(right)
     compared = {}
-    for key in ("product_name", "insert_name", "card_number", "player_name"):
+    for key in ("brand_name", "product_name", "insert_name", "card_number", "player_name"):
         if a.get(key) and b.get(key):
             compared[key] = normalized_text(a[key]) == normalized_text(b[key])
     if all(
@@ -154,6 +154,7 @@ def _identity_comparison(left: CardRegion, right: CardRegion) -> tuple[float, st
     if not compared:
         return (0.5 if tokens is None else tokens), "unknown", ("ocr_identity_unverified",)
     weights = {
+        "brand_name": 0.35,
         "product_name": 0.4,
         "insert_name": 0.2,
         "card_number": 0.3,

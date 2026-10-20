@@ -267,6 +267,7 @@ class FlatbedService:
         ml_worker_script: str = "scripts/flatbed_sam2_worker.py",
         ml_checkpoint: str = ".runtime/models/sam2.1_hiera_tiny.pt",
         ml_timeout_seconds: float = 20.0,
+        cloud_observer=None,
     ) -> None:
         self.root = Path(root).resolve()
         self.bridge_script = Path(bridge_script).resolve()
@@ -277,9 +278,25 @@ class FlatbedService:
         self.ml_checkpoint = ml_checkpoint
         self.ml_timeout_seconds = ml_timeout_seconds
         self._ocr_timed_out = False
+        self.cloud_observer = cloud_observer
         self.orientation_classifier = AppleVisionOrientationClassifier(
             str(self.bridge_script.with_name("orient_card_images.swift"))
         )
+
+    async def observe_crop(self, image_path: Path) -> tuple[OrientationDecision | None, dict]:
+        orientation = await self.orientation_classifier.classify(image_path)
+        if orientation is not None and orientation.confidence >= .35:
+            return orientation, {}
+        if self.cloud_observer is None:
+            return orientation, {}
+        try:
+            observed = await self.cloud_observer.classify(image_path)
+            if observed.confidence < .65:
+                return orientation, {"cloud_vision_failure": "low_confidence"}
+            text = (observed.local_vision or {}).get("text", "")
+            return observed, {**extract_pair_signals(text), "ocr_method": observed.method}
+        except Exception as error:
+            return orientation, {"cloud_vision_failure": type(error).__name__}
 
     async def ocr_signals(self, image_path: Path) -> dict:
         if self.ocr_script is None or not self.ocr_script.is_file():
@@ -630,7 +647,7 @@ class FlatbedService:
                         stream.write(encoded.tobytes())
                 if unresolved_quad:
                     ok = False
-                orientation = await self.orientation_classifier.classify(crop_path) if ok else None
+                orientation, observation = await self.observe_crop(crop_path) if ok else (None, {})
                 if orientation is not None and orientation.confidence >= 0.35:
                     rotation = orientation.rotation_degrees
                 elif crop.shape[1] > crop.shape[0] * 1.08:
@@ -659,7 +676,8 @@ class FlatbedService:
                 signals["orientation_text_count"] = orientation.text_count
                 signals["orientation_face_count"] = orientation.face_count
                 signals["crop_quality"] = quality_report.as_dict()
-                if ok:
+                signals.update(observation)
+                if ok and "ocr_method" not in observation:
                     signals.update(await self.ocr_signals(crop_path))
                 if self.orientation_classifier._timed_out:
                     signals["orientation_failure"] = "local_vision_timeout"
@@ -772,12 +790,14 @@ class FlatbedService:
             if any(signals.get(key) == "local_vision_timeout" for key in ("ocr_failure", "orientation_failure")):
                 if "local_vision_timeout" not in detection_failures:
                     detection_failures.append("local_vision_timeout")
+            if signals.get("cloud_vision_failure") and "cloud_vision_failed" not in detection_failures:
+                detection_failures.append("cloud_vision_failed")
             await connection.execute(
                 """INSERT INTO flatbed_scan_region(id,sheet_id,owner_id,ordinal,bounds,confidence,failure_reason,crop_path,signals) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                 parameters,
             )
             regions.append(region)
-        if "local_vision_timeout" in detection_failures:
+        if "local_vision_timeout" in detection_failures or "cloud_vision_failed" in detection_failures:
             await connection.execute(
                 "UPDATE flatbed_scan_sheet SET requires_review=true WHERE id=%s AND owner_id=%s",
                 (sheet_id, owner_id),
