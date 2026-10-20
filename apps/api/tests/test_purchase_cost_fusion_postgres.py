@@ -31,6 +31,9 @@ pytestmark = pytest.mark.skipif(
         "missing_image",
         "observation_failure",
         "occupied",
+        "occupied_different",
+        "occupied_uncertain",
+        "occupied_integrity",
         "text_automatic_uncertain",
     ],
 )
@@ -58,14 +61,14 @@ def test_legacy_field_rebuild_proves_history_and_still_requires_all_pairs(
     item = UUID(response.json()["id"])
     (get_settings().resolved_upload_dir / "fusion.jpg").write_bytes(b"bound-observer-fixture")
     original = capture().model_dump(mode="json")
-    if change in ("removed", "missing_image", "occupied"):
+    if change in ("removed", "missing_image", "occupied", "occupied_different", "occupied_uncertain", "occupied_integrity"):
         other = capture(1).lines[0].model_dump(mode="json")
         original["lines"].append(other)
         original["displayed_total"] = "21.00"
     if change == "text_automatic_uncertain":
         original["lines"][0]["title"] = "2025 Topps Chrome Example Player #Fixture-17 26/75"
     other_item = None
-    if change == "occupied":
+    if change.startswith("occupied"):
         created_other = client.post(
             "/v1/portfolio/items",
             json=dict(
@@ -87,10 +90,23 @@ def test_legacy_field_rebuild_proves_history_and_still_requires_all_pairs(
     if change == "missing_image":
         current["lines"][1]["image_urls"] = []
 
+    observed = []
+
     async def observe(self, card, line, order_hash):
+        observed.append(line["item_id"])
         if change == "observation_failure":
             raise TimeoutError("fixture")
         d = paired_observation(card, line, order_hash)
+        if change.startswith("occupied") and line["item_id"] == original["lines"][1]["item_id"]:
+            if change in ("occupied_different", "occupied_integrity"):
+                for f in d["observations"]["candidate_fields"]:
+                    if f["kind"] == "card_number":
+                        f["text"] = f["value"] = "Other-18"
+                d = {**d, "verdict": "different", "reasons": ["printed_card_number_conflict"]}
+                if change == "occupied_integrity":
+                    d = {**d, "verdict": "uncertain", "reasons": ["repair_dropped_identity_observation"]}
+            elif change == "occupied_uncertain":
+                d = {**d, "verdict": "uncertain", "reasons": ["independent_finish_unconfirmed"]}
         if change == "text_automatic_uncertain":
             d = {**d, "verdict": "uncertain", "reasons": ["independent_finish_unconfirmed"]}
         return d
@@ -115,7 +131,7 @@ def test_legacy_field_rebuild_proves_history_and_still_requires_all_pairs(
             )
             service = PurchaseCostService()
             await service.sync(conn, owner, [OrderCapture.model_validate(original)])
-            if change == "occupied":
+            if change.startswith("occupied"):
                 unit = await (
                     await conn.execute(
                         "SELECT u.id,o.evidence_hash FROM cardhobby_purchase_unit u JOIN cardhobby_purchase_order o ON o.id=u.order_id WHERE u.owner_id=%s AND u.item_id=%s",
@@ -161,7 +177,7 @@ def test_legacy_field_rebuild_proves_history_and_still_requires_all_pairs(
                     (owner, item, FIELD_GATE_KEY),
                 )
             ).fetchone()
-            if change == "complete":
+            if change in ("complete", "occupied_different"):
                 assert result["status"] == "recorded", result
                 assert len(transactions) == 1 and gate is None
             else:
@@ -176,7 +192,7 @@ def test_legacy_field_rebuild_proves_history_and_still_requires_all_pairs(
                         )
                         in gate["decision"]["pending_item_refs"]
                     )
-            if change in ("occupied", "text_automatic_uncertain"):
+            if change in ("occupied", "occupied_uncertain", "occupied_integrity", "text_automatic_uncertain"):
                 retried = await service.resolve_search(
                     conn, owner, item, [OrderCapture.model_validate(current)], True
                 )
@@ -186,6 +202,15 @@ def test_legacy_field_rebuild_proves_history_and_still_requires_all_pairs(
                         "SELECT id FROM card_transaction WHERE collection_item_id=%s", (item,)
                     )
                 ).fetchall()
+            if change.startswith("occupied"):
+                assert len(await (await conn.execute(
+                    "SELECT id FROM card_transaction WHERE collection_item_id=%s", (other_item,)
+                )).fetchall()) == 1
+                assert (await (await conn.execute(
+                    "SELECT collection_item_id FROM cardhobby_cost_assignment WHERE unit_id=%s", (unit["id"],)
+                )).fetchone())["collection_item_id"] == other_item
+            if change == "occupied_different":
+                assert original["lines"][1]["item_id"] in observed
             await conn.commit()
 
     asyncio.run(run())

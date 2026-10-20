@@ -388,27 +388,28 @@ def evaluate_observation(
         }
 
     ls, rs = serials(left), serials(right)
+    # A well-bound printed physical difference excludes a pair, even when
+    # unrelated subjects or brands also differ. Those differences must not
+    # hide a decisive negative behind an uncertain descriptive comparison.
+    if len(ls) > 1 or len(rs) > 1:
+        return {**result, "reasons": ["serial_reading_inconsistent"]}
+    if ls and rs and ls != rs:
+        return {**result, "verdict": "different", "reasons": ["serial_conflict"]}
+    ln, rn = values(left, "card_number"), values(right, "card_number")
+    if len(ln) > 1 or len(rn) > 1:
+        return {**result, "reasons": ["card_number_reading_inconsistent"]}
+    if ln and rn and ln != rn:
+        return {**result, "verdict": "different", "reasons": ["printed_card_number_conflict"]}
     for kind in (
         "player", "insert", "parallel", "autograph", "edition", "brand", "product", "season", "team"
     ):
         a, b = values(left, kind), values(right, kind)
         if a and b and a != b:
             return {**result, "reasons": ["printed_identity_fields_conflict:" + kind]}
-    # Multiple incompatible readings within one side are uncertainty, never a
-    # chance to cherry-pick the fraction matching the other side.
-    if len(ls) > 1 or len(rs) > 1:
-        return {**result, "reasons": ["serial_reading_inconsistent"]}
-    if ls and rs and ls != rs:
-        return {**result, "verdict": "different", "reasons": ["serial_conflict"]}
-    ln, rn = values(left, "card_number"), values(right, "card_number")
     from card_platform.domain.card_identity import CardIdentityResolver
 
     expected_number = CardIdentityResolver().resolve(card).card_number
     normalized_number = printed_key('card_number', str(expected_number or ""))
-    if len(ln) > 1 or len(rn) > 1:
-        return {**result, "reasons": ["card_number_reading_inconsistent"]}
-    if ln and rn and ln != rn:
-        return {**result, "verdict": "different", "reasons": ["printed_card_number_conflict"]}
     suggestions = {}
     if normalized_number and ln and ln != {normalized_number}:
         if (ln == rn and small_card_number_typo(normalized_number, next(iter(ln)))
@@ -808,10 +809,27 @@ def apply_multi_observation(card, match, decision):
     except (ValueError, KeyError, TypeError):
         return match
     if checked["verdict"] == "different":
+        # Only old descriptive-comparison early returns are safe to recompute.
+        # Repair/data-integrity uncertainty must retain its veto even if the
+        # surviving fields contain a difference; deleted readings are unknown.
+        descriptive_reasons = {
+            "printed_identity_fields_conflict:" + kind
+            for kind in ("player", "insert", "parallel", "autograph", "edition",
+                         "brand", "product", "season", "team")
+        }
+        reasons = decision.get("reasons")
+        safe_old_comparison = (decision.get("verdict") == "uncertain"
+            and isinstance(reasons, list) and len(reasons) == 1
+            and reasons[0] in descriptive_reasons)
+        if decision.get("verdict") != "different" and not safe_old_comparison:
+            return {**match, "visual_inference": decision}
+        negative = {**decision, "verdict": "different", "reasons": checked["reasons"]}
+        if decision.get("verdict") != "different":
+            negative["rule_reclassified_from"] = decision.get("verdict")
         return {
             **match,
             "automatic": False,
-            "visual_inference": decision,
+            "visual_inference": negative,
             "conflicts": [*match["conflicts"], *checked["reasons"]],
         }
     from card_platform.purchase_cost_inference import inference_eligible

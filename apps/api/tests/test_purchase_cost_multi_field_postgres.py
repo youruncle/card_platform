@@ -54,7 +54,7 @@ class FieldConnection:
         if 'SELECT decision FROM cardhobby_cost_visual_inference' in sql:
             return Cursor([])
         assert 'SELECT u.id,u.item_id,o.external_order_id' in sql
-        return Cursor(self.units)
+        return Cursor([{**unit, "occupied": False} for unit in self.units])
 
 
 @pytest.mark.asyncio

@@ -137,6 +137,66 @@ def test_actual_printed_conflict_is_not_hidden_by_bad_stored_number():
     assert result["reasons"] == ["printed_card_number_conflict"]
 
 
+@pytest.mark.parametrize("anchor,left_value,right_value,reason", [
+    ("card_number", "VFH-21", "TC-LM", "printed_card_number_conflict"),
+    ("serial", "26/75", "27/75", "serial_conflict"),
+])
+def test_actual_card_number_conflict_precedes_other_printed_field_differences(
+    anchor, left_value, right_value, reason
+):
+    obs = evidence(
+        [field(anchor, left_value), field("player", "Homelander"), field("brand", "Skybox")],
+        [field(anchor, right_value), field("player", "Liam McNeeley"), field("brand", "Topps")],
+    )
+    result = evaluate_observation(obs, {"card_number": "VHF-21"}, [H, H])
+    assert result["verdict"] == "different", result
+    assert result["reasons"] == [reason]
+
+
+def test_cached_uncertain_pair_can_only_gain_a_bound_negative_classification():
+    card, binding, proof = bound(dict(card_number="VHF-21", image_content_hashes={"front": H, "back": H}))
+    obs = evidence(
+        [field("card_number", "VFH-21"), field("player", "Homelander")],
+        [field("card_number", "TC-LM"), field("player", "Liam McNeeley")],
+    )
+    decision = dict(source="purchase_multi_image", verdict="uncertain",
+                    reasons=["printed_identity_fields_conflict:player"],
+                    observations=obs.model_dump(mode="json"), evidence_binding=binding)
+    match = dict(automatic=False, recalled=True, conflicts=[], missing=[], reasons=[],
+                 item_id="123", evidence_hash="order")
+    result = apply_multi_observation(card, match, decision)
+    assert not result["automatic"]
+    assert result["visual_inference"]["verdict"] == "different"
+    assert result["visual_inference"]["rule_reclassified_from"] == "uncertain"
+    assert result["visual_inference"]["observations"] == decision["observations"]
+    assert decision["verdict"] == "uncertain"
+    stale = copy.deepcopy(decision)
+    stale["evidence_binding"]["order_hash"] = "stale"
+    assert "visual_inference" not in apply_multi_observation(card, match, stale)
+
+
+@pytest.mark.parametrize("reasons", [
+    ["repair_dropped_identity_observation"],
+    ["printed_identity_fields_conflict:player", "repair_dropped_identity_observation"],
+    ["card_number_reading_inconsistent"],
+    ["field_semantics_unconfirmed"],
+    ["independent_finish_unconfirmed"],
+    [],
+])
+@pytest.mark.parametrize("review_only", [False, True])
+def test_uncertain_integrity_veto_cannot_become_exclusion(reasons, review_only):
+    card, binding, _ = bound(dict(card_number="77", image_content_hashes={"front": H, "back": H}))
+    obs = evidence([field("card_number", "77")], [field("card_number", "78")])
+    decision = dict(source="purchase_multi_image", verdict="uncertain", reasons=reasons,
+                    observations=obs.model_dump(mode="json"), evidence_binding=binding)
+    match = dict(automatic=False, recalled=True, conflicts=[], missing=[], reasons=[],
+                 item_id="123", evidence_hash="order", field_review_only=review_only)
+    result = apply_multi_observation(card, match, decision)
+    assert result["conflicts"] == []
+    assert not result["automatic"]
+    assert result["visual_inference"] == decision
+
+
 @pytest.mark.parametrize(
     "stored,observed", [("217", "218"), ("VFH-21", "VFH-22"), ("VFH-21", "ABC-21")]
 )

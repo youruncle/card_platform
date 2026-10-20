@@ -747,14 +747,21 @@ class PurchaseCostService:
         candidates = [row for row in preview['candidates'] if row['order_id'] in fresh_ids
                       and inference_eligible(card,row) and row['image_urls']]
         knowledge = await load_purchase_cost_knowledge(conn, card)
-        units = await conn.execute('''SELECT u.id,u.item_id,o.external_order_id
+        units = await conn.execute('''SELECT u.id,u.item_id,o.external_order_id,
+            EXISTS(SELECT 1 FROM cardhobby_cost_assignment a WHERE a.unit_id=u.id
+                   AND NOT (%s AND a.collection_item_id=%s)) AS occupied
             FROM cardhobby_purchase_unit u JOIN cardhobby_purchase_order o ON o.id=u.order_id
             WHERE u.owner_id=%s AND o.owner_id=%s AND o.external_order_id=ANY(%s)
-              AND u.active AND u.bundle_index=0 AND NOT EXISTS
-              (SELECT 1 FROM cardhobby_cost_assignment a WHERE a.unit_id=u.id
-               AND NOT (%s AND a.collection_item_id=%s))''',
-            (owner_id, owner_id, sorted(fresh_ids), refresh, item_id))
-        available = {(row['external_order_id'], row['item_id']): row['id'] for row in await units.fetchall()}
+              AND u.active AND u.bundle_index=0''',
+            (refresh, item_id, owner_id, owner_id, sorted(fresh_ids)))
+        unit_rows = await units.fetchall()
+        available = {(row['external_order_id'], row['item_id']): row['id']
+                     for row in unit_rows if not row['occupied']}
+        # Historical scope can be excluded by current negative photo evidence
+        # even if another inventory item owns the unit. This map is used only
+        # for field review; it never adds an available purchase candidate.
+        review_units = {(row['external_order_id'], row['item_id']): row['id']
+                        for row in unit_rows if row['occupied']}
         for order in orders:
             if order_errors(order):
                 continue
@@ -762,7 +769,8 @@ class PurchaseCostService:
                 line = captured.model_dump(mode='json')
                 ref = (order.external_order_id, line['item_id'])
                 unit = available.get(ref)
-                if ref in pending_refs | rebuilt_refs and not unit:
+                review_only = not unit and ref in rebuilt_refs and ref in review_units
+                if ref in pending_refs | rebuilt_refs and not unit and not review_only:
                     unresolved.append(dict(order_id=ref[0],item_id=ref[1],code='previous_candidate_unavailable'))
                 product = archive.product(line, verify_images=False)
                 match = score_from_product(card, line, knowledge, product, scorer=score_match)
@@ -773,10 +781,12 @@ class PurchaseCostService:
                        and (row.get('visual_inference') or {}).get('source') != 'purchase_multi_image'
                        for row in preview['candidates']):
                     continue
-                if (unit and line['quantity'] == 1 and line['image_urls']
+                review_unit = unit or (review_units.get(ref) if review_only else None)
+                if (review_unit and line['quantity'] == 1 and line['image_urls']
                         and (multi_review_eligible(card, match) or title_correction_eligible(card, match) or ref in rebuilt_refs)):
-                    candidates.append(dict(unit_id=str(unit), evidence_hash=evidence_hash(order),
-                                           order_id=order.external_order_id, **line, **match))
+                    candidates.append(dict(unit_id=str(review_unit), evidence_hash=evidence_hash(order),
+                                           order_id=order.external_order_id, **line, **match,
+                                           field_review_only=bool(review_only)))
                 elif unit and title_correction_eligible(card, match):
                     unresolved.append(dict(order_id=order.external_order_id,item_id=line['item_id'],code='unsupported_product_candidate'))
                 elif (unit and ref in pending_refs and not match['automatic']
@@ -918,10 +928,18 @@ class PurchaseCostService:
                 async with asyncio.timeout(90):
                     evidence = await observer.observe(card,row,row['evidence_hash'])
                 match = apply_inference(card,row,evidence)
+                normalized = match.get('visual_inference') or {}
+                if (evidence.get('source') == 'purchase_multi_image'
+                        and normalized.get('source') == 'purchase_multi_image'
+                        and normalized.get('verdict') == 'different'):
+                    evidence = normalized
                 verified_rejection = (evidence.get('verdict') == 'different'
                     and bool(set(match['conflicts']) - set(row['conflicts']))
                     and match.get('visual_inference') == evidence)
-                if not match['automatic'] and not verified_rejection:
+                if row.get('field_review_only') and not verified_rejection:
+                    issues.append(dict(order_id=row['order_id'],item_id=row['item_id'],
+                                       code='previous_candidate_unavailable'))
+                elif not match['automatic'] and not verified_rejection:
                     issues.append(dict(order_id=row['order_id'],item_id=row['item_id'],
                                        code='multi_photo_identity_unconfirmed',reasons=evidence['reasons']))
                 decisions.append((row,evidence))
