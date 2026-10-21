@@ -58,6 +58,8 @@
 Final checkpoint: 743 cost tests passed; changed-file Ruff passed; independent review resolved. Complete history 219 orders / 813 products (799 ready, 14 failed). Normal three-card stage plus ID855-only follow-up produced ID858 CNY6.08 and ID855 CNY6.20; ID861 remains unconfirmed. Both post-write reviews complete. All 10 current negative identity/offer/assignment gates zero; raw unverified recall is reported separately. Original100 transactions, assignments and identities preserved. API/web fusion2 and iPhone1.1.12(16) verified. Final evidence: validation.md, deployment.md, evidence-fusion-report.md. Original100 driver/automation stays stopped; no duplicated financial replay.
 
 ## 2026-10-21 User-authorized complete100 rerun
-- [ ] T40 Execute the original frozen100 cards through the currently published normal cost path in a separate stage, preserving8 existing costs and all original evidence. Audit every new write and all10 negative gates; deliver a100-row summary with current cost/status, concrete blocker and source evidence for further human analysis. No forced selection or product code changes.
+- [x] T40 Execute the original frozen100 cards through the currently published normal cost path in a separate stage, preserving8 existing costs and all original evidence. Audit every new write and all10 negative gates; deliver a100-row summary with current cost/status, concrete blocker and source evidence for further human analysis. No forced selection or product code changes.
 
 - [x] T41 修复明确采购来源与另一笔同款的归属冲突：真实故障归因、财务受阻/来源缺席/有效来源/无来源/直接确认回归；保留实际异常交易并单列；基于当前线上发布最小补丁并核对worker及Flash原生非思考，按第32张断点续跑，不把异常复核伪记为通过。
+
+T40最终范围：100张均执行并审计，19张可用成本（8原有＋11新增）、13待选、67未确认、1实际来源争议；完整列表及最终证据见rerun100-final-report.md。任务完成不表示100张都有成本，不表示异常交易被删除或复核通过。
