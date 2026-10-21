@@ -241,6 +241,22 @@ def _same_source_item(card: dict, line: dict) -> bool:
     return bool(item_id) and any(_source_item_id(url) == item_id for url in urls)
 
 
+def purchase_source_conflicts(card: dict, line: dict) -> list[str]:
+    """A saved purchase source constrains allocation, independently of identity."""
+    # Recognize a source declaration or the persisted order-review annotation,
+    # not a photo/valuation/reference source mentioned elsewhere in notes.
+    urls = re.findall(
+        r"(?:^|[\n；;。])\s*(?:\d{4}-\d{2}-\d{2}\s+)?"
+        r"(?:(?:订单逐项图像复核|采购记录|购入记录)\s*[:：]\s*)?"
+        r"(?:来源(?:商品)?|采购来源|购入来源|source)\s*[:：]?\s*(https://[^\s<>\"'()，。；）]+)",
+        card.get("notes") or "", re.I,
+    )
+    sources = {item for url in urls if (item := _source_item_id(url))}
+    if sources and _source_item_id(line.get("item_url") or "") not in sources:
+        return ["库存已保存来源商品与候选商品不一致，需核对采购归属"]
+    return []
+
+
 def prepared_purchase_identity(card, knowledge):
     from card_platform.purchase_cost_knowledge import memoize_purchase_value
 

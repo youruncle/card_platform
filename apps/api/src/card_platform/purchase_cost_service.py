@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 from psycopg.types.json import Jsonb
 
-from card_platform.purchase_cost import OrderCapture, allocate_shipping, evidence_hash, order_errors, score_match, prepare_purchase_recall
+from card_platform.purchase_cost import OrderCapture, allocate_shipping, evidence_hash, order_errors, score_match, prepare_purchase_recall, purchase_source_conflicts
 from card_platform.purchase_cost_search import build_purchase_cost_search_plan
 from card_platform.purchase_cost_images import multi_review_eligible
 from card_platform.purchase_cost_bundle import bundle_match, same_bundle_layout
@@ -282,7 +282,8 @@ class PurchaseCostService:
                 match = {k: v for k, v in match.items() if k not in {"item_id", "evidence_hash"}}
             if not match["recalled"]:
                 continue
-            reasons = match["conflicts"] + unit["errors"]
+            provenance = purchase_source_conflicts(card, line)
+            reasons = match["conflicts"] + unit["errors"] + provenance
             if not unit["bundle_index"] and unit["assigned_child"]:
                 reasons.append("整包已有单卡分摊成本，不能重复分配整包")
             if unit["assigned_item"] and not (refresh and str(unit["assigned_item"]) == str(item_id)):
@@ -294,6 +295,7 @@ class PurchaseCostService:
                                      title=unit['title'], match_reasons=match['reasons'],
                                      identity_conflicts=match['conflicts'],
                                      identity_missing=match['missing'], automatic_identity=match['automatic'],
+                                     provenance_conflicts=provenance,
                                      order_errors=unit['errors'],
                                      allocation_blocked=bool((unit['assigned_item'] and not (refresh and str(unit['assigned_item']) == str(item_id)))
                                          or (not unit['bundle_index'] and unit['assigned_child']))))
@@ -348,8 +350,10 @@ class PurchaseCostService:
                 match = score_from_product(card, line, knowledge, product, scorer=score_match)
                 if not match['recalled']:
                     continue
+                provenance = purchase_source_conflicts(card, line)
                 rejected.append(dict(item_id=line['item_id'], title=line['title'],
-                    reasons=match['conflicts'] + order['errors'], match_reasons=match['reasons'],
+                    reasons=match['conflicts'] + order['errors'] + provenance, match_reasons=match['reasons'],
+                    provenance_conflicts=provenance,
                     identity_conflicts=match['conflicts'], identity_missing=match['missing'],
                     automatic_identity=match['automatic'], order_errors=order['errors'],
                     allocation_blocked=False))

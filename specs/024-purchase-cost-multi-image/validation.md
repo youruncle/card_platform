@@ -222,3 +222,7 @@ TDD 初轮5失败14例，补充保留原完整标题路径、旧范围覆盖及�
 私有证据：`.runtime/evidence-fusion-20261020/followup/full-final.log`、`review-red.log`、`ruff-final.log`、`activation.json`、`final-runtime.json`、`negative-eligibility-preview.json`、`negative-final-summary.json`、`offline-final.json`、`retained-policy-summary.json`、`ledger-final-comparison.json`、`retry855/out`；`three/post-write-review.ID858.json`、`post-write-review.ID855.json`及两组原图/金额核对。没有覆盖三卡初轮结果、原100或原账本副本。
 
 最终speckit-converge已完成：核对6项FR-E、9项FR-H、基础/扩展各7项验收、2项迁移义务、当前6项计划及5项宪法原则；在本次构建范围内无missing/partial/contradicts/unrequested待建项。前后hooks为空，未追加空Convergence章节，任务文件在收敛操作前后SHA一致。861未知、14件商品准备失败及未跑全API/客户端业务E2E是已明确保留的实际结果与验证局限，不冒充已完成识别。私有convergence.json留存证据映射。
+
+## 2026-10-21 采购来源约束修复（线上接续前）
+
+原始隔离PG回归3失败/1通过，确认财务受阻的原来源会被另一同款替代。两模块最小修复后，购买成本相关测试688通过；Ruff相关四文件通过。参考来源误判经独立审查发现并红绿回归修复，最终复审无该范围内剩余重要问题。私有驱动异常隔离复核门5通过。真实异常只读回放确认另一同款被来源约束阻断、原来源继续财务待核算，原实际交易保留；最终严格解析版本还须部署前/后再次核对。全100及最终审计未完成，T40/T41保持待完成。未运行新的全API、网页或手机端到端套件。

@@ -56,3 +56,8 @@
 - [x] T39 实际855复跑发现旧占用单元无法核图、其他字段差异遮蔽明确卡号负证据；先RED再最小修复，只读排除different，same/unknown占用继续阻断，保留原分配；审查、发布并仅续跑855，完成真实入账/负例与最终审计。
 
 Final checkpoint: 743 cost tests passed; changed-file Ruff passed; independent review resolved. Complete history 219 orders / 813 products (799 ready, 14 failed). Normal three-card stage plus ID855-only follow-up produced ID858 CNY6.08 and ID855 CNY6.20; ID861 remains unconfirmed. Both post-write reviews complete. All 10 current negative identity/offer/assignment gates zero; raw unverified recall is reported separately. Original100 transactions, assignments and identities preserved. API/web fusion2 and iPhone1.1.12(16) verified. Final evidence: validation.md, deployment.md, evidence-fusion-report.md. Original100 driver/automation stays stopped; no duplicated financial replay.
+
+## 2026-10-21 User-authorized complete100 rerun
+- [ ] T40 Execute the original frozen100 cards through the currently published normal cost path in a separate stage, preserving8 existing costs and all original evidence. Audit every new write and all10 negative gates; deliver a100-row summary with current cost/status, concrete blocker and source evidence for further human analysis. No forced selection or product code changes.
+
+- [ ] T41 修复明确采购来源与另一笔同款的归属冲突：真实故障归因、财务受阻/来源缺席/有效来源/无来源/直接确认回归；保留实际异常交易并单列；基于当前线上发布最小补丁并核对worker及Flash原生非思考，按第32张断点续跑，不把异常复核伪记为通过。
