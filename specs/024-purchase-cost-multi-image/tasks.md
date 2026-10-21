@@ -60,4 +60,4 @@ Final checkpoint: 743 cost tests passed; changed-file Ruff passed; independent r
 ## 2026-10-21 User-authorized complete100 rerun
 - [ ] T40 Execute the original frozen100 cards through the currently published normal cost path in a separate stage, preserving8 existing costs and all original evidence. Audit every new write and all10 negative gates; deliver a100-row summary with current cost/status, concrete blocker and source evidence for further human analysis. No forced selection or product code changes.
 
-- [ ] T41 修复明确采购来源与另一笔同款的归属冲突：真实故障归因、财务受阻/来源缺席/有效来源/无来源/直接确认回归；保留实际异常交易并单列；基于当前线上发布最小补丁并核对worker及Flash原生非思考，按第32张断点续跑，不把异常复核伪记为通过。
+- [x] T41 修复明确采购来源与另一笔同款的归属冲突：真实故障归因、财务受阻/来源缺席/有效来源/无来源/直接确认回归；保留实际异常交易并单列；基于当前线上发布最小补丁并核对worker及Flash原生非思考，按第32张断点续跑，不把异常复核伪记为通过。
