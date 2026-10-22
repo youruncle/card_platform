@@ -17,6 +17,36 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+def test_persisted_market_nickname_remains_available_without_price_admission():
+    async def check():
+        from card_platform.player_prices.service import existing_samples
+        from card_platform.public_source_catalog import store_observations
+        from test_player_market import observation
+
+        source = int(uuid4().int % 1000000000)
+        obs = observation(source, "2020-21 Prizm 三球 新秀 base 卡品如图")
+        async with await psycopg.AsyncConnection.connect(
+            os.environ["TEST_DATABASE_URL"], row_factory=dict_row
+        ) as c:
+            try:
+                await store_observations(c, [obs])
+                found = await existing_samples(c, "LaMelo Ball", date(2026, 10, 21))
+                assert obs in found
+                # A query nickname only discovers candidates. There is no
+                # image approval or price row simply because retrieval worked.
+                row = await (
+                    await c.execute(
+                        "SELECT count(*) AS n FROM player_price_sale WHERE source_id=%s",
+                        ("item:" + str(source),),
+                    )
+                ).fetchone()
+                assert row["n"] == 0
+            finally:
+                await c.rollback()
+
+    asyncio.run(check())
+
+
 def test_price_snapshot_idempotency_fixed_basket_and_account_scope():
     asyncio.run(check())
 

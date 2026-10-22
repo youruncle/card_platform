@@ -203,7 +203,8 @@ class PriceImageReader:
         )
 
 
-async def capture_receipt(observation, store, reader, *, client=None):
+async def capture_pair(observation, store, *, client=None):
+    """Archive a bound public pair; no model request or identity admission."""
     if client is None:
         async with httpx.AsyncClient(
             timeout=30,
@@ -212,7 +213,7 @@ async def capture_receipt(observation, store, reader, *, client=None):
                 "User-Agent": "Mozilla/5.0 AppleWebKit/537.36 Chrome/139 Safari/537.36",
             },
         ) as public_client:
-            return await capture_receipt(observation, store, reader, client=public_client)
+            return await capture_pair(observation, store, client=public_client)
     sale, _ = validated_sale(observation)
     html_bytes = await read_bounded(client, sale.source_url, limit=2 * 1024 * 1024)
     html = html_bytes.decode("utf-8")
@@ -238,6 +239,11 @@ async def capture_receipt(observation, store, reader, *, client=None):
     store.put(html_bytes)
     for _, data, _ in images:
         store.put(data)
+    return html, images, now
+
+
+async def capture_receipt(observation, store, reader, *, client=None):
+    html, images, now = await capture_pair(observation, store, client=client)
     try:
         result, usage = await reader.observe([(data, mime) for _, data, mime in images])
     except PriceImageReadError as error:

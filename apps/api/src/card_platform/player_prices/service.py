@@ -6,7 +6,8 @@ import httpx
 from psycopg.types.json import Jsonb
 from datetime import datetime, timedelta
 
-from card_platform.domain.player_aliases import query_player_aliases, matching_player_aliases
+from card_platform.domain.player_aliases import matching_player_aliases
+from card_platform.player_prices.collection import collection_player_aliases
 from card_platform.player_prices.discovery import card_key, collect_player, identify_sale, rejection_reason
 from card_platform.player_prices.domain import TZ, day_end, select_basket
 from card_platform.player_prices.repository import PriceRepository
@@ -34,7 +35,7 @@ async def existing_samples(c, player_name, report_date):
         dict.fromkeys(
             [
                 player_name,
-                *query_player_aliases(player_name),
+                *collection_player_aliases(player_name),
                 *matching_player_aliases(player_name.casefold()),
             ]
         )

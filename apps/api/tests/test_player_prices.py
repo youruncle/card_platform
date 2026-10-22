@@ -183,7 +183,10 @@ def test_discovery_budget_is_shared_between_aliases_and_fixed_cards():
     ]
     rows, coverage = asyncio.run(collect_player("Stephen Curry", basket, D, provider=provider))
     assert rows == [] and coverage["pages"] == 12 and coverage["budget_exhausted"]
-    assert len(set(query for query, page in provider.calls)) == 5
+    queries = set(query for query, page in provider.calls)
+    assert len(queries) == 6 and '库里 pz' in queries
+    assert {f'Stephen Curry 2024 {product} Base 23'
+            for product in ['Prizm', 'Hoops', 'Select']} <= queries
     assert coverage["errors"] == []
 
 

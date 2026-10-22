@@ -219,3 +219,23 @@ v3为替换已诊断的低效旧shadow候选而显式SIGINT中断，触发取消
 
 
 实现已提交efa176ab。完整shadow和独立复核通过且最新备份校验后，实际生产应用0085并同事务登记schema_migration版本，SQL SHA与隔离验证一致；cloud-0085-apply.json读回public两表存在、audits=0/revisions=0、原5job/5批准及版本记录=1。独立第二次cloud-0085-idempotent.json重新连接读回newly_applied=false，没有重复建表或新登记；cloud-verified-refresh-post-0085.json确认shadow=0、两审计表为空、health/ready正确路径200及全部worker/视觉/搜索不变量通过。API镜像和实际价格包仍为本节之前的线上版本，没有执行正式派生repair、没有开启图片runner或新增模型请求；T031双端发布尚未完成。此迁移只为后续受审计的准入/修复建立存储，不算新增业务覆盖。
+
+## 2026-10-22 第十二批：真实召回缺口、照片排除样本与新增2笔可信登记
+
+此前精确发现脚本要求标题出现卡号，漏掉了大量没有卡号的真实标题；原collector只用完整英文/年份/产品/版本/号码及两个广词，未覆盖三球/华子/文班、PZ/TC等市场写法。本批实际公开检索包含中文精确、省略部分年份/产品/号码的变体及53页市场简称查询，后者3124条观察、0错误、0模型请求。它们只是发现候选，不能直接计价；“七七”实测大量命中代卖店名，不加入昵称表。实际source Title中的【V221】也被发现脚本误选为221候选，不能把研究脚本的误选说成原来源声明了错误卡号。
+
+collection新增仅查询用市场词，按产品共享PZ/TC查询，保留旧精确词和两个广词，总查询最多8个、默认总预算仍12页。existing_samples同样检索这些词，避免捕获落库后下轮不可见；不改全局身份别名或图片/标题/当前官方资料准入。独立审查实证新增多词后每词固定2页会永远花在头部+锚点，无法续页；先RED后把额外页按2页一组公平轮转。另修正已闭合且完全同一头部重复建gap的问题，随后独立审查捕获“空查询后来新增60+1条”被旧complete标记永久漏采；先RED证明遗漏第二页ID，再在无实际旧head_at/head_ids、满页且旧complete时重开历史；不能把滚动日合成的report_end边界误作实际非空头部。滚动报告日强制重访、未完成缺口、同秒并列、页移位与二次突发原回归保留。
+
+实际云端控制进程使用新collector和默认12页，同一上海报告日2026-10-21，两个独立进程从scanner持久卷读取游标；三球与爱德华兹第一轮各10页/536观察，第二轮各12页/655及656观察，新增独立商品分别244及234。两人完整英文/中文广词历史next_page均4→6，市场昵称3→5，昵称PZ词2→3；两轮无查询错误、增量完整、历史均未完整。捕获cloud-market-collector-controls-round{1,2}.jsonl，原观察及游标另存持久卷.player-price-evidence/collection-controls。它们是实际源适配/续采控制验证，没有写正式行情，不是T031要求的两次独立后台更新。
+
+image_reader拆出无模型的capture_pair，继续要求原观察绑定准确商品图库且恰好两张不同单卡图，有界校验并归档准确HTML/图片字节；原capture_receipt在其后执行逐面模型及原始trace/收据绑定。37笔候选实取27组两面、10笔图库不足被拒，没有为这些捕获创建价格或批准。27组contact均由Codex目视对照，其中三组清晰控制另导出/查看原图。comparable-pair-manual-review.json完整记录发现阶段可见字段及未知，不是批准清单：TCU #22/MT-10、红碎冰/红白蓝/绿折、普通Base等不能并入目标Silver；詹姆斯130311004/130311048/130311067及东契奇136360738/139410375/130000489各自复用完全相同两面hash，不能计三份独立实卡。相近但hash不同照片不能仅凭字节差异确认独立实卡。爱德华兹140367846同258但正面选图不同，暂留变化版风险；PSA证书74851166确有VARIATION-FAST BREAK登记，但其参考图片抓取超时，没有据此批准本样本的精确版别。重复实卡及无文字照片变化版仍需补足正式准入保护，不能视为已完成。
+
+仅对已先查看原图的文班137786542、库里142311336、东契奇130313714作一次最多6调用的控制，实际6次deepseek-flash，均显式thinking disabled，保留原prompt/逐面输出/置信度/用量。纯自动准入仍0：模型漏认彩虹、把普通金属印刷细点认作额外纹理，或把比赛背景对手认作多主体。按实际图像逐字段记录Codex修正，不改模型原trace或置信度。文班背面221/REFRACTOR清楚，但原标题仅“2025 Topps Chrome”；当前publication22有2025-26普通221官方卡款，却没有该单年→赛季的已发布产品映射，保留release_season_unconfirmed，不把版权/统计年补作发行行。该笔未批准。独立照片复用/变化版风险也没有通过扩大模型调用来绕过；图片自动调用预算保持0，未启用runner。
+
+库里142311336（2024-25 Prizm #134 Silver Prizm）和东契奇130313714（2024-25 Prizm #89 Silver Prizm）复核后在当前publication22完整confirmed。先只读预检，导入前将原公开行存审计blob；按原hash/源事实检查保存，随后在服务器可信工作流登记2个当前收据及批准，不开放客户端自批。批准hash分别5bccb0511006a93f5bf805fa46722f5971c076d3e25a9bd6a148aa0f642a83c2、8247be62a7704df39272aeb3d521984a269c087de52599d6b4b703b496bfe5f1。独立第二进程重复导入/从DB及持久卷重走完整admit，仍仅2 attempts/4 reserved/0 actual新增；这里actual=0指归档导入阶段，前述控制实际付费6次另存原始捕获，不冒充零模型成本。全球登记现为7 jobs/7 approvals、revision=0，没有正式player_price_sale写入或重启服务。独立源审计读回确认首次新增前两条公开来源均不存在；幂等轮已有2条的金额/日期/标题全部与批准原件相同，没有覆盖已存在的不同成交事实。
+
+全部公开发现材料、27组两面、付费trace、复核历史共107个可读blob已逐个SHA核验，云端独立备份/home/ubuntu/card-platform/backups/player-price-verified-refresh-20261022/comparable-discovery-27pairs.tar.gz，81590673字节，SHA256 c692dfb4c067b06341edeb3159dac89bf643c94166281cfc5c776dc25e0fcddb；manifest SHA256 a23df42c213890a336e71b8680b9e808d40d18cde75f10c6ea0435e9edff7e0e，0600，非/tmp唯一副本。后续collector控制原观察/游标保存在scanner持久卷。未写本地运行知识库或改动云端知识发布。
+
+最终本地价格/market/公开源兼容聚焦323项通过，1条既有Starlette/httpx警告；Ruff和git diff检查通过。召回/预算、空头部及SQL昵称回读均有保留的不利RED捕获，最终独立99项通过，Critical/Important/Minor均无未关闭项，允许提交本批；不包含业务覆盖或发布完成。cloud-reviewed-next2-postflight.json确认7登记/7批准、revision=0，/health及/health/ready=200，成本worker=true、视觉deepseek-flash非思考、原独立百炼host/key及两个qwen-plus搜索模型均保留。线上API镜像/价格包未替换；本批没有Web/iPhone发布或实际背景日更。
+
+现有可信登记从5人5笔增加至7人7笔，正式严格行情消费仍未发布，0有效趋势的业务缺口尚未解决。T027/T029–T032继续未完成：需处理图片复用/照片变化版保护、补足可比历史与至少30笔实际纳入，达到8位覆盖/5位三日报告趋势后，再完成正式旧派生修复、双端真实路径和持续更新验收。goal继续active，不以这些捕获、登记或测试作为功能完成。

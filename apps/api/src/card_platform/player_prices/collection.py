@@ -6,7 +6,85 @@ import httpx
 from card_platform.domain.player_aliases import query_player_aliases
 from card_platform.ingestion.cardhobby import CardHobbyProvider
 from card_platform.player_prices.domain import TZ, day_end
+from card_platform.player_prices.subjects import name_key
 from card_platform.public_source_catalog import observe_public_sale
+
+
+# Search vocabulary only. These terms neither identify a subject nor enter
+# the shared recognition aliases. In particular, 七七 is also a seller name.
+_MARKET_NAMES = {
+    name_key(name): alias
+    for name, alias in {
+        "stephen curry": "库里",
+        "lebron james": "老詹",
+        "victor wembanyama": "文班",
+        "lamelo ball": "三球",
+        "anthony edwards": "华子",
+        "luka doncic": "东契奇",
+        "cooper flagg": "弗拉格",
+        "kon knueppel": "克努佩尔",
+    }.items()
+}
+_MARKET_PRODUCTS = {"Prizm": "pz", "Topps Chrome": "tc"}
+
+
+def collection_player_aliases(player_name):
+    market = _MARKET_NAMES.get(name_key(player_name))
+    return list(
+        dict.fromkeys(
+            [player_name, *query_player_aliases(player_name), *([market] if market else [])]
+        )
+    )
+
+
+def _queries(player_name, basket):
+    aliases = collection_player_aliases(player_name)
+    precise = [
+        " ".join(
+            str(v)
+            for v in [
+                player_name,
+                entry["identity"].get("season_start"),
+                entry["identity"].get("product_name"),
+                entry["identity"].get("parallel_name"),
+                entry["identity"].get("card_number"),
+                entry["identity"].get("grade_company"),
+                entry["identity"].get("grade_value"),
+            ]
+            if v
+        )
+        for entry in basket[:3]
+    ]
+    market = _MARKET_NAMES.get(name_key(player_name))
+    short = [
+        f"{market or aliases[-1]} {_MARKET_PRODUCTS[entry['identity']['product_name']]}"
+        for entry in basket[:3]
+        if entry["identity"].get("product_name") in _MARKET_PRODUCTS and len(aliases) > 1
+    ]
+    # At most eight distinct queries: retain precise targets and two broad
+    # aliases, add a market nickname and one query per abbreviated product. Sharing
+    # this query across seasons/finishes leaves enough budget to advance history.
+    return list(dict.fromkeys([*precise, *aliases[:2], *([market] if market else []), *short]))
+
+
+def _page_allocations(queries, page_budget, allocation_round):
+    count = len(queries)
+    order = sorted(range(count), key=lambda index: (index - allocation_round) % count)
+    budgets = [0] * count
+    # First keep the fair latest-page checks, then give rotating queries two
+    # extra pages together: rechecking a moved-page anchor alone cannot advance
+    # its saved gap. Equal two-page allocations can otherwise stall forever.
+    for index in order[:page_budget]:
+        budgets[index] = 1
+    remaining = max(0, page_budget - count)
+    while remaining:
+        for index in order:
+            extra = min(2, remaining)
+            budgets[index] += extra
+            remaining -= extra
+            if not remaining:
+                break
+    return budgets
 
 
 def _instant(value):
@@ -107,15 +185,10 @@ async def collect_player(
     coverage. A burst of new sales gets a separate cursor so it cannot silently
     disappear between the latest page and the historical scan.
     """
+    if type(page_budget) is not int or page_budget < 0:
+        raise ValueError('invalid_price_collection_budget')
     provider = provider or CardHobbyProvider(None, "", min_interval=1.0)
-    aliases = list(dict.fromkeys([player_name, *query_player_aliases(player_name)]))[:2]
-    precise = [" ".join(str(v) for v in [
-        player_name, entry["identity"].get("season_start"),
-        entry["identity"].get("product_name"), entry["identity"].get("parallel_name"),
-        entry["identity"].get("card_number"), entry["identity"].get("grade_company"),
-        entry["identity"].get("grade_value"),
-    ] if v) for entry in basket[:3]]
-    queries = list(dict.fromkeys([*precise, *aliases]))
+    queries = _queries(player_name, basket)
     cutoff, end = day_end(report_date) - timedelta(days=90), day_end(report_date)
     previous = query_state if isinstance(query_state, dict) else {}
     states = {query: _state(previous.get(query), cutoff, end) for query in queries}
@@ -151,10 +224,9 @@ async def collect_player(
             ids = [str(row["ID"]) for row in rows if isinstance(row.get("ID"), (str, int))]
             return dates, bool(ended), ids
 
+        allocations = _page_allocations(queries, page_budget, allocation_round)
         for index, query in enumerate(queries):
-            budget = page_budget // len(queries) + (
-                (index - allocation_round) % len(queries) < page_budget % len(queries)
-            )
+            budget = allocations[index]
             if budget <= 0:
                 continue
             state = states[query]
@@ -165,8 +237,16 @@ async def collect_player(
             dates, ended, ids = first
             newest = max(dates, default=None)
             boundary = _instant(state.get("recent_boundary_at") or state.get("head_at"))
+            if (not state.get('head_at') or not state.get('head_ids')) and not ended and state['complete']:
+                # A formerly empty query had no nonempty head to bound an
+                # increment. Its first full page starts a fresh history scan.
+                state['complete'] = False
+                state['next_page'] = 2
             first_dates, first_ended, first_ids = dates, ended, ids
-            if boundary and not (ended or _crossed_boundary(state, dates, ids, boundary)):
+            same_head = (bool(ids) and set(ids) == set(state.get('head_ids', []))
+                         and newest == _instant(state.get('head_at'))
+                         and 'recent_next_page' not in state)
+            if boundary and not (ended or same_head or _crossed_boundary(state, dates, ids, boundary)):
                 state["recent_boundary_at"] = boundary.isoformat()
                 if "recent_next_page" not in state:
                     _restart_gap(state, newest, ids)

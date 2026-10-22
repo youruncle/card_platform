@@ -3,6 +3,8 @@ import asyncio
 from copy import deepcopy
 from datetime import date, datetime, timedelta
 
+import pytest
+
 from card_platform.player_prices.discovery import collect_player
 
 D = date(2026, 10, 21)
@@ -116,6 +118,117 @@ def test_unqueried_alias_due_to_budget_cannot_be_called_a_complete_incremental_r
     _, coverage = asyncio.run(collect_player("Stephen Curry", [], D, provider=Provider(),
                                              page_budget=1))
     assert coverage["incremental_complete"] is False
+
+
+def test_market_abbreviation_finds_numberless_title_without_establishing_identity():
+    # Actual public titles use 三球/PZ and often omit #278. An exact English
+    # name+number query cannot be the only way to discover this candidate.
+    raw = page(count=1)[0]
+    raw["Title"] = "2020-21 Panini Prizm LaMelo Ball 三球 黄蜂 新秀 base"
+
+    class Market(Provider):
+        async def _get_search_payload(self, client, query, number):
+            self.calls.append((query, number))
+            return {"data": {"PagedMarketItemList": [raw] if query == "三球 pz" else []}}
+
+    provider = Market()
+    basket = [
+        dict(
+            identity=dict(
+                season_start=2020, product_name="Prizm", parallel_name="Base", card_number="278"
+            )
+        )
+    ]
+    rows, coverage = asyncio.run(collect_player("LaMelo Ball", basket, D, provider=provider))
+    assert [row["sale"]["title"] for row in rows] == [raw["Title"]]
+    assert ("三球 pz", 1) in provider.calls
+    assert len(provider.calls) <= coverage["page_budget"]
+    from card_platform.player_prices.discovery import identify_sale
+    from card_platform.public_source_catalog import validated_sale
+
+    sale, _ = validated_sale(rows[0])
+    assert identify_sale(sale, "LaMelo Ball", [basket[0]["identity"]]) is None
+
+
+def test_market_queries_keep_their_own_history_cursor_and_bound_the_query_count():
+    basket = [
+        dict(
+            identity=dict(
+                season_start=year, product_name="Prizm", parallel_name="Base", card_number="278"
+            )
+        )
+        for year in (2020, 2021, 2022)
+    ]
+    first = Provider()
+    _, initial = asyncio.run(
+        collect_player("LaMelo Ball", basket, D, provider=first, page_budget=21)
+    )
+    state = initial["history_queries"]
+    assert "三球 pz" in state and len(state) <= 8
+    next_page = state["三球 pz"]["next_page"]
+    assert next_page > 2
+    again = Provider()
+    asyncio.run(
+        collect_player("LaMelo Ball", basket, D, provider=again, page_budget=21, query_state=state)
+    )
+    assert ("三球 pz", next_page) in again.calls
+    assert len(again.calls) <= 21
+
+
+def test_market_query_nicknames_do_not_become_identity_aliases():
+    from card_platform.player_prices.collection import collection_player_aliases
+    from card_platform.domain.player_aliases import matching_player_aliases
+
+    assert "三球" in collection_player_aliases("LaMelo Ball")
+    assert "华子" in collection_player_aliases("Anthony Edwards")
+    assert "七七" not in collection_player_aliases("Luka Doncic")
+    assert "三球" not in matching_player_aliases("lamelo ball")
+
+
+def test_market_nickname_is_also_queried_before_a_representative_card_exists():
+    provider = Provider()
+    asyncio.run(collect_player('LaMelo Ball', [], D, provider=provider))
+    assert ('三球', 1) in provider.calls
+
+
+def test_default_budget_rotates_enough_pages_to_advance_each_anchored_gap():
+    basket = [dict(identity=dict(season_start=year, product_name='Prizm',
+                                parallel_name='Base', card_number='278'))
+              for year in (2020, 2021, 2022)]
+    _, initial = asyncio.run(collect_player('LaMelo Ball', basket, D,
+        provider=SnapshotProvider({1: page('2026-10-18'),
+            2: page('2026-10-17', count=1, offset=60)})))
+    # Every query has the same burst, so no easy/empty query can subsidise it.
+    snapshot = {1: page('2026-10-21', offset=1000),
+                2: page('2026-10-20', offset=1060),
+                3: page('2026-10-17', count=1, offset=60)}
+    result = initial
+    seen = set()
+    for _ in range(10):
+        provider = SnapshotProvider(snapshot)
+        _, result = asyncio.run(collect_player('LaMelo Ball', basket, D,
+            provider=provider, query_state=result['history_queries']))
+        assert len(provider.calls) <= 12
+        seen.update(query for query, number in provider.calls if number == 3)
+        if result['incremental_complete']:
+            break
+    assert seen == set(result['history_queries'])
+    assert result['incremental_complete']
+
+
+@pytest.mark.parametrize('first_report', [D, date(2026, 10, 20)])
+def test_previously_empty_query_captures_a_new_multi_page_head_before_claiming_complete(first_report):
+    _, result = asyncio.run(collect_player(NAME, [], first_report,
+        provider=SnapshotProvider({1: []})))
+    assert result['history_complete']
+    snapshot = {1: page(offset=1000), 2: page('2026-10-19', count=1, offset=2000)}
+    seen = set()
+    for _ in range(4):
+        rows, result = collect(SnapshotProvider(snapshot), result['history_queries'])
+        seen |= ids(rows)
+        if result['history_complete'] and result['incremental_complete']:
+            assert 2001 in seen
+    assert 2001 in seen
 
 
 def test_same_second_auction_burst_scans_past_the_entire_boundary_timestamp():

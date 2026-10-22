@@ -213,3 +213,33 @@ async def test_single_image_or_redirect_does_not_spend_a_model_call(tmp_path):
                 await capture_receipt(
                     observation(), EvidenceBlobs(tmp_path / "images"), Reader(), client=client
                 )
+
+
+@pytest.mark.asyncio
+async def test_pair_capture_archives_bound_public_bytes_without_a_model(tmp_path):
+    from card_platform.player_prices.image_reader import EvidenceBlobs, capture_pair
+    import hashlib
+
+    requests = []
+
+    def answer(request):
+        requests.append(str(request.url))
+        if "/market/item/123" in request.url.path.lower():
+            return httpx.Response(200, text=HTML)
+        if str(request.url) == FRONT:
+            return httpx.Response(200, content=photo("white"))
+        if str(request.url) == BACK:
+            return httpx.Response(200, content=photo("gray"))
+        raise AssertionError("Only the bound public gallery and two exact images may be fetched")
+
+    store = EvidenceBlobs(tmp_path / "pair")
+    async with httpx.AsyncClient(transport=httpx.MockTransport(answer)) as client:
+        html, images, captured_at = await capture_pair(observation(), store, client=client)
+    assert html == HTML and captured_at.tzinfo is not None
+    assert [url for url, _, _ in images] == [FRONT, BACK]
+    assert requests[0].lower() == "https://cardhobby.com.cn/market/item/123"
+    assert requests[1:] == [FRONT, BACK]
+    assert store.read(hashlib.sha256(HTML.encode()).hexdigest()) == HTML.encode()
+    for _, data, mime in images:
+        assert mime == "image/png"
+        assert store.read(hashlib.sha256(data).hexdigest()) == data
