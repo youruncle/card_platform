@@ -82,7 +82,14 @@ async def finalize_reconciliation(c, audit_id):
 
 
 async def reconcile_prices(
-    c, player_id, rows, report_date, *, conflicted_sources=(), photo_reuse_sources=()
+    c,
+    player_id,
+    rows,
+    report_date,
+    *,
+    conflicted_sources=(),
+    photo_reuse_sources=(),
+    photo_pending_sources=(),
 ):
     async with c.transaction():
         return await _reconcile_prices(
@@ -92,11 +99,19 @@ async def reconcile_prices(
             report_date,
             conflicted_sources=conflicted_sources,
             photo_reuse_sources=photo_reuse_sources,
+            photo_pending_sources=photo_pending_sources,
         )
 
 
 async def _reconcile_prices(
-    c, player_id, rows, report_date, *, conflicted_sources, photo_reuse_sources
+    c,
+    player_id,
+    rows,
+    report_date,
+    *,
+    conflicted_sources,
+    photo_reuse_sources,
+    photo_pending_sources,
 ):
     repo = PriceRepository()
     subject = await repo.subject(c, player_id)
@@ -106,7 +121,7 @@ async def _reconcile_prices(
     else:
         members = [player_id]
     await c.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,81))", (str(player_id),))
-    withdrawn = set(photo_reuse_sources)
+    withdrawn = set(photo_reuse_sources) | set(photo_pending_sources)
     previous = await (
         await c.execute(
             "SELECT * FROM player_price_sale WHERE player_id=ANY(%s) OR source_id=ANY(%s) ORDER BY source_id",
@@ -183,8 +198,10 @@ async def _reconcile_prices(
     scope_sources = list(dict.fromkeys(scope_sources + [r["source_id"] for r in previous]))
     before = await _state(c, affected, scope_sources)
     before.update(affected_player_ids=affected, scope_source_ids=scope_sources)
-    if withdrawn:
-        before["photo_reuse_withdrawals"] = sorted(withdrawn)
+    if photo_reuse_sources:
+        before["photo_reuse_withdrawals"] = sorted(set(photo_reuse_sources))
+    if photo_pending_sources:
+        before["photo_independence_pending_withdrawals"] = sorted(set(photo_pending_sources))
     revision = next((r for r in before["revisions"] if r["player_id"] == player_id), None)
     initial = revision is None or revision["policy"] != POLICY
     for source in sorted(blocked):

@@ -56,6 +56,11 @@ class PriceRepository:
     async def due_player(self, c, report_date):
         roster = await self.roster(c)
         ids = [p['id'] for p in roster]
+        photo_pending = await (await c.execute(
+            """SELECT player_id FROM player_price_state WHERE photo_recheck_requested_at IS NOT NULL
+            AND (last_success_at IS NULL OR photo_recheck_requested_at>last_success_at)"""
+        )).fetchall()
+        ids = list(set(ids) | {r['player_id'] for r in photo_pending})
         if not ids:
             return None
         result = await c.execute(
@@ -64,6 +69,9 @@ class PriceRepository:
               (s.last_attempt_at IS NULL OR s.last_attempt_at < now()-interval '5 minutes')
               AND ((s.requested_at IS NOT NULL AND
                     (s.last_attempt_at IS NULL OR s.requested_at>s.last_attempt_at))
+                   OR (s.photo_recheck_requested_at IS NOT NULL
+                       AND (s.last_success_at IS NULL OR s.photo_recheck_requested_at>s.last_success_at)
+                       AND (s.error IS NULL OR s.last_attempt_at<now()-interval '6 hours'))
                    OR ((s.last_report_date IS NULL OR s.last_report_date<%s)
                        AND (s.error IS NULL OR s.last_attempt_at<now()-interval '6 hours'))
                    OR (s.coverage->>'history_complete'='false'

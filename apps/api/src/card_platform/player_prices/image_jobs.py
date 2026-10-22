@@ -4,6 +4,7 @@ The caller commits claim/finish transactions before any network or model work.
 Approvals are a trusted server operation, never a client-supplied authority set.
 """
 
+import asyncio
 import hashlib
 import re
 from collections import defaultdict
@@ -11,7 +12,8 @@ from uuid import uuid4
 
 from psycopg.types.json import Jsonb
 
-from card_platform.player_prices.image_evidence import _seal, image_pair_key
+from card_platform.player_prices.image_evidence import _seal
+from card_platform.player_prices.photo_captures import read_capture, capture_pair_key
 from card_platform.player_prices.image_reviews import ImageReview
 from card_platform.player_prices.repository import PriceRepository
 from card_platform.public_source_catalog import validated_sale
@@ -272,19 +274,77 @@ class ImageJobs:
                 (job_id, review_sha256, row["receipt_sha256"], review.reviewer_kind),
             )
 
+    async def record_photo_capture(self, c, manifest_sha256, *, blob_reader):
+        """Trusted server ingestion. Commit other DB work before reading blobs.
+
+        No network/model calls or price permission. Byte validation precedes
+        the short write lock shared with final price commits.
+        """
+        capture = await asyncio.to_thread(read_capture, manifest_sha256, blob_reader)
+        async with c.transaction():
+            await c.execute("SELECT pg_advisory_xact_lock(8184001)")
+            inserted = await (
+                await c.execute(
+                    """INSERT INTO player_price_photo_capture
+                (capture_manifest_sha256,source_id,observation_sha256,observation,captured_at,pair_a,pair_b)
+                VALUES(%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING source_id""",
+                    (
+                        manifest_sha256,
+                        capture["source_id"],
+                        capture["observation_sha256"],
+                        Jsonb(capture["observation"]),
+                        capture["captured_at"],
+                        capture["pair_a"],
+                        capture["pair_b"],
+                    ),
+                )
+            ).fetchone()
+            if inserted:
+                # Wake original price owners even if both sales left today's
+                # window. Matching indexes are only a notification hint; the
+                # actual refresh revalidates every blob before withdrawal.
+                owners = await (
+                    await c.execute(
+                        """SELECT DISTINCT s.player_id FROM player_price_sale s
+                    WHERE s.source_id IN (
+                      SELECT source_id FROM player_price_photo_capture WHERE pair_a=%s AND pair_b=%s
+                      UNION SELECT source_id FROM player_price_image_job WHERE status='captured'
+                        AND LEAST(receipt->'images'->0->>'sha256',receipt->'images'->1->>'sha256')=%s
+                        AND GREATEST(receipt->'images'->0->>'sha256',receipt->'images'->1->>'sha256')=%s)
+                    """,
+                        (
+                            capture["pair_a"],
+                            capture["pair_b"],
+                            capture["pair_a"],
+                            capture["pair_b"],
+                        ),
+                    )
+                ).fetchall()
+                subjects = await PriceRepository().subjects(c)
+                roots = {subjects.get(row["player_id"])["id"] for row in owners}
+                await c.execute(
+                    """INSERT INTO player_price_state(player_id,requested_at,photo_recheck_requested_at)
+                    SELECT unnest(%s::uuid[]),clock_timestamp(),clock_timestamp()
+                    ON CONFLICT(player_id) DO UPDATE SET requested_at=EXCLUDED.requested_at,
+                    photo_recheck_requested_at=EXCLUDED.photo_recheck_requested_at""",
+                    (sorted(roots, key=str),),
+                )
+        return dict(source_id=capture["source_id"], capture_manifest_sha256=manifest_sha256)
+
     async def source_evidence(self, c, source_ids, *, price_job_ids=()):
-        """Read archived facts even when a source cannot enter the paid queue."""
+        """All source photo history, including sources without a model job."""
+        source_ids = sorted(set(source_ids))
         ids = await (
             await c.execute(
                 "SELECT job_id FROM player_price_image_current WHERE source_id=ANY(%s)",
-                (sorted(set(source_ids)),),
+                (source_ids,),
             )
         ).fetchall()
-        records = await self.evidence(c, [row["job_id"] for row in ids], include_photo_peers=True)
+        records = await self.evidence(c, [row["job_id"] for row in ids])
         eligible = set(price_job_ids)
         for key, record in records.items():
             record["price_eligible"] = key in eligible
-        return records
+        return await self._photo_context(c, records, source_ids)
 
     async def evidence(self, c, job_ids, *, include_photo_peers=False):
         if not job_ids:
@@ -301,58 +361,88 @@ class ImageJobs:
                 (job_ids, include_photo_peers),
             )
         ).fetchall()
+        records = {r["id"]: r for r in rows}
         if include_photo_peers:
-            sources = [r["source_id"] for r in rows]
-            anchors = (
-                await (
-                    await c.execute(
-                        """
-                SELECT * FROM player_price_image_job
-                WHERE source_id=ANY(%s) AND status='captured'
-                ORDER BY source_id,observation_sha256,receipt_sha256,id
-            """,
-                        (sources,),
-                    )
-                ).fetchall()
-                if sources
-                else []
+            # Include pending current jobs with only free historical anchors.
+            sources = await (
+                await c.execute(
+                    "SELECT source_id FROM player_price_image_job WHERE id=ANY(%s)",
+                    (job_ids,),
+                )
+            ).fetchall()
+            return await self._photo_context(c, records, [r["source_id"] for r in sources])
+        return records
+
+    async def _photo_context(self, c, records, source_ids):
+        model_anchors = await (
+            await c.execute(
+                "SELECT * FROM player_price_image_job WHERE source_id=ANY(%s) AND status='captured'",
+                (source_ids,),
             )
-            wanted = [r["id"] for r in anchors if image_pair_key(r["receipt"]) is not None]
-            # A public capture's owner, age or current pointer cannot erase an
-            # already archived photo reuse fact. Peers never supply prices or
-            # subject identity; the caller validates their original binding.
-            peers = (
-                await (
-                    await c.execute(
-                        """
-                SELECT peer.*,
-                  LEAST(peer.receipt->'images'->0->>'sha256',peer.receipt->'images'->1->>'sha256') AS pair_a,
-                  GREATEST(peer.receipt->'images'->0->>'sha256',peer.receipt->'images'->1->>'sha256') AS pair_b
-                FROM player_price_image_job peer WHERE peer.status='captured'
-                AND EXISTS(SELECT 1 FROM player_price_image_job wanted
-                  WHERE wanted.id=ANY(%s) AND wanted.source_id<>peer.source_id
-                  AND LEAST(wanted.receipt->'images'->0->>'sha256',wanted.receipt->'images'->1->>'sha256')
-                      =LEAST(peer.receipt->'images'->0->>'sha256',peer.receipt->'images'->1->>'sha256')
-                  AND GREATEST(wanted.receipt->'images'->0->>'sha256',wanted.receipt->'images'->1->>'sha256')
-                      =GREATEST(peer.receipt->'images'->0->>'sha256',peer.receipt->'images'->1->>'sha256'))
-                ORDER BY peer.source_id,peer.observation_sha256,peer.receipt_sha256,peer.id
-            """,
-                        (wanted,),
-                    )
-                ).fetchall()
-                if wanted
-                else []
+        ).fetchall()
+        free_anchors = await (
+            await c.execute(
+                "SELECT * FROM player_price_photo_capture WHERE source_id=ANY(%s)",
+                (source_ids,),
             )
-            anchors_by_source, peers_by_pair = defaultdict(list), defaultdict(list)
-            for anchor in anchors:
-                anchors_by_source[anchor["source_id"]].append(anchor)
-            for peer in peers:
-                peers_by_pair[(peer["pair_a"], peer["pair_b"])].append(peer)
-            for row in rows:
-                row["photo_peers"] = [
-                    {**peer, "photo_anchor": anchor}
-                    for anchor in anchors_by_source[row["source_id"]]
-                    for peer in peers_by_pair[image_pair_key(anchor["receipt"])]
-                    if peer["source_id"] != row["source_id"]
-                ]
-        return {r["id"]: r for r in rows}
+        ).fetchall()
+
+        def photo_record(row):
+            if row.get("capture_manifest_sha256"):
+                return {
+                    **row,
+                    "id": "photo:" + row["capture_manifest_sha256"],
+                    "receipt": None,
+                    "receipt_sha256": None,
+                    "approved_review_sha256s": [],
+                    "price_eligible": False,
+                }
+            return row
+
+        anchors = [photo_record(r) for r in model_anchors + free_anchors]
+        pairs = sorted({pair for r in anchors if (pair := capture_pair_key(r)) is not None})
+        peers = []
+        if pairs:
+            pair_args = ([p[0] for p in pairs], [p[1] for p in pairs])
+            model_peers = await (
+                await c.execute(
+                    """SELECT * FROM player_price_image_job WHERE status='captured' AND
+                (LEAST(receipt->'images'->0->>'sha256',receipt->'images'->1->>'sha256'),
+                 GREATEST(receipt->'images'->0->>'sha256',receipt->'images'->1->>'sha256'))
+                IN (SELECT * FROM unnest(%s::text[],%s::text[]))""",
+                    pair_args,
+                )
+            ).fetchall()
+            free_peers = await (
+                await c.execute(
+                    """SELECT * FROM player_price_photo_capture WHERE (pair_a,pair_b)
+                IN (SELECT * FROM unnest(%s::text[],%s::text[]))""",
+                    pair_args,
+                )
+            ).fetchall()
+            peers = [photo_record(r) for r in model_peers + free_peers]
+        anchors_by_source, peers_by_pair = defaultdict(list), defaultdict(list)
+        for anchor in sorted(anchors, key=lambda r: str(r["id"])):
+            anchors_by_source[anchor["source_id"]].append(anchor)
+        for peer in sorted(peers, key=lambda r: str(r["id"])):
+            peers_by_pair[capture_pair_key(peer)].append(peer)
+        represented = {r["source_id"] for r in records.values()}
+        for source, captures in anchors_by_source.items():
+            if source not in represented:
+                # A context is never a forged model receipt or an eligible job.
+                context = {
+                    **captures[0],
+                    "receipt": None,
+                    "receipt_sha256": None,
+                    "approved_review_sha256s": [],
+                    "price_eligible": False,
+                }
+                records[context["id"]] = context
+        for row in records.values():
+            row["photo_peers"] = [
+                {**peer, "photo_anchor": anchor}
+                for anchor in anchors_by_source[row["source_id"]]
+                for peer in peers_by_pair[capture_pair_key(anchor)]
+                if peer["source_id"] != row["source_id"]
+            ]
+        return records

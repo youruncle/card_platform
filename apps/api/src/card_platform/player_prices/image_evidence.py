@@ -185,6 +185,43 @@ def make_receipt(observation, html, images, result, *, model, usage, now=None):
     return {**body, "receipt_sha256": _seal(body)}
 
 
+def _read_bound_images(sale, captured, html_sha256, images, blob_reader, *, expected_gallery=None):
+    """Shared photo binding; this grants no identity or model authority."""
+    if captured.tzinfo is None or captured > datetime.now(timezone.utc):
+        raise ValueError("price_gallery_capture_time_invalid")
+    html = blob_reader(html_sha256)
+    if _hash(html) != html_sha256:
+        raise ValueError("price_gallery_bytes_changed")
+    gallery = public_gallery_for_primary(
+        parse_public_item_html(html.decode(), sale.source_url, now=captured),
+        sale.source_url,
+        sale.image_url,
+    )
+    if (
+        not gallery
+        or (expected_gallery is not None and gallery != expected_gallery)
+        or len(gallery["image_urls"]) != 2
+        or len(images) != 2
+        or len({image["url"] for image in images}) != 2
+    ):
+        raise ValueError("price_gallery_binding_changed")
+    seen = set()
+    for image in images:
+        content = blob_reader(image["sha256"])
+        if (
+            image["url"] not in gallery["image_urls"]
+            or image["content_type"] not in {"image/jpeg", "image/png", "image/webp"}
+            or _hash(content) != image["sha256"]
+            or len(content) != image["bytes"]
+            or image["sha256"] in seen
+        ):
+            raise ValueError("price_image_bytes_changed")
+        validate_photo(content)
+        seen.add(image["sha256"])
+    if gallery_primary(gallery) not in [image["url"] for image in images]:
+        raise ValueError("price_primary_image_changed")
+
+
 def _read_bound_receipt(observation, receipt, blob_reader):
     sale, _ = validated_sale(observation)
     body = {k: v for k, v in receipt.items() if k != "receipt_sha256"}
@@ -202,31 +239,14 @@ def _read_bound_receipt(observation, receipt, blob_reader):
         or body["observation_sha256"] != observation["raw_row_sha256"]
     ):
         raise ValueError("price_receipt_binding_changed")
-    html = blob_reader(body["gallery"]["raw_html_sha256"])
-    if _hash(html) != body["gallery"]["raw_html_sha256"]:
-        raise ValueError("price_gallery_bytes_changed")
-    gallery = public_gallery_for_primary(
-        parse_public_item_html(html.decode(), sale.source_url, now=captured),
-        sale.source_url,
-        sale.image_url,
+    _read_bound_images(
+        sale,
+        captured,
+        body["gallery"]["raw_html_sha256"],
+        body["images"],
+        blob_reader,
+        expected_gallery=body["gallery"],
     )
-    if gallery != body["gallery"] or len(gallery["image_urls"]) != 2 or len(body["images"]) != 2:
-        raise ValueError("price_gallery_binding_changed")
-    seen = set()
-    for image in body["images"]:
-        content = blob_reader(image["sha256"])
-        if (
-            image["url"] not in gallery["image_urls"]
-            or image["content_type"] not in {"image/jpeg", "image/png", "image/webp"}
-            or _hash(content) != image["sha256"]
-            or len(content) != image["bytes"]
-            or image["sha256"] in seen
-        ):
-            raise ValueError("price_image_bytes_changed")
-        validate_photo(content)
-        seen.add(image["sha256"])
-    if gallery_primary(gallery) not in [image["url"] for image in body["images"]]:
-        raise ValueError("price_primary_image_changed")
     result = PriceImageResult.model_validate(body["result"])
     if result.observation_contract:
         from card_platform.player_prices.image_observations import compose_faces

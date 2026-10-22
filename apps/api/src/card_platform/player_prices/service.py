@@ -188,7 +188,15 @@ async def refresh_player(c, player, report_date, *, collector=collect_player, fe
             jobs = ImageJobs()
             price_ids = await jobs.enqueue_candidates(c, player_id, queue_candidates(candidates, name))
             source_ids = {"item:" + sale.item_id for _, sale, _ in candidates} | photo_conflicts
-            evidence = list((await jobs.source_evidence(c, source_ids, price_job_ids=price_ids)).values())
+            subject = await repo.subject(c, player_id)
+            historical = await (await c.execute(
+                'SELECT source_id FROM player_price_sale WHERE player_id=ANY(%s)',
+                (subject['member_ids'] if subject else [player_id],),
+            )).fetchall()
+            all_sources = source_ids | {r['source_id'] for r in historical}
+            evidence = list((await jobs.source_evidence(c, all_sources, price_job_ids=price_ids)).values())
+            for record in evidence:
+                record['photo_context_only'] = record['source_id'] not in source_ids
             if evidence and blob_reader is None:
                 from card_platform.config import get_settings
                 from card_platform.player_prices.image_reader import EvidenceBlobs
@@ -211,7 +219,8 @@ async def refresh_player(c, player, report_date, *, collector=collect_player, fe
                 raise ValueError("观察范围不完整，保留上次统计")
             reconciled = await reconcile_prices(c, player_id, rows, report_date,
                                                 conflicted_sources=conflicting_sources(observations),
-                                                photo_reuse_sources=diagnostics['photo_reuse_sources'])
+                                                photo_reuse_sources=diagnostics['photo_reuse_sources'],
+                                                photo_pending_sources=diagnostics['photo_pending_sources'])
             if reconciled["blocked_sources"]:
                 blocked = sum(r["source_id"] in reconciled["blocked_sources"] for r in rows)
                 coverage["identified_count"] -= blocked
@@ -226,6 +235,14 @@ async def refresh_player(c, player, report_date, *, collector=collect_player, fe
                     coverage['rejection_reasons'].get('reused_photo_pair', 0) + withdrew)
             # Valid exact-card evidence remains useful even if another query failed.
             # Do not publish a new daily index or mark the incomplete run successful.
+            if diagnostics['photo_pending_sources']:
+                coverage['verification_pending'] = True
+                await c.execute(
+                    'UPDATE player_price_state SET error=%s,coverage=%s WHERE player_id=%s',
+                    ('历史图片证据暂不可读，相关价格暂退，等待独立性复核', Jsonb(coverage), player_id),
+                )
+                await finalize_reconciliation(c, reconciled['audit_id'])
+                return {'status': 'collecting'}
             if coverage["errors"]:
                 raise ValueError("卡淘部分查询失败，保留上次统计；稍后重试")
             if not coverage.get("incremental_complete", True):

@@ -16,6 +16,7 @@ from card_platform.player_prices.image_evidence import (
     image_pair_key,
 )
 from card_platform.player_prices.image_reviews import admit_review
+from card_platform.player_prices.photo_captures import read_bound_capture
 from card_platform.public_source_catalog import validated_sale
 
 POLICY = "price-image-admission-v1"
@@ -103,7 +104,11 @@ def verified_price_rows(observations, player_name, catalog, *, evidence, blob_re
     records = {(r["source_id"], r["observation_sha256"]): r for r in evidence}
     reasons, physical, rows = Counter(), Counter(), []
     photo_sources_in_scope = {"item:" + sale.item_id for _, sale, _ in candidates} | conflicts
-    photo_records = [r for r in records.values() if r["source_id"] in photo_sources_in_scope]
+    photo_records = [
+        r
+        for r in records.values()
+        if r["source_id"] in photo_sources_in_scope or r.get("photo_context_only")
+    ]
     if conflicts:
         reasons["conflicting_source"] = len(conflicts)
     if invalid:
@@ -157,9 +162,17 @@ def verified_price_rows(observations, player_name, catalog, *, evidence, blob_re
     photo_sources, uncertain, checked_peers = defaultdict(set), set(), {}
 
     def bound_photo(capture):
-        key = (capture["source_id"], capture["observation_sha256"], capture["receipt_sha256"])
+        key = (
+            capture["source_id"],
+            capture["observation_sha256"],
+            capture.get("capture_manifest_sha256"),
+            capture["receipt_sha256"],
+        )
         if key not in checked_peers:
             try:
+                if capture.get("capture_manifest_sha256"):
+                    checked_peers[key] = read_bound_capture(capture, blob_reader)
+                    return checked_peers[key]
                 sale, _ = _read_bound_receipt(
                     capture["observation"], capture["receipt"], blob_reader
                 )
@@ -195,7 +208,7 @@ def verified_price_rows(observations, player_name, catalog, *, evidence, blob_re
             ):
                 photo_sources[anchor_pair].update([source, peer["source_id"]])
             else:
-                uncertain.add(source)
+                uncertain.update([source, peer["source_id"]])
     reused_sources = {
         source for sources in photo_sources.values() if len(sources) > 1 for source in sources
     }
@@ -215,6 +228,7 @@ def verified_price_rows(observations, player_name, catalog, *, evidence, blob_re
         rejection_reasons=dict(reasons),
         image_rejection_reasons=dict(physical),
         photo_reuse_sources=sorted(reused_sources),
+        photo_pending_sources=sorted(uncertain - reused_sources),
         evidence_policy=POLICY,
         catalog_version=catalog.version,
         catalog_errors=len(catalog.errors),

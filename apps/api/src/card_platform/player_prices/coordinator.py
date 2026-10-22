@@ -39,7 +39,20 @@ async def _load(c, player, report_date, catalog):
         c, player["id"], queue_candidates(candidates, player["full_name"])
     )
     source_ids = {"item:" + sale.item_id for _, sale, _ in candidates} | conflicts
-    evidence = list((await queue.source_evidence(c, source_ids, price_job_ids=price_ids)).values())
+    # Keep checking already published prices after their source leaves the
+    # report window; new public photo evidence can invalidate an old report.
+    subject = await repo.subject(c, player["id"])
+    members = subject["member_ids"] if subject else [player["id"]]
+    historical_sources = await (
+        await c.execute(
+            "SELECT source_id FROM player_price_sale WHERE player_id=ANY(%s)",
+            (members,),
+        )
+    ).fetchall()
+    all_sources = source_ids | {r["source_id"] for r in historical_sources}
+    evidence = list((await queue.source_evidence(c, all_sources, price_job_ids=price_ids)).values())
+    for record in evidence:
+        record["photo_context_only"] = record["source_id"] not in source_ids
     peer_captures = {
         str(capture["id"]): capture
         for record in evidence
@@ -65,6 +78,8 @@ async def _load(c, player, report_date, catalog):
                     source=peer["source_id"],
                     observation=_seal(peer["observation"]),
                     receipt=peer["receipt_sha256"],
+                    capture_manifest=peer.get("capture_manifest_sha256"),
+                    pair=[peer.get("pair_a"), peer.get("pair_b")],
                 )
                 for key, peer in sorted(peer_captures.items())
             ],
@@ -76,6 +91,8 @@ async def _load(c, player, report_date, catalog):
                         receipt=r["receipt_sha256"],
                         approved=r["approved_review_sha256s"],
                         price_eligible=r["price_eligible"],
+                        capture_manifest=r.get("capture_manifest_sha256"),
+                        photo_context_only=r["photo_context_only"],
                     )
                     for r in evidence
                 ],
@@ -239,6 +256,7 @@ async def refresh_player_job(
                     report_date,
                     conflicted_sources=source_conflicts,
                     photo_reuse_sources=diagnostics["photo_reuse_sources"],
+                    photo_pending_sources=diagnostics["photo_pending_sources"],
                 )
                 if reconciled["blocked_sources"]:
                     count = sum(r["source_id"] in reconciled["blocked_sources"] for r in rows)
@@ -256,6 +274,12 @@ async def refresh_player_job(
                         coverage["rejection_reasons"].get("reused_photo_pair", 0) + withdrew
                     )
                 await finalize_reconciliation(c, reconciled["audit_id"])
+                if diagnostics["photo_pending_sources"]:
+                    coverage["verification_pending"] = True
+                    message = "历史图片证据暂不可读，相关价格暂退，等待独立性复核"
+                    await _save_state(c, player_id, coverage, message)
+                    await c.commit()
+                    return dict(status="collecting", error=message)
                 if coverage["errors"]:
                     message = "卡淘部分采集失败，已核验成交保留，稍后重试"
                     await _save_state(c, player_id, coverage, message)
