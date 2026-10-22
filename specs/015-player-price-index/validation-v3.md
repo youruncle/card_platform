@@ -375,3 +375,12 @@ Web新增4个主流程、日期与参考身份RED→green；Mobile新增2个主�
 - 正式免费图库117条已验证并幂等登记；全量305主体首轮已完成48项审计，随后中断单次重建进程，限定到有历史派生价格或captured收据的剩余84主体续跑，按已提交policy revision跳过完成主体。源事实、图库和批准均未放宽。主机从完整备份内解析collection_item稳定ID/owner/definition，887条签名与当前完全一致；续跑还将在结束后复验。
 - 历史查询173,497条公开观察的实际EXPLAIN约969ms；单次_load冷进程profile5.47秒/684条观察，主体词典编译2.6秒，回滚所有临时队列写入。未以推测增加数据索引或改准入；正式重建沿用已验证coordinator。
 - 手机1.1.14/build18已完成Vite/Capacitor同步、Xcode真实Release编译及codesign严格验证；IPA SHA4db39062b6328bc33979afef93b88fc10d9a1ea4f3b0dfe27d3c47065fcd1f80，云端私有留存同hash。两次devicectl均显示个人iPhone unavailable，尚未安装/读回版本/启动；已向用户请求连接并解锁，保持T031未完成。
+
+## 正式修复、回退与公网页面验收
+
+- 最终575条历史派生行中40条有效，132份审计/132个policy revision；原452条有效旧价被逐项重核。零captured收据主体采用同锁内明确证据缺失→既有reconcile_prices空集合暂退，任一member或旧source有历史captured则回到完整coordinator。新增维护脚本独立审查，修正无效mode可进入slow提交分支的问题；GuardDatabase真实RED→GREEN，正式shadow六张价格/审计/状态表全量指纹一致，再apply。该快路没有授予价格权限、没有改公开源事实/原件/批准、不推进采集新鲜度。
+- 132份审计在正式云数据库的外层未提交事务中逆序回退，成功恢复452条原有效派生行；最终显式rollback后全量指纹一致、有效仍40。887条私有卡库稳定ID/owner/definition签名与发布前完整备份保持一致。证据cloud-no-captured-evidence-*.jsonl、cloud-formal-price-boards.jsonl、cloud-price-rollback-rehearsal.json。
+- 固定10位验收组中9位有成交：Stephen Curry、LeBron James、Victor Wembanyama、Brandon Miller、Scottie Barnes、Cooper Flagg、LaMelo Ball、Luka Dončić、Anthony Edwards；Kon Knueppel仍无可用样本。三个报告日均5位有参考卡趋势/0三卡指数，未把缺指数当作无行情。40条实际纳入覆盖PSA Base1、裸卡Base34、裸卡Silver Prizm3、Deep Space Silver Prizm1、Topps Chrome Refractor1。
+- API/Web均已正式切为prices1；运行成本worker=true、行情worker=true，自动核图独立日限100，DeepSeek非思考与独立百炼搜索实值通过、env原SHA保持。
+- 真实公网Chromium对现存持仓最多的账户使用明确标记的20分钟服务器临时验证会话（不是密码登录），验证Cookie、手机同通道Bearer、涨跌排序/搜索/8条来源/单球员refresh202/空账户隔离/跨账户404/未来报告422/匿名401；页面无JS错误，390px无横向溢出，主指标底部714.47px<844px。首轮搜索测试错误地假设只返回一个库里，实际还包含已有的Jokić/Curry多人卡对象；修正测试选择准确单人参考行，未改变产品或合并多人身份。首次窄屏截图处于请求更新后的瞬时loading，另建只读捕获在真实加载完成后验证首屏，截图production-price-{desktop,narrow}-loaded.png。
+- 公网首页/知识库页面/管理页/行情页及各自静态资源成功，私有接口匿名401；后台第一轮库里真实更新已成功，history_queries7词、pages7、incremental_complete=true/history_complete=false，待第二轮持续更新证明；临时验证会话与空账户在验收后仍须实际撤销并验证401。
