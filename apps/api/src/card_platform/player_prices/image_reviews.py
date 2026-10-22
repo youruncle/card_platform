@@ -20,6 +20,10 @@ from card_platform.player_prices.image_evidence import (
     _seal,
 )
 from card_platform.player_prices.image_observations import OBSERVATION_CONTRACT, compose_faces
+from card_platform.player_prices.source_number_reviews import (
+    SourceNumberRoleReview,
+    validate_source_number_role,
+)
 
 
 class ReviewedImage(BaseModel):
@@ -66,11 +70,16 @@ class ImageReview(BaseModel):
     observation_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     reviewed_images: list[ReviewedImage] = Field(min_length=2, max_length=2)
     identity_derivation_contract: Literal["price-pair-manufacturer-v2"] | None = None
+    source_number_role_review: SourceNumberRoleReview | None = None
     corrections: list[Correction] = Field(max_length=36)
 
     @model_validator(mode="after")
     def require_change_or_version_upgrade(self):
-        if not self.corrections and not self.identity_derivation_contract:
+        if (
+            not self.corrections
+            and not self.identity_derivation_contract
+            and not self.source_number_role_review
+        ):
             raise ValueError("price_review_requires_change_or_version_upgrade")
         return self
 
@@ -135,10 +144,21 @@ def admit_review(
         if (
             not review.corrections
             and review.identity_derivation_contract == original.identity_derivation_contract
+            and review.source_number_role_review is None
         ):
             raise ValueError("price_review_requires_change_or_version_upgrade")
         result = compose_faces(
             faces, identity_derivation_contract=review.identity_derivation_contract
+        )
+        number_role = (
+            validate_source_number_role(
+                observation,
+                review.source_number_role_review,
+                review.reviewed_at,
+                result.card_number,
+            )
+            if review.source_number_role_review
+            else None
         )
         proof = dict(
             review_sha256=review_sha256,
@@ -150,6 +170,8 @@ def admit_review(
         )
         if review.identity_derivation_contract:
             proof["identity_derivation_contract"] = review.identity_derivation_contract
+        if number_role:
+            proof["source_number_role_review"] = number_role
     except (ValueError, TypeError, KeyError, OSError, AttributeError, UnicodeError, IndexError):
         return _decision("invalid_image_review")
     return _admit_bound_result(

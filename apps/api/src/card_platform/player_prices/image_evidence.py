@@ -616,7 +616,8 @@ def _admit_bound_result(observation, receipt, sale, result, player_name, catalog
     # All original title/source gates still run. Only enumerated missing fields
     # can be resolved by the independently read, bound physical observations.
     _score, conflicts = assess_cardhobby_match(
-        confirmed, sale.model_copy(update={"title": match_title})
+        confirmed, sale.model_copy(update={"title": match_title}),
+        reviewed_inventory_suffix=(review or {}).get("source_number_role_review", {}).get("code"),
     )
     allowed = {
         "标题未命中目标卡号，基础/原生闪卡需图像确认": "card_number",

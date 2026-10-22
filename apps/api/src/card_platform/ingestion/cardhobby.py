@@ -1009,16 +1009,17 @@ def _player_only_appears_in_promotional_tail(identity: dict, title: str, *, reso
 
 def assess_cardhobby_match(
     identity: dict, sale: CardHobbySale, *, allow_partial_roster: bool = False,
-    resolver: KnowledgeResolver | None = None
+    resolver: KnowledgeResolver | None = None, reviewed_inventory_suffix: str | None = None,
 ) -> tuple[Decimal, list[str]]:
     """Apply deterministic safety gates after model-assisted CardHobby discovery."""
     return _assess_cardhobby_match(identity, sale, allow_partial_roster=allow_partial_roster,
-                                  resolver=resolver)
+                                  resolver=resolver, reviewed_inventory_suffix=reviewed_inventory_suffix)
 
 
 def _assess_cardhobby_match(
     identity: dict, sale: CardHobbySale, *, allow_partial_roster: bool = False,
     resolver: KnowledgeResolver | None = None, allow_work_subject_omission: bool = False,
+    reviewed_inventory_suffix: str | None = None,
 ) -> tuple[Decimal, list[str]]:
     title = sale.title
     conflicts = list(sale.conflicts)
@@ -1169,18 +1170,29 @@ def _assess_cardhobby_match(
     hard_conflict = False
     misplaced_season_numbering = has_misplaced_season_numbering(identity)
     target_card_number_value = None if misplaced_season_numbering else identity.get("card_number")
-    card_number_matches = _contains_card_number(attribute_title, target_card_number_value)
+    number_attribute_title = attribute_title
+    if reviewed_inventory_suffix is not None:
+        from card_platform.domain.listing_title import has_card_number_declaration
+
+        match = re.search(r"(?<![A-Za-z0-9#])#\s*" + re.escape(reviewed_inventory_suffix) + r"\s*$", title)
+        if not match or has_card_number_declaration(title):
+            return Decimal("0"), [*conflicts, "库存尾码复核位置无效"]
+        # Only number parsing receives this view. Subject/product/version,
+        # condition, lot, grade and serial gates continue to read source text.
+        number_title = title[:match.start()] + " " * (len(title) - match.start())
+        number_attribute_title = title_without_catalog_subject(number_title, identity, resolver=resolver)
+    card_number_matches = _contains_card_number(number_attribute_title, target_card_number_value)
     target_card_number = str(target_card_number_value or "").strip()
     target_card_number_token = _normalized_card_number(target_card_number)
-    if ordinal_collector_number_conflicts(attribute_title, target_card_number_value):
+    if ordinal_collector_number_conflicts(number_attribute_title, target_card_number_value):
         conflicts.append("标题明确卡号与目标卡号不一致")
         hard_conflict = True
-    explicit_hash_card_numbers = _explicit_hash_card_numbers(attribute_title)
+    explicit_hash_card_numbers = _explicit_hash_card_numbers(number_attribute_title)
     prefixed_number = re.fullmatch(r"([A-Za-z]+)[#\s-]*(\d+)", target_card_number)
     if prefixed_number:
         prefix, target_number = prefixed_number.groups()
         explicit_same_family = set(
-            re.findall(rf"#?{re.escape(prefix)}[\s-]*(\d+)", attribute_title, re.IGNORECASE)
+            re.findall(rf"#?{re.escape(prefix)}[\s-]*(\d+)", number_attribute_title, re.IGNORECASE)
         )
         if explicit_same_family and target_number not in explicit_same_family:
             conflicts.append("标题明确卡号与目标卡号不一致")

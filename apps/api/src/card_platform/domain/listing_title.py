@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from collections.abc import Sequence
 
 from card_platform.domain.product_identity import (
@@ -16,6 +17,16 @@ def title_without_inventory_hash_tail(title: str) -> str:
     immutable evidence or product/version matching.
     """
     return re.sub(r"(?<=[】\]\)）])\s*#\s*\d{4,}\s*$", "", title)
+
+
+def has_card_number_declaration(title: str) -> bool:
+    """Conservative veto before an approved inventory suffix can be masked."""
+    return bool(re.search(
+        r"卡(?:牌|片|面)?\s*(?:[号號]|编[号號]|編[号號])|"
+        r"collector\s*(?:number|no\.?|#)|card\s*(?:number|no\.?|#)|"
+        r"(?<![A-Za-z0-9])(?:no\.|no\s*(?=[:=：#]|\d))",
+        unicodedata.normalize("NFKC", title), re.I,
+    ))
 
 HARD_LOT_PATTERN = re.compile(
     r"(?:(?<![A-Za-z0-9])lots?(?:\s*[-:#]?\s*\d+)?(?![A-Za-z])|"
