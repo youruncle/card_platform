@@ -161,6 +161,13 @@ class PriceImageReader:
                 await trace()
                 raise PriceImageReadError("price_image_lease_lost", observations, calls)
             calls += 1
+            request_metadata = dict(
+                image_index=index,
+                image_sha256=hashlib.sha256(data).hexdigest(),
+                model=self.model,
+                request_extra=nonthinking_extra_body(self.model),
+                prompt=prompt,
+            )
             try:
                 response = await traced_completion(
                     self.client.chat.completions.create,
@@ -185,9 +192,7 @@ class PriceImageReader:
                     extra_body=nonthinking_extra_body(self.model),
                 )
                 observations.append(dict(
-                    image_index=index, image_sha256=hashlib.sha256(data).hexdigest(),
-                    model=self.model, request_extra=nonthinking_extra_body(self.model),
-                    prompt=prompt, raw_response=response.model_dump(mode="json"),
+                    **request_metadata, raw_response=response.model_dump(mode="json"),
                 ))
                 raw = response.choices[0].message.content
                 usage = response.usage
@@ -205,8 +210,7 @@ class PriceImageReader:
                 if observations and observations[-1].get("image_index") == index:
                     observations[-1]["error_type"] = "CancelledError"
                 else:
-                    observations.append(dict(image_index=index, image_sha256=hashlib.sha256(data).hexdigest(),
-                                             error_type="CancelledError"))
+                    observations.append(dict(**request_metadata, error_type="CancelledError"))
                 await trace()
                 raise
             except Exception as error:
@@ -217,7 +221,7 @@ class PriceImageReader:
                             raw_error = error.response.json()
                         except ValueError:
                             raw_error = error.response.text
-                    observations.append(dict(image_index=index, image_sha256=hashlib.sha256(data).hexdigest(),
+                    observations.append(dict(**request_metadata,
                                              error_type=type(error).__name__, raw_response=raw_error))
                 await trace()
                 raise PriceImageReadError(

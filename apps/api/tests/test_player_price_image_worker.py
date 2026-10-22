@@ -222,6 +222,11 @@ async def test_bounded_capture_receipt_and_lease_guard(setup_job, mode, want_cal
         if want_calls:
             trace = json.loads(store.read(attempt["trace_sha256"]))
             assert trace["model_calls"] == want_calls
+            assert trace["observations"][0]["model"] == "deepseek-flash"
+            assert trace["observations"][0]["request_extra"] == {"thinking": {"type": "disabled"}}
+            from card_platform.player_prices.image_reader import image_prompt
+
+            assert trace["observations"][0]["prompt"] == image_prompt()
             if mode == "envelope":
                 assert trace["observations"][0]["raw_response"]["id"] == "broken-fixture"
             elif mode == "paidtransport":
@@ -380,6 +385,12 @@ async def test_cancel_closes_clients_and_restart_keeps_lease_debit_and_trace(set
             json.loads(store.read(attempt["trace_sha256"]))["observations"][0]["error_type"]
             == "CancelledError"
         )
+        trace_observation = json.loads(store.read(attempt["trace_sha256"]))["observations"][0]
+        assert trace_observation["model"] == "deepseek-flash"
+        assert trace_observation["request_extra"] == {"thinking": {"type": "disabled"}}
+        from card_platform.player_prices.image_reader import image_prompt
+
+        assert trace_observation["prompt"] == image_prompt()
         token = attempt["lease_token"]
     restarted = worker_class()(db, settings, store=store)
     assert not await restarted.run_once()
@@ -407,3 +418,140 @@ async def test_cancel_closes_clients_and_restart_keeps_lease_debit_and_trace(set
             ).fetchone()
         ) == {"status": "expired", "actual_calls": 1}
     await restarted.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("interruption", ["failure", "cancel"])
+async def test_finish_and_completion_wakeup_roll_back_together(
+    setup_job, monkeypatch, interruption
+):
+    db, player, obs, job_id, store = setup_job
+    requests = []
+
+    async def source(request):
+        if "/market/item/" in request.url.path.lower():
+            return httpx.Response(200, text=HTML.replace("123", obs["sale"]["item_id"]))
+        return httpx.Response(200, content=photo("white" if str(request.url) == FRONT else "gray"))
+
+    async def model(request):
+        requests.append(json.loads(request.content))
+        face = faces()[(len(requests) - 1) % 2]
+        # Simulate the coordinator consuming the earlier capture-only notification.
+        async with db.connection() as c:
+            await c.execute(
+                "UPDATE player_price_state SET requested_at=NULL,photo_recheck_requested_at=NULL WHERE player_id=%s",
+                (player,),
+            )
+        return httpx.Response(
+            200,
+            json=dict(
+                id="fixture",
+                object="chat.completion",
+                created=1,
+                model="deepseek-flash",
+                choices=[
+                    dict(
+                        index=0,
+                        finish_reason="stop",
+                        message=dict(role="assistant", content=json.dumps(face)),
+                    )
+                ],
+                usage=dict(prompt_tokens=100, completion_tokens=50, total_tokens=150),
+            ),
+        )
+
+    settings = Settings(
+        vision_api_key="fixture",
+        vision_model="deepseek-flash",
+        vision_base_url="https://api.deepseek.com",
+        player_price_image_daily_call_limit=int(await budget(db)) + 2,
+    )
+    async with (
+        httpx.AsyncClient(transport=httpx.MockTransport(source)) as public,
+        httpx.AsyncClient(transport=httpx.MockTransport(model)) as model_client,
+    ):
+        worker = worker_class()(
+            db,
+            settings,
+            store=store,
+            reader=PriceImageReader(settings, http_client=model_client),
+            public_client=public,
+        )
+        real_wake = worker._wake
+        wakeups = 0
+
+        async def interrupted_wake(c, subject):
+            nonlocal wakeups
+            wakeups += 1
+            if wakeups == 2:
+                row = await (
+                    await c.execute(
+                        "SELECT status FROM player_price_image_job WHERE id=%s", (job_id,)
+                    )
+                ).fetchone()
+                assert row["status"] == "captured", (
+                    "inject precisely after finish, before completion wake"
+                )
+                if interruption == "cancel":
+                    raise asyncio.CancelledError()
+                raise RuntimeError("controlled completion wake failure")
+            await real_wake(c, subject)
+
+        monkeypatch.setattr(worker, "_wake", interrupted_wake)
+        if interruption == "cancel":
+            with pytest.raises(asyncio.CancelledError):
+                await worker.run_once()
+        else:
+            assert await worker.run_once()
+        async with db.connection() as c:
+            row = await (
+                await c.execute(
+                    "SELECT status,receipt FROM player_price_image_job WHERE id=%s", (job_id,)
+                )
+            ).fetchone()
+            assert row["receipt"] is None and row["status"] != "captured", (
+                "finish must roll back when completion wake cannot commit"
+            )
+            attempt = await (
+                await c.execute(
+                    "SELECT status FROM player_price_image_attempt WHERE job_id=%s", (job_id,)
+                )
+            ).fetchone()
+            assert attempt["status"] != "captured"
+            state = await (
+                await c.execute(
+                    "SELECT requested_at,photo_recheck_requested_at FROM player_price_state WHERE player_id=%s",
+                    (player,),
+                )
+            ).fetchone()
+            assert state == {"requested_at": None, "photo_recheck_requested_at": None}
+        if interruption == "cancel":
+            monkeypatch.setattr(worker, "_wake", real_wake)
+            async with db.connection() as c:
+                await c.execute(
+                    "UPDATE player_price_image_job SET lease_until=clock_timestamp()-interval '1 second' WHERE id=%s",
+                    (job_id,),
+                )
+            worker.settings = settings.model_copy(
+                update={
+                    "player_price_image_daily_call_limit": settings.player_price_image_daily_call_limit
+                    + 2
+                }
+            )
+            assert await worker.run_once()
+            async with db.connection() as c:
+                row = await (
+                    await c.execute(
+                        "SELECT status FROM player_price_image_job WHERE id=%s", (job_id,)
+                    )
+                ).fetchone()
+                assert row["status"] == "captured"
+                state = await (
+                    await c.execute(
+                        "SELECT requested_at FROM player_price_state WHERE player_id=%s", (player,)
+                    )
+                ).fetchone()
+                assert state["requested_at"] is not None, (
+                    "reclaimed attempt commits its completion wake"
+                )
+        await worker.close()

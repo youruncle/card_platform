@@ -159,11 +159,13 @@ class PriceImageWorker:
                 now=now,
             )
             async with self.database.connection() as c:
-                finished = await self.jobs.finish(
-                    c, job["id"], job["lease_token"], receipt, actual_calls=actual_calls
-                )
-                if finished:
-                    await self._wake(c, job["player_id"])
+                # Completion and its coordinator notification are one durable fact.
+                async with c.transaction():
+                    finished = await self.jobs.finish(
+                        c, job["id"], job["lease_token"], receipt, actual_calls=actual_calls
+                    )
+                    if finished:
+                        await self._wake(c, job["player_id"])
         except asyncio.CancelledError:
             # Keep the lease and conservative debit; restart reclaims only after expiry.
             raise
