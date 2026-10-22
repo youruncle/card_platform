@@ -145,3 +145,24 @@
 五笔全部原始观察、收据、更正、图库HTML、原图、付费trace已归档云端持久备份：/home/ubuntu/card-platform/backups/player-price-review-20261022/reviewed-evidence-first5.tar，34181120字节，SHA256 750eb1f4e07dd30b4d70a9e4b164ddd785da97d3af5f0873bdeda23bb13f1b9b。云端读回逐一验证25个blob及所有收据引用，全部hash匹配。该备份是复核证据，不是生产批准表；持久队列/批准登记/到期失效/refresh消费仍待实现。未写本地运行知识库，云端知识库仍为唯一主库。
 
 另发现必须先修复的生产不变量：当前API镜像仍card-platform-api:0.6.4-20261022-latest1；成本worker=true，视觉DeepSeek非思考和API健康/ready均正确，但联网搜索模型、端点和密钥已与视觉混用，和本聊天/AGENTS要求矛盾。cloud-runtime-invariants-after-reviews.json显示search_host=api.deepseek.com且key_separate=false；不能宣称发布不变量全通过。当前代码也仅支持DeepSeekWebResearch并拒绝百炼，不能只改环境变量。云端两个deepseek-web-20261020备份仍保存独立百炼端点/密钥及qwen-plus搜索模型，已仅输出host/布尔状态做遮蔽核对，未输出或下载密钥：cloud-search-config-history-masked.json。新增T033，下一步优先恢复并真实验证已授权的独立搜索链路，再继续候选队列、30笔/历史窗口、派生修复及双端发布。当前没有改该运行环境，搜索不变量修复仍明确未完成。
+
+
+T033后续准备（代码/运行环境尚未恢复）：按[百炼官方联网搜索文档](https://help.aliyun.com/zh/model-studio/web-search)，使用服务器备份的原独立端点/密钥，在独立进程调用同host的原生text-generation接口，并显式forced_search/enable_source；密钥仅留在服务器内存，没有输出/下载。cloud-bailian-recovery-probe.json的Topps限制站点查询HTTP200且实际搜索1次，但search_results为空、回答含“未发行”等错误，未作为证据或成功恢复。第二个确定存在的官方文档控制cloud-bailian-recovery-control.json，HTTP200、实际搜索1次、返回10个真实来源，首项为官方web-search文档。它证明原独立配置和原生来源返回仍可用，不证明Topps覆盖完整或生产链路已恢复。两会话均确认退出0，生产环境未改。
+
+新增尚未提交的test_search_provider_isolation.py作为下一步TDD入口，实际3 RED/2通过：显式百炼配置被当前resolver拒绝、缺搜索key时借用视觉key、显式DeepSeek端点能接收搜索key，三个真实隔离缺陷均已复现。该RED属于待实现T033，不应和已提交价格模块299通过混称全绿。下一步修复resolver、研究适配及全部构造点，保留实际来源捕获、无来源停止和域名限制，再做受控云端恢复；只换环境会令当前DeepSeekWebResearch初始化失败，不执行这种不完整切换。
+
+## 2026-10-22 第八批：T033独立百炼搜索恢复（前置修复已发布）
+
+根因已由配置回归和真实调用确认：旧resolver在缺SEARCH_API_KEY时借用视觉key，并只允许DeepSeek端点；消费者直接构造DeepSeekWebResearch。仅恢复百炼环境变量会令消费者初始化失败。新增独立BailianWebResearch，按原生text-generation实际执行最多4条查询、保留原生search_results，限定可信站点、最多8来源/3正文抓取、每体512KiB/分析6000字符；原生生成回答不是网页证据。独立SEARCH凭据仅能到严格校验的原百炼端点，不回退或复用视觉/AI key；公开页面请求剥除认证头，不跟随重定向。分析使用同一独立qwen-plus配置，明确enable_thinking=false、enable_search=false；视觉仍deepseek-flash和thinking disabled。CardSearchService、估值worker、CardHobbyProvider及订单文本解析构造点同步，模板不再引导混用。
+
+独立审查复现一项Important：只需一个页面可读，其他403/未抓取URL也可通过observed，最小payload因此错误接纳380元成交。新增两项真实SDK+CardHobbyProvider回归，blocked/not_requested均先RED后GREEN；observed和分析现在只接受ok且非空正文，全量诊断/原生输出留档。另加无可信站点范围前置拒绝及分析输入排除search_requests的RED→GREEN，避免调用参数被模型视作正文。最终独立44项通过、无新增阻断，允许受控恢复。查询和页面阶段取消保留已完成捕获，原生响应、实际查询、正文hash/blob与分析响应分别归档。
+
+验证：搜索/消费者/订单/视觉74项通过；干净隔离PostgreSQL价格255项、公开观察/官方目录31项通过，1项既有Starlette/httpx弃用警告。Ruff本批新模块/配置/目录服务/解析器/新测试通过，diff检查通过。估值及CardHobby两个大文件的7项lint问题已用f7b16463原源码确认存在，未在本批顺带修改。广泛消费者初跑28失败185通过，其中23项CardHobby身份匹配失败，在独立进程加载改动前f7b16463源码重跑仍23失败，精确名称完全相同；完整名称及差异在cardhobby-provider-baseline-comparison.json。其余过时的DeepSeek搜索key回退测试已按明确用户不变量改为独立配置断言。没有宣称全仓测试通过，第五批151项全套失败报告仍保留。
+
+云端候选控制cloud-bailian-adapter-control-v3.json：使用原备份独立配置、真实原生搜索与SDK分析，8来源中1个成功读取正文、2个301、5个预算未抓取；不可读来源不送分析，正文没有的参数作用回答unknown。前两份探测因测试注入的__file__路径太浅触发Settings的parents[4]而未发请求，不是供应商故障，原始不利记录保留。生产包以当前card-platform-api:0.6.4-20261022-latest1为FROM，提取当前线上5个文件后仅应用T033窄diff并加入新模块；没有用本地整份估值/识别源码覆盖线上。实际加载site-packages和/app/src原件hash一致，候选镜像同时更新两处，并在运行预检逐项对比实际加载模块hash。
+
+已发布API镜像card-platform-api:0.6.4-20261022-bailian2。只恢复SEARCH_API_KEY、SEARCH_BASE_URL、CARD_SEARCH_MODEL、VALUATION_SEARCH_MODEL四项，密钥全程仅服务器内存/私有配置，无输出或下载。Compose保留PURCHASE_COST_WORKER_ENABLED=true；运行容器断言cost_worker=true、视觉deepseek-flash、显式thinking disabled、独立百炼host/key及qwen-plus均通过，health/ready=200。发布前完整在线pg_dump 396755964字节，原镜像、当前5份源码、环境和Compose备份在/home/ubuntu/card-platform/backups/player-price-bailian-20261022；回退只改镜像，保留独立搜索环境和worker=true，不能恢复旧的混用密钥配置。未迁移数据库、未更改业务卡库/估值、未更新本地知识库。
+
+生产真实工厂验证cloud-bailian-live-verification.json：直接以get_settings和CardSearchService构造，实际qwen-plus搜索/正文/分析完成，8发现来源、1可读来源，持久scanner卷捕获9ed3ed32-ba37-4184-886f-f7d2af5cd3f7.json读回成功；其余301/未抓取来源不通过引用。正文缺失信息仍unknown。这只证明搜索链路恢复，不能当作卡片成交覆盖或整体行情成功。公网/player-prices=200、正确/v1/player-prices未鉴权=401；探测时误用/api前缀的404另存，不能算鉴权失败。没有做本轮鉴权UI、Web新构建或iPhone发布，T031仍未完成。
+
+当前业务准入仍是上一批5笔逐图复核shadow结果，0有效趋势，未达30笔、8位覆盖、5位三日报告趋势及两轮独立更新。T033完成不改变原业务门槛；下一步按T029实现持久候选/租约/调用预算和服务器复核登记，再将可靠证据接入refresh、审计修复旧派生行并补足真实历史窗口。不得把临时捕获或备份包当成生产批准登记。

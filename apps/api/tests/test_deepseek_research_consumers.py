@@ -8,20 +8,21 @@ import pytest
 from openai import AsyncOpenAI
 
 from card_platform.config import Settings
-from card_platform.deepseek_web import DeepSeekWebResearch
+from card_platform.bailian_web import BailianWebResearch
+from test_search_provider_isolation import ALI
 
 
 def research_transport(model_result, *, source="https://www.tcdb.com/card/138", empty=False):
     requests = []
     def handler(request):
         requests.append(request)
-        if request.url.path.endswith("/search"):
-            return httpx.Response(200, json={"results": [] if empty else [{
-                "url": source, "title": "Observed source", "content": "Observed card 138"}]})
-        if request.url.path.endswith("/fetch"):
-            return httpx.Response(200, json={"title": "Observed source", "content": "Observed card 138"})
+        if request.url.path.endswith("/generation"):
+            return httpx.Response(200, json={"output": {"search_info": {"search_results": [] if empty else [{
+                "url": source, "title": "Observed source", "index": 1}]}, "choices": []}})
+        if request.method == "GET":
+            return httpx.Response(200, text="Observed card 138", headers={"content-type":"text/plain"})
         return httpx.Response(200, json={"id": "test", "object": "chat.completion", "created": 1,
-            "model": "deepseek-flash", "choices": [{"index": 0, "finish_reason": "stop",
+            "model": "qwen-plus", "choices": [{"index": 0, "finish_reason": "stop",
                 "message": {"role": "assistant", "content": json.dumps(model_result)}}]})
     return httpx.MockTransport(handler), requests
 
@@ -36,10 +37,10 @@ async def test_catalog_captures_queries_and_rejects_model_invented_sources(monke
         "matching_fields": ["player_name", "card_number"], "match_confidence": "0.99"}],
         "resolved_fields": {"parallel_name": "Gold"}, "field_evidence": {"parallel_name": ["unsupported"]}})
     async with httpx.AsyncClient(transport=transport) as http:
-        service = CardSearchService(Settings(_env_file=None, vision_api_key="key"))
+        service = CardSearchService(Settings(_env_file=None, vision_api_key="vision-key", search_api_key="search-key", search_base_url=ALI))
         await service.client.close()
-        service.client = AsyncOpenAI(api_key="key", base_url="https://api.deepseek.com", http_client=http)
-        service.research = DeepSeekWebResearch("key", http_client=http)
+        service.client = AsyncOpenAI(api_key="search-key", base_url=ALI, http_client=http)
+        service.research = BailianWebResearch("search-key", base_url=ALI, http_client=http, page_client=http)
         # Existing downstream verification is held permissive to isolate the
         # new observed-source gate; no real website is contacted in this test.
         async def verified(candidate, pages):
@@ -48,14 +49,14 @@ async def test_catalog_captures_queries_and_rejects_model_invented_sources(monke
         monkeypatch.setattr(service, "_candidate_image", AsyncMock(return_value=None))
         result = await service._enrich_catalog(CardRecognitionResult(
             player_name="Kobe Bryant", card_number="138", confidence="0.9"))
-    assert requests[0].url.path == "/v1/tools/search"
+    assert requests[0].url.path == "/api/v1/services/aigc/text-generation/generation"
     assert result.web_candidates[0].source_urls == []
     assert result.parallel_name is None
     assert result.web_research["pages"][0]["url"] == "https://www.tcdb.com/card/138"
     assert result.search_queries == result.web_research["queries"]
     body = json.loads(requests[-1].content)
-    assert body["thinking"] == {"type": "disabled"}
-    assert "enable_search" not in body
+    assert body["enable_thinking"] is False
+    assert body["enable_search"] is False
 
 
 @pytest.mark.asyncio
@@ -65,12 +66,12 @@ async def test_catalog_empty_search_preserves_unknown_fields_and_skips_model():
 
     transport, requests = research_transport({}, empty=True)
     async with httpx.AsyncClient(transport=transport) as http:
-        service = CardSearchService(Settings(_env_file=None, vision_api_key="key"))
+        service = CardSearchService(Settings(_env_file=None, vision_api_key="vision-key", search_api_key="search-key", search_base_url=ALI))
         await service.client.close()
-        service.client = AsyncOpenAI(api_key="key", base_url="https://api.deepseek.com", http_client=http)
-        service.research = DeepSeekWebResearch("key", http_client=http)
+        service.client = AsyncOpenAI(api_key="search-key", base_url=ALI, http_client=http)
+        service.research = BailianWebResearch("search-key", base_url=ALI, http_client=http, page_client=http)
         result = await service._enrich_catalog(CardRecognitionResult(player_name="Kobe Bryant", confidence="0.9"))
-    assert all(r.url.path == "/v1/tools/search" for r in requests)
+    assert all(r.url.path == "/api/v1/services/aigc/text-generation/generation" for r in requests)
     assert result.product_name is None
     assert result.web_research["pages"] == []
     assert any("来源" in caveat for caveat in result.caveats)
@@ -84,15 +85,15 @@ async def test_cardhobby_discovery_drops_unobserved_sale_and_keeps_actual_querie
     transport, requests = research_transport({"sales": [_sale().model_dump(mode="json")],
         "search_queries": ["model never executed this"]}, source="https://cardhobby.com.cn/market/item/123")
     async with httpx.AsyncClient(transport=transport) as http:
-        client = AsyncOpenAI(api_key="key", base_url="https://api.deepseek.com", http_client=http)
-        provider = CardHobbyProvider(client, "deepseek-flash")
-        provider.research = DeepSeekWebResearch("key", http_client=http)
+        client = AsyncOpenAI(api_key="search-key", base_url=ALI, http_client=http)
+        provider = CardHobbyProvider(client, "qwen-plus")
+        provider.research = BailianWebResearch("search-key", base_url=ALI, http_client=http, page_client=http)
         result = await provider._search_model(_raw_identity())
-    assert requests[0].url.path == "/v1/tools/search"
+    assert requests[0].url.path == "/api/v1/services/aigc/text-generation/generation"
     assert result.sales == []
     assert "model never executed this" not in result.search_queries
     assert result.web_research["queries"] == result.search_queries
-    assert json.loads(requests[-1].content)["thinking"] == {"type": "disabled"}
+    assert json.loads(requests[-1].content)["enable_thinking"] is False
 
 
 @pytest.mark.asyncio
@@ -111,31 +112,31 @@ async def test_market_discards_unsupported_price_and_keeps_capture():
         worker = AutomatedValuationWorker.__new__(AutomatedValuationWorker)
         worker.settings = Settings(_env_file=None, valuation_cardhobby_only=False,
                                    valuation_verify_sources=False)
-        worker.client = AsyncOpenAI(api_key="key", base_url="https://api.deepseek.com", http_client=http)
-        worker.research = DeepSeekWebResearch("key", http_client=http)
+        worker.client = AsyncOpenAI(api_key="search-key", base_url=ALI, http_client=http)
+        worker.research = BailianWebResearch("search-key", base_url=ALI, http_client=http, page_client=http)
         worker.cardhobby = None
         worker.search_index = SimpleNamespace(enabled=False)
         result = await worker._search_external_legacy({"player_name": "Kobe Bryant",
             "product_name": "Topps", "base_currency": "CNY"}, include_cardhobby=False)
-    assert requests[0].url.path == "/v1/tools/search"
+    assert requests[0].url.path == "/api/v1/services/aigc/text-generation/generation"
     assert result.fallback_valuation is None
     assert "made up" not in result.search_queries
     assert result.web_research["pages"][0]["url"] == "https://www.ebay.com/itm/123"
-    executed = [json.loads(r.content)["query"] for r in requests if r.url.path.endswith("/search")]
+    executed = [json.loads(r.content)["input"]["messages"][0]["content"] for r in requests if r.url.path.endswith("/generation")]
     assert any("site:ebay.com" in q for q in executed)
     assert any("site:sportscardspro.com/game" in q for q in executed)
     assert any("site:sportscardinvestor.com/cards" in q for q in executed)
 
 
 @pytest.mark.asyncio
-async def test_order_title_parser_explicitly_disables_deepseek_default_thinking():
+async def test_order_title_parser_explicitly_disables_qwen_thinking():
     from card_platform.cardhobby_import import CardHobbyOrderParser
     from test_cardhobby_import import capture
 
     transport, requests = research_transport({})
     async with httpx.AsyncClient(transport=transport) as http:
-        parser = CardHobbyOrderParser(Settings(_env_file=None, vision_api_key="key"))
+        parser = CardHobbyOrderParser(Settings(_env_file=None, vision_api_key="vision-key", search_api_key="search-key", search_base_url=ALI))
         await parser.client.close()
-        parser.client = AsyncOpenAI(api_key="key", base_url="https://api.deepseek.com", http_client=http)
+        parser.client = AsyncOpenAI(api_key="search-key", base_url=ALI, http_client=http)
         assert await parser._parse_with_model(uuid4(), capture()) is None
-    assert json.loads(requests[0].content)["thinking"] == {"type": "disabled"}
+    assert json.loads(requests[0].content)["enable_thinking"] is False

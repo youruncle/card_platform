@@ -22,7 +22,7 @@ from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field, model_validator
 
 from card_platform.config import Settings
-from card_platform.deepseek_web import DeepSeekWebResearch
+from card_platform.bailian_web import BailianWebResearch
 from card_platform.catalog_evidence import normalize_catalog_evidence
 from card_platform.comparable_image_verifier import (
     ComparableImageVerifier,
@@ -1131,7 +1131,7 @@ class AutomatedValuationWorker:
             if settings.resolved_search_api_key
             else None
         )
-        self.research = (DeepSeekWebResearch(settings.resolved_search_api_key,
+        self.research = (BailianWebResearch(settings.resolved_search_api_key,
                                             base_url=settings.resolved_search_base_url,
                                             archive_dir=f"{settings.scanner_job_dir}/.web-research")
                          if self.client else None)

@@ -1,7 +1,7 @@
 from card_platform.ingestion.query_feedback import BoundedAliasFeedback, discovery_subject, short_insert_query_term
 from card_platform.ingestion.cardhobby_public_item import canonical_public_item_url, parse_public_item_html, public_gallery_for_primary
 from card_platform.valuation_trace import emit, content_hash
-from card_platform.deepseek_web import DeepSeekWebResearch
+from card_platform.bailian_web import BailianWebResearch
 from time import perf_counter
 import asyncio
 import hashlib
@@ -1756,7 +1756,7 @@ class CardHobbyProvider:
         resolver: KnowledgeResolver | None = None,
         min_interval: float = 0.2,
         max_search_pages: int = 12,
-        research: DeepSeekWebResearch | None = None,
+        research: BailianWebResearch | None = None,
     ) -> None:
         if not 1 <= max_search_pages <= 12:
             raise ValueError('search page budget must be between 1 and 12')
@@ -3103,7 +3103,7 @@ class CardHobbyProvider:
 
     async def _search_model(self, identity: dict) -> CardHobbySearchResult:
         schema = json.dumps(CardHobbySearchResult.model_json_schema(), ensure_ascii=False)
-        research = self.research or DeepSeekWebResearch(
+        research = self.research or BailianWebResearch(
             self.client.api_key, base_url=str(self.client.base_url))
         queries = [f"{query[:98]} site:cardhobby.com.cn" for query in self.build_queries(identity)[:4]]
         response, capture = await research.complete(

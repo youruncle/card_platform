@@ -10,7 +10,7 @@ import httpx
 from openai import APITimeoutError, AsyncOpenAI
 
 from card_platform.config import Settings
-from card_platform.deepseek_web import DeepSeekWebResearch
+from card_platform.bailian_web import BailianWebResearch
 from card_platform.domain.serial_evidence import (
     serial_field_evidence,
     visible_serial_evidence,
@@ -419,7 +419,7 @@ class CardSearchService:
             if self.enabled
             else None
         )
-        self.research = (DeepSeekWebResearch(settings.resolved_search_api_key,
+        self.research = (BailianWebResearch(settings.resolved_search_api_key,
                                             base_url=settings.resolved_search_base_url,
                                             archive_dir=f"{settings.scanner_job_dir}/.web-research")
                          if self.client else None)
@@ -458,7 +458,7 @@ class CardSearchService:
         started = time.monotonic()
         try:
             reference = await asyncio.wait_for(
-                CardHobbyProvider(self.client, self.model, timeout=15).reference_images(
+                CardHobbyProvider(self.client, self.model, timeout=15, research=self.research).reference_images(
                     visual.model_dump(mode="json")
                 ), timeout=15,
             )
@@ -548,8 +548,8 @@ class CardSearchService:
                 return visual.model_copy(update={
                     "search_queries": queries, "web_research": capture.as_dict(),
                     "caveats": [*visual.caveats,
-                                ("DeepSeek 来源分析未完成，保留未核验字段" if capture.pages else
-                                 "DeepSeek 官方搜索未取得可用来源，保留未核验字段"),
+                                ("百炼来源分析未完成，保留未核验字段" if capture.pages else
+                                 "百炼搜索未取得可用来源，保留未核验字段"),
                                 *capture.errors],
                     "recognition_route": [
                         _stage_trace("catalog_search", llm_started,

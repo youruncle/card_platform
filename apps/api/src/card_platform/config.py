@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+import re
 from urllib.parse import urlsplit
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -14,6 +15,23 @@ def is_official_deepseek_url(value: str) -> bool:
                 and parsed.path.rstrip("/") in {"", "/v1", "/beta"}
                 and not parsed.query and not parsed.fragment)
     except ValueError:
+        return False
+
+
+def is_bailian_search_url(value: str) -> bool:
+    try:
+        url = urlsplit(value)
+        return bool(
+            url.scheme == "https"
+            and re.fullmatch(
+                r"(?:dashscope(?:-intl|-us)?\.aliyuncs\.com|ws-[a-z0-9-]+\.[a-z0-9-]+\.maas\.aliyuncs\.com)",
+                url.hostname or "",
+            )
+            and url.port in {None, 443}
+            and not (url.username or url.password or url.query or url.fragment)
+            and url.path.rstrip("/") == "/compatible-mode/v1"
+        )
+    except (ValueError, TypeError):
         return False
 
 
@@ -42,13 +60,13 @@ class Settings(BaseSettings):
     search_api_key: str | None = None
     search_base_url: str | None = None
     card_search_enabled: bool = True
-    card_search_model: str = "deepseek-flash"
+    card_search_model: str = "qwen-plus"
     card_search_timeout_seconds: float = 45.0
     recognition_vision_stage_timeout_seconds: float = 240.0
     recognition_enrichment_stage_timeout_seconds: float = 90.0
     recognition_sample_timeout_seconds: float = 650.0
     recognition_concurrency: int = 4
-    valuation_search_model: str = "deepseek-flash"
+    valuation_search_model: str = "qwen-plus"
     valuation_search_timeout_seconds: float = 90.0
     valuation_visual_concurrency: int = Field(default=2, ge=1, le=8)
     valuation_visual_stage_timeout_seconds: float = Field(default=180.0, gt=0, le=600)
@@ -128,24 +146,19 @@ class Settings(BaseSettings):
 
     @property
     def resolved_search_api_key(self) -> str | None:
-        if not is_official_deepseek_url(self.resolved_search_base_url):
+        if (
+            not is_bailian_search_url(self.resolved_search_base_url)
+            or not self.search_api_key
+            or self.search_api_key in {self.vision_api_key, self.ai_api_key}
+        ):
             return None
-        if self.search_api_key:
-            # An old unpaired SEARCH_API_KEY may belong to Alibaba. Never infer
-            # its provider from the new default endpoint.
-            return self.search_api_key if self.search_base_url else None
-        if (self.vision_api_key
-                and self.resolved_search_base_url.rstrip('/') == self.vision_base_url.rstrip('/')):
-            return self.vision_api_key
-        if self.resolved_search_base_url.rstrip('/') == self.ai_base_url.rstrip('/'):
-            return self.ai_api_key
-        return None
+        return self.search_api_key
 
     @property
     def resolved_search_base_url(self) -> str:
         if self.search_base_url:
             return self.search_base_url
-        return "https://api.deepseek.com"
+        return ""
 
     @property
     def cors_origins(self) -> list[str]:

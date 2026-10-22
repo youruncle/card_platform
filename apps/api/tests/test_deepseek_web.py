@@ -9,16 +9,13 @@ from openai import AsyncOpenAI
 from card_platform.config import Settings
 
 
-def test_native_search_uses_the_matching_deepseek_visual_key():
+def test_vision_credentials_do_not_enable_a_search_client():
     settings = Settings(_env_file=None, vision_api_key="visual-key")
-    assert settings.resolved_search_api_key == "visual-key"
-    assert settings.resolved_search_base_url == "https://api.deepseek.com"
-    assert settings.card_search_model == settings.valuation_search_model == "deepseek-flash"
+    assert settings.resolved_search_api_key is None
 
 
-@pytest.mark.parametrize("base", [None, "https://dashscope.aliyuncs.com/compatible-mode/v1",
-                                      "https://api.deepseek.com.attacker.test"])
-def test_legacy_or_unpaired_search_key_is_not_sent_to_deepseek(base):
+@pytest.mark.parametrize("base", [None, "https://api.deepseek.com", "https://api.deepseek.com.attacker.test"])
+def test_unpaired_or_wrong_provider_key_cannot_enable_search(base):
     settings = Settings(_env_file=None, vision_api_key="visual-key",
                         search_api_key="old-provider-key", search_base_url=base)
     assert settings.resolved_search_api_key is None

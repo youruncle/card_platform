@@ -1,3 +1,4 @@
+from card_platform.model_requests import nonthinking_extra_body
 import asyncio
 import json
 import re
@@ -119,7 +120,7 @@ class CardHobbyOrderParser:
                 },
             ],
             response_format={"type": "json_object"},
-            extra_body={"thinking": {"type": "disabled"}},
+            extra_body=nonthinking_extra_body(self.settings.card_search_model),
         )
         content = response.choices[0].message.content
         if not content or content.strip() == "{}":
