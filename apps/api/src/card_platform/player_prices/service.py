@@ -184,10 +184,11 @@ async def refresh_player(c, player, report_date, *, collector=collect_player, fe
                 )
                 await store_observations(c, fetched)
             observations += fetched
-            candidates, _, _ = source_candidates(observations)
+            candidates, photo_conflicts, _ = source_candidates(observations)
             jobs = ImageJobs()
-            job_ids = await jobs.enqueue_candidates(c, player_id, queue_candidates(candidates, name))
-            evidence = list((await jobs.evidence(c, job_ids)).values())
+            price_ids = await jobs.enqueue_candidates(c, player_id, queue_candidates(candidates, name))
+            source_ids = {"item:" + sale.item_id for _, sale, _ in candidates} | photo_conflicts
+            evidence = list((await jobs.source_evidence(c, source_ids, price_job_ids=price_ids)).values())
             if evidence and blob_reader is None:
                 from card_platform.config import get_settings
                 from card_platform.player_prices.image_reader import EvidenceBlobs
@@ -209,12 +210,20 @@ async def refresh_player(c, player, report_date, *, collector=collect_player, fe
                 coverage["errors"].append({"reason": "local_observation_limit"})
                 raise ValueError("观察范围不完整，保留上次统计")
             reconciled = await reconcile_prices(c, player_id, rows, report_date,
-                                                conflicted_sources=conflicting_sources(observations))
+                                                conflicted_sources=conflicting_sources(observations),
+                                                photo_reuse_sources=diagnostics['photo_reuse_sources'])
             if reconciled["blocked_sources"]:
                 blocked = sum(r["source_id"] in reconciled["blocked_sources"] for r in rows)
                 coverage["identified_count"] -= blocked
                 coverage["rejected_count"] += blocked
                 coverage["rejection_reasons"]["conflicting_stored_source"] = blocked
+            photo_only = set(reconciled['withdrawn_sources']) - set(reconciled['blocked_sources'])
+            withdrew = sum(r['source_id'] in photo_only for r in rows)
+            if withdrew:
+                coverage['identified_count'] -= withdrew
+                coverage['rejected_count'] += withdrew
+                coverage['rejection_reasons']['reused_photo_pair'] = (
+                    coverage['rejection_reasons'].get('reused_photo_pair', 0) + withdrew)
             # Valid exact-card evidence remains useful even if another query failed.
             # Do not publish a new daily index or mark the incomplete run successful.
             if coverage["errors"]:

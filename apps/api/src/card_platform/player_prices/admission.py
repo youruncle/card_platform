@@ -10,7 +10,11 @@ from card_platform.domain.listing_title import is_multi_card_listing
 from card_platform.domain.nba_player_catalog import nba_player_manifest
 from card_platform.domain.player_aliases import matching_player_aliases
 from card_platform.player_prices.subjects import canonical_subject_name
-from card_platform.player_prices.image_evidence import admit_receipt
+from card_platform.player_prices.image_evidence import (
+    admit_receipt,
+    _read_bound_receipt,
+    image_pair_key,
+)
 from card_platform.player_prices.image_reviews import admit_review
 from card_platform.public_source_catalog import validated_sale
 
@@ -94,10 +98,12 @@ def queue_candidates(candidates, player_name):
 
 
 def verified_price_rows(observations, player_name, catalog, *, evidence, blob_reader):
-    """Evidence must come from ImageJobs.evidence, never a request body."""
+    """Production evidence includes server photo peers, never a request body."""
     candidates, conflicts, invalid = source_candidates(observations)
     records = {(r["source_id"], r["observation_sha256"]): r for r in evidence}
     reasons, physical, rows = Counter(), Counter(), []
+    photo_sources_in_scope = {"item:" + sale.item_id for _, sale, _ in candidates} | conflicts
+    photo_records = [r for r in records.values() if r["source_id"] in photo_sources_in_scope]
     if conflicts:
         reasons["conflicting_source"] = len(conflicts)
     if invalid:
@@ -105,7 +111,11 @@ def verified_price_rows(observations, player_name, catalog, *, evidence, blob_re
     for obs, sale, _ in candidates:
         source = "item:" + sale.item_id
         record = records.get((source, obs["raw_row_sha256"]))
-        if record is None:
+        if (
+            record is None
+            or record.get("receipt") is None
+            or not record.get("price_eligible", True)
+        ):
             reasons["image_evidence_pending"] += 1
             continue
         approved = record["approved_review_sha256s"]
@@ -141,12 +151,70 @@ def verified_price_rows(observations, player_name, catalog, *, evidence, blob_re
                 raw_title=sale.title,
             )
         )
+    # Distinct listing IDs do not establish independent evidence when they
+    # reuse the exact same two photos. Do not arbitrarily pick a winning sale
+    # from an unresolved cluster; keep the captures, exclude every member.
+    photo_sources, uncertain, checked_peers = defaultdict(set), set(), {}
+
+    def bound_photo(capture):
+        key = (capture["source_id"], capture["observation_sha256"], capture["receipt_sha256"])
+        if key not in checked_peers:
+            try:
+                sale, _ = _read_bound_receipt(
+                    capture["observation"], capture["receipt"], blob_reader
+                )
+                if (
+                    capture["observation_sha256"] != capture["observation"]["raw_row_sha256"]
+                    or capture["receipt_sha256"] != capture["receipt"]["receipt_sha256"]
+                    or capture["source_id"] != "item:" + sale.item_id
+                ):
+                    raise ValueError("unbound_photo_peer")
+                checked_peers[key] = image_pair_key(capture["receipt"])
+            except Exception:
+                # Unavailable old evidence cannot establish independence.
+                checked_peers[key] = None
+        return checked_peers[key]
+
+    for row in rows:
+        pair = tuple(sorted(row["identity"]["image_evidence"]["image_sha256"]))
+        photo_sources[pair].add(row["source_id"])
+    # Photo reuse is independently knowable even if today's candidate is
+    # pending or fails a price-identity/condition gate. Its old valid captures
+    # still cannot leave already published peer prices active.
+    for record in photo_records:
+        source = record["source_id"]
+        for peer in record.get("photo_peers", []):
+            if peer["source_id"] == source:
+                continue
+            anchor = peer.get("photo_anchor", record)
+            anchor_pair, peer_pair = bound_photo(anchor), bound_photo(peer)
+            if (
+                anchor["source_id"] == source
+                and anchor_pair is not None
+                and anchor_pair == peer_pair
+            ):
+                photo_sources[anchor_pair].update([source, peer["source_id"]])
+            else:
+                uncertain.add(source)
+    reused_sources = {
+        source for sources in photo_sources.values() if len(sources) > 1 for source in sources
+    }
+    independent = []
+    for row in rows:
+        if row["source_id"] in reused_sources:
+            reasons["reused_photo_pair"] += 1
+        elif row["source_id"] in uncertain:
+            reasons["photo_independence_pending"] += 1
+        else:
+            independent.append(row)
+    rows = independent
     return rows, dict(
         sample_count=len(candidates) + len(conflicts) + invalid,
         identified_count=len(rows),
         rejected_count=sum(reasons.values()),
         rejection_reasons=dict(reasons),
         image_rejection_reasons=dict(physical),
+        photo_reuse_sources=sorted(reused_sources),
         evidence_policy=POLICY,
         catalog_version=catalog.version,
         catalog_errors=len(catalog.errors),

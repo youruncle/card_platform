@@ -55,6 +55,7 @@ Review focus：未来成交、冲突重复、旧接口/快照、账户隔离、�
 - Files：player_prices/discovery.py、tests/test_player_prices.py、player_prices/repository.py；必要时新增同模块repair.py与专用只读/应用CLI。
 - 先用实际XBW10尾串标题复现，再隔离卖家编号与真正卡号，补正例/反例。云端shadow回放全部旧成交，输出改变/退出/可修复记录及原因；保存审计后事务化修复派生表，可回退，不把程序升级误当成源事实冲突。
   另处理同一公开球员不同UUID互相排除成交：已有文班和东契奇重复主体实证。统一公开价格主体/卡款键、归集公开成交与刷新调度，保留原私有持仓及账户授权边界；先复现两UUID相同成交被永久excluded，再验证单主体展示、幂等与隔离。
+  已核对同款身份后检查不同商品是否复用相同两面照片hash（顺序无关）；无法证明独立性的整组退出价格行并按本报告来源数记录reused_photo_pair，不选任意赢家。生产与回放刷新显式读取ImageJobs.evidence(include_photo_peers=True)：从全部已归档captured公开job查相同两面、不同source的历史peer，不限日期/current/主体登记，但仅用其通过原观察/图库/图片/模型trace绑定验证的照片事实，不借其身份/价格/样本。不可读相关peer使当前候选保持photo_independence_pending。peer引用按稳定顺序纳入coordinator token；与最终阶段共用短锁及重载，新增历史peer完成会触发重试。原收据不可重写，current切换不清旧捕获：从当前来源所有历史captured anchor查peer，新照片不能清旧复用，pending但有历史捕获也返回仅照片context；入队过滤只控制是否创建新job，读取照片context另按全部已validated的来源（chosen及conflicts）查已有current，旧rawhash不得提供当前价格准入。读取分离后保留当次enqueue_candidates允许的price_job_ids，source_evidence默认photo-only，仅这些ID可标price_eligible；DOB冲突等不能合并的主体即使同名同rawhash也不得借入另一主体收据，资格参与final token。当前多人/卡包、身份/品相或事实冲突拒绝均不跳过这部分已绑定照片事实。将核实的全组photo_reuse_sources传入reconcile_prices，跨日期和原owner统一exclude现有价格、失效受影响历史报告、完整审计/回退，不写source_conflict也不改成交事实，无需新增经验隔离表。重新核验后的派生修复继续沿用完整审计/报告失效；不同字节或未实现相似度不作为独立实卡证明。
 ### T028 历史与增量采集
 - Files：player_prices/discovery.py、repository.py、service.py、新增迁移/采集状态（如需要）、测试player_prices/player_market/postgres。
 - 接口：collect_player保留现有位置参数，新增可选持久查询状态；coverage返回精确历史游标/边界/完成状态。失败不推进；最新增量和历史共享预算；后台在日更后仍可公平处理历史未完成对象。测试跨轮、失败重试、边界、变更查询及幂等。

@@ -81,14 +81,23 @@ async def finalize_reconciliation(c, audit_id):
     )
 
 
-async def reconcile_prices(c, player_id, rows, report_date, *, conflicted_sources=()):
+async def reconcile_prices(
+    c, player_id, rows, report_date, *, conflicted_sources=(), photo_reuse_sources=()
+):
     async with c.transaction():
         return await _reconcile_prices(
-            c, player_id, rows, report_date, conflicted_sources=conflicted_sources
+            c,
+            player_id,
+            rows,
+            report_date,
+            conflicted_sources=conflicted_sources,
+            photo_reuse_sources=photo_reuse_sources,
         )
 
 
-async def _reconcile_prices(c, player_id, rows, report_date, *, conflicted_sources):
+async def _reconcile_prices(
+    c, player_id, rows, report_date, *, conflicted_sources, photo_reuse_sources
+):
     repo = PriceRepository()
     subject = await repo.subject(c, player_id)
     if subject:
@@ -97,10 +106,11 @@ async def _reconcile_prices(c, player_id, rows, report_date, *, conflicted_sourc
     else:
         members = [player_id]
     await c.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,81))", (str(player_id),))
+    withdrawn = set(photo_reuse_sources)
     previous = await (
         await c.execute(
             "SELECT * FROM player_price_sale WHERE player_id=ANY(%s) OR source_id=ANY(%s) ORDER BY source_id",
-            (members, sorted({r["source_id"] for r in rows} | set(conflicted_sources))),
+            (members, sorted({r["source_id"] for r in rows} | set(conflicted_sources) | withdrawn)),
         )
     ).fetchall()
     by_source = {row["source_id"]: row for row in previous}
@@ -125,7 +135,7 @@ async def _reconcile_prices(c, player_id, rows, report_date, *, conflicted_sourc
         )
     ).fetchall()
     blocked.update(row["source_id"] for row in flags)
-    accepted = [r for r in rows if r["source_id"] not in blocked]
+    accepted = [r for r in rows if r["source_id"] not in blocked | withdrawn]
     if any(not r["identity"].get("image_evidence", {}).get("receipt_sha256") for r in accepted):
         raise ValueError("price_image_proof_required")
     affected = list(
@@ -135,7 +145,7 @@ async def _reconcile_prices(c, player_id, rows, report_date, *, conflicted_sourc
                 *[
                     r["player_id"]
                     for r in previous
-                    if r["source_id"] in ({x["source_id"] for x in rows} | blocked)
+                    if r["source_id"] in ({x["source_id"] for x in rows} | blocked | withdrawn)
                 ],
             ]
         )
@@ -159,7 +169,9 @@ async def _reconcile_prices(c, player_id, rows, report_date, *, conflicted_sourc
     affected = list(dict.fromkeys(affected))
     scope_sources = list(
         dict.fromkeys(
-            [r["source_id"] for r in previous] + [r["source_id"] for r in rows] + sorted(blocked)
+            [r["source_id"] for r in previous]
+            + [r["source_id"] for r in rows]
+            + sorted(blocked | withdrawn)
         )
     )
     previous = await (
@@ -171,6 +183,8 @@ async def _reconcile_prices(c, player_id, rows, report_date, *, conflicted_sourc
     scope_sources = list(dict.fromkeys(scope_sources + [r["source_id"] for r in previous]))
     before = await _state(c, affected, scope_sources)
     before.update(affected_player_ids=affected, scope_source_ids=scope_sources)
+    if withdrawn:
+        before["photo_reuse_withdrawals"] = sorted(withdrawn)
     revision = next((r for r in before["revisions"] if r["player_id"] == player_id), None)
     initial = revision is None or revision["policy"] != POLICY
     for source in sorted(blocked):
@@ -179,6 +193,14 @@ async def _reconcile_prices(c, player_id, rows, report_date, *, conflicted_sourc
             (source,),
         )
         await c.execute("UPDATE player_price_sale SET excluded=true WHERE source_id=%s", (source,))
+    # A verified photo reuse is an evidence withdrawal, not a change to the
+    # source's price/date/title. Include old/other-owner members in this audit
+    # and normal report invalidation without inventing source-conflict flags.
+    if withdrawn:
+        await c.execute(
+            "UPDATE player_price_sale SET excluded=true WHERE source_id=ANY(%s)",
+            (sorted(withdrawn),),
+        )
     end = day_end(report_date)
     await c.execute(
         """UPDATE player_price_sale SET excluded=true WHERE player_id=ANY(%s)
@@ -264,6 +286,7 @@ async def _reconcile_prices(c, player_id, rows, report_date, *, conflicted_sourc
     return dict(
         admitted_count=len(accepted),
         blocked_sources=sorted(blocked),
+        withdrawn_sources=sorted(withdrawn),
         changed=changed,
         policy=POLICY,
         audit_id=audit_id,

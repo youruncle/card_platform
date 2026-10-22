@@ -107,6 +107,25 @@ def _seal(value):
     )
 
 
+def image_pair_key(receipt):
+    """A lookup key only; byte/source/trace binding still requires validation."""
+    try:
+        images = receipt["images"]
+        hashes = [image["sha256"] for image in images]
+        if (
+            not isinstance(images, list)
+            or len(hashes) != 2
+            or len(set(hashes)) != 2
+            or any(
+                not isinstance(sha, str) or not re.fullmatch(r"[a-f0-9]{64}", sha) for sha in hashes
+            )
+        ):
+            return None
+        return tuple(sorted(hashes))
+    except (KeyError, TypeError, AttributeError):
+        return None
+
+
 def gallery_primary(gallery):
     # Only call after public_gallery_for_primary has validated the raw API
     # thumbnail query and proved membership in this exact item's gallery.

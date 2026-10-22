@@ -35,10 +35,17 @@ async def _load(c, player, report_date, catalog):
     catalog = catalog.session()
     observations = await existing_samples(c, player["full_name"], report_date)
     candidates, conflicts, invalid = source_candidates(observations)
-    ids = await queue.enqueue_candidates(
+    price_ids = await queue.enqueue_candidates(
         c, player["id"], queue_candidates(candidates, player["full_name"])
     )
-    evidence = list((await queue.evidence(c, ids)).values())
+    source_ids = {"item:" + sale.item_id for _, sale, _ in candidates} | conflicts
+    evidence = list((await queue.source_evidence(c, source_ids, price_job_ids=price_ids)).values())
+    peer_captures = {
+        str(capture["id"]): capture
+        for record in evidence
+        for peer in record["photo_peers"]
+        for capture in (peer, peer["photo_anchor"])
+    }
     token = _seal(
         dict(
             # Capture freshness alone does not change sale or image evidence.
@@ -52,6 +59,15 @@ async def _load(c, player, report_date, catalog):
             conflicting_sources=sorted(conflicts),
             invalid_observations=invalid,
             catalog_version=catalog.version,
+            photo_captures=[
+                dict(
+                    id=key,
+                    source=peer["source_id"],
+                    observation=_seal(peer["observation"]),
+                    receipt=peer["receipt_sha256"],
+                )
+                for key, peer in sorted(peer_captures.items())
+            ],
             evidence=sorted(
                 [
                     dict(
@@ -59,6 +75,7 @@ async def _load(c, player, report_date, catalog):
                         raw=r["observation_sha256"],
                         receipt=r["receipt_sha256"],
                         approved=r["approved_review_sha256s"],
+                        price_eligible=r["price_eligible"],
                     )
                     for r in evidence
                 ],
@@ -216,13 +233,28 @@ async def refresh_player_job(
                     await c.commit()
                     return dict(status="source_error", error=message)
                 reconciled = await reconcile_prices(
-                    c, player_id, rows, report_date, conflicted_sources=source_conflicts
+                    c,
+                    player_id,
+                    rows,
+                    report_date,
+                    conflicted_sources=source_conflicts,
+                    photo_reuse_sources=diagnostics["photo_reuse_sources"],
                 )
                 if reconciled["blocked_sources"]:
                     count = sum(r["source_id"] in reconciled["blocked_sources"] for r in rows)
                     coverage["identified_count"] -= count
                     coverage["rejected_count"] += count
                     coverage["rejection_reasons"]["conflicting_stored_source"] = count
+                photo_only = set(reconciled["withdrawn_sources"]) - set(
+                    reconciled["blocked_sources"]
+                )
+                withdrew = sum(r["source_id"] in photo_only for r in rows)
+                if withdrew:
+                    coverage["identified_count"] -= withdrew
+                    coverage["rejected_count"] += withdrew
+                    coverage["rejection_reasons"]["reused_photo_pair"] = (
+                        coverage["rejection_reasons"].get("reused_photo_pair", 0) + withdrew
+                    )
                 await finalize_reconciliation(c, reconciled["audit_id"])
                 if coverage["errors"]:
                     message = "卡淘部分采集失败，已核验成交保留，稍后重试"

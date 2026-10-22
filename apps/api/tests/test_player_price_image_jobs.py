@@ -15,6 +15,88 @@ from test_player_price_image_reviews import reviewed_fixture
 pytestmark = pytest.mark.skipif("TEST_DATABASE_URL" not in os.environ, reason="requires PostgreSQL")
 
 
+def test_photo_peer_history_survives_current_switch_and_wrong_public_job_owner():
+    async def check():
+        from test_player_price_admission import bound_candidate
+        from card_platform.player_prices.image_jobs import ImageJobs
+        from card_platform.player_prices.admission import verified_price_rows
+        from card_platform.public_source_catalog import observe_public_sale
+
+        old = bound_candidate(8811, day="2026-07-24")
+        current = bound_candidate(8812, day="2026-10-20")
+        fresh = bound_candidate(
+            8812, day="2026-10-20", colours=("blue", "black"), title_prefix="更新图库 "
+        )
+        blobs = {**old[2], **current[2], **fresh[2]}
+        async with await psycopg.AsyncConnection.connect(
+            os.environ["TEST_DATABASE_URL"], row_factory=dict_row
+        ) as c:
+            try:
+                first, second = await new_player(c), await new_player(c)
+                jobs = ImageJobs()
+                old_ids = await jobs.enqueue(c, first, [old[0]])
+                current_ids = await jobs.enqueue(c, second, [current[0]])
+                receipts = {
+                    old[1]["source_id"]: old[1]["receipt"],
+                    current[1]["source_id"]: current[1]["receipt"],
+                }
+                for _ in range(2):
+                    leased = await jobs.claim(c, daily_call_limit=4)
+                    assert await jobs.finish(
+                        c,
+                        leased["id"],
+                        leased["lease_token"],
+                        receipts[leased["source_id"]],
+                        actual_calls=0,
+                    )
+                changed = observe_public_sale(
+                    {**old[0]["raw_row"], "Title": old[0]["sale"]["title"] + " new capture"}
+                )
+                fresh_ids = await jobs.enqueue(c, second, [fresh[0]])
+                leased = await jobs.claim(c, daily_call_limit=6)
+                assert leased["id"] == fresh_ids[0]
+                assert await jobs.finish(
+                    c, leased["id"], leased["lease_token"], fresh[1]["receipt"], actual_calls=0
+                )
+                await jobs.enqueue(c, first, [changed])
+                assert await jobs.evidence(c, old_ids) == {}
+                saved = await jobs.evidence(c, fresh_ids, include_photo_peers=True)
+                record = saved[fresh_ids[0]]
+                assert [peer["id"] for peer in record["photo_peers"]] == old_ids
+                assert record["photo_peers"][0]["photo_anchor"]["id"] == current_ids[0]
+                assert record["player_id"] == second
+                assert record["photo_peers"][0]["player_id"] == first
+                rows, coverage = verified_price_rows(
+                    [fresh[0]],
+                    "Stephen Curry",
+                    current[3],
+                    evidence=[record],
+                    blob_reader=blobs.__getitem__,
+                )
+                assert rows == [] and coverage["rejection_reasons"] == {"reused_photo_pair": 1}
+                newest = observe_public_sale(
+                    {**fresh[0]["raw_row"], "Title": fresh[0]["sale"]["title"] + " pending"}
+                )
+                pending_ids = await jobs.enqueue(c, second, [newest])
+                assert await jobs.evidence(c, pending_ids) == {}
+                pending = await jobs.evidence(c, pending_ids, include_photo_peers=True)
+                assert pending[pending_ids[0]]["receipt"] is None
+                rows, coverage = verified_price_rows(
+                    [newest],
+                    "Stephen Curry",
+                    current[3],
+                    evidence=list(pending.values()),
+                    blob_reader=blobs.__getitem__,
+                )
+                assert rows == []
+                assert coverage["rejection_reasons"] == {"image_evidence_pending": 1}
+                assert coverage["photo_reuse_sources"] == ["item:8811", "item:8812"]
+            finally:
+                await c.rollback()
+
+    asyncio.run(check())
+
+
 def test_queue_reuses_immutable_observations_and_never_resets_existing_work():
     async def check():
         from card_platform.player_prices.image_jobs import ImageJobs

@@ -15,6 +15,247 @@ from test_player_market import observation
 pytestmark = pytest.mark.skipif("TEST_DATABASE_URL" not in os.environ, reason="requires PostgreSQL")
 
 
+def test_photo_only_context_cannot_rebind_a_foreign_same_name_subject_price():
+    async def check():
+        from test_player_price_admission import bound_candidate
+        from card_platform.player_prices.coordinator import _load
+        from card_platform.player_prices.admission import verified_price_rows
+        from card_platform.player_prices.image_jobs import ImageJobs
+        from card_platform.player_prices.repository import PriceRepository
+        from card_platform.player_prices.reconciliation import (
+            reconcile_prices,
+            finalize_reconciliation,
+        )
+        from card_platform.public_source_catalog import store_observations
+
+        obs, record, blobs, official = bound_candidate(8877)
+        async with await psycopg.AsyncConnection.connect(
+            os.environ["TEST_DATABASE_URL"], row_factory=dict_row
+        ) as c:
+            try:
+                players = []
+                for dob in ["1988-03-14", "2000-03-14"]:
+                    players.append(
+                        await (
+                            await c.execute(
+                                "INSERT INTO player(full_name,normalized_name,birth_date) "
+                                "VALUES('Stephen Curry',%s,%s) RETURNING id,full_name",
+                                (str(uuid4()), dob),
+                            )
+                        ).fetchone()
+                    )
+                repo, queue = PriceRepository(), ImageJobs()
+                assert (await repo.subject(c, players[0]["id"]))["id"] != (
+                    await repo.subject(c, players[1]["id"])
+                )["id"]
+                await store_observations(c, [obs])
+                await queue.enqueue(c, players[0]["id"], [obs])
+                job = await queue.claim(c, daily_call_limit=2)
+                assert await queue.finish(
+                    c, job["id"], job["lease_token"], record["receipt"], actual_calls=0
+                )
+                for index, player in enumerate(players):
+                    loaded = await _load(c, player, date(2026, 10, 21), official)
+                    assert (
+                        len(loaded[2]) == 1
+                    )  # Foreign photos remain available for exclusion only.
+                    rows, coverage = verified_price_rows(
+                        loaded[0],
+                        player["full_name"],
+                        loaded[1],
+                        evidence=loaded[2],
+                        blob_reader=blobs.__getitem__,
+                    )
+                    assert len(rows) == 1 - index
+                    if index:
+                        assert coverage["rejection_reasons"] == {"image_evidence_pending": 1}
+                    repaired = await reconcile_prices(c, player["id"], rows, date(2026, 10, 21))
+                    await finalize_reconciliation(c, repaired["audit_id"])
+                saved = await (
+                    await c.execute(
+                        "SELECT player_id,excluded FROM player_price_sale WHERE source_id='item:8877'"
+                    )
+                ).fetchone()
+                assert saved == {"player_id": players[0]["id"], "excluded": False}
+            finally:
+                await c.rollback()
+
+    asyncio.run(check())
+
+
+@pytest.mark.parametrize("queue_rejection", [None, "lot", "lot_pending"])
+def test_known_photo_reuse_is_not_cleared_by_window_rollover_or_historical_replay(queue_rejection):
+    async def check():
+        from test_player_price_admission import bound_candidate
+        from card_platform.player_prices.coordinator import _load
+        from card_platform.player_prices.admission import verified_price_rows
+        from card_platform.player_prices.image_jobs import ImageJobs
+        from card_platform.player_prices.repository import PriceRepository
+        from card_platform.player_prices.reconciliation import (
+            reconcile_prices,
+            finalize_reconciliation,
+        )
+        from card_platform.public_source_catalog import store_observations, observe_public_sale
+
+        candidates = [
+            bound_candidate(8801, day="2026-07-24"),
+            bound_candidate(8802, day="2026-10-20"),
+        ]
+        blobs = {sha: data for _, _, stored, _ in candidates for sha, data in stored.items()}
+        official = candidates[0][3]
+        async with await psycopg.AsyncConnection.connect(
+            os.environ["TEST_DATABASE_URL"], row_factory=dict_row
+        ) as c:
+            try:
+                player = await (
+                    await c.execute(
+                        "INSERT INTO player(full_name,normalized_name) VALUES('Stephen Curry',%s) RETURNING id,full_name",
+                        (str(uuid4()),),
+                    )
+                ).fetchone()
+                queue = ImageJobs()
+                await store_observations(c, [row[0] for row in candidates])
+                ids = await queue.enqueue(c, player["id"], [row[0] for row in candidates])
+                receipts = {row[1]["source_id"]: row[1]["receipt"] for row in candidates}
+                for _ in ids:
+                    job = await queue.claim(c, daily_call_limit=4)
+                    assert await queue.finish(
+                        c, job["id"], job["lease_token"], receipts[job["source_id"]], actual_calls=0
+                    )
+                # A previously published price must actually be withdrawn,
+                # even after its source leaves the current 90-day window.
+                old_rows, _ = verified_price_rows(
+                    [candidates[0][0]],
+                    player["full_name"],
+                    official,
+                    evidence=[candidates[0][1]],
+                    blob_reader=blobs.__getitem__,
+                )
+                repaired = await reconcile_prices(c, player["id"], old_rows, date(2026, 7, 25))
+                await finalize_reconciliation(c, repaired["audit_id"])
+                if queue_rejection:
+                    changed = observe_public_sale(
+                        {
+                            **candidates[1][0]["raw_row"],
+                            "Title": candidates[1][0]["sale"]["title"] + " lot",
+                        }
+                    )
+                    await store_observations(c, [changed])
+                    if queue_rejection == "lot_pending":
+                        await queue.enqueue(c, player["id"], [changed])
+                jobs_before = (
+                    await (
+                        await c.execute("SELECT count(*) AS n FROM player_price_image_job")
+                    ).fetchone()
+                )["n"]
+                for report in [date(2026, 10, 21), date(2026, 10, 22), date(2026, 10, 21)]:
+                    observations, catalog, evidence, _ = await _load(c, player, report, official)
+                    rows, coverage = verified_price_rows(
+                        observations,
+                        player["full_name"],
+                        catalog,
+                        evidence=evidence,
+                        blob_reader=blobs.__getitem__,
+                    )
+                    assert rows == [], (report, coverage)
+                    assert coverage["photo_reuse_sources"] == ["item:8801", "item:8802"]
+                    if queue_rejection is None:
+                        assert coverage["rejection_reasons"]["reused_photo_pair"] == len(
+                            observations
+                        )
+                    repaired = await reconcile_prices(
+                        c,
+                        player["id"],
+                        rows,
+                        report,
+                        photo_reuse_sources=coverage["photo_reuse_sources"],
+                    )
+                    await finalize_reconciliation(c, repaired["audit_id"])
+                    assert await PriceRepository().sales(c, player["id"], report) == []
+                    assert (
+                        await (
+                            await c.execute(
+                                "SELECT count(*) AS n FROM player_price_sale WHERE NOT excluded"
+                            )
+                        ).fetchone()
+                    )["n"] == 0
+                assert (
+                    await (
+                        await c.execute("SELECT count(*) AS n FROM player_price_image_job")
+                    ).fetchone()
+                )["n"] == jobs_before
+            finally:
+                await c.rollback()
+
+    asyncio.run(check())
+
+
+def test_newly_finished_historical_photo_peer_changes_final_input_token():
+    async def check():
+        from test_player_price_admission import bound_candidate
+        from card_platform.player_prices.coordinator import _load
+        from card_platform.player_prices.admission import verified_price_rows
+        from card_platform.player_prices.image_jobs import ImageJobs
+        from card_platform.public_source_catalog import store_observations
+
+        candidates = [
+            bound_candidate(8821, day="2026-07-24"),
+            bound_candidate(8822, day="2026-10-20"),
+        ]
+        blobs = {sha: data for _, _, stored, _ in candidates for sha, data in stored.items()}
+        official = candidates[0][3]
+        async with await psycopg.AsyncConnection.connect(
+            os.environ["TEST_DATABASE_URL"], row_factory=dict_row
+        ) as c:
+            try:
+                player = await (
+                    await c.execute(
+                        "INSERT INTO player(full_name,normalized_name) VALUES('Stephen Curry',%s) RETURNING id,full_name",
+                        (str(uuid4()),),
+                    )
+                ).fetchone()
+                queue = ImageJobs()
+                await store_observations(c, [row[0] for row in candidates])
+                await queue.enqueue(c, player["id"], [row[0] for row in candidates])
+                leased = [await queue.claim(c, daily_call_limit=4) for _ in range(2)]
+                by_source = {row["source_id"]: row for row in leased}
+                current = by_source["item:8822"]
+                assert await queue.finish(
+                    c,
+                    current["id"],
+                    current["lease_token"],
+                    candidates[1][1]["receipt"],
+                    actual_calls=0,
+                )
+                before = await _load(c, player, date(2026, 10, 22), official)
+                rows, _ = verified_price_rows(
+                    before[0],
+                    player["full_name"],
+                    before[1],
+                    evidence=before[2],
+                    blob_reader=blobs.__getitem__,
+                )
+                assert len(rows) == 1
+                old = by_source["item:8821"]
+                assert await queue.finish(
+                    c, old["id"], old["lease_token"], candidates[0][1]["receipt"], actual_calls=0
+                )
+                after = await _load(c, player, date(2026, 10, 22), official)
+                assert before[0] == after[0] and before[3] != after[3]
+                rows, _ = verified_price_rows(
+                    after[0],
+                    player["full_name"],
+                    after[1],
+                    evidence=after[2],
+                    blob_reader=blobs.__getitem__,
+                )
+                assert rows == []
+            finally:
+                await c.rollback()
+
+    asyncio.run(check())
+
+
 @pytest.mark.parametrize("partial", [False, True])
 def test_refresh_only_admits_server_reviewed_evidence_and_reuses_it(partial):
     async def check():

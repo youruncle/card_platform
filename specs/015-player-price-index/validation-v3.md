@@ -239,3 +239,19 @@ image_reader拆出无模型的capture_pair，继续要求原观察绑定准确�
 最终本地价格/market/公开源兼容聚焦323项通过，1条既有Starlette/httpx警告；Ruff和git diff检查通过。召回/预算、空头部及SQL昵称回读均有保留的不利RED捕获，最终独立99项通过，Critical/Important/Minor均无未关闭项，允许提交本批；不包含业务覆盖或发布完成。cloud-reviewed-next2-postflight.json确认7登记/7批准、revision=0，/health及/health/ready=200，成本worker=true、视觉deepseek-flash非思考、原独立百炼host/key及两个qwen-plus搜索模型均保留。线上API镜像/价格包未替换；本批没有Web/iPhone发布或实际背景日更。
 
 现有可信登记从5人5笔增加至7人7笔，正式严格行情消费仍未发布，0有效趋势的业务缺口尚未解决。T027/T029–T032继续未完成：需处理图片复用/照片变化版保护、补足可比历史与至少30笔实际纳入，达到8位覆盖/5位三日报告趋势后，再完成正式旧派生修复、双端真实路径和持续更新验收。goal继续active，不以这些捕获、登记或测试作为功能完成。
+
+## 2026-10-22 第十三批：重复照片的历史排除、派生撤销和主体边界
+
+针对第十二批真实发现的两组完全相同正反面照片，本批新增顺序无关的精确两面hash排除：不同source整组退出，不挑任意赢家；同source重复捕获仍只算一次。原始图库/照片/模型trace及复核不改写。image_pair_key只做候选匹配，真正排除前仍通过_read_bound_receipt核验原观察、准确图库、字节hash和trace绑定。历史peer只提供照片事实，不把其金额/日期/身份/样本计数加入本报告；相关归档不可读时当前候选保持photo_independence_pending，不静默放行。未实现近似图/实卡相似度，照片不同字节不能据此证明独立。
+
+独立复核先发现90日滚动反例：7/24与10/20同照片，10/21两笔被拒，10/22前者退出窗口后后者又入价。真实PG _load→verified→reconcile RED后，生产显式读取全历史captured公开照片peer，不限日期/current/登记owner；从本source全部历史captured anchor查复用，后来换一组照片不能抹掉旧事实。当前pending但有旧capture、或身份/品相拒绝时，照片事实仍独立处理。anchors/peers稳定去重纳入coordinator final token，新增历史peer完成能触发重试，复用已有短事务锁，不在读图期间持DB事务。
+
+还修复了已经发布的旧peer价格残留：完整验证后的photo_reuse_sources传入reconcile_prices，扩大实际旧owner的canonical scope及锁，统一excluded现存价格，失效其成交上海日到+7日的受影响快照，完整审计及可回退；不写source_conflict、不修改原金额/日期/标题、不把窗口外记录计为新样本。PG真实旧owner/旧日价格、报告撤销和回退对照通过；旧实现的基线回放shared-photo-old-price-withdrawal-red.txt确实留下ready报告，该捕获为修复后重放旧实现的反证，非声称先于编码运行。
+
+最终审查又实证两个Important并分别保留RED后关闭。其一，当前标题追加lot被入队过滤，历史context也被跳过，旧价格仍活动；现入队仅控制新job，source_evidence另从全部validated来源（chosen及conflicts）读取已有current/历史照片，lot/lot_pending与源事实冲突均保持撤销，不增新任务。其二，该读取分离最初绕过foreign-owner边界：同名但DOB1988/2000冲突的两个独立主体，B借A收据入价并迁移了价格owner。现保留enqueue_candidates实际允许的price_job_ids，source_evidence默认photo-only；价格必须同时具备exact原观察hash、有效收据及本轮price_eligible，资格也参与token。真实PG断言两主体不合并、B仍可读照片context但准入0，原A owner/excluded不变。相应RED分别3失败/25通过、1失败；修复后28及29聚焦通过。
+
+最终价格/market/公开源兼容聚焦338项通过、1条既有Starlette/httpx警告；Ruff及git diff检查通过。独立最终49项通过，Critical/Important/Minor均无未关闭项，明确只认可本批代码，不代表生产或业务达标。原全后端失败/未运行范围仍保留，未声称全仓测试通过。
+
+云端只读独立进程用最终模块、正式DB批准及scanner持久卷字节重核现有7笔，全部confirmed、7组不同精确照片pair、相关历史capture=0，新增模型调用0，未写价格/登记；不是后台日更。首次尝试缺sudo导致Docker权限拒绝、第二次一次性脚本路径不存在，均保留stderr，随后使用准确源码直接加载的两个成功读回才计验证。cloud-photo-reuse-reviewed-postflight.json读回7jobs/7approvals、revision=0、publication22，health与health/ready均200，成本worker=true、DeepSeek Flash thinking disabled及独立原百炼qwen-plus配置均保留。源码/规格、RED/green与云端读回已备份photo-reuse-reviewed-20261022.tar.gz（58959字节，SHA256 cba06ab913d4e442cf25f6a929f0076069ec9f40966b77430cea7c2855490b60，manifest e06da2b51c0fc85300efd9262204ad751d31aacfd88a4592c51348bf81023ad0，0600）至既有云端backups/player-price-verified-refresh-20261022，归档原件已读回核验。
+
+本批未替换线上价格包、未执行正式派生repair、未增加付费模型调用或可信成交，仍7人7笔登记、0有效趋势；无文字照片变化版风险也尚未解决。T027/T029–T032及goal继续未完成。接下来继续无卡号依赖的真实候选召回与前后窗口核图，不以排除规则、测试或备份凑至少30笔及5位三日报告趋势。

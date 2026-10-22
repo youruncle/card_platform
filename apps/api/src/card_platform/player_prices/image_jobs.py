@@ -6,11 +6,12 @@ Approvals are a trusted server operation, never a client-supplied authority set.
 
 import hashlib
 import re
+from collections import defaultdict
 from uuid import uuid4
 
 from psycopg.types.json import Jsonb
 
-from card_platform.player_prices.image_evidence import _seal
+from card_platform.player_prices.image_evidence import _seal, image_pair_key
 from card_platform.player_prices.image_reviews import ImageReview
 from card_platform.player_prices.repository import PriceRepository
 from card_platform.public_source_catalog import validated_sale
@@ -271,7 +272,21 @@ class ImageJobs:
                 (job_id, review_sha256, row["receipt_sha256"], review.reviewer_kind),
             )
 
-    async def evidence(self, c, job_ids):
+    async def source_evidence(self, c, source_ids, *, price_job_ids=()):
+        """Read archived facts even when a source cannot enter the paid queue."""
+        ids = await (
+            await c.execute(
+                "SELECT job_id FROM player_price_image_current WHERE source_id=ANY(%s)",
+                (sorted(set(source_ids)),),
+            )
+        ).fetchall()
+        records = await self.evidence(c, [row["job_id"] for row in ids], include_photo_peers=True)
+        eligible = set(price_job_ids)
+        for key, record in records.items():
+            record["price_eligible"] = key in eligible
+        return records
+
+    async def evidence(self, c, job_ids, *, include_photo_peers=False):
         if not job_ids:
             return {}
         rows = await (
@@ -280,8 +295,64 @@ class ImageJobs:
             FROM player_price_image_job j JOIN player_price_image_current current ON current.job_id=j.id LEFT JOIN LATERAL
               (SELECT array_agg(review_sha256 ORDER BY approved_at,review_sha256) AS approved_review_sha256s
                FROM player_price_image_review_approval WHERE job_id=j.id AND receipt_sha256=j.receipt_sha256) a ON true
-            WHERE j.id=ANY(%s) AND j.status='captured'""",
-                (job_ids,),
+            WHERE j.id=ANY(%s) AND (j.status='captured' OR (%s AND EXISTS(
+              SELECT 1 FROM player_price_image_job old
+              WHERE old.source_id=j.source_id AND old.status='captured')))""",
+                (job_ids, include_photo_peers),
             )
         ).fetchall()
+        if include_photo_peers:
+            sources = [r["source_id"] for r in rows]
+            anchors = (
+                await (
+                    await c.execute(
+                        """
+                SELECT * FROM player_price_image_job
+                WHERE source_id=ANY(%s) AND status='captured'
+                ORDER BY source_id,observation_sha256,receipt_sha256,id
+            """,
+                        (sources,),
+                    )
+                ).fetchall()
+                if sources
+                else []
+            )
+            wanted = [r["id"] for r in anchors if image_pair_key(r["receipt"]) is not None]
+            # A public capture's owner, age or current pointer cannot erase an
+            # already archived photo reuse fact. Peers never supply prices or
+            # subject identity; the caller validates their original binding.
+            peers = (
+                await (
+                    await c.execute(
+                        """
+                SELECT peer.*,
+                  LEAST(peer.receipt->'images'->0->>'sha256',peer.receipt->'images'->1->>'sha256') AS pair_a,
+                  GREATEST(peer.receipt->'images'->0->>'sha256',peer.receipt->'images'->1->>'sha256') AS pair_b
+                FROM player_price_image_job peer WHERE peer.status='captured'
+                AND EXISTS(SELECT 1 FROM player_price_image_job wanted
+                  WHERE wanted.id=ANY(%s) AND wanted.source_id<>peer.source_id
+                  AND LEAST(wanted.receipt->'images'->0->>'sha256',wanted.receipt->'images'->1->>'sha256')
+                      =LEAST(peer.receipt->'images'->0->>'sha256',peer.receipt->'images'->1->>'sha256')
+                  AND GREATEST(wanted.receipt->'images'->0->>'sha256',wanted.receipt->'images'->1->>'sha256')
+                      =GREATEST(peer.receipt->'images'->0->>'sha256',peer.receipt->'images'->1->>'sha256'))
+                ORDER BY peer.source_id,peer.observation_sha256,peer.receipt_sha256,peer.id
+            """,
+                        (wanted,),
+                    )
+                ).fetchall()
+                if wanted
+                else []
+            )
+            anchors_by_source, peers_by_pair = defaultdict(list), defaultdict(list)
+            for anchor in anchors:
+                anchors_by_source[anchor["source_id"]].append(anchor)
+            for peer in peers:
+                peers_by_pair[(peer["pair_a"], peer["pair_b"])].append(peer)
+            for row in rows:
+                row["photo_peers"] = [
+                    {**peer, "photo_anchor": anchor}
+                    for anchor in anchors_by_source[row["source_id"]]
+                    for peer in peers_by_pair[image_pair_key(anchor["receipt"])]
+                    if peer["source_id"] != row["source_id"]
+                ]
         return {r["id"]: r for r in rows}

@@ -422,7 +422,8 @@ def test_new_sample_preserves_existing_reports_but_invalidated_source_clears_aff
     asyncio.run(check())
 
 
-def test_conflicting_source_repairs_and_audits_its_previous_owner():
+@pytest.mark.parametrize("photo_reuse", [False, True])
+def test_conflicting_or_reused_source_repairs_and_audits_its_previous_owner(photo_reuse):
     async def check():
         from card_platform.player_prices.reconciliation import (
             reconcile_prices,
@@ -446,15 +447,18 @@ def test_conflicting_source_repairs_and_audits_its_previous_owner():
                         )["id"]
                     )
                 a, b = players
+                source_day = date(2026, 7, 24) if photo_reuse else date(2026, 10, 20)
+                snapshot_day = date(2026, 7, 25) if photo_reuse else date(2026, 10, 21)
+                report_day = date(2026, 10, 22) if photo_reuse else date(2026, 10, 21)
                 await reconcile_prices(c, a, [], date(2026, 10, 21))
                 await reconcile_prices(c, b, [], date(2026, 10, 21))
                 await c.execute(
-                    "INSERT INTO player_price_sale(source_id,player_id,card_key,identity,sale_price,occurred_at,source_url,raw_title) VALUES('fixture:old-owner',%s,'old','{}',100,'2026-10-20','https://example.com','original')",
-                    (a,),
+                    "INSERT INTO player_price_sale(source_id,player_id,card_key,identity,sale_price,occurred_at,source_url,raw_title) VALUES('fixture:old-owner',%s,'old','{}',100,%s,'https://example.com','original')",
+                    (a, source_day),
                 )
                 await c.execute(
-                    "INSERT INTO player_price_snapshot(player_id,report_date,result) VALUES(%s,'2026-10-21',%s)",
-                    (a, Jsonb({"status": "ready", "change_pct": "5"})),
+                    "INSERT INTO player_price_snapshot(player_id,report_date,result) VALUES(%s,%s,%s)",
+                    (a, snapshot_day, Jsonb({"status": "ready", "change_pct": "5"})),
                 )
                 incoming = dict(
                     source_id="fixture:old-owner",
@@ -465,8 +469,14 @@ def test_conflicting_source_repairs_and_audits_its_previous_owner():
                     source_url="https://example.com",
                     raw_title="original",
                 )
-                result = await reconcile_prices(c, b, [incoming], date(2026, 10, 21))
-                assert result["blocked_sources"] == ["fixture:old-owner"]
+                result = await reconcile_prices(
+                    c,
+                    b,
+                    [] if photo_reuse else [incoming],
+                    report_day,
+                    photo_reuse_sources=["fixture:old-owner"] if photo_reuse else [],
+                )
+                assert result["blocked_sources"] == ([] if photo_reuse else ["fixture:old-owner"])
                 assert not await (
                     await c.execute(
                         "SELECT result FROM player_price_snapshot WHERE player_id=%s", (a,)
@@ -480,6 +490,20 @@ def test_conflicting_source_repairs_and_audits_its_previous_owner():
                 ).fetchone()
                 assert str(a) in audit["before_state"]["affected_player_ids"]
                 assert audit["before_state"]["sales"][0]["excluded"] is False
+                if photo_reuse:
+                    assert audit["before_state"]["photo_reuse_withdrawals"] == ["fixture:old-owner"]
+                    assert not await (
+                        await c.execute(
+                            "SELECT * FROM player_price_source_conflict WHERE source_id='fixture:old-owner'"
+                        )
+                    ).fetchall()
+                    stored = await (
+                        await c.execute(
+                            "SELECT * FROM player_price_sale WHERE source_id='fixture:old-owner'"
+                        )
+                    ).fetchone()
+                    assert stored["excluded"] and stored["sale_price"] == 100
+                    assert stored["raw_title"] == "original"
                 assert await rollback_reconciliation(c, audit["id"])
                 assert (
                     await (
