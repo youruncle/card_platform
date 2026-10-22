@@ -339,6 +339,11 @@ def admit_receipt(observation, receipt, player_name, catalog, *, blob_reader):
         sale, result = _read_bound_receipt(observation, receipt, blob_reader)
     except (ValueError, TypeError, KeyError, OSError, AttributeError, UnicodeError):
         return _decision("invalid_image_receipt")
+    return _admit_bound_result(observation, receipt, sale, result, player_name, catalog)
+
+
+def _admit_bound_result(observation, receipt, sale, result, player_name, catalog, *, review=None):
+    """Shared gates after the caller validates immutable source evidence."""
     if result.confidence < Decimal(".88") or not (result.front_complete and result.back_complete):
         return _decision("physical_views_incomplete")
     if result.card_counts != [1, 1] or not _field(result, "card_count", 1, [0, 1]):
@@ -545,4 +550,6 @@ def admit_receipt(observation, receipt, player_name, catalog, *, blob_reader):
         serial_number=result.serial_number,
         grade_cert_number=result.grade_cert_number,
     )
+    if review is not None:
+        proof.update(observation_method="codex_reviewed_model", review=review)
     return _decision(None, {**confirmed, "image_evidence": proof})
