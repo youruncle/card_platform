@@ -23,6 +23,7 @@ from card_platform.ingestion.cardhobby import (
 )
 from card_platform.player_prices.collection import collect_player as collect_player
 from card_platform.player_prices.subjects import canonical_subject_name
+from card_platform.domain.player_aliases import matching_player_aliases
 
 # Narrow initial automatic coverage. Existing verified catalog identities extend it.
 PRODUCTS = {
@@ -91,6 +92,44 @@ def card_key(identity: dict) -> str:
     return hashlib.sha256(json.dumps(canonical, sort_keys=True).encode()).hexdigest()
 
 
+def _plain_base_title(title):
+    # An official section such as "Base Prizms Ice" contains Base but names
+    # a physical variant (real item:138556443). The plural is not the product.
+    variant = re.search(r"\bbase[\s/_-]+prizms\b", title, re.I)
+    return is_explicit_base_listing(title) and not variant
+
+
+def _compound_colour_title(title, player_name):
+    # Remove independently matched subject words first: Coby White Blue Prizm
+    # is a player's surname followed by a single-colour finish.
+    view = re.sub(r"[-–—_/,&+]+", " ", title)
+    for alias in [player_name, *matching_player_aliases(player_name.casefold())]:
+        if alias:
+            words = re.sub(r"[-–—_/,&+]+", " ", alias).split()
+            pattern = r"(?<![A-Za-z0-9])" + r"\s+".join(re.escape(word) for word in words) + r"(?![A-Za-z0-9])"
+            view = re.sub(pattern, " ", view, flags=re.I)
+    compact = re.sub(r"\s+", "", view).casefold()
+    chinese = "红蓝金绿紫黑白橙粉黄银青铜"
+    if re.search(r"红白蓝|(?:双色|三色|多色|拼色)[" + chinese + r"]*(?:折|平行)|["
+                 + chinese + r"]{2,}(?:折|平行)|redwhite(?:and)?blue", compact):
+        return True
+    if re.search(r"\b(?:rwb|tri[- ]?color|dual[- ]?color)\b", view, re.I):
+        return True
+    colors = r"red|white|blue|gold|black|green|silver|purple|orange|pink|yellow|aqua|teal|bronze"
+    return any(m[1].casefold() != m[2].casefold() for m in re.finditer(
+        rf"\b({colors})\s+(?:and\s+)?({colors})\s+(?:prizms?|refractor|parallel|foil|holo)\b",
+        view, re.I))
+
+
+def _one_colour_parallel(value):
+    colors = {"silver":"银", "red":"红", "white":"白", "blue":"蓝", "gold":"金",
+              "black":"黑", "green":"绿", "purple":"紫", "orange":"橙", "pink":"粉",
+              "yellow":"黄", "aqua":"青", "teal":"青", "bronze":"铜"}
+    named = {chinese for english,chinese in colors.items()
+             if re.search(r"\b" + english + r"\b", value, re.I) or chinese in value}
+    return len(named) == 1
+
+
 def identify_sale(sale, player_name: str, known_identities: list[dict], *, catalog=None) -> dict | None:
     """Only accept a single, unambiguous, fully anchored deterministic match."""
     title = identity_title(sale.title)
@@ -113,7 +152,7 @@ def identify_sale(sale, player_name: str, known_identities: list[dict], *, catal
     )
     if len(season) != 1:
         return None
-    base = is_explicit_base_listing(title)
+    base = _plain_base_title(title)
     print_runs = explicit_print_runs(title)
     if base and print_runs:
         return None  # a numbered base needs a separately verified finish, unsupported in v1
@@ -182,7 +221,7 @@ def identify_sale(sale, player_name: str, known_identities: list[dict], *, catal
         products = [p for p in products if p != "Donruss"]
     finishes = [name for name, pattern in FINISHES.items() if re.search(pattern, title, re.I)]
     explicit_finish = re.search(r"\b(silver|red|blue|gold)\s+(prizm|refractor)\b", title, re.I)
-    base = is_explicit_base_listing(title)
+    base = _plain_base_title(title)
     print_runs = explicit_print_runs(title)
     if (
         not re.search(r"特卡|插入|\binsert\b", title, re.I)
@@ -217,7 +256,13 @@ def identify_sale(sale, player_name: str, known_identities: list[dict], *, catal
                 )
             )
     matches = {}
+    compound_colour = _compound_colour_title(title, player_name)
     for identity in identities:
+        # Real item:127791016 is RWB, but the 蓝折 suffix alone matched Blue.
+        # A component colour cannot establish the whole compound finish.
+        simple = str(identity.get("parallel_name") or "").strip().casefold()
+        if compound_colour and _one_colour_parallel(simple):
+            continue
         if catalog is not None:
             identity = catalog.confirm_title(identity, sale)
             if identity is None:

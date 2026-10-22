@@ -326,3 +326,43 @@ def test_cached_product_word_cannot_act_as_both_insert_and_parallel_anchor():
                  card_number="152", parallel_name="prizm")
     assert identify_sale(market_sale("2023-24 Panini Prizm Stephen Curry 银折"),
                          "Stephen Curry", [known]) is None
+
+
+@pytest.mark.parametrize('finish',[
+    '三色折射 红白蓝折射', 'Red White Blue Prizm', '双色折射 蓝折', '红蓝双色折 蓝折',
+    'Red-White-Blue Prizm','Red/White/Blue Prizm','Red White & Blue Prizm',
+    '红 白 蓝折射','红蓝折射','拼色蓝折','Black Gold Prizm','黑金折',
+    'Red Blue Prizm','Red and Blue Prizm',
+])
+def test_compound_finish_cannot_be_admitted_as_one_component_colour(finish):
+    title = '2024-25 Panini Prizm LeBron James #130 ' + finish
+    known = dict(player_name='LeBron James',season_start=2024,season_end=2025,
+                 brand_name='Panini',product_name='Prizm',card_number='130',parallel_name='Blue')
+    assert identify_sale(market_sale(title),'LeBron James',[known]) is None
+
+
+@pytest.mark.parametrize('finish',['Ice','Silver','Basketball','Blue Ice','Black Gold'])
+def test_official_base_prizms_variant_section_cannot_be_collapsed_into_plain_base(finish):
+    title = ('2024-25 Panini Prizm Basketball #16 Scottie Barnes 斯科蒂 巴恩斯 '
+             'Toronto Raptors 多伦多猛龙 Base Prizms ' + finish + ' 凑套专收必备')
+    known = dict(player_name='Scottie Barnes',season_start=2024,season_end=2025,
+                 brand_name='Panini',product_name='Prizm',card_number='16',parallel_name='Base')
+    assert identify_sale(market_sale(title),'Scottie Barnes',[known]) is None
+
+
+@pytest.mark.parametrize('name',['Coby White','Coby  White','Coby-White','Coby/White','Coby\tWhite'])
+@pytest.mark.parametrize('number_first',[True,False])
+def test_colour_word_in_a_verified_player_name_is_not_a_compound_finish(name,number_first):
+    title = ('2024-25 Panini Prizm #23 '+name+' Blue Prizm' if number_first else
+             '2024-25 Panini Prizm '+name+' #23 Blue Prizm')
+    assert identify_sale(market_sale(title),'Coby White',[]) is not None
+
+
+@pytest.mark.parametrize('parallel',['Blue Parallel','Blue Prizm Parallel','蓝折','Red Parallel','Gold Vinyl'])
+def test_compound_claim_cannot_be_absorbed_by_a_single_colour_cached_synonym(parallel):
+    from test_player_price_catalog import catalog,fact
+    c = catalog([fact(player='LeBron James',card_number='130')])
+    known = dict(player_name='LeBron James',season_start=2024,season_end=2025,brand_name='Panini',
+                 product_name='Prizm',card_number='130',parallel_name=parallel)
+    assert identify_sale(market_sale('2024-25 Panini Prizm LeBron James #130 红白蓝折射'),
+                         'LeBron James',[known],catalog=c) is None

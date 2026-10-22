@@ -50,6 +50,7 @@ def test_confirmed_title_is_canonicalized_against_its_scoped_official_card_with_
     dict(season_start=2023,season_end=2024), dict(authority='seller_listing'),
     dict(source_checksum='not a checksum'), dict(source_locator=''),
     dict(section='Base China Variation'),
+    dict(parallel='Ice'), dict(serial_total=99), dict(print_run=99),
 ])
 def test_missing_conflicting_or_unverifiable_official_kind_does_not_validate_a_title(attributes):
     assert catalog([fact(**attributes)]).confirm_title(identity(), market_sale(
@@ -152,6 +153,20 @@ def test_product_scoped_prizm_finish_aliases_share_one_key_without_collapsing_ot
     other = identify_sale(market_sale('2024-25 Panini Donruss Optic Stephen Curry #23 银折'),
                           'Stephen Curry',[],catalog=optic)
     assert other and other['parallel_name']=='Silver' and card_key(other)!=card_key(a)
+
+
+@pytest.mark.parametrize('family',['Ice','Fast Break','Snakeskin','Ruby Wave','Black Gold'])
+@pytest.mark.parametrize('separator',[' ','-','/'])
+def test_exact_published_variant_sections_cannot_validate_plain_base(family,separator):
+    from card_platform.player_prices.discovery import identify_sale
+    ordinary=fact(player='Scottie Barnes',card_number='16')
+    variant=fact(player='Scottie Barnes',card_number='16',section='Base Prizms '+family,parallel=family)
+    variant['id']='variant-'+family
+    c=catalog([ordinary,variant])
+    for product_word in ['Prizm','Prizms']:
+        section=separator.join(['Base',product_word,*family.split()])
+        title='2024-25 Panini Prizm Scottie Barnes #16 '+section
+        assert identify_sale(market_sale(title),'Scottie Barnes',[],catalog=c) is None
 
 
 @pytest.mark.skipif('TEST_DATABASE_URL' not in os.environ, reason='requires isolated PostgreSQL')

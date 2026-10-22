@@ -24,7 +24,14 @@ def _official(row):
 
 
 def _ordinary_base(attrs):
-    return not attrs.get("insert") and text_key(attrs.get("section")) in BASE_SECTIONS
+    return (not attrs.get("insert") and text_key(attrs.get("section")) in BASE_SECTIONS
+            and text_key(attrs.get("parallel")) in {"", *BASE_SECTIONS}
+            and attrs.get("serial_total") is None and attrs.get("print_run") is None)
+
+
+def _section_key(value):
+    words = re.sub(r"[-–—_/]+", " ", str(value or ""))
+    return text_key(re.sub(r"\bprizms\b", "Prizm", words, flags=re.I))
 
 
 def _product(attrs):
@@ -96,8 +103,21 @@ class PriceCardCatalog:
             start, end = next(iter(title_seasons))
             if identity.get("season_start") == start:
                 scoped = {**identity,"season_start":start,"season_end":end}
-        rows = [row for row in self._lookup(scoped, self._aliases(
+        # Core membership and contradictory named sections must remain visible
+        # even when the proposed finish is wrong. Physical matching follows.
+        core_scope = {**scoped,"parallel_name":None,"serial_total":None}
+        rows = [row for row in self._lookup(core_scope, self._aliases(
             identity.get("player_name") or "")) if _official(row)]
+        if str(identity.get("parallel_name")).casefold() in {"base", "普卡", "基础卡"}:
+            title_key = _section_key(title)
+            # Read the exact card's published sections instead of guessing a
+            # finite family list. "Base" in Base Prizms Fast Break/Ice/etc is
+            # a parent section, not evidence for an ordinary physical base.
+            for member in rows:
+                section = _section_key(member["attributes"].get("section"))
+                if (section.startswith("baseprizm") and section != "baseprizm"
+                        and section in title_key):
+                    return None
         inserts = [row for row in rows if row["attributes"].get("insert") and any(
             _contains_phrase(title, alias) for alias in _insert_aliases(
                 {"insert_name": row["attributes"]["insert"]}))]
