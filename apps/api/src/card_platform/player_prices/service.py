@@ -12,6 +12,9 @@ from card_platform.player_prices.domain import TZ, day_end, select_basket
 from card_platform.player_prices.repository import PriceRepository
 from card_platform.player_prices.catalog import published_catalog
 from card_platform.public_source_catalog import store_observations, validated_sale
+from card_platform.player_prices.admission import source_candidates, queue_candidates, verified_price_rows
+from card_platform.player_prices.image_jobs import ImageJobs
+from card_platform.player_prices.reconciliation import reconcile_prices, finalize_reconciliation
 
 log = logging.getLogger(__name__)
 repo = PriceRepository()
@@ -46,7 +49,7 @@ async def existing_samples(c, player_name, report_date):
           AND (observation->'sale'->>'title') ILIKE ANY(%s)
           AND (observation->'sale'->>'occurred_at')::timestamptz >= %s
           AND (observation->'sale'->>'occurred_at')::timestamptz < %s
-        ORDER BY (observation->'sale'->>'occurred_at')::timestamptz DESC LIMIT 20000""",
+        ORDER BY (observation->'sale'->>'occurred_at')::timestamptz DESC,external_sale_id LIMIT 20000""",
         (patterns, end - timedelta(days=90), end),
     )
     return [row["observation"] for row in await result.fetchall()]
@@ -111,7 +114,12 @@ def discovery_targets(rows, report_date):
     return select_basket(rows, report_date)
 
 
-async def refresh_player(c, player, report_date, *, collector=collect_player, fetch=True, catalog=None):
+async def refresh_player(c, player, report_date, *, collector=collect_player, fetch=True, catalog=None,
+                         blob_reader=None):
+    # Transaction-bound replay helper. Production must use the coordinator so
+    # real HTTP and photo validation never run in an open DB transaction.
+    if fetch and collector is collect_player:
+        raise ValueError("Use refresh_player_job for network collection")
     player = await repo.subject(c, player["id"]) or player
     player_id, name = player["id"], player["full_name"]
     async with c.transaction():
@@ -145,6 +153,7 @@ async def refresh_player(c, player, report_date, *, collector=collect_player, fe
                 coverage["errors"].append({"reason": "official_catalog_unavailable"})
                 raise CatalogUnavailableError()
             observations = await existing_samples(c, name, report_date)
+            local_limit_reached = len(observations) >= 20000
             known = await (
                 await c.execute(
                     """SELECT normalized_identity FROM market_identity_cache
@@ -172,20 +181,39 @@ async def refresh_player(c, player, report_date, *, collector=collect_player, fe
                     name, targets, report_date,
                     query_state=previous_coverage.get("history_queries", {}),
                 )
-                await repo.exclude_sources(c, conflicting_sources(observations + fetched))
                 await store_observations(c, fetched)
             observations += fetched
+            candidates, _, _ = source_candidates(observations)
+            jobs = ImageJobs()
+            job_ids = await jobs.enqueue_candidates(c, player_id, queue_candidates(candidates, name))
+            evidence = list((await jobs.evidence(c, job_ids)).values())
+            if evidence and blob_reader is None:
+                from card_platform.config import get_settings
+                from card_platform.player_prices.image_reader import EvidenceBlobs
+                blob_reader = EvidenceBlobs(
+                    f"{get_settings().scanner_job_dir}/.player-price-evidence/blobs"
+                ).read
             rows, diagnostics = await asyncio.to_thread(
-                analyze_observations, observations, name, identities, catalog=catalog,
+                verified_price_rows, observations, name, catalog,
+                evidence=evidence, blob_reader=blob_reader,
             )
             coverage.update(
                 **diagnostics,
-                local_limit_reached=len(observations) >= 20000,
+                local_limit_reached=local_limit_reached,
             )
-            await repo.store_sales(c, player_id, rows)
             if catalog.errors:
                 coverage["errors"].append({"reason": "official_artifact_unavailable"})
                 raise CatalogUnavailableError()
+            if local_limit_reached:
+                coverage["errors"].append({"reason": "local_observation_limit"})
+                raise ValueError("观察范围不完整，保留上次统计")
+            reconciled = await reconcile_prices(c, player_id, rows, report_date,
+                                                conflicted_sources=conflicting_sources(observations))
+            if reconciled["blocked_sources"]:
+                blocked = sum(r["source_id"] in reconciled["blocked_sources"] for r in rows)
+                coverage["identified_count"] -= blocked
+                coverage["rejected_count"] += blocked
+                coverage["rejection_reasons"]["conflicting_stored_source"] = blocked
             # Valid exact-card evidence remains useful even if another query failed.
             # Do not publish a new daily index or mark the incomplete run successful.
             if coverage["errors"]:
@@ -202,6 +230,7 @@ async def refresh_player(c, player, report_date, *, collector=collect_player, fe
                 last_report_date=%s,error=NULL,coverage=%s WHERE player_id=%s""",
                 (report_date, Jsonb(coverage), player_id),
             )
+            await finalize_reconciliation(c, reconciled["audit_id"])
             return snapshot
         except (ValueError, httpx.HTTPError) as error:
             # Use a fixed public error, never expose credential/transport details.
@@ -216,18 +245,19 @@ async def refresh_player(c, player, report_date, *, collector=collect_player, fe
 
 
 async def run_price_worker(database):
+    from card_platform.player_prices.coordinator import refresh_player_job
+
     while True:
         try:
             async with database.connection() as c:
                 await repo.seed_states(c)
                 player = await repo.due_player(c, report_day())
             if player:
-                async with database.connection() as c:
-                    requested = player.get("requested_at")
-                    attempted = player.get("last_attempt_at")
-                    manual = requested is not None and (attempted is None or requested > attempted)
-                    target = datetime.now(TZ).date() - timedelta(days=1) if manual else report_day()
-                    result = await refresh_player(c, player, target)
+                requested = player.get("requested_at")
+                attempted = player.get("last_attempt_at")
+                manual = requested is not None and (attempted is None or requested > attempted)
+                target = datetime.now(TZ).date() - timedelta(days=1) if manual else report_day()
+                result = await refresh_player_job(database, player, target)
                 if result["status"] == "busy":
                     await asyncio.sleep(5)
                 continue

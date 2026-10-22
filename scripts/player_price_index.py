@@ -9,7 +9,7 @@ from card_platform.config import get_settings
 from card_platform.db import Database
 from card_platform.player_prices.domain import TZ
 from card_platform.player_prices.repository import PriceRepository
-from card_platform.player_prices.service import refresh_player
+from card_platform.player_prices.coordinator import refresh_player_job
 
 
 async def run(args):
@@ -28,8 +28,8 @@ async def run(args):
         if args.limit:
             roster = roster[: args.limit]
         for player in roster:
+            result = await refresh_player_job(database, player, day, fetch=not args.local_only)
             async with database.connection() as c:
-                result = await refresh_player(c, player, day, fetch=not args.local_only)
                 state = await (
                     await c.execute(
                         "SELECT coverage,error FROM player_price_state "

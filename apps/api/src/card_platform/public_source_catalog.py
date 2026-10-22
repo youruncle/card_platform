@@ -73,6 +73,8 @@ async def store_observations(connection, observations):
     from psycopg.types.json import Jsonb
     # Validate the complete batch before writes, including when called without a transaction.
     verified = [(obs, *validated_sale(obs)) for obs in observations]
+    # Match final price-admission row lock order for multi-source batches.
+    verified.sort(key=lambda entry: "item:" + entry[1].item_id)
     for observation, sale, captured in verified:
         await connection.execute('''
             INSERT INTO public_source_catalog

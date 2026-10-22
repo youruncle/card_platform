@@ -12,16 +12,48 @@ from psycopg.types.json import Jsonb
 
 from card_platform.player_prices.image_evidence import _seal
 from card_platform.player_prices.image_reviews import ImageReview
+from card_platform.player_prices.repository import PriceRepository
 from card_platform.public_source_catalog import validated_sale
 
 
 class ImageJobs:
+    async def enqueue_candidates(self, c, player_id, observations):
+        """A shared search hit must not take another subject's job or abort a batch."""
+        verified = [(o, *validated_sale(o)) for o in observations]
+        async with c.transaction():
+            await c.execute("SELECT pg_advisory_xact_lock(8184001)")
+            subject = await PriceRepository().subject(c, player_id)
+            members = subject["member_ids"] if subject else [player_id]
+            existing = await (
+                await c.execute(
+                    "SELECT source_id,observation_sha256,player_id FROM player_price_image_job WHERE source_id=ANY(%s)",
+                    (["item:" + sale.item_id for _, sale, _ in verified],),
+                )
+            ).fetchall()
+            foreign = {
+                (r["source_id"], r["observation_sha256"])
+                for r in existing
+                if r["player_id"] not in members
+            }
+            return await self.enqueue(
+                c,
+                player_id,
+                [
+                    o
+                    for o, sale, _ in verified
+                    if ("item:" + sale.item_id, o["raw_row_sha256"]) not in foreign
+                ],
+            )
+
     async def enqueue(self, c, player_id, observations, *, priority=0):
         # Validate the complete batch before the first write.
         verified = [(o, *validated_sale(o)) for o in observations]
         ids = []
         async with c.transaction():
             await c.execute("SELECT pg_advisory_xact_lock(8184001)")
+            subject = await PriceRepository().subject(c, player_id)
+            members = subject["member_ids"] if subject else [player_id]
+            player_id = subject["id"] if subject else player_id
             for observation, sale, captured in verified:
                 row = await (
                     await c.execute(
@@ -29,8 +61,8 @@ class ImageJobs:
                 (player_id,source_id,observation_sha256,observation,occurred_at,priority)
                 VALUES(%s,%s,%s,%s,%s,%s)
                 ON CONFLICT(source_id,observation_sha256) DO UPDATE
-                SET priority=LEAST(player_price_image_job.priority,EXCLUDED.priority)
-                WHERE player_price_image_job.player_id=EXCLUDED.player_id RETURNING id""",
+                SET priority=LEAST(player_price_image_job.priority,EXCLUDED.priority),player_id=EXCLUDED.player_id
+                WHERE player_price_image_job.player_id=ANY(%s) RETURNING id""",
                         (
                             player_id,
                             "item:" + sale.item_id,
@@ -38,6 +70,7 @@ class ImageJobs:
                             Jsonb(observation),
                             sale.occurred_at,
                             priority,
+                            members,
                         ),
                     )
                 ).fetchone()
@@ -124,6 +157,7 @@ class ImageJobs:
         if type(actual_calls) is not int or not 0 <= actual_calls <= 2:
             raise ValueError("invalid_price_image_call_count")
         async with c.transaction():
+            await c.execute("SELECT pg_advisory_xact_lock(8184001)")
             row = await (
                 await c.execute(
                     """SELECT * FROM player_price_image_job WHERE id=%s AND status='leased'
@@ -168,6 +202,7 @@ class ImageJobs:
         ):
             raise ValueError("price_image_failure_trace_required")
         async with c.transaction():
+            await c.execute("SELECT pg_advisory_xact_lock(8184001)")
             row = await (
                 await c.execute(
                     """SELECT id FROM player_price_image_job WHERE id=%s AND status='leased'
@@ -207,32 +242,34 @@ class ImageJobs:
     ):
         """Trusted server only; caller already inspected these exact stored bytes."""
         review = ImageReview.model_validate_json(review_bytes)
-        row = await (
+        async with c.transaction():
+            await c.execute("SELECT pg_advisory_xact_lock(8184001)")
+            row = await (
+                await c.execute(
+                    """SELECT * FROM player_price_image_job WHERE id=%s AND status='captured'
+                    AND EXISTS(SELECT 1 FROM player_price_image_current current WHERE current.job_id=player_price_image_job.id)""",
+                    (job_id,),
+                )
+            ).fetchone()
+            if (
+                not row
+                or not re.fullmatch("[a-f0-9]{64}", review_sha256)
+                or hashlib.sha256(review_bytes).hexdigest() != review_sha256
+                or row["receipt_sha256"] != expected_receipt_sha256
+                or review.based_on_receipt_sha256 != row["receipt_sha256"]
+                or review.observation_sha256 != row["observation_sha256"]
+                or {im.image_index for im in review.reviewed_images} != {0, 1}
+                or any(
+                    im.sha256 != row["receipt"]["images"][im.image_index]["sha256"]
+                    for im in review.reviewed_images
+                )
+            ):
+                raise ValueError("price_image_review_binding")
             await c.execute(
-                """SELECT * FROM player_price_image_job WHERE id=%s AND status='captured'
-                AND EXISTS(SELECT 1 FROM player_price_image_current current WHERE current.job_id=player_price_image_job.id)""",
-                (job_id,),
+                """INSERT INTO player_price_image_review_approval(job_id,review_sha256,receipt_sha256,reviewer_kind)
+                VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
+                (job_id, review_sha256, row["receipt_sha256"], review.reviewer_kind),
             )
-        ).fetchone()
-        if (
-            not row
-            or not re.fullmatch("[a-f0-9]{64}", review_sha256)
-            or hashlib.sha256(review_bytes).hexdigest() != review_sha256
-            or row["receipt_sha256"] != expected_receipt_sha256
-            or review.based_on_receipt_sha256 != row["receipt_sha256"]
-            or review.observation_sha256 != row["observation_sha256"]
-            or {im.image_index for im in review.reviewed_images} != {0, 1}
-            or any(
-                im.sha256 != row["receipt"]["images"][im.image_index]["sha256"]
-                for im in review.reviewed_images
-            )
-        ):
-            raise ValueError("price_image_review_binding")
-        await c.execute(
-            """INSERT INTO player_price_image_review_approval(job_id,review_sha256,receipt_sha256,reviewer_kind)
-            VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
-            (job_id, review_sha256, row["receipt_sha256"], review.reviewer_kind),
-        )
 
     async def evidence(self, c, job_ids):
         if not job_ids:

@@ -140,7 +140,7 @@ def test_schedule_uses_last_completed_day_before_seven():
     assert report_day(datetime(2026, 10, 12, 23, 0, tzinfo=timezone.utc)) == date(2026, 10, 12)
 
 
-def test_partial_collection_exposes_confirmed_sales_without_marking_daily_success():
+def test_partial_collection_keeps_title_only_candidates_pending_without_daily_success():
     async def run():
         from test_player_market import observation
         async with await psycopg.AsyncConnection.connect(os.environ['TEST_DATABASE_URL'], row_factory=dict_row) as c:
@@ -160,10 +160,11 @@ def test_partial_collection_exposes_confirmed_sales_without_marking_daily_succes
                 result = await refresh_player(c, dict(id=player, full_name='Exact Testperson'),
                                               date(2026,10,10), collector=partial, catalog=official)
                 assert result['status'] == 'source_error'
-                assert len(await PriceRepository().sales(c, player, date(2026,10,10))) == 1
+                assert len(await PriceRepository().sales(c, player, date(2026,10,10))) == 0
                 state = await (await c.execute('SELECT * FROM player_price_state WHERE player_id=%s', (player,))).fetchone()
                 assert state['last_success_at'] is None and state['last_report_date'] is None
-                assert state['coverage']['identified_count'] == 1
+                assert state['coverage']['identified_count'] == 0
+                assert state['coverage']['rejection_reasons'] == {'image_evidence_pending': 1}
                 assert (await (await c.execute('SELECT count(*) AS n FROM player_price_snapshot WHERE player_id=%s', (player,))).fetchone())['n'] == 0
             finally:
                 await c.rollback()

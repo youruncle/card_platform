@@ -192,3 +192,27 @@ T033后续准备（代码/运行环境尚未恢复）：按[百炼官方联网�
 API仍是0.6.4-20261022-bailian2；本次新价格模块只在一次性进程载入，没有替换正在服务的包，也没有启动图片模型worker或写player_price_sale。处理后health/ready=200、自动成本worker=true、视觉DeepSeek Flash非思考和独立qwen-plus搜索均重新核验。未做容器重启存储回归，持久性的证据为volume挂载及独立进程字节/数据库读回，不冒充真机或整站验收。
 
 当前生产证据登记已有5笔，正式行情尚未消费这些收据；可靠业务覆盖、至少30笔实际纳入、≥8位球员/≥5位三日报告趋势、两次独立后台更新和双端发布均未达成。此处的两次导入不是两次后台日更。下一步优先实现runner逐调用租约/预算检查与refresh严格证据消费，并在无新增模型支出的条件下回放已登记5笔，再补真实同款历史窗口、完成旧派生修复及Web/iPhone验收。goal继续active。
+
+
+## 2026-10-22 第十一批：严格行情刷新、并发边界及可回退派生修复（尚未生产应用）
+
+新增admission.py、reconciliation.py、coordinator.py和0085迁移；生产worker及CLI改经短DB阶段协调器，HTTP/图片字节与官方卡款验证在已提交事务之外。旧事务绑定helper仅供隔离回放，禁止默认真实collector。标题/清单只用于discovery，实际player_price_sale仅消费当前DB候选/收据与服务器批准集合，并重走现行原图/版本/品相/官方资料门槛；最新批准失败不能回退到旧批准。原币CNY成交金额、日期和标题不被upsert改写，冲突只剔除并留标记。0085尚未应用生产，也未替换线上价格模块。
+
+独立复核最初实证五项Important，均先补RED后修复：旧回退只检查sales却删除后来报告；最终校验与审批提交存在race；多人标题占唯一job阻断第二位球员；纯新增成交删除全部旧报告，部分采集失败后无报告可用；blocked来源漏原owner且提前提交exclude使审计失真。现审计完整保存scope成交/冲突标记/篮子/快照/revision，回退对完整状态指纹作保护；finalize仅限创建audit的同txid，coordinator计算后封存，后续事务禁止重封。首次修复清当前主体污染报告/篮子；正常新增保留历史；以前可用来源失效按原成交上海日到+7日清理受影响日指数，其他历史及固定月篮子保留。此处是已有两个7日窗口相隔1天的8源日口径，没有改指数算法。冲突原owner的canonical成员加锁/审计/失效一起处理。调度state另行维护，不冒充全库回滚。
+
+新增两连接真实PG竞争回归：新审批、原成交事实更新若在最终核验后发起，必须阻塞至当前价格提交；下次刷新消费新证据并剔除原行。最终阶段共享8184001锁并锁已有公开行及发布指针，enqueue/finish/fail/可信approve同序使用短锁；真实HTTP和blob_reader内核对pg_stat_activity均idle，并发同球员刷新busy，未在读图期间持锁。相同事实重采不重复核图，真正价格变化回到pending。
+
+真实云端shadow保留了不利记录：初版把collecting当成异常；v2/v4进一步显示弗拉格1918条观察/evidence=1每次token不同，始终verification_pending且准入0，旧coverage的11识别数不能算业务纳入。确认同秒成交的数据库返回顺序改变被误认证据变化，新增顺序反转RED后按观察seal排序、SQL以external_sale_id作同秒次序；真实事实/有效性/批准/版本仍参与token。fetch=False还错误执行查询用discovery，缺query-only artifact的RED后移入fetch分支。5000余历史NBA主体的巨型别名正则按首词/字缩小匹配范围；独立枚举24998个alias和120组双主体，发现并修复Bronny“小勒布朗詹姆斯”被内部LeBron误命中的回归，保持全局leftmost/longest非重叠语义。成功刷新会清除旧verification_pending，有RED及正常对照。
+
+v5/v6弗拉格已正式走协调器稳定准入影子行1笔，随后詹姆斯遇price_image_subject_conflict；真实来源140816276/140816362/142523786/142524076是同时宣传多名球员的卡包/原盒。新增sealed商品过滤（保留单卡“原盒直出”对照），enqueue_candidates跳过他主体已持有的同源同hash，不让其阻断本主体其他候选；底层不同真人冲突继续拒绝。底层按DB SubjectIndex复用同一canonical member，出生日期冲突及未注明DOB主体不得借用另一分区job，独立PG复核原owner保持不变。旧公平调度fixture两条同名球员在现规则下应归一，已改为不同full_name保留“双真人轮转”的原测试前提，未弱化断言。
+
+v3为替换已诊断的低效旧shadow候选而显式SIGINT中断，触发取消清理ProgrammingError日志，不能计成功；v7失败是一次性loader在更新repository前装载新image_jobs，绑定旧类没有subject方法，调整依赖注入顺序重跑，不是正式安装成功。上述原不利文件保留。当前v8在独立schema复制公开派生/证据表，引用原云端公开观察及publication22，未修改生产服务文件/正式行情/知识库，也不重发模型请求；其完整五人三日结果待本节后续写入。不能把阶段性Flagg成功当五人回放或三个有效趋势报告。
+
+本地最终聚焦321项通过、1条既有Starlette/httpx依赖警告；独立最终314项通过、同一既有警告，Ruff及diff检查通过。此前全仓后端失败报告仍保留，未宣称全仓全绿。0085新建临时schema首次执行、两表创建与清理通过，SQL SHA256 17a3068ef69d2714c0e6b333674b34f56db6057ab98bb11b15cf6afd3ec35601；该验证只在隔离测试库，没有生产迁移。新模型调用仍0，预算仍0，自动成本worker生产true不受影响。
+
+独立复核允许提交本批实现，明确不裁决模型runner、v3覆盖或双端发布。T027/T029/T030/T031/T032继续未完成：当前仍只有原5笔可信批准，未达30笔实际纳入、8位覆盖、5位三日报告趋势、两轮独立后台更新、真实鉴权Web/API/iPhone发布验证；本轮shadow不计后台更新。后续先完成当前回放及真实数据补齐，再做生产接入/旧派生修复与双端交付，不降低完成门槛。
+
+
+本批v8已完整退出0：5位×2026-10-19/20/21共15次正式协调器影子读回，每位每次均恰好1笔原已批准成交、evidence_policy正确、verification_pending=false，状态均insufficient；首次修复audit共6条（含首位回退后重新应用），rollback_and_reapply_verified=true，账本仍5attempts/0actual，新增模型调用0。来源范围真实最高为詹姆斯10079条，未经收据的其余来源仅pending，不能计可靠纳入。temporary schema及其候选/报告已经finally清理；不是15笔不同成交，也不是3个已满足行情覆盖的完整报告日，0有效球员趋势没有改变。准确捕获cloud-shadow-verified-refresh-v8.jsonl及其input/source包保留，不利v1至v7记录不删除。
+
+发布前新增云端完整备份/home/ubuntu/card-platform/backups/player-price-verified-refresh-20261022/before-0085.dump，396780591字节，SHA256 c2e2c08576209482be738e970747ed0f1dbe84b1872eb180e3cbcfc10dab9743；pg_restore --list有效，明确排除了临时price_verified_shadow_* schema，0600并仅服务器保存。最终cloud-verified-refresh-runtime-check-v3.json：正式0085两表仍不存在、shadow schema=0、原5job/5批准仍在；cost worker=true、DeepSeek Flash thinking disabled、独立原百炼host/key与两个qwen-plus模型、/health及/health/ready均通过。此前误探测/ready得到404导致断言失败，属于探测路径错误，原记录保留；未当作实际API故障或未验证通过。

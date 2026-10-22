@@ -120,7 +120,7 @@ async def new_player(c):
         await (
             await c.execute(
                 "INSERT INTO player(full_name,normalized_name) VALUES(%s,%s) RETURNING id",
-                ("Image queue fixture", str(uuid4())),
+                ("Image queue fixture " + uuid4().hex, str(uuid4())),
             )
         ).fetchone()
     )["id"]
@@ -336,6 +336,48 @@ def test_new_source_capture_invalidates_old_pending_and_captured_work(old_state)
                         )
                     ).fetchone()
                 )["observation"] == obs
+            finally:
+                await c.rollback()
+
+    asyncio.run(check())
+
+
+def test_alias_subjects_share_jobs_without_rebinding_a_different_person():
+    async def check():
+        from card_platform.player_prices.image_jobs import ImageJobs
+
+        async with await psycopg.AsyncConnection.connect(
+            os.environ["TEST_DATABASE_URL"], row_factory=dict_row
+        ) as c:
+            try:
+                name = "Same queue subject " + uuid4().hex
+                ids = []
+                for created in ["2020-01-01", "2020-01-02"]:
+                    ids.append(
+                        (
+                            await (
+                                await c.execute(
+                                    "INSERT INTO player(full_name,normalized_name,created_at) VALUES(%s,%s,%s) RETURNING id",
+                                    (name, str(uuid4()), created),
+                                )
+                            ).fetchone()
+                        )["id"]
+                    )
+                obs, *_ = reviewed_fixture()
+                queue = ImageJobs()
+                first = await queue.enqueue(c, ids[1], [obs])
+                again = await queue.enqueue(c, ids[0], [obs])
+                assert first == again
+                assert (
+                    await (
+                        await c.execute(
+                            "SELECT player_id FROM player_price_image_job WHERE id=%s", (first[0],)
+                        )
+                    ).fetchone()
+                )["player_id"] == ids[0]
+                other = await new_player(c)
+                with pytest.raises(ValueError, match="subject_conflict"):
+                    await queue.enqueue(c, other, [obs])
             finally:
                 await c.rollback()
 
