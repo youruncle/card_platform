@@ -180,3 +180,15 @@ T033后续准备（代码/运行环境尚未恢复）：按[百炼官方联网�
 目前未启动该队列、未写入生产批准、未接入refresh、未修复生产旧派生数据、未增加真实准入成交，也没有本批模型付费调用。T027/T029/T030/T031/T032全部保持未完成。接下来先将首5笔已完整核图证据从云端归档读回到持久存储/可信登记，验证重用与失效，再接入refresh并补齐30笔/历史窗口，不能仅凭队列单测宣布行情可用。
 
 本基础模块最终独立复核132项全通过，原current失效缺陷关闭、无新增阻断，允许提交独立基础模块；review明确不包含生产迁移、runner、refresh或真实调用成功。后续接入仍受上述前提及完整业务门槛约束。
+
+## 2026-10-22 第十批：首5笔证据持久化与生产登记（尚未接正式行情刷新）
+
+在c1175fb5队列基础提交和独立复核后，先于当前线上独立进程载入准确候选模块，使用云端publication22重放首5笔及25个blob，全部confirmed，零新增模型调用。预检cloud-durable-reviewed-first5-preflight.jsonl成功后，实际应用0084迁移并在同一事务登记schema_migration版本；SQL SHA256 2dc7e4d96495aa9b20e5b287316ef8db51d958d9af57e6a7289df31a0fc51f84。此前完整数据库备份396755964字节，pg_restore --list验证有效，SHA256 fd0ac8ebe2d390418f2d11c9ab2fb9828bff87595aab73767b6a98a13b395d6f。只创建独立公开证据表，没有迁移卡库或估值。
+
+将原归档25份HTML/图片/付费trace/复核blob按SHA逐一读回校验后复制到/app/scanner-jobs/.player-price-evidence/blobs；已验证该目录位于Docker volume card-platform-cloud_scanner，不依赖/tmp。服务端冻结的5个批准hash独立于归档内容传入可信一次性导入工作流，逐一和已核验原件对照；不是普通客户端自批。公开原观察入库前保存其既有公开行到审计blob，再按现行store_observations幂等规则保存，要求当前raw hash和核验原观察仍一致，否则停止。按唯一公共主体建立5个candidate，保守预留10调用槽，仅复用原存证，实际新增调用0；登记5个review approval。captured不等于业务成交准入。
+
+首次cloud-durable-reviewed-first5-import.jsonl和独立新进程cloud-durable-reviewed-first5-idempotent.jsonl均从数据库读取批准集合、从持久卷读原始字节、用当前官方目录完整admit_review，弗拉格133511240、詹姆斯141747066、巴恩斯128052770、三球125472519、爱德华兹130340102全部confirmed；第二轮没有新增attempt或模型请求，账本保持5attempts/10reserved/0actual。两次导入前公开行审计blob分别68e8546099ed6e2f287762a0ce13d942480da87784554623106432d19988d834和2ed2566964bb2fac9a4e6faa0ed0518339121920548e018c63e86e0e1d3fda8a。程序、准确源模块与两个读回结果同步备份/home/ubuntu/card-platform/backups/player-price-review-20261022/registry-first5，未修改原来的归档审查历史。
+
+API仍是0.6.4-20261022-bailian2；本次新价格模块只在一次性进程载入，没有替换正在服务的包，也没有启动图片模型worker或写player_price_sale。处理后health/ready=200、自动成本worker=true、视觉DeepSeek Flash非思考和独立qwen-plus搜索均重新核验。未做容器重启存储回归，持久性的证据为volume挂载及独立进程字节/数据库读回，不冒充真机或整站验收。
+
+当前生产证据登记已有5笔，正式行情尚未消费这些收据；可靠业务覆盖、至少30笔实际纳入、≥8位球员/≥5位三日报告趋势、两次独立后台更新和双端发布均未达成。此处的两次导入不是两次后台日更。下一步优先实现runner逐调用租约/预算检查与refresh严格证据消费，并在无新增模型支出的条件下回放已登记5笔，再补真实同款历史窗口、完成旧派生修复及Web/iPhone验收。goal继续active。
