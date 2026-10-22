@@ -156,6 +156,35 @@ class ImageJobs:
             ).fetchone()
             return {**claimed, "reserved_calls": 2}
 
+    async def authorize_call(self, c, job_id, token, image_index):
+        """Commit immediately before a request; cancelled/expired calls keep their debit."""
+        if image_index not in (0, 1):
+            raise ValueError("invalid_price_image_call_index")
+        async with c.transaction():
+            await c.execute("SELECT pg_advisory_xact_lock(8184001)")
+            row = await (await c.execute(
+                """UPDATE player_price_image_attempt a
+                SET actual_calls=COALESCE(actual_calls,0)+1
+                FROM player_price_image_job j
+                WHERE a.lease_token=%s AND a.job_id=%s AND j.id=a.job_id
+                  AND a.status='leased' AND j.status='leased' AND j.lease_token=a.lease_token
+                  AND j.lease_until>clock_timestamp()
+                  AND a.budget_day=(clock_timestamp() AT TIME ZONE 'Asia/Shanghai')::date
+                  AND COALESCE(a.actual_calls,0)=%s AND a.reserved_calls>COALESCE(a.actual_calls,0)
+                  AND EXISTS(SELECT 1 FROM player_price_image_current current WHERE current.job_id=j.id)
+                RETURNING a.lease_token""", (token, job_id, image_index)
+            )).fetchone()
+            return row is not None
+
+    async def record_attempt_trace(self, c, token, trace_sha256):
+        # Audit only: a stale worker cannot change job state, budget or another token.
+        if not re.fullmatch("[a-f0-9]{64}", trace_sha256):
+            raise ValueError("invalid_price_image_trace")
+        await c.execute(
+            "UPDATE player_price_image_attempt SET trace_sha256=%s WHERE lease_token=%s",
+            (trace_sha256, token),
+        )
+
     async def finish(self, c, job_id, token, receipt, *, actual_calls):
         if type(actual_calls) is not int or not 0 <= actual_calls <= 2:
             raise ValueError("invalid_price_image_call_count")

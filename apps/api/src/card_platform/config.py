@@ -71,6 +71,7 @@ class Settings(BaseSettings):
     valuation_visual_concurrency: int = Field(default=2, ge=1, le=8)
     valuation_visual_stage_timeout_seconds: float = Field(default=180.0, gt=0, le=600)
     valuation_visual_request_timeout_seconds: float = Field(default=90.0, gt=0, le=180)
+    player_price_image_daily_call_limit: int = Field(default=0, ge=0)
     player_price_worker_enabled: bool = True
     purchase_cost_worker_enabled: bool = True
     purchase_cost_archive_dir: str | None = None

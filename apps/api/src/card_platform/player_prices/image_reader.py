@@ -1,7 +1,9 @@
 """Bounded public photo capture and a title-independent physical-card reader."""
 
+import asyncio
 import base64
 from datetime import datetime, timezone
+from decimal import Decimal
 import hashlib
 from io import BytesIO
 import json
@@ -11,7 +13,7 @@ import re
 import tempfile
 
 import httpx
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, APIStatusError
 from PIL import Image
 
 from card_platform.ingestion.cardhobby_public_item import (
@@ -133,7 +135,7 @@ class PriceImageReader:
     async def close(self):
         await self.client.close()
 
-    async def observe(self, images):
+    async def observe(self, images, *, before_request=None, on_trace=None):
         from card_platform.player_prices.image_observations import (
             FaceFacts,
             PAIR_MANUFACTURER_CONTRACT,
@@ -149,7 +151,15 @@ class PriceImageReader:
         prompt = image_prompt()
         observations, faces = [], []
         calls = 0
+
+        async def trace():
+            if on_trace:
+                await on_trace(dict(model_calls=calls, observations=observations))
+
         for index, (data, mime) in enumerate(images):
+            if before_request and not await before_request(index):
+                await trace()
+                raise PriceImageReadError("price_image_lease_lost", observations, calls)
             calls += 1
             try:
                 response = await traced_completion(
@@ -174,22 +184,42 @@ class PriceImageReader:
                     max_tokens=2500,
                     extra_body=nonthinking_extra_body(self.model),
                 )
+                observations.append(dict(
+                    image_index=index, image_sha256=hashlib.sha256(data).hexdigest(),
+                    model=self.model, request_extra=nonthinking_extra_body(self.model),
+                    prompt=prompt, raw_response=response.model_dump(mode="json"),
+                ))
                 raw = response.choices[0].message.content
                 usage = response.usage
-                observations.append(
-                    dict(
-                        image_index=index,
-                        image_sha256=hashlib.sha256(data).hexdigest(),
-                        model=self.model,
-                        request_extra=nonthinking_extra_body(self.model),
-                        prompt=prompt,
-                        raw_response=raw,
-                        prompt_tokens=getattr(usage, "prompt_tokens", None),
-                        completion_tokens=getattr(usage, "completion_tokens", None),
-                    )
+                observations[-1].update(
+                    raw_response=raw,
+                    prompt_tokens=getattr(usage, "prompt_tokens", None),
+                    completion_tokens=getattr(usage, "completion_tokens", None),
                 )
-                faces.append(FaceFacts.model_validate_json(raw or "").model_dump(mode="json"))
+                face = FaceFacts.model_validate_json(raw or "")
+                if face.confidence < Decimal(".88"):
+                    raise ValueError("price_face_low_confidence")
+                faces.append(face.model_dump(mode="json"))
+                await trace()
+            except asyncio.CancelledError:
+                if observations and observations[-1].get("image_index") == index:
+                    observations[-1]["error_type"] = "CancelledError"
+                else:
+                    observations.append(dict(image_index=index, image_sha256=hashlib.sha256(data).hexdigest(),
+                                             error_type="CancelledError"))
+                await trace()
+                raise
             except Exception as error:
+                if not observations or observations[-1].get("image_index") != index:
+                    raw_error = None
+                    if isinstance(error, APIStatusError):
+                        try:
+                            raw_error = error.response.json()
+                        except ValueError:
+                            raw_error = error.response.text
+                    observations.append(dict(image_index=index, image_sha256=hashlib.sha256(data).hexdigest(),
+                                             error_type=type(error).__name__, raw_response=raw_error))
+                await trace()
                 raise PriceImageReadError(
                     "price_face_observation_failed", observations, calls
                 ) from error

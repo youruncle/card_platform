@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from card_platform.player_prices.api import router as player_prices_router
 from card_platform.player_prices.service import run_price_worker
+from card_platform.player_prices.image_worker import run_image_worker
 from card_platform.purchase_cost_api import router as purchase_cost_router
 from card_platform.cardhobby_account_api import router as cardhobby_account_router
 from card_platform.purchase_cost_service import run_cost_worker
@@ -74,9 +75,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     price_worker = (asyncio.create_task(run_price_worker(database))
                     if get_settings().player_price_worker_enabled else None)
+    image_worker = asyncio.create_task(run_image_worker(database, get_settings()))
     try:
         yield
     finally:
+        image_worker.cancel()
+        await asyncio.gather(image_worker, return_exceptions=True)
         if price_worker is not None:
             price_worker.cancel()
             await asyncio.gather(price_worker, return_exceptions=True)
