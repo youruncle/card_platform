@@ -130,6 +130,14 @@ def _one_colour_parallel(value):
     return len(named) == 1
 
 
+def source_finish_conflict(title, player_name, parallel):
+    """A component colour or ordinary base cannot stand for a compound finish."""
+    simple = str(parallel or "").strip().casefold()
+    return _compound_colour_title(title, player_name) and (
+        _one_colour_parallel(simple) or simple in {"base", "普卡", "基础卡"}
+    )
+
+
 def identify_sale(sale, player_name: str, known_identities: list[dict], *, catalog=None) -> dict | None:
     """Only accept a single, unambiguous, fully anchored deterministic match."""
     title = identity_title(sale.title)
@@ -256,12 +264,10 @@ def identify_sale(sale, player_name: str, known_identities: list[dict], *, catal
                 )
             )
     matches = {}
-    compound_colour = _compound_colour_title(title, player_name)
     for identity in identities:
         # Real item:127791016 is RWB, but the 蓝折 suffix alone matched Blue.
         # A component colour cannot establish the whole compound finish.
-        simple = str(identity.get("parallel_name") or "").strip().casefold()
-        if compound_colour and _one_colour_parallel(simple):
+        if source_finish_conflict(title, player_name, identity.get("parallel_name")):
             continue
         if catalog is not None:
             identity = catalog.confirm_title(identity, sale)
