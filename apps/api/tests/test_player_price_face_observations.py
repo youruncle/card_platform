@@ -275,6 +275,98 @@ def test_a_product_or_copyright_word_cannot_become_a_physical_variant_mark(detai
     assert compose(raw).parallel_name is None
 
 
+@pytest.mark.parametrize("finish", ["Base", "Refractor", "Silver Prizm"])
+def test_recording_known_product_logos_does_not_hide_a_separate_finish(finish):
+    raw = faces()
+    if finish != "Refractor":
+        for face in raw:
+            face.update(brand_name="Panini", product_name="Prizm")
+        raw[1]["finish_markings"] = (
+            [dict(text="PRIZM", kind="variant_mark", detail="back separate actual PRIZM label")]
+            if finish == "Silver Prizm"
+            else []
+        )
+    if finish == "Base":
+        raw[0]["surface"]["rainbow"] = "not_visible"
+    brand, product = raw[0]["brand_name"], raw[0]["product_name"]
+    raw[0]["finish_markings"].append(
+        dict(text=product, kind="product_logo", detail="front lower corner actual product logo")
+    )
+    raw[1]["finish_markings"].extend(
+        [
+            dict(text=brand, kind="product_logo", detail="back actual brand product logo"),
+            dict(
+                text=f"© 2024 {brand} All rights reserved.",
+                kind="copyright",
+                detail="back bottom copyright rights-reservation line",
+            ),
+        ]
+    )
+    assert compose(raw).parallel_name == finish
+
+
+@pytest.mark.parametrize("kind", ["product_logo", "copyright", "unknown"])
+def test_a_special_variant_cannot_be_ignored_by_misclassifying_it_as_a_logo(kind):
+    raw = faces()
+    raw[0]["finish_markings"] = [
+        dict(text="RED REFRACTOR", kind=kind, detail="front lower-left literal RED REFRACTOR")
+    ]
+    assert compose(raw).parallel_name is None
+
+
+def test_a_known_product_logo_alone_still_cannot_prove_a_silver_finish():
+    raw = faces()
+    for face in raw:
+        face.update(brand_name="Panini", product_name="Prizm")
+    raw[1]["finish_markings"] = [
+        dict(text="PRIZM", kind="product_logo", detail="back central actual Prizm product logo")
+    ]
+    assert compose(raw).parallel_name is None
+
+
+def test_short_chinese_copyright_location_is_not_a_missing_physical_observation():
+    raw = faces()
+    raw[1]["finish_markings"].extend(
+        [
+            dict(
+                text="© 2025 Topps All rights reserved.", kind="copyright", detail="底部竖排版权行"
+            ),
+            dict(text="© 2025 NBA Properties Inc.", kind="copyright", detail="背面底部联盟版权行"),
+        ]
+    )
+    result = compose(raw)
+    assert result.parallel_name == "Refractor"
+    assert admit(*fixture(result.model_dump(mode="json")))["status"] == "confirmed"
+
+
+@pytest.mark.parametrize("extra", ["红折", "碎冰", "18/99", "18", "99", "2024-99"])
+def test_copyright_classification_cannot_hide_nonlegal_text_or_a_serial_fraction(extra):
+    raw = faces()
+    raw[0]["finish_markings"] = [
+        dict(text=f"© 2025 Topps {extra}", kind="copyright", detail="front actual literal stamp")
+    ]
+    result = compose(raw)
+    assert result.parallel_name is None
+    assert admit(*fixture(result.model_dump(mode="json")))["status"] != "confirmed"
+
+
+def test_logo_classification_cannot_erase_an_explicit_independent_variant_role():
+    raw = faces()
+    for face in raw:
+        face.update(brand_name="Panini", product_name="Prizm")
+    raw[0]["surface"]["rainbow"] = "not_visible"
+    raw[1]["finish_markings"] = [
+        dict(
+            text="PRIZM",
+            kind="product_logo",
+            detail="back separate PRIZM variant mark; not product logo",
+        )
+    ]
+    result = compose(raw)
+    assert result.parallel_name is None
+    assert admit(*fixture(result.model_dump(mode="json")))["status"] != "confirmed"
+
+
 def test_nonempty_serial_observation_with_unknown_role_is_not_an_absence_of_numbering():
     raw = faces()
     raw[1]["serial_stamp"].update(

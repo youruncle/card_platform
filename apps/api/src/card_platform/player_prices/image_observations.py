@@ -42,7 +42,7 @@ class Surface(BaseModel):
 
 class FinishMark(BaseModel):
     text: str
-    detail: str = Field(min_length=8, max_length=600)
+    detail: str = Field(min_length=2, max_length=600)
     kind: Literal["variant_mark", "product_logo", "copyright", "unknown"] = "unknown"
 
 
@@ -106,6 +106,66 @@ def _product(face):
     return face.product_name
 
 
+def _known_nonvariant_mark(mark, scope):
+    detail = re.sub(
+        r"\bnot\s+(?:an?\s+)?(?:variant|version|parallel)\s+(?:mark|label|stamp)|(?:不是|并非|未见|无)(?:独立|额外)?(?:版本|平行)(?:标识|标签|字样)",
+        "",
+        mark.detail,
+        flags=re.I,
+    )
+    if re.search(
+        r"(?:variant|version|parallel)\s+(?:mark|label|stamp)|(?:独立|额外|版本|平行).{0,4}(?:标识|标签|字样)|(?:not|不是|并非)\s*(?:an?\s+)?(?:product\s*logo|copyright|产品\s*logo|版权)",
+        detail,
+        re.I,
+    ):
+        return False
+    logos = {
+        ("topps", "chrome"): {"topps", "chrome", "toppschrome"},
+        ("panini", "prizm"): {"panini", "prizm", "prizmbasketball", "paniniprizm"},
+    }.get(scope, set())
+    if mark.kind == "product_logo":
+        return text_key(mark.text) in logos
+    if mark.kind != "copyright":
+        return False
+    if not re.fullmatch(r"[A-Za-z0-9\s©®™().,/&:'\-–—]+", mark.text):
+        return False
+    # Only familiar legal/product text is ignorable. A model's "copyright"
+    # classification cannot erase RED REFRACTOR or another unrecognised label.
+    words = set(re.findall(r"[a-z]+", mark.text.casefold()))
+    legal = {
+        "copyright",
+        "all",
+        "rights",
+        "reserved",
+        "america",
+        "inc",
+        "llc",
+        "nba",
+        "properties",
+        "the",
+        "national",
+        "basketball",
+        "players",
+        "association",
+    }
+    product_words = {"topps", "chrome"} if scope == ("topps", "chrome") else {"panini", "prizm"}
+    numbers = re.findall(r"\d+(?:\s*[-–]\s*\d+)?", mark.text)
+    for number in numbers:
+        year = re.fullmatch(r"((?:19|20|21)\d{2})(?:\s*[-–]\s*(\d{2}|\d{4}))?", number)
+        if not year or not 1940 <= int(year[1]) <= 2200:
+            return False
+        if year[2] and int(year[2]) != (
+            (int(year[1]) + 1) % 100 if len(year[2]) == 2 else int(year[1]) + 1
+        ):
+            return False
+    return (
+        bool(words & (product_words | {"nba", "association"}))
+        and words <= legal | product_words
+        and not re.search(r"\d\s*/\s*\d", mark.text)
+        and ("©" in mark.text or "copyright" in words or bool(numbers))
+    )
+
+
 def _finish(front, back, numbered):
     # These narrow recipes require affirmative surface observations and a
     # complete independently observed reverse. An absent pattern is not an
@@ -123,9 +183,14 @@ def _finish(front, back, numbered):
         or surface.pattern != "none"
     ):
         return None, None
+    scope = (text_key(front.brand_name), product_key(front.product_name))
+    version_marks = []
     for mark in [*front.finish_markings, *back.finish_markings]:
+        if _known_nonvariant_mark(mark, scope):
+            continue
         if mark.kind != "variant_mark":
             return None, None
+        version_marks.append(mark)
         detail = re.sub(
             r"(?:separate\s+from|outside(?:\s+of)?|independent\s+of|独立于|不属于|不在)[^;；。,.\n]*",
             "",
@@ -138,9 +203,8 @@ def _finish(front, back, numbered):
             re.I,
         ):
             return None, None
-    back_marks = {text_key(mark.text) for mark in back.finish_markings}
-    marks = back_marks | {text_key(mark.text) for mark in front.finish_markings}
-    scope = (text_key(front.brand_name), product_key(front.product_name))
+    back_marks = {text_key(mark.text) for mark in back.finish_markings if mark in version_marks}
+    marks = {text_key(mark.text) for mark in version_marks}
     if (
         scope == ("topps", "chrome")
         and surface.rainbow == "visible"
