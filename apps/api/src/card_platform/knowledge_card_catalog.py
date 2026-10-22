@@ -457,7 +457,8 @@ class ScopedCardCatalog:
                 aliases.append(mapping.get("alias"))
         return tuple(dict.fromkeys(alias for alias in aliases if alias))
 
-    def lookup(self, identity: dict, *, player_aliases=(), _mapped=False) -> list[dict]:
+    def lookup(self, identity: dict, *, player_aliases=(), _mapped=False,
+               artifact_observer=None) -> list[dict]:
         product = self._catalog_product_key(identity)
         if not product:
             return []
@@ -471,7 +472,8 @@ class ScopedCardCatalog:
                     for alias, canonical in mapping.get("insert_aliases", {}).items():
                         if text_key(insert) == text_key(alias):
                             scoped["insert_name"] = canonical
-                    for row in self.lookup(scoped, player_aliases=player_aliases, _mapped=True):
+                    for row in self.lookup(scoped, player_aliases=player_aliases, _mapped=True,
+                                           artifact_observer=artifact_observer):
                         attrs = row["attributes"]
                         if (attrs.get("season_start"), attrs.get("season_end")) != (mapping.get("season_start"), mapping.get("season_end")):
                             continue
@@ -494,6 +496,8 @@ class ScopedCardCatalog:
             path = artifact["path"]
             if path in self.artifact_indexes:
                 self.artifact_indexes.move_to_end(path)
+                if artifact_observer is not None:
+                    artifact_observer(path, self.artifact_indexes[path])
                 pool.extend(self.artifact_indexes[path].get((product, number), ()))
                 continue
             try:
@@ -513,6 +517,8 @@ class ScopedCardCatalog:
                         raise ValueError("Official artifact scope mismatch")
                     staged[(product, text_key(attrs.get("card_number")))].append(entity)
                 self.artifact_indexes[path] = staged
+                if artifact_observer is not None:
+                    artifact_observer(path, staged)
                 while len(self.artifact_indexes) > 8:
                     self.artifact_indexes.popitem(last=False)
                 pool.extend(staged.get((product, number), ()))

@@ -255,3 +255,26 @@ image_reader拆出无模型的capture_pair，继续要求原观察绑定准确�
 云端只读独立进程用最终模块、正式DB批准及scanner持久卷字节重核现有7笔，全部confirmed、7组不同精确照片pair、相关历史capture=0，新增模型调用0，未写价格/登记；不是后台日更。首次尝试缺sudo导致Docker权限拒绝、第二次一次性脚本路径不存在，均保留stderr，随后使用准确源码直接加载的两个成功读回才计验证。cloud-photo-reuse-reviewed-postflight.json读回7jobs/7approvals、revision=0、publication22，health与health/ready均200，成本worker=true、DeepSeek Flash thinking disabled及独立原百炼qwen-plus配置均保留。源码/规格、RED/green与云端读回已备份photo-reuse-reviewed-20261022.tar.gz（58959字节，SHA256 cba06ab913d4e442cf25f6a929f0076069ec9f40966b77430cea7c2855490b60，manifest e06da2b51c0fc85300efd9262204ad751d31aacfd88a4592c51348bf81023ad0，0600）至既有云端backups/player-price-verified-refresh-20261022，归档原件已读回核验。
 
 本批未替换线上价格包、未执行正式派生repair、未增加付费模型调用或可信成交，仍7人7笔登记、0有效趋势；无文字照片变化版风险也尚未解决。T027/T029–T032及goal继续未完成。接下来继续无卡号依赖的真实候选召回与前后窗口核图，不以排除规则、测试或备份凑至少30笔及5位三日报告趋势。
+
+
+## 2026-10-22 第十四批：无卡号召回、九人十七笔可信登记
+
+补充云端公开目录无卡号候选及按赛季/产品省略卡号的84页、32页和11页查询。发现脚本原先把“黄蜂”中的黄字当作平行颜色，已仅在临时发现脚本收窄为黄折等明确版本词；不能把漏召回说成市场无成交。83笔无模型图库捕获取得58组两面、25笔图库不足；补缺28笔取得13组、15笔不足。71组contact已逐组目视，仅为发现，不是批准。真实负例包括多人lot/广告、Wemby欧洲联赛#11、Cosmic Chrome#12、Kaleidoscopic、Deep Space、无文字照片变化风险及不明划痕；不因标题Base或无卡号就并入原目标。LeBron另三笔与旧三笔完全同一双面hash，六笔全部排除。不同照片hash也不自动证明独立实卡。
+
+Miller132720172完整两面实际查看后，保留模型.95置信度，仅更正标准球队版式配色和RC盾标的错误版本归类；第一版误填insert_name=Base被官方准入拒绝，保留不利记录，正确普通Base insert=None的第二版通过，实际服务器登记及第二独立进程幂等读回成功。本控制实际2次付费调用。
+
+随后冻结12笔控制共24次实际模型调用。LeBron130547191为首笔原始自动收据完整confirmed，无人工批准；另8笔经过Codex逐图更正标准版式/RC标识后登记：Curry140024275、Wemby133076372/134061788、Miller134796123/140713742、Scottie132037097、LaMelo132422769/137970677。不修改原置信度或真实金额/日期/标题，保存原始逐面输入/响应/usage/trace、更正前后字段、图库与图片hash及服务器批准。Wemby134061788最初标记finish inventory incomplete被拒，实际完整原图复核并明确记录标识后第二版通过；原拒绝版保留。两笔Curry因置信度.85/.72继续hold；LeBron140663413原图长条痕无法区分卡面损伤/卡套反光，继续hold，不批准。导入及独立第二次执行均9笔读回confirmed，无新增job/模型调用。
+
+本批总新增10笔可信登记（Miller1+控制9），全库17jobs/16批准/9位球员，其中1笔无需人工更正。累计真实付费图像调用86次，本批26次；导入账本actual_calls=0仅代表复用原trace，不能抹掉此前实际26次。自动每日预算仍0，未开启图片runner；自动成本worker持续true。source改写前hash预检与原值审计blob保留，非行情价格改写。最终独立只读进程重核17笔真实来源/当前官方资料/正式批准/持久卷原字节，17confirmed、17组不同精确photo pairs，新增模型0。没有把控制回放或幂等导入当后台更新。
+
+## 2026-10-22 第十五批：补标题省略特卡名称的正式准入缺口
+
+原官方confirm_title只选择标题命名的insert，导致正面可读Deep Space #3、标题仅写球员/产品/银折的真实候选在图片补省略规则前被拒。新增完整绑定fixture先RED为4失败/4通过，保留missing-insert-photo-red.txt；同时覆盖明确Finalists/Base/多个卡种、正面无独立字段和未发布卡种，不允许借标题补图像事实。confirm_title保持发现语义，新增confirm_image只供完整绑定收据通过独立正面字段门槛后使用；最终官方insert必须等于实图观察，不改源标题。
+
+独立审查捕获三项Important，均保留RED并关闭：9个同scope官方artifact使较早矛盾词汇被8项LRU淘汰后错误放行（1失败/8通过），现逐artifact完整校验后提取轻量词汇，session共享而不依赖LRU驻留；Rookie Penmanship包含Penmanship被误判两种，现严格被长名称包含的短片段仅计一次，独立第二处短名称仍拒绝；Finalists在实际24-25 Prizm清单不存在，不能靠合成官方行证明矛盾检测，现将其作为已审查且仅否决用标题词汇，不借Prizm Deca membership或扩大正向卡款范围（原反例1失败/11通过）。未推断所有未知名称均能自动识别。
+
+独立复核四相关文件125项通过，并实际读取30531行Prizm官方artifact跑5项控制：省略/正确Deep Space通过，Finalists/Deep Space+Finalists/Base拒绝，catalog errors为空；无剩余Critical/Important/Minor。本机价格/market/公开源兼容及knowledge catalog聚焦364项通过，1条既有Starlette/httpx警告；Ruff/diff通过。最终代码云端只读独立进程重核现有17笔全confirmed，0新增模型/价格/登记写入；此次真实Deep Space候选尚无付费正式收据/批准，不能把fixture或清单控制当新增成交。
+
+两批均未替换线上价格包，正式revision/audit仍0，0有效趋势、0满足三个完整报告日的球员；至少30笔可靠纳入、5位有效趋势、两次独立后台更新、Web/API与iPhone发布验收继续未完成，goal/T029–T032保持开放。
+
+上述证据/源码/不利记录已归档numberless-seventeen-20261022.tar.gz至既有云端备份目录，287231126字节，SHA256 3e6839d11d7d8528bcf6f038eee733b21a1be28d2009a1072ab269332b31cf9b，manifest 10db4bfd6b3d9d91ea7d519b4e25221b8082ebdc65cdcc47c3fb779270c15a17；独立读取归档全317个blob，逐一hash验证，0600。最新运行不变量读回17jobs/16批准/revisions0、publication22、成本worker=true、deepseek-flash显式thinking disabled、独立原百炼搜索及两个qwen-plus模型、health/ready正确路径200。未部署本批源码。原cohort30图库JSONL另由服务器gzip封存并独立解压核验178152293字节/SHA c1a90d8e3ef7bc615e06e50d1df32a21d7e8069ba0a9b16dcd0de8492c3e64a7，归档135192422字节/SHA 45309820993102859c53477ac6b38269097770d45e00df30ee8db884fe798ba5；首次无sudo目录权限失败记录保留，成功后仅删除本任务已验证冗余本地副本以释放空间。

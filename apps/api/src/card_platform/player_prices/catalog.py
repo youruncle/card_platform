@@ -6,12 +6,15 @@ import re
 
 from card_platform.domain.player_aliases import matching_player_aliases
 from card_platform.domain.season import explicit_seasons
-from card_platform.ingestion.cardhobby import _contains_phrase, _insert_aliases
+from card_platform.ingestion.cardhobby import _contains_phrase, _insert_aliases, _normalized
 from card_platform.knowledge_card_catalog import ScopedCardCatalog, text_key, product_key
 from card_platform.player_prices.subjects import canonical_subject_name
 
 
 BASE_SECTIONS = {"base", "basecards", "baseset"}
+# Reviewed seller kind vocabulary can veto an explicit contradiction, but
+# cannot establish membership in a product/release or supply physical fields.
+TITLE_KIND_CONFLICT_NAMES = {"Finalists"}
 
 
 def _official(row):
@@ -39,6 +42,21 @@ def _product(attrs):
     return re.sub(r"^Panini\s+", "", str(attrs.get("product") or ""), flags=re.I).strip()
 
 
+def _scope(attrs):
+    return (text_key(attrs.get("brand")), product_key(attrs.get("product")),
+            attrs.get("season_start"), attrs.get("season_end"))
+
+
+def _insert_vocabulary(pool):
+    names = {}
+    for members in pool.values():
+        for row in members:
+            attrs = row["attributes"]
+            if _official(row) and attrs.get("insert"):
+                names.setdefault(_scope(attrs), set()).add(attrs["insert"])
+    return names
+
+
 class PriceCardCatalog:
     def __init__(self, snapshot, *, artifact_root=None):
         self.version = snapshot.get("version")
@@ -47,13 +65,20 @@ class PriceCardCatalog:
             artifacts=snapshot.get("official_artifacts", ()), artifact_root=artifact_root,
         )
         self._touched_artifacts = set()
+        # Compact immutable-version vocabulary survives full-row LRU eviction.
+        self._artifact_insert_names = {}
 
     def session(self):
         """Share immutable membership/cache, with errors scoped to this refresh."""
         child = object.__new__(type(self))
         child.version, child.catalog = self.version, self.catalog
         child._touched_artifacts = set()
+        child._artifact_insert_names = self._artifact_insert_names
         return child
+
+    def _observe_artifact(self, path, pool):
+        if path not in self._artifact_insert_names:
+            self._artifact_insert_names[path] = _insert_vocabulary(pool)
 
     def _lookup(self, identity, aliases):
         scoped = [identity, *[
@@ -70,7 +95,8 @@ class PriceCardCatalog:
                 if (self.catalog._catalog_product_key(artifact, require_source=True) == key
                         and same_season):
                     self._touched_artifacts.add(artifact["path"])
-        return self.catalog.lookup(identity, player_aliases=aliases)
+        return self.catalog.lookup(identity, player_aliases=aliases,
+                                   artifact_observer=self._observe_artifact)
 
     @property
     def errors(self):
@@ -91,6 +117,43 @@ class PriceCardCatalog:
 
     def confirm_title(self, identity, sale):
         """Check an anchored title, without supplying any missing physical finish."""
+        return self._confirm(identity, sale, physical=False)
+
+    def confirm_image(self, identity, sale):
+        """Caller has verified the independent front fields of a bound receipt."""
+        return self._confirm(identity, sale, physical=True)
+
+    def _named_insert_kinds(self, title, rows):
+        scopes = {_scope(row["attributes"]) for row in rows}
+        names = set(TITLE_KIND_CONFLICT_NAMES)
+        # The scoped lookup has loaded and checksum-verified these artifacts.
+        # A contradictory named kind can have a different collector number,
+        # so inspect this product/release's vocabulary, not just this number.
+        vocabularies = [_insert_vocabulary(self.catalog.index), *[
+            vocabulary for path, vocabulary in self._artifact_insert_names.items()
+            if path not in self.catalog.artifact_errors]]
+        for vocabulary in vocabularies:
+            for scope in scopes:
+                names.update(vocabulary.get(scope, ()))
+        normalized = _normalized(title)
+        spans = set()
+        for name in names:
+            for alias in _insert_aliases({"insert_name": name}):
+                phrase = _normalized(alias)
+                if not phrase:
+                    continue
+                pattern = ((r"(?<![a-z0-9])" if phrase[0].isascii() else "")
+                           + re.escape(phrase)
+                           + (r"(?![a-z0-9])" if phrase[-1].isascii() else ""))
+                spans.update((match.start(), match.end(), text_key(name))
+                             for match in re.finditer(pattern, normalized))
+        # Rookie Penmanship includes Penmanship; that nested occurrence is
+        # one declaration. A separate Penmanship occurrence still conflicts.
+        return {name for start, end, name in spans if not any(
+            left <= start and end <= right and right - left > end - start
+            for left, right, _ in spans)}
+
+    def _confirm(self, identity, sale, *, physical):
         from card_platform.player_prices.discovery import identity_title
 
         if not identity.get("parallel_name"):
@@ -118,11 +181,23 @@ class PriceCardCatalog:
                 if (section.startswith("baseprizm") and section != "baseprizm"
                         and section in title_key):
                     return None
-        inserts = [row for row in rows if row["attributes"].get("insert") and any(
-            _contains_phrase(title, alias) for alias in _insert_aliases(
-                {"insert_name": row["attributes"]["insert"]}))]
-        rows = inserts or [row for row in rows if _ordinary_base(row["attributes"])
-                          and not identity.get("insert_name")]
+        if physical:
+            observed = text_key(identity.get("insert_name"))
+            named = self._named_insert_kinds(title, rows)
+            if named and named != {observed}:
+                return None
+            if (observed and not named and re.search(
+                    r"(?<![A-Za-z])base(?![A-Za-z])|普卡|基础卡", title, re.I)):
+                return None
+            rows = [row for row in rows if (
+                text_key(row["attributes"].get("insert")) == observed if observed
+                else _ordinary_base(row["attributes"]))]
+        else:
+            inserts = [row for row in rows if row["attributes"].get("insert") and any(
+                _contains_phrase(title, alias) for alias in _insert_aliases(
+                    {"insert_name": row["attributes"]["insert"]}))]
+            rows = inserts or [row for row in rows if _ordinary_base(row["attributes"])
+                              and not identity.get("insert_name")]
         # Parallel rows/variation sections do not prove ordinary base membership.
         kinds = {}
         for row in rows:

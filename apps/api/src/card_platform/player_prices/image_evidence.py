@@ -416,6 +416,8 @@ def _admit_bound_result(observation, receipt, sale, result, player_name, catalog
         return _decision("card_number_wrong_role")
     if not _field(result, "parallel_name", result.parallel_name, [front_index]):
         return _decision("front_finish_evidence_missing")
+    if result.insert_name and not _field(result, "insert_name", result.insert_name, [front_index]):
+        return _decision("front_insert_evidence_missing")
     if (
         result.condition_status != "ordinary_visible"
         or not _field(result, "condition_status", result.condition_status, [0, 1])
@@ -534,9 +536,11 @@ def _admit_bound_result(observation, receipt, sale, result, player_name, catalog
         print_run=result.serial_total,
         grade_value=str(result.grade_value) if result.grade_value is not None else None,
     )
-    confirmed = catalog.confirm_title(identity, sale.model_copy(update={"title": title}))
+    confirmed = catalog.confirm_image(identity, sale.model_copy(update={"title": title}))
     if confirmed is None:
         return _decision("official_card_unconfirmed")
+    if text_key(confirmed.get("insert_name")) != text_key(result.insert_name):
+        return _decision("image_insert_conflict")
     # All original title/source gates still run. Only enumerated missing fields
     # can be resolved by the independently read, bound physical observations.
     _score, conflicts = assess_cardhobby_match(confirmed, sale.model_copy(update={"title": title}))
