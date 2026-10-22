@@ -384,3 +384,10 @@ Web新增4个主流程、日期与参考身份RED→green；Mobile新增2个主�
 - API/Web均已正式切为prices1；运行成本worker=true、行情worker=true，自动核图独立日限100，DeepSeek非思考与独立百炼搜索实值通过、env原SHA保持。
 - 真实公网Chromium对现存持仓最多的账户使用明确标记的20分钟服务器临时验证会话（不是密码登录），验证Cookie、手机同通道Bearer、涨跌排序/搜索/8条来源/单球员refresh202/空账户隔离/跨账户404/未来报告422/匿名401；页面无JS错误，390px无横向溢出，主指标底部714.47px<844px。首轮搜索测试错误地假设只返回一个库里，实际还包含已有的Jokić/Curry多人卡对象；修正测试选择准确单人参考行，未改变产品或合并多人身份。首次窄屏截图处于请求更新后的瞬时loading，另建只读捕获在真实加载完成后验证首屏，截图production-price-{desktop,narrow}-loaded.png。
 - 公网首页/知识库页面/管理页/行情页及各自静态资源成功，私有接口匿名401；后台第一轮库里真实更新已成功，history_queries7词、pages7、incremental_complete=true/history_complete=false，待第二轮持续更新证明；临时验证会话与空账户在验收后仍须实际撤销并验证401。
+
+## 两轮真实后台更新与验证会话清理
+
+- 库里第一轮10:52:18→10:53:03 UTC完成，7页，7个持久查询，增量完整/历史继续；詹姆斯10:54:04→10:55:15完成7页。冷却超过五分钟后通过正式refresh接口排队库里第二轮，10:57:53→10:58:39完成8页，Stephen Curry同一查询next_page从2推进4。它们由正式API后台worker执行，不是手动coordinator计算；最终0排队/0采集异常，9位成交/5位趋势/0三卡指数保持。完整时间、原游标及来源统计保存在production-background-two-rounds.json。
+- 自动核图真实运行日预留100达到配置上限后停止claim；另有5次后台实际付费调用（两完整捕获及一次失败响应），与前160次手工控制分账，累计165。捕获不等于准入，未自动批准人工review。最终运行模型/非思考原trace核验及数量另存cloud-final-runtime-model-proof.json。
+- 两个20分钟临时验证会话均按精确hash/UA撤销，空隔离账户删除，原账户保留；公网用已撤销Bearer实测401，本地0600秘密文件已删除。证据release-session-cleanup-verified.json。
+- 最后再次调用真实设备应用服务仍CoreDevice4016无可信连接；不能把缓存设备资料可读当成连接/安装成功。手机1.1.14/build18签名包已在本地及云端私有备份，安装、设备版本读回、启动保持未完成。
