@@ -34,6 +34,7 @@ from card_platform.schemas import CardPairValidation, CardFaceObservation
 
 CONTRACT = "player-price-image-evidence-v1"
 RESULT_CONTRACT = "player-price-physical-observation-v1"
+PRICE_PHOTO_MAX_BYTES = 16 * 1024 * 1024
 PHYSICAL_ATTRIBUTES = {"is_autograph", "is_memorabilia", "is_patch", "is_redemption", "is_numbered"}
 
 
@@ -164,7 +165,7 @@ def make_receipt(observation, html, images, result, *, model, usage, now=None):
             "image/webp",
         }:
             raise ValueError("unbound_price_image")
-        validate_photo(content)
+        validate_photo(content, max_bytes=PRICE_PHOTO_MAX_BYTES)
         bindings.append(dict(url=url, sha256=_hash(content), bytes=len(content), content_type=mime))
     if len({b["sha256"] for b in bindings}) != 2 or len({b["url"] for b in bindings}) != 2:
         raise ValueError("duplicate_price_images")
@@ -217,7 +218,7 @@ def _read_bound_images(sale, captured, html_sha256, images, blob_reader, *, expe
             or image["sha256"] in seen
         ):
             raise ValueError("price_image_bytes_changed")
-        validate_photo(content)
+        validate_photo(content, max_bytes=PRICE_PHOTO_MAX_BYTES)
         seen.add(image["sha256"])
     if gallery_primary(gallery) not in [image["url"] for image in images]:
         raise ValueError("price_primary_image_changed")

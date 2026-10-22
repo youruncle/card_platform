@@ -22,11 +22,12 @@ from card_platform.ingestion.cardhobby_public_item import (
 )
 from card_platform.model_requests import nonthinking_extra_body
 from card_platform.player_prices.image_evidence import (
+    PRICE_PHOTO_MAX_BYTES,
     make_receipt,
     gallery_primary,
 )
 from card_platform.public_source_catalog import validated_sale
-from card_platform.purchase_cost_images import MAX_BYTES, read_bounded, validate_photo
+from card_platform.purchase_cost_images import read_bounded, validate_photo
 from card_platform.valuation_trace import traced_completion
 
 
@@ -41,7 +42,7 @@ class EvidenceBlobs:
         if not isinstance(sha, str) or not re.fullmatch("[a-f0-9]{64}", sha):
             raise ValueError("invalid_price_blob_key")
         path = self.root / (sha + ".blob")
-        if path.is_symlink() or not 0 < path.stat().st_size <= MAX_BYTES:
+        if path.is_symlink() or not 0 < path.stat().st_size <= PRICE_PHOTO_MAX_BYTES:
             raise ValueError("invalid_price_blob")
         content = path.read_bytes()
         if hashlib.sha256(content).hexdigest() != sha:
@@ -49,7 +50,7 @@ class EvidenceBlobs:
         return content
 
     def put(self, content):
-        if not 0 < len(content) <= MAX_BYTES:
+        if not 0 < len(content) <= PRICE_PHOTO_MAX_BYTES:
             raise ValueError("invalid_price_blob_size")
         sha = hashlib.sha256(content).hexdigest()
         path = self.root / (sha + ".blob")
@@ -145,7 +146,7 @@ class PriceImageReader:
         if len(images) != 2:
             raise ValueError("price_pair_images_required")
         for data, mime in images:
-            validate_photo(data)
+            validate_photo(data, max_bytes=PRICE_PHOTO_MAX_BYTES)
             if mime not in {"image/jpeg", "image/png", "image/webp"}:
                 raise ValueError("invalid_price_image_type")
         prompt = image_prompt()
@@ -265,8 +266,8 @@ async def capture_pair(observation, store, *, client=None):
     urls = [primary, *[url for url in gallery["image_urls"] if url != primary]]
     images = []
     for url in urls:
-        data = await read_bounded(client, url)
-        validate_photo(data)
+        data = await read_bounded(client, url, limit=PRICE_PHOTO_MAX_BYTES)
+        validate_photo(data, max_bytes=PRICE_PHOTO_MAX_BYTES)
         with Image.open(BytesIO(data)) as image:
             mime = (
                 "image/jpeg" if image.format in {"JPEG", "MPO"} else "image/" + image.format.lower()

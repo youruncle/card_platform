@@ -345,3 +345,11 @@ Web新增4个主流程、日期与参考身份RED→green；Mobile新增2个主�
 18项新控制先15失败/3通过，覆盖正背未知、上传换序、双方未知/冲突、产品缺失/冲突、主体、背号、版本标识不足、无身份文字、无trace、未知版本与未批准迁移。独立审查另发现新空字段导致旧v1 review审计指纹漂移；真正缺新字段的冻结v1 JSON先RED，再以v1指纹序列化省略新空版本字段修复。最终19项新控制及相关价格/市场聚焦403通过，1既有Starlette/httpx警告；独立145项初审及34项增量复审通过，v1原始/修正指纹兼容、v2保留版本、Ruff/diff通过，无剩余Critical/Important/Minor。
 
 云端新模块进程只读重放34份旧收据仍33 confirmed，原件/批准不变；LeBron134989573(.95)/Curry136145441(.90)以保留正面厂家null的新v2批准review预检confirmed，0新增模型调用，尚未登记、未写正式价格、未发布服务包。当前云端仍free=0/jobs34/approvals32/audits0/revisions0；0086已应用不能冒充免费证据/严格worker上线。至少5人三日报告、正式派生修复、连续后台更新及Web/API/iPhone交付继续待完成。
+
+第二十批后续：上述厂家两笔已按新批准登记、第二次导入幂等，0新调用；新增3个冻结观察全部完成两面共6次付费，累计156。完整六图已实际查看，LaMelo138927739/Miller130771131经明确复核准入；Curry136775017因标题末尾#LG001被当卡号仍hold，不能删除原文凑样本。登记累计38 jobs/36 approvals，实际仅37 confirmed（既知LaMelo同图项退出），正式free/audits/revisions仍0。116免费原件stage→evidence→rollback后事务外核图并重载确认token稳定，三个报告日均得到LeBron#130 Base 3/3、+25%；LaMelo#278 Base 3/3、-63.8554%；Wemby#136 Base 3/4、+3.6565%。Miller仍2/3、Curry仍2/2，未满足5人。该次进程漏注入新domain模块，故捕获只有旧结构cards中的30日变化，无reference_card；此字段缺失不能冒充T030新API回放，后续须用精确新domain重新验证。
+
+有界图片worker在既有0084/0086上实现，独立每日调用配置默认0，逐请求校验current/租约/token/上海预算日及预留，事务外抓图/模型，独立保存实际调用与失败/取消原trace，免费同图否决不付费、不自动批准复核。初轮417价格/市场回归通过；独立审查发现finish内部先提交、随后wake的崩溃窗口，真实PG failure/cancel注入先RED，短外层事务使完成与通知原子提交后通过。失败/取消trace缺请求配置的Minor也先RED再统一元数据，窄35通过，独立复审两项关闭无新问题。提交fecb673b/48e654e5仍未部署，预算仍0；不能把测试当连续后台更新。
+
+真实Miller140425189多次抓取拒绝已诊断为response_too_large，而非缺背面：两图均3024×4032，前图5,926,901B、背图11,128,350B。行情链路独立16MiB上限统一覆盖HTTP抓取、真实blob存取、收据创建/回读及模型观察，原图不缩放/不替换，共享采购校验默认10MiB、32M像素等保持。先HTTP上限RED，随后真实blob存储上限RED；最终大图原件/绑定trace/receipt/admission、篡改拒绝、超过16MiB拒绝及采购默认控制连同价格/市场回归422通过，1既有弃用警告，Ruff/diff通过。独立审查无Critical/Important/Minor；尚未验证外部模型实际接收该大图，不计新增成交或趋势。
+
+网页冻结537fcc58在云端构建成功，镜像card-platform-web:0.6.4-20261022-prices1，image SHA256 db1cf89afc991a438861ecf99a6517e2f983874b8012ca8a5e14650ae551674f；88源文件、输入tar SHA256 fe1e180bffb3f3581813733cf208b5515ea1cca657a2aeda30daf01d8f69b94f，未切换服务。发布前源对比：运行API198个py、提交211个，仅21个本任务相关文件有差异，其余原运行文件均一致，避免覆盖其他线上适配。所有正式发布/真机/5人及连续更新验收仍待完成。

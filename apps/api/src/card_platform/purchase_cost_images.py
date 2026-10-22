@@ -68,11 +68,11 @@ MAX_BYTES = 10 * 1024 * 1024
 MAX_PIXELS = 32_000_000
 
 
-def validate_photo(content):
+def validate_photo(content, *, max_bytes=MAX_BYTES):
     from io import BytesIO
     from PIL import Image
 
-    if not content or len(content) > MAX_BYTES:
+    if not content or len(content) > max_bytes:
         raise ValueError("photo_bytes")
     with Image.open(BytesIO(content)) as image:
         width, height = image.size
