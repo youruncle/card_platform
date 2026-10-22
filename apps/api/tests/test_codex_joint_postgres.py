@@ -20,7 +20,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_legacy_history_recovery_updates_list_and_totals_without_snapshot_writes(monkeypatch):
+def test_legacy_history_remains_reference_without_price_or_snapshot_writes(monkeypatch):
     asyncio.run(check(monkeypatch))
 
 
@@ -68,6 +68,7 @@ async def check(monkeypatch):
                 "UPDATE collection_item SET image_front_url=%s,image_back_url=%s WHERE id=%s",
                 (item_data["image_front_url"], item_data["image_back_url"], item),
             )
+            await c.execute('DELETE FROM valuation_job WHERE collection_item_id=%s', (item,))
             await repo.add_transaction(
                 c,
                 item,
@@ -109,16 +110,14 @@ async def check(monkeypatch):
                 )
             ).fetchall()
             result = (await repo.list_items(c, owner, item_ids=[item]))[0]
-            assert result.fair_value == Decimal("61.98"), result.valuation_synthesis
+            assert result.fair_value is None, result.valuation_synthesis
             assert result.codex_fair_value == Decimal("50")
-            assert result.valuation_synthesis["status"] == "joint_recalculated"
-            assert result.valuation_synthesis["accepted_evidence"][0]["snapshot_id"] == str(
-                before[0]["data"]["id"]
-            )
+            assert result.valuation_synthesis["status"] == "review_required"
+            assert result.valuation_synthesis["accepted_evidence"] == []
             assert result.quantity_held == 2
-            assert result.unrealized_profit == Decimal("103.96")
+            assert result.unrealized_profit is None
             summary = build_portfolio_summary([result], owner, "CNY")
-            assert summary.valued_item_count == 1
+            assert summary.valued_item_count == 0
             assert await repo.list_items(c, uuid4(), item_ids=[item]) == []
             after = await (
                 await c.execute(

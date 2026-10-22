@@ -1,18 +1,21 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID, uuid4
 
 import numpy as np
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from psycopg import AsyncConnection
+from psycopg.types.json import Jsonb
 
 from card_platform.auth import AuthenticatedUser, current_user
 from card_platform.config import get_settings
 from card_platform.flatbed_detection import Detection
-from card_platform.flatbed_service import FlatbedBridgeError, FlatbedService, ordered_source_quad
+from card_platform.flatbed_pair_sources import confirmation_token, pair_source_snapshot
+from card_platform.flatbed_service import FlatbedBridgeError, FlatbedSourceConflict, FlatbedService, ordered_source_quad
 from card_platform.image_service import InvalidImageError, read_validated_image
 from card_platform.scanner_queue import ScannerQueueService
 
@@ -139,6 +142,11 @@ async def connection(request: Request):
 
 def service() -> FlatbedService:
     settings = get_settings()
+    import sys
+    from card_platform.flatbed_local_ocr import LinuxLocalOCRObserver
+    observer = None
+    if sys.platform != "darwin":
+        observer = LinuxLocalOCRObserver()
     return FlatbedService(
         settings.flatbed_scan_dir,
         settings.flatbed_bridge_script,
@@ -148,6 +156,7 @@ def service() -> FlatbedService:
         ml_worker_script=settings.flatbed_ml_worker_script,
         ml_checkpoint=settings.flatbed_ml_checkpoint,
         ml_timeout_seconds=settings.flatbed_ml_timeout_seconds,
+        cloud_observer=observer,
     )
 
 
@@ -174,7 +183,7 @@ async def create_session(
     dpi = int(payload.get("dpi", 300))
     if dpi not in {300, 600}:
         raise HTTPException(422, "DPI 仅支持 300 或 600")
-    return await service().create_session(db, user.id, dpi)
+    return await service().create_session(db, user.id, dpi, new_batch=payload.get("new_batch") is True)
 
 
 @router.get("/sessions")
@@ -214,7 +223,7 @@ async def get_session(
         (session_id, user.id),
     )
     sheets = await db.execute(
-        """SELECT id,side,revision,content_type,created_at,detector_version,layout_hypothesis,front_to_back_prior,requires_review,derived_version FROM flatbed_scan_sheet s
+        """SELECT id,side,revision,sha256,content_type,created_at,detector_version,layout_hypothesis,front_to_back_prior,requires_review,derived_version FROM flatbed_scan_sheet s
            WHERE session_id=%s AND owner_id=%s
              AND revision=(SELECT max(latest.revision) FROM flatbed_scan_sheet latest
                            WHERE latest.session_id=s.session_id AND latest.side=s.side)
@@ -236,13 +245,22 @@ async def upload_sheet(
     image: UploadFile = File(...),
     user: AuthenticatedUser = Depends(current_user),
     db: AsyncConnection = Depends(connection),
+    source_resolution: str | None = Form(default=None),
 ) -> dict:
     if side not in {"front", "back"}:
         raise HTTPException(404, "扫描面不存在")
     try:
+        metadata = None
+        if source_resolution is not None:
+            if len(source_resolution) > 4096:
+                raise ValueError("扫描分辨率元数据过大")
+            metadata = json.loads(source_resolution)
+            if not isinstance(metadata, dict):
+                raise ValueError("扫描分辨率元数据必须为对象")
         content = await read_validated_image(image, get_settings().max_image_bytes * 8)
         return await service().store_sheet(
-            db, user.id, session_id, side, content, image.content_type or "image/jpeg"
+            db, user.id, session_id, side, content, image.content_type or "image/jpeg",
+            source_resolution=metadata,
         )
     except (InvalidImageError, ValueError) as error:
         raise HTTPException(422, str(error)) from error
@@ -268,16 +286,23 @@ async def override_layout(
     detections = _manual_layout_detections(payload)
     flatbed = service()
     path = flatbed.resolve_path(row["original_path"])
-    return await flatbed.store_sheet(
-        db,
-        user.id,
-        row["session_id"],
-        row["side"],
-        path.read_bytes(),
-        row["content_type"],
-        detections_override=detections,
-        source_resolution=(row.get("layout_hypothesis") or {}).get("source_resolution"),
-    )
+    try:
+        return await flatbed.store_sheet(
+            db,
+            user.id,
+            row["session_id"],
+            row["side"],
+            path.read_bytes(),
+            row["content_type"],
+            detections_override=detections,
+            source_resolution=(row.get("layout_hypothesis") or {}).get("source_resolution"),
+            expected_source_sheet_id=sheet_id,
+        )
+    except FlatbedSourceConflict as error:
+        raise HTTPException(409, str(error)) from error
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
+
 
 
 @router.post("/sheets/{sheet_id}/reprocess", status_code=201)
@@ -296,15 +321,22 @@ async def reprocess_sheet(
         raise HTTPException(404, "整版扫描图片不存在")
     flatbed = service()
     path = flatbed.resolve_path(row["original_path"])
-    return await flatbed.store_sheet(
-        db,
-        user.id,
-        row["session_id"],
-        row["side"],
-        path.read_bytes(),
-        row["content_type"],
-        source_resolution=(row.get("layout_hypothesis") or {}).get("source_resolution"),
-    )
+    try:
+        return await flatbed.store_sheet(
+            db,
+            user.id,
+            row["session_id"],
+            row["side"],
+            path.read_bytes(),
+            row["content_type"],
+            source_resolution=(row.get("layout_hypothesis") or {}).get("source_resolution"),
+            expected_source_sheet_id=sheet_id,
+        )
+    except FlatbedSourceConflict as error:
+        raise HTTPException(409, str(error)) from error
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
+
 
 
 @router.post("/sessions/{session_id}/capture/{side}", status_code=201)
@@ -471,13 +503,13 @@ async def override_pairs(
         sides.get(region_id) != "back" for region_id in back_ids
     ):
         raise HTTPException(409, "配对必须由正面和背面组成")
-    await db.execute(
-        "UPDATE flatbed_pair_proposal SET selected=false WHERE session_id=%s AND owner_id=%s",
-        (session_id, user.id),
-    )
+    selected_ids = []
     for front_id, back_id in zip(front_ids, back_ids, strict=True):
         updated = await db.execute(
-            """UPDATE flatbed_pair_proposal SET selected=true,manual_override=true
+            """UPDATE flatbed_pair_proposal SET selected=true,manual_override=true,
+                   identity_status=CASE WHEN selected OR identity_status='conflict' THEN identity_status ELSE 'unknown' END,
+                   identity_reason_codes=CASE WHEN selected OR identity_status='conflict' THEN identity_reason_codes
+                                             ELSE '["manual_pair_requires_recheck"]'::jsonb END
                WHERE id=(SELECT id FROM flatbed_pair_proposal
                          WHERE session_id=%s AND owner_id=%s
                            AND front_region_id=%s AND back_region_id=%s
@@ -485,11 +517,21 @@ async def override_pairs(
                RETURNING id""",
             (session_id, user.id, front_id, back_id),
         )
-        if await updated.fetchone() is None:
+        selected = await updated.fetchone()
+        if selected is None:
             raise HTTPException(409, "配对候选已过期，请重新生成配对")
+        selected_ids.append(selected["id"])
     await db.execute(
-        "UPDATE flatbed_scan_session SET pairing_requires_review=false,status='paired',updated_at=now() WHERE id=%s AND owner_id=%s",
-        (session_id, user.id),
+        "UPDATE flatbed_pair_proposal SET selected=false WHERE session_id=%s AND owner_id=%s AND NOT (id=ANY(%s))",
+        (session_id, user.id, selected_ids),
+    )
+    try:
+        snapshot = await pair_source_snapshot(db, user.id, session_id, service().resolve_path)
+    except ValueError as error:
+        raise HTTPException(409, str(error)) from error
+    await db.execute(
+        "UPDATE flatbed_scan_session SET pairing_requires_review=false,status='paired',confirmed_sources=%s,updated_at=now() WHERE id=%s AND owner_id=%s",
+        (Jsonb(snapshot), session_id, user.id),
     )
     skipped = await db.execute(
         """WITH latest_regions AS (
@@ -508,6 +550,7 @@ async def override_pairs(
     return {
         "status": "paired",
         "count": len(pairs),
+        "confirmation_token": confirmation_token(snapshot),
         "skipped": {"front": skipped_row["front"], "back": skipped_row["back"]},
     }
 
@@ -515,6 +558,7 @@ async def override_pairs(
 @router.post("/sessions/{session_id}/submit")
 async def submit(
     session_id: UUID,
+    payload: dict | None = Body(default=None),
     user: AuthenticatedUser = Depends(current_user),
     db: AsyncConnection = Depends(connection),
 ) -> dict:
@@ -538,6 +582,16 @@ async def submit(
     # confirmation moves the session to `paired`; they must never block ingest.
     if session["status"] != "paired":
         raise HTTPException(409, "请先确认至少一对正反面")
+    if not session.get("confirmed_sources"):
+        raise HTTPException(409, "请按当前扫描图片重新确认配对")
+    if (payload or {}).get("confirmation_token") != confirmation_token(session["confirmed_sources"]):
+        raise HTTPException(409, "配对确认已过期，请核对当前图片后重新确认")
+    try:
+        current_sources = await pair_source_snapshot(db, user.id, session_id, service().resolve_path)
+    except ValueError as error:
+        raise HTTPException(409, str(error)) from error
+    if current_sources != session["confirmed_sources"]:
+        raise HTTPException(409, "扫描图片已改变，请重新确认配对")
     rows = await db.execute(
         """SELECT p.id pair_id,p.scanner_job_id,
                   f.crop_path front_path,f.confidence front_confidence,f.signals front_signals,

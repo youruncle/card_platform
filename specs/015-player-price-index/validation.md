@@ -47,3 +47,8 @@ API发布相关74项、Web136项、Mobile46项通过；两端生产构建、iOS�
 ## 2026-10-16 真实采集连接修复
 
 先前记录的ReadError已定位为价格采集独立httpx客户端遗漏卡淘公开搜索现有请求头，而非Mobile连接云端失败。补齐User-Agent/Referer后云端真实查询成功、公开成交与日报持久化恢复；价格单元/API29项、PostgreSQL2项及ruff通过。已发布仅此模块的API补丁，当前持仓队列重新采集；样本不足仍不生成虚构涨跌。实际数量、发布标签、回退和限制见[缺陷修复记录](../../.specify/bugs/player-price-source-collection/assessment-and-verification.md)。
+
+
+## 2026-10-17 行情可用性 v2
+
+独立行情、30日卡款变化、覆盖诊断与单球员刷新已在本地实现；41项价格后端、151项Web、107项Mobile及两端构建通过。实际覆盖仍不足，未部署线上，扩大回归的26项既有失败及真实样本限度见[本轮验证记录](validation-v2.md)。

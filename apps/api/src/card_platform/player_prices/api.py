@@ -1,5 +1,6 @@
 from datetime import date as Date, datetime, timedelta
 from typing import Literal
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
@@ -30,9 +31,15 @@ async def board(
 
 
 @router.post("/refresh", status_code=202)
-async def refresh(request: Request, user: AuthenticatedUser = Depends(current_user)):
+async def refresh(
+    request: Request,
+    player_id: UUID | None = Query(None),
+    user: AuthenticatedUser = Depends(current_user),
+):
     if not get_settings().player_price_worker_enabled:
         raise HTTPException(503, "每日价格后台未启用；请启用后再请求采集")
     async with request.app.state.database.connection() as c:
-        count = await repo.enqueue(c, user.id)
+        count = await repo.enqueue(c, user.id, player_id=player_id) if player_id else await repo.enqueue(c, user.id)
+    if player_id is not None and count == 0:
+        raise HTTPException(404, "当前持仓中没有该球员")
     return {"queued": count, "message": "已排队，后台将补采公开成交并更新前一天统计"}

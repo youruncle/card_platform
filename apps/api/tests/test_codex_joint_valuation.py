@@ -111,13 +111,12 @@ def test_extracts_sale_date_and_price_but_not_shipping():
     assert e["verified"] is False
 
 
-def test_recovered_sale_can_price_without_new_schema_or_model_price_confidence():
+def test_legacy_text_sale_cannot_price_without_current_research_contract():
     args = fixture()
     before = deepcopy(args)
     r = evaluate(*args)
-    assert r["status"] == "joint_recalculated"
-    assert r["fair_value"] == Decimal("61.98")
-    assert r["low_value"] < r["fair_value"] < r["high_value"]
+    assert r["status"] == "review_required"
+    assert r["fair_value"] is None
     assert args == before
 
 
@@ -162,7 +161,7 @@ def test_duplicate_sale_across_history_counts_once():
         image_hashes={"front": "front", "back": "back"},
         now=NOW,
     )
-    assert len(r["accepted_evidence"]) == 1
+    assert len(r["accepted_evidence"]) == 0
 
 
 def test_unknown_best_offer_is_never_a_sale_amount():
@@ -270,7 +269,8 @@ def test_image_bound_review_can_correct_ocr_without_mutating_collection():
     }
     before = deepcopy(item)
     r = evaluate(item, snapshot, reviews, fx, identity_reviews=recovery)
-    assert r["status"] == "joint_recalculated"
+    assert r["status"] == "review_required"
+    assert r["fair_value"] is None
     assert r["identity_corrections"]["insert_name"]["before"] == "Wrong OCR"
     assert item == before
 
@@ -339,7 +339,7 @@ def test_tracked_ebay_urls_are_one_sale():
     snapshot["evidence_summary"].append(duplicate)
     result = evaluate(item, snapshot, reviews, fx)
     assert result["recovered_evidence"][0]["url"] == result["recovered_evidence"][1]["url"]
-    assert len(result["accepted_evidence"]) == 1
+    assert len(result["accepted_evidence"]) == 0
 
 
 def sports_fixture():
@@ -378,12 +378,12 @@ def sports_fixture():
     return item, snapshot, reviews, fx, original, market
 
 
-def test_two_systems_contribute_sales_without_averaging_their_quotes():
+def test_two_legacy_systems_cannot_replace_current_research_contract():
     item, snapshot, reviews, fx, original, market = sports_fixture()
     result = evaluate(item, snapshot, reviews, fx, original=original, market=market)
-    assert result["status"] == "joint_recalculated"
-    assert result["fair_value"] == Decimal("50")
-    assert {e["source"] for e in result["accepted_evidence"]} == {"system", "codex_recovered"}
+    assert result["status"] == "review_required"
+    assert result["fair_value"] == 999
+    assert result["accepted_evidence"] == []
 
 
 def test_system_best_offer_unknown_price_is_not_accepted():
@@ -401,7 +401,7 @@ def test_cannot_validate_only_a_subset_of_original_used_sales():
     original["evidence"]["used_comparables"].append({"market_comp_id": "missing"})
     result = evaluate(item, snapshot, {}, fx, original=original, market=market)
     assert result["status"] == "review_required"
-    assert len(result["accepted_evidence"]) == 1
+    assert len(result["accepted_evidence"]) == 0
     assert result["rejected_evidence"][0]["id"] == "missing"
 
 
@@ -429,7 +429,7 @@ def test_same_sale_with_conflicting_reviewed_amount_is_not_jointly_validated():
     result = evaluate(item, snapshot, reviews, fx, original=original, market=market)
     assert result["status"] == "review_required"
     assert result["fair_value"] == 999
-    assert any("同一成交" in reason for e in result["rejected_evidence"] for reason in e["reasons"])
+    assert any("当前" in reason for e in result["rejected_evidence"] for reason in e["reasons"])
 
 
 def test_system_duplicate_url_with_conflicting_prices_requires_review():

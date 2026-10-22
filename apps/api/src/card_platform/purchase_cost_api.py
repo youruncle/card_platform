@@ -17,6 +17,52 @@ router = APIRouter(prefix="/v1/purchase-cost", dependencies=[Depends(current_use
 service = PurchaseCostService()
 
 
+class HistorySyncRequest(StrictModel):
+    restart: StrictBool = False
+
+
+class HistoryPrepareRequest(StrictModel):
+    limit: int = Field(default=1, ge=1, le=1)
+    retry_failed: StrictBool = False
+
+
+def history_service():
+    from card_platform.config import get_settings
+    from card_platform.cardhobby_account_api import account_service
+    from card_platform.purchase_cost_history import PurchaseHistoryService
+    return PurchaseHistoryService(get_settings(), account_service(), service)
+
+
+@router.get('/history/status')
+async def history_status(user: AuthenticatedUser = Depends(current_user), conn: AsyncConnection = Depends(get_connection)):
+    from card_platform.config import get_settings
+    from card_platform.purchase_cost_archive import PurchaseArchive
+    history = history_service()
+    state = PurchaseArchive.configured(get_settings(), user.id).state()
+    available = await history.account.archive_orders(conn, user.id)
+    return dict(complete=available is not None, pages=state['pages'],
+                orders=len(state['order_keys']), captured_at=state.get('captured_at'))
+
+
+@router.post('/history/sync')
+async def history_sync(payload: HistorySyncRequest, user: AuthenticatedUser = Depends(current_user),
+                       conn: AsyncConnection = Depends(get_connection)):
+    from card_platform.cardhobby_account_api import run
+    from card_platform.purchase_cost_service import owner_lock
+    await owner_lock(conn, user.id)
+    return await run(conn, user.id, lambda: history_service().sync_page(conn, user.id, restart=payload.restart))
+
+
+@router.post('/history/prepare')
+async def history_prepare(payload: HistoryPrepareRequest, user: AuthenticatedUser = Depends(current_user),
+                          conn: AsyncConnection = Depends(get_connection)):
+    from card_platform.cardhobby_account_api import run
+    from card_platform.purchase_cost_service import owner_lock
+    await owner_lock(conn, user.id)
+    return await run(conn, user.id, lambda: history_service().prepare(
+        conn, user.id, limit=payload.limit, retry_failed=payload.retry_failed))
+
+
 class SyncRequest(StrictModel):
     orders: list[OrderCapture] = Field(min_length=1, max_length=100)
 
@@ -150,3 +196,22 @@ async def action(
     conn: AsyncConnection = Depends(get_connection),
 ):
     return await domain(service.job(conn, user.id, job_id, action))
+
+
+@router.get("/items/{item_id}/automatic")
+async def automatic_status(
+    item_id: UUID,
+    user: AuthenticatedUser = Depends(current_user),
+    conn: AsyncConnection = Depends(get_connection),
+):
+    # Check card ownership even when no automatic task exists.
+    await domain(service.card(conn, user.id, item_id))
+    result = await conn.execute(
+        """SELECT status, attempts, result, created_at, updated_at
+        FROM automatic_purchase_cost WHERE item_id=%s AND owner_id=%s""",
+        (item_id, user.id),
+    )
+    from card_platform.config import get_settings
+    row = await result.fetchone()
+    return {**(row or dict(status='not_scheduled',attempts=0,result=None)),
+            'worker_enabled':get_settings().purchase_cost_worker_enabled}

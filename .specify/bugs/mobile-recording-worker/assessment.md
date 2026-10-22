@@ -1,0 +1,5 @@
+# 手机录卡任务长期排队
+
+2026-10-17：线上只读核查确认scanner_recognition_job有1个queued任务，需要人工确认入库；全队列无其他queued/running任务。实际运行SCANNER_WORKER_ENABLED=false，VISION_API_KEY未配置，后台不会领取任务。此前卡库性能发布沿用既有关闭配置，并未恢复完整录卡处理链路。
+
+本机存在已配置的识别服务。云端使用该配置执行最小文本调用，验证实际模型调用成功后才启用worker。授权范围为恢复手机录卡，不开启benchmark、估值或采购成本worker，不重复提交原任务，不自动确认入库。配置修复无业务代码变更。

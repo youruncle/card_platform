@@ -19,11 +19,11 @@ export default function PlayerPricesPage() {
     const timer=setInterval(()=>{void load();},30000);
     return ()=>clearInterval(timer);
   },[data,error,load]);
-  async function refresh(){
+  async function refresh(playerId?:string){
     setRefreshing(true);setMessage("");
-    try {const result=await refreshPlayerPrices();setMessage(`${result.message}（${result.queued} 位球员）`);await load();}
+    try {const result=await refreshPlayerPrices(playerId);setMessage(`${result.message}（${result.queued} 位球员）`);await load();}
     catch(e) {setError(e instanceof Error?e.message:"更新失败");}
     finally {setRefreshing(false);}
   }
-  return <PlayerPriceBoard data={data} error={error} loading={loading} refreshing={refreshing} onRefresh={()=>void refresh()} onReload={()=>void load()} message={message}/>;
+  return <PlayerPriceBoard data={data} error={error} loading={loading} refreshing={refreshing} onRefresh={()=>void refresh()} onRefreshPlayer={id=>void refresh(id)} onReload={()=>void load()} message={message}/>;
 }

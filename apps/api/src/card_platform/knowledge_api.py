@@ -22,6 +22,7 @@ from card_platform.knowledge_repository import (
 from card_platform.knowledge_seed import CURATED_RELATIONS, builtin_seed
 from card_platform.marketplace_aliases import INITIAL_MARKETPLACE_ALIAS_CATALOG
 from card_platform.marketplace_alias_discovery import AliasDiscoveryError, build_alias_proposal
+from card_platform.knowledge_browser_api import router as browser_router
 
 async def _knowledge_connection(request: Request):
     async with request.app.state.database.connection() as connection:
@@ -1293,3 +1294,7 @@ async def official_checklist_progress() -> dict[str, Any]:
                             "success_percent": None, "date_unknown": 0},
                 "source_blockers": [], "products": []}
     return json.loads(STATUS_PATH.read_text())
+
+
+# Keep read-only catalogue access under the existing knowledge permission boundary.
+router.include_router(browser_router)

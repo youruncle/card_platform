@@ -17,6 +17,7 @@ from card_platform.image_service import CardVisionService
 from card_platform.main import app
 from card_platform.scanner_queue import ScannerRecognitionWorker
 from card_platform.schemas import CardRecognitionResult
+from pair_ingestion_fixtures import consistent_pair
 
 
 pytestmark = pytest.mark.skipif(
@@ -47,7 +48,8 @@ def test_import_finishes_at_real_wall_time_without_idle_transaction_during_recog
         await asyncio.sleep(.08)
         return CardRecognitionResult(player_name="Timing Fixture", brand_name="Panini",
                                      product_name="Prizm", season_start=2024, season_end=2025,
-                                     card_number="T1", confidence=".99")
+                                     card_number="T1", confidence=".99",
+                                     pair_validation=consistent_pair(player="Timing Fixture", product="Prizm"))
 
     monkeypatch.setattr(ScannerRecognitionWorker, "_orient_side", orient)
     monkeypatch.setattr(CardVisionService, "recognize_pair_contents", recognize)

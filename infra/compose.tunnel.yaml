@@ -31,15 +31,18 @@ services:
       ALLOWED_ORIGINS: http://localhost:13000,http://127.0.0.1:13000,http://1.117.65.47
       AUTH_COOKIE_SECURE: 'false'
       AUTH_REGISTRATION_ENABLED: 'false'
-      DATABASE_POOL_MAX_SIZE: '4'
+      DATABASE_POOL_MAX_SIZE: '8'
       RECOGNITION_CONCURRENCY: '1'
       SCANNER_WORKER_CONCURRENCY: '1'
-      VALUATION_WORKER_CONCURRENCY: '1'
+      VALUATION_WORKER_CONCURRENCY: '3'
+      VALUATION_VISUAL_CONCURRENCY: '6'
+      VALUATION_WORKER_ENABLED: 'true'
       RECOGNITION_WORKER_ENABLED: 'false'
-      PURCHASE_COST_WORKER_ENABLED: 'false'
+      PURCHASE_COST_WORKER_ENABLED: 'true'
       SEARCH_INDEX_CONCURRENCY: '1'
       UPLOAD_DIR: /app/uploads
       SCANNER_JOB_DIR: /app/scanner-jobs
+      KNOWLEDGE_BROWSER_CACHE_DIR: /app/scanner-jobs/.knowledge-browser-cache
       FLATBED_SCAN_DIR: /app/flatbed-scans
       CARDHOBBY_ACCOUNT_KEY_FILE: /app/secrets/cardhobby-account.key
     volumes:

@@ -803,7 +803,29 @@ class RecognitionFieldAssessment(ApiModel):
     issues: list[str] = Field(default_factory=list)
 
 
+class CardFaceObservation(ApiModel):
+    role: Literal["front", "back", "ad", "unknown"] = "unknown"
+    player_names: list[str] = Field(default_factory=list)
+    brand_name: str | None = None
+    product_name: str | None = None
+    insert_name: str | None = None
+    card_number: str | None = None
+    multi_subject: bool = False
+    evidence: list[str] = Field(default_factory=list)
+
+
+class CardPairValidation(ApiModel):
+    status: Literal["consistent", "conflict", "unknown"] = "unknown"
+    reason_codes: list[str] = Field(default_factory=list)
+    evidence: list[str] = Field(default_factory=list)
+    front: CardFaceObservation = Field(default_factory=CardFaceObservation)
+    back: CardFaceObservation = Field(default_factory=CardFaceObservation)
+    image_content_hashes: dict[str, str] = Field(default_factory=dict)
+    version: int = 1
+
+
 class CardRecognitionResult(ApiModel):
+    pair_validation: CardPairValidation | None = None
     is_redemption: bool | None = None
     redemption_status: Literal["unknown", "unredeemed", "redeemed", "expired"] = "unknown"
     image_role: Literal["front", "back", "ad", "unknown"] = "unknown"
@@ -846,6 +868,7 @@ class CardRecognitionResult(ApiModel):
     confidence: Decimal = Field(ge=0, le=1)
     caveats: list[str] = Field(default_factory=list)
     search_queries: list[str] = Field(default_factory=list)
+    web_research: dict[str, object] = Field(default_factory=dict)
     field_evidence: dict[str, list[str]] = Field(default_factory=dict)
     field_assessments: dict[str, RecognitionFieldAssessment] = Field(default_factory=dict)
     identity_storage_binding: dict[str, object] = Field(default_factory=dict)
@@ -859,7 +882,7 @@ class CardRecognitionResult(ApiModel):
     reference_image_match_confidence: Decimal | None = Field(default=None, ge=0, le=1)
     recognition_model: str | None = None
     recognition_route: list[dict[str, object]] = Field(default_factory=list)
-    recognition_estimated_cost_cny: Decimal = Field(default=Decimal("0"), ge=0)
+    recognition_estimated_cost_cny: Decimal | None = Field(default=Decimal("0"), ge=0)
     recognition_status: Literal["resolved", "research_required"] = "resolved"
     recognition_quality_issues: list[str] = Field(default_factory=list)
 
@@ -870,6 +893,15 @@ class CardRecognitionResult(ApiModel):
         if not isinstance(value, dict):
             return value
         normalized = dict(value)
+        pair = normalized.get("pair_validation")
+        if pair is not None:
+            try:
+                normalized["pair_validation"] = CardPairValidation.model_validate(pair)
+            except (ValueError, TypeError):
+                normalized["pair_validation"] = CardPairValidation(
+                    status="conflict" if isinstance(pair, dict) and pair.get("status") == "conflict" else "unknown",
+                    reason_codes=["invalid_pair_validation"],
+                )
 
         # Providers use null for a status without visible evidence. Keep that
         # uncertainty instead of rejecting the entire card recognition.

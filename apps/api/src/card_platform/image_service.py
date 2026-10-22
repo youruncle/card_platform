@@ -1,6 +1,8 @@
+from card_platform.model_requests import nonthinking_extra_body
 from card_platform.valuation_trace import traced_completion
 import asyncio
 import base64
+import hashlib
 import json
 import re
 from decimal import Decimal
@@ -28,6 +30,7 @@ from card_platform.card_orientation import (
 from card_platform.image_rectification import rectify_card_image
 from card_platform import local_ocr
 from card_platform import serial_ocr
+from card_platform.pair_integrity import derive_pair_validation
 from card_platform.repository import NotFoundError
 from card_platform.schemas import (
     CardRecognitionResult,
@@ -35,7 +38,7 @@ from card_platform.schemas import (
     SheetCardRecognitionResult,
 )
 from card_platform.vision_routing import (
-    TieredVisionRouter, finalize_recognition_status, sanitize_local_ocr_conflicts,
+    TieredVisionRouter, vision_tier_for_model, finalize_recognition_status, sanitize_local_ocr_conflicts,
 )
 
 ALLOWED_IMAGE_TYPES = {
@@ -44,11 +47,47 @@ ALLOWED_IMAGE_TYPES = {
     "image/webp": ".webp",
 }
 
+PAIR_RECOGNITION_PROMPT = (
+    "两张图片是用户提交的候选正面和候选背面，可能来自不同卡，不能预设同一卡。"
+    "先独立读取每张图，再判断配对；第一张观察写pair_validation.front，第二张写back。"
+    "各面结构为{role:front/back/ad/unknown,player_names:[真正主体姓名],brand_name,"
+    "product_name,insert_name,card_number,multi_subject:boolean,evidence:[位置与可见原文]}。"
+    "role表示实际看到的面，不由上传位置决定。只写该面独立可见的字段，不能从另一面复制缺失值。"
+    "pair_validation同时包含status:consistent/conflict/unknown、reason_codes:[简短原因]、"
+    "evidence:[双面关系的可见依据]。不同产品、卡号、单主体不同人、两张都是正面，须标conflict；"
+    "缺少独立证据或同款同球员实体无法区分时为unknown，不因整体识别confidence高而判consistent。"
+    "正常双方独立主体与产品/编号证据一致可consistent。Generations等多人设计以及Collector's Edge "
+    "Impulse#61可能两面主体不同，应依据共同产品、编号/设计核对；Topps/Bowman为同厂商，"
+    "不能把Logo不同直接当产品冲突。纪念比赛日期、版权年和发行赛季不同也不单独判错配。"
+    "再填联合身份字段；发生明确冲突时不拼成一张不存在的卡，在caveats保留冲突。"
+    "不要把球衣号、文章预告、卡套贴纸当卡号。hashes与version由服务器填写。"
+)
+
 
 def sanitize_identity_field_roles(result: CardRecognitionResult) -> CardRecognitionResult:
     """Reject explicit role confusion; never infer replacement catalog fields."""
     changes, issues = {}, []
     number = str(result.card_number or '').strip()
+    from card_platform.domain.number_roles import (
+        first_appearance_number_role, non_catalog_number_role, serial_non_unique_role,
+    )
+    from card_platform.domain.card_identity import is_placeholder_identity_value
+    for field in ('player_name', 'brand_name', 'product_name'):
+        if is_placeholder_identity_value(getattr(result, field)):
+            changes[field] = None
+            issues.append(field + '_is_placeholder')
+    if non_catalog_number_role(number, [
+        *result.field_evidence.get('card_number', []), *result.caveats,
+    ]):
+        changes['card_number'] = None
+        issues.append('card_number_evidence_has_non_catalog_role')
+    serial_role = serial_non_unique_role([
+        text for field in ('serial_number', 'serial_total', 'is_numbered')
+        for text in result.field_evidence.get(field, [])], number=result.serial_number, total=result.serial_total)
+    if serial_role:
+        changes.update(serial_number=None, serial_total=None, is_numbered=False)
+        issues.extend(['serial_number_has_' + serial_role + '_role',
+                       'serial_total_has_' + serial_role + '_role'])
     def positive_claims(text):
         return re.sub(r'(?:不是|并非|並非|并不是|\bnot\b)[^，。；;,.]*', '', text, flags=re.I)
     number_evidence = positive_claims(' '.join(result.field_evidence.get('card_number', [])))
@@ -65,7 +104,7 @@ def sanitize_identity_field_roles(result: CardRecognitionResult) -> CardRecognit
         changes['card_number'] = None
         issues.append('card_number_is_fraction_not_catalog_identifier')
     elif re.fullmatch(r'\d+(?:\s*[-–—]\s*\d+)?', number) and re.search(
-        r'(?:名单|名單|清单|清單).{0,8}(?:行号|行號|序号|序號|编号|編號)|(?:checklist|roster).{0,20}(?:row number|entry number)|球衣号|球衣號|jersey number', number_evidence, re.I
+        r'(?:名单|名單|清单|清單).{0,8}(?:行号|行號|序号|序號|编号|編號)|(?:checklist|roster).{0,20}(?:row number|entry number)', number_evidence, re.I
     ):
         changes['card_number'] = None
         issues.append('card_number_evidence_has_non_catalog_role')
@@ -102,6 +141,8 @@ def sanitize_identity_field_roles(result: CardRecognitionResult) -> CardRecognit
             and result.catalog_verified_fields.get(field) == getattr(result,field)
             and any(candidate_supports_resolved_field(candidate,field,getattr(result,field))
                     for candidate in result.web_candidates))
+        wrong_role = wrong_role or first_appearance_number_role(
+            getattr(result, field), claims, year=True)
         if getattr(result, field) is not None and wrong_role and not (release_line or catalog_release):
             changes[field] = None
             issues.append(field+'_not_direct_release_evidence')
@@ -546,7 +587,7 @@ class QwenVisionProvider:
             ],
             response_format={"type": "json_object"},
             max_tokens=200,
-            extra_body={"enable_thinking": False},
+            extra_body=nonthinking_extra_body(self.model),
         )
         raw = response.choices[0].message.content
         if not raw:
@@ -603,6 +644,11 @@ class QwenVisionProvider:
                         "无法确认时返回 null 并在 caveats 说明。field_evidence逐项记录图片位置、原文和字段角色。"
                         "名单/清单的行号不是本卡卡号；球队合照不能把名单球员拼成一个球员身份。"
                         "限编35/50这类分数不是card_number；应继续找背面独立卡号。"
+                        "先判断编号角色并写field_evidence：套组顺序如4 of10是第4张/共10张，"
+                        "不是逐张机器限编；1 of11941可能是每张相同印量说明，不能编造唯一流水。"
+                        "必须区分机器烫印流水、套组序号、印量、球衣号、CMP版权生产码、套袋贴纸与版面位置。"
+                        "TOPLEFT/TOPRIGHT不是卡号；不要把贴纸或球衣19覆盖RR-5等独立背面卡号。"
+                        "非人物场景/作品无需虚构球员，player_name=null，保留实际作品/场景名与卡号用于检索。"
                         "Topps Now 的 JUN 23、8.10 等事件日期也不是卡号；优先读取背面独立的数字或字母编号，"
                         "例如 DACU、26。不能把背面左侧日期当成右侧独立编号；没有读清独立编号则留空。"
                         "赛季必须有产品发行行直接证据，版权或统计赛季只能分别记录原文，不能推成发行年份。不要根据球员生涯年份猜测"
@@ -617,7 +663,7 @@ class QwenVisionProvider:
                         "is_autograph、autograph_type、has_inscription、inscription_text、"
                         "is_memorabilia、memorabilia_types、"
                         "memorabilia_usage、memorabilia_player、is_patch、confidence、"
-                        "caveats、field_evidence。"
+                        "caveats、field_evidence、pair_validation。pair_validation逐面结构和判定遵循用户提示；单面可为null。"
                         "出现 REDEMPTION CARD、You are due to receive、交换板或兑换卡时，"
                         "is_redemption=true；球员、产品、卡种、签字和物料属性描述承诺兑换的卡。"
                         "redemption_status 为 unknown/unredeemed/redeemed/expired；没有明确依据填 unknown，"
@@ -711,8 +757,8 @@ class QwenVisionProvider:
                 },
             ],
             response_format={"type": "json_object"},
-            max_tokens=1200,
-            extra_body={"enable_thinking": False},
+            max_tokens=2200 if len(images) == 2 else 1200,
+            extra_body=nonthinking_extra_body(self.model),
         )
         result = response.choices[0].message.content
         if not result:
@@ -769,7 +815,7 @@ class QwenVisionProvider:
                 },
             ],
             response_format={"type": "json_object"},
-            extra_body={"enable_thinking": False},
+            extra_body=nonthinking_extra_body(self.model),
         )
         result = response.choices[0].message.content
         if not result:
@@ -798,19 +844,23 @@ class CardVisionService:
                 "plus": QwenVisionProvider(
                     settings.vision_api_key, settings.vision_base_url,
                     settings.vision_plus_model, settings.vision_timeout_seconds,
-                ),
+                ) if settings.vision_plus_model != settings.vision_model else None,
                 "max": QwenVisionProvider(
                     settings.vision_api_key, settings.vision_base_url,
                     settings.vision_max_model, settings.vision_timeout_seconds,
-                ) if settings.vision_max_enabled else None,
+                ) if settings.vision_max_enabled and settings.vision_max_model not in {
+                    settings.vision_model, settings.vision_plus_model} else None,
             }
+        self.vision_tiers = tuple(vision_tier_for_model(role, model) for role, model in (
+            ("flash", settings.vision_model), ("plus", settings.vision_plus_model),
+            ("max", settings.vision_max_model)))
         self.plus_threshold = settings.vision_plus_threshold
         self.max_threshold = settings.vision_max_threshold
 
     async def recognize(self, upload: UploadFile) -> CardRecognitionResult:
         if self.provider is None:
             raise RuntimeError(
-                "VISION_API_KEY is required for Qwen3-VL-Flash card image recognition"
+                "VISION_API_KEY is required for card image recognition"
             )
         content = await read_validated_image(upload, self.max_bytes)
         visual = await self.provider.recognize(content, upload.content_type or "image/jpeg")
@@ -836,7 +886,7 @@ class CardVisionService:
     ) -> CardRecognitionResult:
         if self.provider is None:
             raise RuntimeError(
-                "VISION_API_KEY is required for Qwen3-VL-Flash card image recognition"
+                "VISION_API_KEY is required for card image recognition"
             )
         front_content = await read_validated_image(front, self.max_bytes)
         back_content = await read_validated_image(back, self.max_bytes)
@@ -856,7 +906,7 @@ class CardVisionService:
     ) -> CardRecognitionResult:
         if self.provider is None:
             raise RuntimeError(
-                "VISION_API_KEY is required for Qwen3-VL-Flash card image recognition"
+                "VISION_API_KEY is required for card image recognition"
             )
         if not hasattr(self.provider, "recognize_images"):
             raise RuntimeError("configured vision provider does not support paired recognition")
@@ -869,11 +919,7 @@ class CardVisionService:
         ocr_lines = await local_ocr.recognize_images(images)
         ocr_latency_ms = round((time.monotonic() - ocr_started) * 1000)
         ocr_anchors = local_ocr.extract_anchors(ocr_lines)
-        prompt = (
-                "这两张图片依次是同一张收藏卡的正面和背面，可能是体育、影视或场景卡。联合识别，优先从"
-                "背面读取年份、卡号和版权信息，从正面判断球员、卡种与视觉属性；"
-                "冲突字段写入 caveats，不要把两张图当成两张卡。"
-        )
+        prompt = PAIR_RECOGNITION_PROMPT
         if ocr_lines:
             prompt += (
                 "\n以下是本机 Apple Vision OCR 原文和经过格式校验的锚点。OCR 可能有误，"
@@ -905,6 +951,7 @@ class CardVisionService:
                 routed_call(self.tiered_providers["max"]),
                 plus_threshold=Decimal(str(self.plus_threshold)),
                 max_threshold=Decimal(str(self.max_threshold)),
+                tiers=self.vision_tiers,
             )
             return await router.recognize()
 
@@ -966,12 +1013,20 @@ class CardVisionService:
                 "catalog_enrich": {"latency_ms": catalog_latency_ms, "status": catalog_status},
             },
         }
-        return result.model_copy(update={"recognition_route": [trace, *result.recognition_route]})
+        pair_validation = derive_pair_validation(
+            result.model_dump(mode="json"),
+            {"front": hashlib.sha256(front_content).hexdigest(),
+             "back": hashlib.sha256(back_content).hexdigest()},
+        )
+        return CardRecognitionResult.model_validate({
+            **result.model_dump(mode="json"), "pair_validation": pair_validation,
+            "recognition_route": [trace, *result.recognition_route],
+        })
 
     async def recognize_sheet(self, upload: UploadFile) -> SheetCardRecognitionResult:
         if self.provider is None:
             raise RuntimeError(
-                "VISION_API_KEY is required for Qwen3-VL-Flash card image recognition"
+                "VISION_API_KEY is required for card image recognition"
             )
         content = await read_validated_image(upload, self.max_bytes)
         if not hasattr(self.provider, "recognize_sheet"):

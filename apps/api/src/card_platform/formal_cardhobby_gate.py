@@ -1,11 +1,12 @@
 """Final same-card admission, independent of discovery tiers and stale markers."""
+import json
 import re
 from decimal import Decimal
 
 from card_platform.domain.card_identity import CardIdentityResolver
 from card_platform.domain.finish_evidence import VisualMatchFacts, finish_state
 from card_platform.domain.auction_evidence import public_auction_rejection_reasons
-from card_platform.domain.redemption import redemption_conflict
+from card_platform.domain.redemption import redemption_conflict, redemption_identity
 from card_platform.domain.product_identity import reviewed_parent_product_confirmation
 from card_platform.domain.scoped_parallel_names import parallel_match_text
 from card_platform.domain.comparables import (
@@ -22,7 +23,7 @@ from card_platform.domain.listing_condition import (
     title_discloses_damage, title_disclaims_card_condition, condition_rejection_reasons, disclose_minor_condition,
 )
 
-FORMAL_CARDHOBBY_CONTRACT = "same-card-source-revalidated-v19"
+FORMAL_CARDHOBBY_CONTRACT = "same-card-source-revalidated-v23"
 
 
 def _corroborated_same_card(identity, sale, observation, reasons, *, resolver=None):
@@ -48,6 +49,7 @@ def _corroborated_same_card(identity, sale, observation, reasons, *, resolver=No
     current = current_persisted_visual(identity, candidate, observation)
     binding = current.get('visual_evidence_binding') or {}
     if (current.get('visual_verdict') not in {'same', 'compatible', 'uncertain'}
+            or 'candidate_single_physical_card' not in current.get('visual_reasons', [])
             or binding.get('model_observation_contract') != MODEL_OBSERVATION_CONTRACT
             or not re.fullmatch(r'[0-9a-f]{64}', str(binding.get('candidate_sha256') or ''))):
         return None
@@ -129,11 +131,19 @@ def enforce_formal_cardhobby_identity(
     establish a same-card basis; the latter discloses unresolved finish/condition.
     """
     reasons = list(classification.hard_conflicts)
+    reasons.extend(reason for reason in (visual_observation or {}).get('visual_reasons', [])
+                   if reason in {'candidate_multiple_physical_cards', 'candidate_single_card_scope_unverified'})
     reasons.extend(purchase_source_rejection_reasons(identity, provider_payload))
     copyright_label = None
     paired_finish = bool(visual_facts and provider_payload and visual_facts.current_for(
         identity, provider_payload.get('source_url'), provider_payload.get('title'),
         provider_payload.get('image_url')))
+    if not paired_finish:
+        # Exact seller text is a discovery anchor, including for a known Base
+        # or Refractor. It cannot establish which player, subset or finish is
+        # actually photographed. Geometry alone also cannot supply that proof.
+        # Keep this outside the corroborated-template omissions below.
+        reasons.append('current_paired_card_image_confirmation_required')
     if (provider_payload and not paired_finish
             and parallel_match_text(str(provider_payload.get('title') or ''), identity, resolver=resolver)
                 != str(provider_payload.get('title') or '')):
@@ -184,6 +194,12 @@ def enforce_formal_cardhobby_identity(
         voucher_conflict = redemption_conflict(identity, sale.title)
         if voucher_conflict:
             reasons.append(voucher_conflict)
+        target_voucher, target_usage = redemption_identity(identity)
+        sale_voucher, sale_usage = redemption_identity({"title": sale.title})
+        if target_voucher and sale_voucher and "unknown" in {target_usage, sale_usage}:
+            # Matching printed vouchers cannot establish equal usable rights.
+            # Keep unknown usage as a candidate, without publishing its price.
+            reasons.append("redemption_usage_status_unverified")
         if is_multi_card_listing(sale.title, identity.get("product_name")):
             reasons.append("multi_card_listing_not_single_card_evidence")
         if not identity.get("grade_company") and is_graded_listing(sale.title):
@@ -269,6 +285,34 @@ def enforce_formal_cardhobby_identity(
     except (TypeError, ValueError):
         conflicts, tier = [], None
         reasons.append("cardhobby_source_payload_not_verifiable")
+    if (sale and paired_finish
+            and classification.field_matches.get('image_similar_same_card') is True):
+        # Provider recall is title-led; a sealed current image comparison can
+        # supply an omitted card number/finish. Recompute the underlying identity
+        # so a persisted marker cannot conceal a real source contradiction.
+        observed = json.loads(visual_facts.raw_json)
+        image_classification = ComparableClassifier(resolver).classify(
+            CardIdentityResolver().resolve(identity),
+            ComparableInput(title=sale.title, source_code='cardhobby',
+                grade_company=sale.grade_company, grade_value=sale.grade_value,
+                visual_verdict=observed.get('visual_verdict'),
+                visual_confidence=Decimal(str(observed.get('visual_confidence') or 0)),
+                visual_facts=visual_facts),
+        )
+        if image_classification.field_matches.get('image_similar_same_card') is True:
+            supplied_by_images = {
+                'cardhobby_provider_identity_conflict',
+                'target_parallel_abbreviation_unconfirmed',
+                '标题未命中目标平行版本', '目标表面版本未知，需图像确认',
+                '标题未命中目标卡号或卡种', '标题未命中目标卡种，需图像确认',
+                '标题未命中目标卡号，基础/原生闪卡需图像确认',
+                '标题为比目标更具体的其他平行版本',
+                '标题明确为其他平行版本，与目标平行不一致',
+            }
+            if not (set(conflicts) - supplied_by_images):
+                classification = image_classification
+                reasons = [reason for reason in reasons if reason not in supplied_by_images]
+                tier, conflicts = 'image_review_candidate', []
     if tier == UNGRADED_SAME_CARD_BASIS:
         # This is an explicitly disclosed basis, not an exact-grade sale.
         # Reclassify the underlying card from immutable source facts. Only the

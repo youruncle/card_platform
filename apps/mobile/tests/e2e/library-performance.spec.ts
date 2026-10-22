@@ -20,6 +20,10 @@ test("phone library retains state and scroll through tabs/details and retries in
     } else if (url.pathname.endsWith("/detail")) body = {item: card(Number(url.pathname.split("/").at(-2)))};
     else if (url.pathname.endsWith("automated-valuation")) body = {comparables: []};
     else if (url.pathname.endsWith("/sessions")) body = [];
+    // Detail now mounts the P0 cost and identity panels; return their real empty contracts.
+    else if (url.pathname.endsWith("/audit")) body = null;
+    else if (url.pathname.endsWith("/candidates")) body = {candidates: [], rejected: [], reason: ""};
+    else if (url.pathname.includes("/identity-review/items/")) body = {current_identity: null, candidates: [], conflicts: [], review_reasons: [], field_provenance: {}};
     await route.fulfill({headers, json: body});
   });
   await page.goto("/");

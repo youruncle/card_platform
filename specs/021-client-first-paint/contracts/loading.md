@@ -1,0 +1,3 @@
+# Contract
+
+默认created_at分页请求带snapshot_mode=membership，不带include_summary；后续页携带相同模式及snapshot_token。金融排序不带membership。需要组合summary的旧getPortfolio显式使用full。HTTP路径/返回结构不变。

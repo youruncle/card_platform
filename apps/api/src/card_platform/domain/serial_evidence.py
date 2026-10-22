@@ -129,6 +129,9 @@ def _candidate_is_visible_serial(
         return False
 
     context, prefix = _candidate_clause(text, match.start(), match.end())
+    from card_platform.domain.number_roles import serial_non_unique_role
+    if serial_non_unique_role([context], number=number, total=total):
+        return False
     raw_prefix = text[max(0, match.start() - 32) : match.start()]
     separator = match.group("separator").casefold()
 

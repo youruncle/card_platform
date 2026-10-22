@@ -23,3 +23,10 @@
 - e-Pack公开Basketball目录4项，其中3项篮球卡、1项UDA签名照片（排除）。Store/api/Epack/Products提供ReleaseDate，但明确只证明e-Pack可用日期，非纸卡原始发行日。GetChecklist用EpackProductRefId（不是ProductId），逐行EpackProductName校验。
 - Topps Ripped官方 https://ripped.topps.com/2024-25-topps-chrome-basketball-retro-inserts/ 搜索发现1996–97 Youthquake等历史子清单；HTTP403，尚未取得完整可校验原文，不以搜索摘录代入。历史完整产品档案仍缺。
 - 混合运动清单没有运动列（World of Sports、部分NSCC）自动隔离，不能由球员名字猜运动。没有产品年份不从文章发布日期推断。
+
+
+## 浏览改造决策（2026-10-22）
+- Decision: 发布实体＋清单附件统一派生索引；Rationale: 单查实体漏掉大批附件事实；Alternative: 全量JSON随请求读入内存开销大，另建权威卡表重复知识系统。
+- Decision: 采用标准库SQLite磁盘缓存、来源逐一校验与错误清单；Rationale: 服务端分页/组合过滤，无新运行依赖，不在请求进程加载向量编码器。
+- Decision: 快照引用的本地媒体经原有管理员鉴权流式读取；Alternative: 外链图片无法保证可用性/鉴权/版本，直接暴露data路径可能泄露资产。
+- Decision: 同一合同两端独立React视图；Rationale: 保留现有Next/Vite职责、手机Bearer图片加载与桌面布局惯例。

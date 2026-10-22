@@ -1,6 +1,7 @@
 from card_platform.ingestion.query_feedback import BoundedAliasFeedback, discovery_subject, short_insert_query_term
 from card_platform.ingestion.cardhobby_public_item import canonical_public_item_url, parse_public_item_html, public_gallery_for_primary
-from card_platform.valuation_trace import traced_completion, emit, content_hash
+from card_platform.valuation_trace import emit, content_hash
+from card_platform.deepseek_web import DeepSeekWebResearch
 from time import perf_counter
 import asyncio
 import hashlib
@@ -493,6 +494,8 @@ INSERT_SEARCH_ALIASES = {
 
 class CardHobbySale(BaseModel):
     item_id: str | None = None
+    seller_id: str | None = None
+    consignment_code: str | None = None
     source_metadata: dict = Field(default_factory=dict)
     source_gallery: dict = Field(default_factory=dict)
     title: str
@@ -578,6 +581,7 @@ class CardHobbySearchResult(BaseModel):
         return self._public_source_pool
 
     search_queries: list[str] = Field(default_factory=list)
+    web_research: dict = Field(default_factory=dict)
     sales: list[CardHobbySale] = Field(default_factory=list)
     # None preserves the contract for older clients; [] is an explicitly empty
     # public-source pool. Display sales remain limited independently.
@@ -1511,6 +1515,22 @@ def assess_cardhobby_candidate(
     failure is a value-bearing card variant difference, never a source,
     player, product, lot, autograph, memorabilia or grade conflict.
     """
+    from card_platform.domain.card_identity import is_placeholder_identity_value
+    subject = identity.get('player_name')
+    work = identity.get('insert_name') or identity.get('set_name')
+    if (not subject or is_placeholder_identity_value(subject)) and work:
+        # With a missing person, require all independent work anchors and an
+        # image. This is discovery only; the formal gate still needs current
+        # identity/image confirmation and every version/condition constraint.
+        if (sale.image_url and identity.get('season_start')
+                and _contains_phrase(sale.title, work)
+                and _contains_card_number(sale.title, identity.get('card_number'))):
+            score, conflicts = _assess_cardhobby_match(
+                identity, sale, resolver=resolver, allow_work_subject_omission=True)
+            if score >= Decimal('.5') and set(conflicts) <= {'目标表面版本未知，需图像确认'}:
+                sale.matching_fields = list(dict.fromkeys([
+                    *sale.matching_fields, 'cardhobby_work_subject_image_required']))
+                return Decimal('.45'), conflicts, 'image_review_candidate'
     if can_use_ungraded_basis(identity, sale.title, sale.grade_company, sale.grade_value):
         # Preserve the printed-card identity while checking grading uncertainty
         # separately; all source, player and version checks still apply.
@@ -1736,11 +1756,13 @@ class CardHobbyProvider:
         resolver: KnowledgeResolver | None = None,
         min_interval: float = 0.2,
         max_search_pages: int = 12,
+        research: DeepSeekWebResearch | None = None,
     ) -> None:
         if not 1 <= max_search_pages <= 12:
             raise ValueError('search page budget must be between 1 and 12')
         self.max_search_pages = max_search_pages
         self.client = client
+        self.research = research
         self.model = model
         self.timeout = timeout
         self.resolver = resolver
@@ -1779,6 +1801,17 @@ class CardHobbyProvider:
                     data = payload.get("data")
                     if not isinstance(data, dict) or not isinstance(data.get("PagedMarketItemList"), list):
                         raise ValueError("卡淘公开接口缺少成交列表，不能作为零成交")
+                    if (not data['PagedMarketItemList']
+                            and all(key in data and data[key] is None
+                                    for key in ('Keyword', 'Total', 'TotalCount', 'PageIndex'))
+                            and data.get('StatusType') == 0):
+                        # A public request without the expected browser headers
+                        # can return result=1 with an uninitialized search model.
+                        # Real responses can also have Keyword=null/StatusType=0,
+                        # so pagination/counts, not these two fields alone, are
+                        # the distinguishing evidence. Keep the working request
+                        # parameters and classify this shell as transport failure.
+                        raise ValueError('unbound_search_response: 卡淘查询未绑定有效分页，不能作为零成交')
                     return payload
                 except httpx.HTTPStatusError as error:
                     last_error = error
@@ -1915,6 +1948,9 @@ class CardHobbyProvider:
         )
 
     async def _search_direct(self, identity: dict) -> CardHobbySearchResult:
+        from card_platform.domain.card_identity import is_placeholder_identity_value
+        if is_placeholder_identity_value(identity.get('player_name')):
+            identity = {**identity, 'player_name': '', 'player_name_aliases': []}
         if self.resolver and getattr(self.resolver, "card_catalog", None):
             identity, _ = self.resolver.card_catalog.enrich(
                 identity, player_aliases=self.resolver.aliases_for("player", identity.get("player_name"))
@@ -1926,6 +1962,10 @@ class CardHobbyProvider:
                 *(self.resolver.aliases_for("player", identity.get("player_name")) if self.resolver else ()),
             ],
         }
+        from card_platform.domain.number_roles import non_catalog_number_role
+        if non_catalog_number_role(query_identity.get('card_number'),
+                                   (query_identity.get('field_evidence') or {}).get('card_number', [])):
+            query_identity = {**query_identity, 'card_number': None}
         query_plan = (self.build_query_plan(query_identity, resolver=self.resolver)
                       if self.resolver else self.build_query_plan(query_identity))
         if self.resolver and self.resolver.entities:
@@ -1995,6 +2035,7 @@ class CardHobbyProvider:
             # already chosen above before reserving optional alias requests.
             protected = set(provider_queries[:2])
             for protected_stage in (
+                "multi_subject_insert",
                 "subject_print_run",
                 "collector_prefix",
                 "short_insert",
@@ -2050,7 +2091,7 @@ class CardHobbyProvider:
             # families before redundant aliases when seeds consume a slot.
             remaining = self.max_search_pages - len(source_urls)
             preferred = list(query_plan[:2])
-            for stage in ("subject_print_run", "collector_prefix", "short_insert", "relax_product", "brand_release_product", "refine_print_run", "player_release_recovery", "player_alias_rotation",
+            for stage in ("multi_subject_insert", "subject_print_run", "collector_prefix", "short_insert", "relax_product", "brand_release_product", "refine_print_run", "player_release_recovery", "player_alias_rotation",
                           "product_alias_rotation", "product_spelling_rotation", "refine_product",
                           "season_insert", "release_parallel", "explicit_base"):
                 candidate = next((item for item in query_plan if item[0] == stage), None)
@@ -2315,22 +2356,39 @@ class CardHobbyProvider:
     @staticmethod
     def build_query_plan(identity: dict, *, resolver=None) -> list[tuple[str, str]]:
         """Build short-anchor queries with bounded feedback refinements."""
+        from card_platform.domain.card_identity import is_placeholder_identity_value
+        from card_platform.domain.number_roles import non_catalog_number_role
+        if non_catalog_number_role(identity.get('card_number'),
+                                   (identity.get('field_evidence') or {}).get('card_number', [])):
+            identity = {**identity, 'card_number': None}
+        if is_placeholder_identity_value(identity.get('player_name')) or not identity.get('player_name'):
+            # A work/scene is a retrieval anchor, never an invented person.
+            subject = str(identity.get('insert_name') or identity.get('set_name') or '').strip()
+            product = str(identity.get('product_name') or '').strip()
+            number = str(identity.get('card_number') or '').strip()
+            return [(stage, query) for stage, query in [
+                ('work_number', f'{subject} {number}'.strip()),
+                ('work_product', f'{subject} {product}'.strip()),
+                ('product_number', f'{product} {number}'.strip()),
+            ] if subject and product and number and query]
         parts = player_roster_components(identity.get('player_name'))
         player_groups = _player_components(identity, resolver=resolver)
         if len(player_groups) > 1:
             # Search each subject independently. CardHobby's token matcher is
             # effectively AND-based, so concatenating every printed name is
             # much less reliable than one recognizable player + insert/serial.
+            from card_platform.domain.player_aliases import NBA_PREFERRED_QUERY_ALIASES
             ordered_players = list(
                 dict.fromkeys(
-                    min(
+                    next((alias for alias in NBA_PREFERRED_QUERY_ALIASES.get(_normalized(part), ())
+                          if re.search(r"[\u4e00-\u9fff]", alias)), None) or min(
                         group,
                         key=lambda value: (
                             not bool(re.search(r"[\u4e00-\u9fff]", value)),
                             len(value),
                         ),
                     )
-                    for group in player_groups
+                    for part, group in zip(parts, player_groups)
                     if group
                 )
             )
@@ -2484,6 +2542,10 @@ class CardHobbyProvider:
                 plan.append(("strong_anchor", query(player, card_number)))
             if primary_insert:
                 plan.append(("strong_anchor", query(player, primary_insert)))
+        if len(player_groups) == 2 and len(ordered_players) == 2 and primary_insert:
+            # Query-only common names may improve recall without becoming
+            # matching evidence for either subject in the printed roster.
+            plan.append(("multi_subject_insert", query(*ordered_players, primary_insert)))
         # Descriptive wrappers occur on card backs but may be absent from
         # seller titles. Preserve the full label, plus a bounded subject/type
         # lane independent of year/product. This never adds matching aliases.
@@ -2651,6 +2713,7 @@ class CardHobbyProvider:
         prefix_lane = next((item for item in unique if item[0] == "collector_prefix"), None)
         required = set(unique[:1] if prefix_lane else unique[:2])
         for stage in (
+            "multi_subject_insert",
             "subject_print_run",
             "collector_prefix",
             "short_insert",
@@ -2697,6 +2760,12 @@ class CardHobbyProvider:
         # Only rebalance when the extra joint lane is actually present.
         # Structured-code and unknown-scope plans retain their original order.
         if joint_scope:
+            if len(player_groups) == 2 and len(ordered_players) == 2 and primary_insert:
+                for player in ordered_players:
+                    candidate = next((item for item in unique
+                        if item == ('strong_anchor', query(player, primary_insert))), None)
+                    if candidate is not None and len(required) < 12:
+                        required.add(candidate)
             # Keep both primary subject/name spellings for the year+insert lane
             # before filling with duplicate player+number anchors. Multi-player
             # cards need the second subject too, not just the first name.
@@ -3034,7 +3103,11 @@ class CardHobbyProvider:
 
     async def _search_model(self, identity: dict) -> CardHobbySearchResult:
         schema = json.dumps(CardHobbySearchResult.model_json_schema(), ensure_ascii=False)
-        response = await traced_completion(self.client.chat.completions.create, stage='retrieval',
+        research = self.research or DeepSeekWebResearch(
+            self.client.api_key, base_url=str(self.client.base_url))
+        queries = [f"{query[:98]} site:cardhobby.com.cn" for query in self.build_queries(identity)[:4]]
+        response, capture = await research.complete(
+            self.client, queries=queries, allowed_sites=["cardhobby.com.cn"], stage='retrieval',
             model=self.model,
             messages=[
                 {
@@ -3085,20 +3158,16 @@ class CardHobbyProvider:
                 },
             ],
             response_format={"type": "json_object"},
-            extra_body={
-                "enable_search": True,
-                "search_options": {
-                    "forced_search": True,
-                    "search_strategy": "turbo",
-                },
-            },
         )
-        content = response.choices[0].message.content
+        content = response.choices[0].message.content if response else None
         if not content:
-            return CardHobbySearchResult(notes=["卡淘定向检索未返回结果"])
+            return CardHobbySearchResult(search_queries=capture.queries, web_research=capture.as_dict(),
+                notes=["卡淘定向检索未取得可用来源", *capture.errors])
         parsed = CardHobbySearchResult.model_validate_json(content)
         accepted: list[CardHobbySale] = []
         for sale in parsed.sales:
+            if not capture.observed(sale.source_url):
+                continue
             score, conflicts, tier = assess_cardhobby_candidate(identity, sale, resolver=self.resolver)
             if score < Decimal("0.35"):
                 continue
@@ -3113,4 +3182,6 @@ class CardHobbyProvider:
                     }
                 )
             )
-        return parsed.model_copy(update={"sales": accepted[:20]})
+        return parsed.model_copy(update={"sales": accepted[:20], "search_queries": capture.queries,
+                                        "web_research": capture.as_dict(),
+                                        "notes": [*parsed.notes, *capture.errors]})

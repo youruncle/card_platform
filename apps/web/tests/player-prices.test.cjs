@@ -53,3 +53,32 @@ test('stale snapshots and source errors are visible before expanding a row',()=>
  assert.match(summary.textContent,/2026-10-09/);
  assert.match(summary.textContent,/采集异常/);
 });
+
+test('single-card market survives a missing index and refresh targets just that player',()=>{
+ const data=demoBoard('2026-10-10');
+ const p={...data.players[0],change_pct:null,status:'insufficient',cards:[],basket_frozen:false,
+   market:{report_date:'2026-10-10',window_days:30,min_sales:3,sale_count:8,card_count:1,trend_count:1,
+     latest_sale_at:'2026-10-10T12:00:00+08:00',cards_truncated:false,
+     cards:[{...data.players[0].cards[0],current_count:4,previous_count:4,change_pct:'20.0000',current_price:'120',previous_price:'100'}]}};
+ data.players=[p];
+ let refreshed;
+ const {container,getByRole}=render(React.createElement(PlayerPriceBoard,{data,onRefresh:()=>{},onRefreshPlayer:id=>{refreshed=id;}}));
+ assert.match(container.textContent,/有确认成交/);
+ assert.match(container.textContent,/近30日中位价/);
+ assert.match(container.textContent,/20.00%/);
+ assert.match(container.textContent,/1 种可比卡款/);
+ assert.match(container.textContent,/综合指数暂缺/);
+ fireEvent.click(getByRole('button',{name:'更新 Stephen Curry 的成交'}));
+ assert.equal(refreshed,p.player_id);
+});
+
+test('sampling error leaves existing market visible and explains rejected identities',()=>{
+ const data=demoBoard('2026-10-10');
+ data.players=[{...data.players[0],change_pct:null,status:'pending',cards:[],
+   coverage:{sample_count:12,identified_count:0,rejected_count:12,rejection_reasons:{season_unclear:5,identity_unresolved:7}},
+   refresh:{queued:false,error:'卡淘采集失败'}}];
+ const {container}=render(React.createElement(PlayerPriceBoard,{data}));
+ assert.match(container.textContent,/年份不明确.*5/);
+ assert.match(container.textContent,/卡款身份未确认.*7/);
+ assert.match(container.querySelector('.pp-player > summary').textContent,/采集异常/);
+});

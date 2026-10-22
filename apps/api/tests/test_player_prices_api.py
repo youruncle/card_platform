@@ -66,3 +66,19 @@ def test_refresh_reports_disabled_worker(monkeypatch):
         api, "get_settings", lambda: SimpleNamespace(player_price_worker_enabled=False)
     )
     assert c.post("/v1/player-prices/refresh").status_code == 503
+
+
+def test_single_player_refresh_is_scoped_and_uuid_validated(monkeypatch):
+    app, c = client()
+    owner, player = uuid4(), uuid4()
+    app.dependency_overrides[current_user] = lambda: SimpleNamespace(id=owner)
+    from card_platform.player_prices import api
+    monkeypatch.setattr(api, 'get_settings', lambda: SimpleNamespace(player_price_worker_enabled=True))
+    async def enqueue(connection, owner_id, player_id=None):
+        assert owner_id == owner
+        return int(player_id == player)
+    monkeypatch.setattr(api.repo, 'enqueue', enqueue)
+    response = c.post(f'/v1/player-prices/refresh?player_id={player}')
+    assert response.status_code == 202 and response.json()['queued'] == 1
+    assert c.post(f'/v1/player-prices/refresh?player_id={uuid4()}').status_code == 404
+    assert c.post('/v1/player-prices/refresh?player_id=invalid').status_code == 422

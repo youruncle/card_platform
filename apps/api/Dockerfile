@@ -9,6 +9,9 @@ RUN python -m venv /app/.venv
 COPY pyproject.toml ./
 COPY src ./src
 RUN pip install --no-cache-dir .
+COPY requirements-flatbed-ocr.txt ./
+RUN pip install --no-cache-dir --no-deps -r requirements-flatbed-ocr.txt \
+    && python -m card_platform.flatbed_local_ocr --install-models
 
 RUN useradd --create-home --uid 10001 cardplatform
 RUN mkdir -p /app/uploads /app/scanner-jobs \

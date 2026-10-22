@@ -10,16 +10,19 @@ import {
   type ClientCapabilities,
 } from "../../../packages/card-core/src/capture";
 import { statusName } from "./LibraryPage";
+import {pairReviewState} from "../../../packages/card-core/src/recognition";
 export function JobsPage({
   api,
   user,
   onOpen,
+  onCapture,
   capabilities = LEGACY_CAPABILITIES,
 }: {
   capabilities?: ClientCapabilities;
   api: MobileApi;
   user: User;
   onOpen: (id: string) => void;
+  onCapture?: () => void;
 }) {
   const [jobs, setJobs] = useState<Job[]>([]),
     [selected, setSelected] = useState<string | null>(null),
@@ -105,6 +108,7 @@ export function JobsPage({
               alt="任务背面"
             />
           </div>
+          {job.result && pairReviewState(job.result, !!job.front_image_url && !!job.back_image_url).blocked && onCapture && <button onClick={onCapture}>重新拍摄 / 选择照片</button>}
           {job.collection_item_id ? (
             <button
               className="primary"
@@ -124,6 +128,7 @@ export function JobsPage({
               key={job.id}
               owner={user.id}
               result={job.result}
+              paired={!!job.front_image_url && !!job.back_image_url}
               onConfirm={async (payload) => {
                 const saved = await api.post<{ id: string }>(
                   `${jobsPath}/${job.id}/confirm`,

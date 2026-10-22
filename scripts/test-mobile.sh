@@ -14,7 +14,7 @@ for migration in db/migrations/*.sql; do
 done
 export TEST_DATABASE_URL="postgresql://$(whoami)@127.0.0.1:$mobile_port/mobile_test"
 export DATABASE_URL="$TEST_DATABASE_URL" UPLOAD_DIR="$mobile_tmp/uploads" SCANNER_JOB_DIR="$mobile_tmp/scanner" FLATBED_SCAN_DIR="$mobile_tmp/flatbed"
-export VALUATION_WORKER_ENABLED=false RECOGNITION_WORKER_ENABLED=false SCANNER_WORKER_ENABLED=false PURCHASE_COST_WORKER_ENABLED=false
+export PLAYER_PRICE_WORKER_ENABLED=false VALUATION_WORKER_ENABLED=false RECOGNITION_WORKER_ENABLED=false SCANNER_WORKER_ENABLED=false PURCHASE_COST_WORKER_ENABLED=false
 export VISION_API_KEY='' AI_API_KEY='' AUTH_REGISTRATION_ENABLED=true
 if [ "${MOBILE_BROWSER_CHECK:-0}" = "1" ]; then
   .venv/bin/python apps/api/tests/mobile_browser_check.py

@@ -1,3 +1,4 @@
+from card_platform.model_requests import nonthinking_extra_body
 from card_platform.domain.listing_condition import condition_rejection_reasons, disclose_minor_condition
 from contextlib import nullcontext
 from card_platform.valuation_trace import traced_completion, content_hash
@@ -16,10 +17,12 @@ from uuid import UUID
 
 import httpx
 from openai import AsyncOpenAI
+from psycopg.errors import DeadlockDetected
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field, model_validator
 
 from card_platform.config import Settings
+from card_platform.deepseek_web import DeepSeekWebResearch
 from card_platform.catalog_evidence import normalize_catalog_evidence
 from card_platform.comparable_image_verifier import (
     ComparableImageVerifier,
@@ -297,7 +300,13 @@ def empty_valuation_recall_diagnostics(search: "ComparableSearchResult") -> dict
     ]
     raw_count = sum(raw for raw, _ in counts)
     accepted_count = sum(accepted for _, accepted in counts)
-    if search.comparables:
+    from card_platform.domain.model_failures import parse_model_failures
+    upstream_failures = parse_model_failures([
+        *search.notes, *(reason for comp in search.comparables for reason in comp.visual_reasons)])
+    if any(f.get('code') == 'model_access_denied' for f in upstream_failures):
+        code = 'model_access_denied'
+        reason = '模型访问被拒绝，身份/证据分析未完成；不能据此判断市场成交是否存在'
+    elif search.comparables:
         code = "retained_candidates_unavailable_in_valuation_window"
         reason = "已检索到候选，但当前身份下没有可用于估值的已落库成交；需检查日期窗口和落库链路"
     elif accepted_count:
@@ -322,6 +331,9 @@ def empty_valuation_recall_diagnostics(search: "ComparableSearchResult") -> dict
         "raw_result_occurrences": raw_count,
         "accepted_result_occurrences": accepted_count,
         "observed_query_count": len(counts),
+        "search_execution": search.search_execution,
+        "executed_query_count": (0 if search.search_execution == 'cache_replay' else None),
+        "upstream_failures": upstream_failures,
     }
 
 
@@ -683,7 +695,7 @@ def recognition_candidate_overrides(current: dict, recognized) -> dict:
 
 
 def deduplicate_market_rows(
-    rows: list[dict],
+    rows: list[dict], *, identity: dict | None = None,
 ) -> tuple[list[dict], list[dict]]:
     """Collapse aggregator/direct records that point to the same underlying sale."""
     chosen: dict[tuple[str, str], dict] = {}
@@ -853,6 +865,23 @@ def cached_candidate_needs_image_review(
     *, resolver=None,
 ) -> bool:
     """Defer bounded title omissions to images without approving a price."""
+    from card_platform.domain.card_identity import is_placeholder_identity_value
+    subject = identity.get('player_name')
+    if (comp.source_code == 'cardhobby' and comp.image_url
+            and (not subject or is_placeholder_identity_value(subject))
+            and provider_tier == 'image_review_candidate'
+            and set(hard_conflicts) <= {'player_conflict'}):
+        try:
+            sale = CardHobbySale.model_validate(comp.provider_payload).model_copy(
+                update={'conflicts': [], 'matching_fields': []})
+            if (sale.title, sale.source_url, sale.image_url) == (comp.title, comp.source_url, comp.image_url):
+                _, _, tier = assess_cardhobby_candidate(identity, sale, resolver=resolver)
+                if (tier == 'image_review_candidate'
+                        and 'cardhobby_work_subject_image_required' in sale.matching_fields
+                        and not visual_source_rejection_reasons(identity, comp.provider_payload)):
+                    return True
+        except (TypeError, ValueError):
+            pass
     if comp.source_code == 'cardhobby' and provider_tier == 'numbered_parallel_analogue':
         from card_platform.domain.parallel_valuation import assess_parallel_analogue
         try:
@@ -1016,8 +1045,10 @@ class FallbackValuation(BaseModel):
 
 
 class ComparableSearchResult(BaseModel):
+    search_execution: str = 'unknown'
     pending_refresh_job_id: str | None = None
     search_queries: list[str] = Field(default_factory=list)
+    web_research: dict = Field(default_factory=dict)
     comparables: list[DiscoveredComparable] = Field(default_factory=list)
     resolved_identity: dict[str, str | int | bool | list[str] | None] = Field(
         default_factory=dict
@@ -1092,14 +1123,18 @@ class AutomatedValuationWorker:
         self.knowledge_runtime = knowledge_runtime
         self.client = (
             AsyncOpenAI(
-                api_key=settings.vision_api_key,
-                base_url=settings.vision_base_url,
+                api_key=settings.resolved_search_api_key,
+                base_url=settings.resolved_search_base_url,
                 timeout=settings.valuation_search_timeout_seconds,
                 max_retries=1,
             )
-            if settings.vision_api_key
+            if settings.resolved_search_api_key
             else None
         )
+        self.research = (DeepSeekWebResearch(settings.resolved_search_api_key,
+                                            base_url=settings.resolved_search_base_url,
+                                            archive_dir=f"{settings.scanner_job_dir}/.web-research")
+                         if self.client else None)
         # CardHobby's public sold-auction API is first-party market evidence and
         # does not depend on a multimodal/model API key. The optional client is
         # used only for discovery fallback after direct retrieval is empty.
@@ -1109,6 +1144,7 @@ class AutomatedValuationWorker:
             timeout=settings.provider_timeout_seconds,
             resolver=knowledge_runtime.resolver if knowledge_runtime else None,
             min_interval=settings.cardhobby_min_interval_ms / 1000,
+            research=self.research,
         )
         self.search_index = SearchIndexResearch(
             brave_api_key=settings.search_index_brave_api_key,
@@ -1288,11 +1324,14 @@ class AutomatedValuationWorker:
                 # conditional defer. Read its result once; a completed empty
                 # search must become a truthful terminal outcome, not a loop.
                 search = await self._search(identity)
-            if search.visual_progress:
+            progress = {key: value for key, value in {
+                "visual_progress": search.visual_progress, "web_research": search.web_research,
+            }.items() if value}
+            if progress:
                 async with self.database.connection() as connection:
                     await connection.execute(
                         "UPDATE valuation_job SET result_summary = COALESCE(result_summary, '{}'::jsonb) || %s WHERE id = %s",
-                        (Jsonb({"visual_progress": search.visual_progress}), job_id),
+                        (Jsonb(progress), job_id),
                     )
             await self._store_comparables(identity, search)
             await self._set_status(job_id, "calculating")
@@ -1350,6 +1389,7 @@ class AutomatedValuationWorker:
                        cd.is_memorabilia, cd.memorabilia_types,
                        cd.is_patch, cd.print_run,
                        ci.serial_number, ci.serial_total, ci.grade_company, ci.grade_value,
+                       ci.grade_cert_number,
                        ci.image_front_url, ci.image_back_url, ci.notes,
                        purchase.notes AS purchase_context,
                        purchase.venue AS purchase_venue,
@@ -1453,8 +1493,9 @@ class AutomatedValuationWorker:
             stored["print_run"] = confirmed_identity.get("serial_total")
             stored["is_patch"] = confirmed_identity.get("is_memorabilia", False)
         elif scanner_recognition:
+            from card_platform.image_service import sanitize_identity_field_roles
             scanner_result = normalize_catalog_evidence(canonicalize_identity(
-                CardRecognitionResult.model_validate(scanner_recognition)
+                sanitize_identity_field_roles(CardRecognitionResult.model_validate(scanner_recognition))
             ))
             # Reuse deterministic corrections for already-imported scanner
             # cards.  This repairs structured search anchors without
@@ -1834,7 +1875,7 @@ class AutomatedValuationWorker:
 
     async def _research_visual_identity(self, identity: dict) -> dict | None:
         """Extract structured observations; deterministic checklist code remains authoritative."""
-        if self.client is None:
+        if self.image_verifier.client is None:
             return None
         local_images = []
         for image_url in (identity.get("image_front_url"), identity.get("image_back_url")):
@@ -1931,7 +1972,7 @@ class AutomatedValuationWorker:
             return None
         schema = json.dumps(IdentityVisualObservations.model_json_schema(), ensure_ascii=False)
         try:
-            response = await traced_completion(self.client.chat.completions.create, stage='alias_query',
+            response = await traced_completion(self.image_verifier.client.chat.completions.create, stage='alias_query',
                 model=self.settings.vision_model,
                 messages=[
                     {
@@ -1965,6 +2006,7 @@ class AutomatedValuationWorker:
                     },
                 ],
                 response_format={"type": "json_object"},
+                extra_body=nonthinking_extra_body(self.settings.vision_model),
             )
             content = response.choices[0].message.content
             if not content:
@@ -2205,6 +2247,7 @@ class AutomatedValuationWorker:
                 "已按卡淘身份契约保留并降低可比层级"
             )
         result = ComparableSearchResult(
+            search_execution='cache_replay',
             pending_refresh_job_id=cached.refresh_job_id,
             search_queries=[
                 f"卡淘已售接口[{query.get('stage', 'cached')}]：{query.get('query', '')} "
@@ -2320,13 +2363,13 @@ class AutomatedValuationWorker:
             ]],
         })
 
-    def _visual_candidate_can_stop(self, identity, comp, decision) -> bool:
+    def _visual_candidate_can_stop(self, identity, comp, decision, *, admitted_rows=None) -> bool:
         """Only a formally admissible same-card lead ends further image discovery.
 
         Final publication still revalidates persisted source facts and decisions.
         This predicate never approves an evidence row or a price.
         """
-        if (decision.verdict != "same" or decision.confidence < Decimal(".90")
+        if (decision.verdict != "same" or decision.confidence < Decimal(".80")
                 or decision.design_match != "same" or decision.finish_match != "same"
                 or not 0 <= (datetime.now(UTC) - comp.occurred_at).days <= 730
                 or evidence_grade(comp.evidence_level) not in {EvidenceGrade.E0, EvidenceGrade.E1, EvidenceGrade.E2}):
@@ -2348,7 +2391,7 @@ class AutomatedValuationWorker:
             visual_verdict=decision.verdict, visual_confidence=decision.confidence,
             visual_reasons=tuple(decision.reasons), visual_facts=visual_facts,
         ))
-        if comp.source_code == "cardhobby":
+        if comp.source_code in {"cardhobby", "cardhobby_provider"}:
             tier, reasons = revalidated_cardhobby_assessment(identity, comp.provider_payload,
                 resolver=self.knowledge_runtime.resolver if self.knowledge_runtime else None)
             judged, _ = reconcile_cardhobby_classification(judged, tier, provider_rejection_reasons=reasons)
@@ -2357,7 +2400,27 @@ class AutomatedValuationWorker:
                 visual_facts=visual_facts,
                 resolver=self.knowledge_runtime.resolver if self.knowledge_runtime else None,
             )
-        return judged.tier in {ComparableTier.T0, ComparableTier.T1} and not judged.hard_conflicts
+        if judged.tier not in {ComparableTier.T0, ComparableTier.T1} or judged.hard_conflicts:
+            return False
+        from card_platform.domain.sale_independence import unique_physical_rows
+        row = {
+            'id': comp.source_url, 'source_code': comp.source_code,
+            'source_url': comp.source_url, 'listing_title': comp.title,
+            'grade_company': comp.grade_company,
+            'comparable_tier': judged.tier.value,
+            'provider_raw_payload': comp.provider_payload,
+            'raw_payload': {
+                'visual_verdict': decision.verdict, 'visual_confidence': decision.confidence,
+                'visual_evidence_binding': decision.evidence_binding,
+                'visual_match_evidence': [item.model_dump(mode='json') for item in decision.match_evidence],
+            },
+        }
+        # Keep only formally admitted observations in this local stage's pool.
+        # An owned source can also identify its same-photo relisting transitively.
+        pool = admitted_rows if admitted_rows is not None else []
+        pool.append(row)
+        independent, _ = unique_physical_rows(pool, identity)
+        return any(item['id'] == row['id'] for item in independent)
 
     async def _verify_comparable_images(
         self, identity: dict, search: ComparableSearchResult, *, reviewed_urls: set[str] | None = None,
@@ -2403,7 +2466,17 @@ class AutomatedValuationWorker:
                 for reason in source_reasons:
                     skipped_source_reasons[reason] = skipped_source_reasons.get(reason, 0) + 1
                 continue
-            candidates.append(VisualCandidate(comp.source_url, comp.title, comp.image_url))
+            from card_platform.ingestion.cardhobby_public_item import canonical_public_item_url
+            gallery = comp.provider_payload.get('source_gallery') or {}
+            support_urls = ()
+            if (gallery.get('contract') == 'public-source-gallery-v1'
+                    and gallery.get('primary_image_url') == comp.image_url
+                    and canonical_public_item_url(gallery.get('source_url'))
+                        == canonical_public_item_url(comp.source_url)
+                    and canonical_public_item_url(comp.source_url) is not None):
+                support_urls = tuple(url for url in gallery.get('image_urls', [])
+                                     if isinstance(url,str) and url != comp.image_url)[:2]
+            candidates.append(VisualCandidate(comp.source_url, comp.title, comp.image_url, support_urls))
         parallel_check = bool(identity.get("serial_total")) or (
             str(identity.get("parallel_name") or identity.get("parallel") or "")
             .strip().casefold() not in {"", "base"}
@@ -2418,6 +2491,7 @@ class AutomatedValuationWorker:
         new_count = 0
         evidence_review_attempt_count = 0
         post_review_rejected = {}
+        admitted_visual_rows = []
         stop_reason = "candidate_pool_exhausted"
         notes = list(search.notes)
 
@@ -2456,7 +2530,8 @@ class AutomatedValuationWorker:
                                 for c in batch
                             )
                         stop_candidate = next((c for c in batch if c.id in decisions
-                            and self._visual_candidate_can_stop(identity, by_url[c.id], decisions[c.id])), None)
+                            and self._visual_candidate_can_stop(
+                                identity, by_url[c.id], decisions[c.id], admitted_rows=admitted_visual_rows)), None)
                         if stop_candidate is not None:
                             if (getattr(self, 'evidence_reviewer', None) is not None
                                     and stop_candidate.id not in reviewed_urls):
@@ -2473,6 +2548,8 @@ class AutomatedValuationWorker:
                                 )
                                 notes.extend(checked.notes)
                                 if not checked.comparables:
+                                    admitted_visual_rows[:] = [row for row in admitted_visual_rows
+                                                              if row['id'] != stop_candidate.id]
                                     post_review_rejected[stop_candidate.id] = next(
                                         (item for item in checked.rejected_candidates
                                          if item.get('source_url') == stop_candidate.id),
@@ -2486,7 +2563,10 @@ class AutomatedValuationWorker:
             notes.append("图片同卡核验达到时限；已保存完成结果，剩余候选待恢复核验")
         except Exception as error:
             stop_reason = "verification_failed"
-            notes.append(f"图片同卡核验部分失败，已保留完成结果：{type(error).__name__}")
+            from card_platform.domain.model_failures import model_failure_reason
+            notes.append(model_failure_reason(error, 'visual_verification'))
+        notes.extend(reason for decision in decisions.values() for reason in decision.reasons
+                     if reason.startswith('model_failure:'))
         updated = []
         for comp in comparables:
             if comp.source_url in post_review_rejected:
@@ -2523,7 +2603,7 @@ class AutomatedValuationWorker:
     async def _search_external_legacy(
         self, identity: dict, *, include_cardhobby: bool = True
     ) -> ComparableSearchResult:
-        """Deprecated synchronous search retained temporarily for migration rollback only."""
+        """Source-grounded external discovery when first-party evidence is sparse."""
         cardhobby_result = None
         if include_cardhobby and self.cardhobby is not None:
             try:
@@ -2608,7 +2688,16 @@ class AutomatedValuationWorker:
             )
         schema = json.dumps(ComparableSearchResult.model_json_schema(), ensure_ascii=False)
         query_ladder = market_search_query_ladder(identity)
-        response = await traced_completion(self.client.chat.completions.create, stage='alias_query',
+        # The completion has no implicit browser. Allocate real tool calls to
+        # each targeted market, rather than leaving those queries in a prompt.
+        third_party_queries = third_party_exact_search_queries(identity)
+        research_queries = [
+            *([f"site:ebay.com {query_ladder[0]} sold"] if query_ladder else []),
+            *third_party_queries,
+            *(query_ladder[1:2] or query_ladder[:1]),
+        ][:4]
+        response, capture = await self.research.complete(
+            self.client, queries=research_queries, allowed_sites=VALUATION_SITES, stage='alias_query',
             model=self.settings.valuation_search_model,
             messages=[
                 {
@@ -2649,8 +2738,8 @@ class AutomatedValuationWorker:
                         "进入 comparables；可以写入 notes，但不得用于估值。"
                         "不得在 notes 声称 manual inspection、人工检查、exhaustive search 或全部"
                         "查询已执行；来源执行状态只由后端 provider 诊断记录。"
-                        "在宣称第三方无结果前，必须逐条执行输入中的 third_party_exact_search_queries，"
-                        "打开命中的单卡详情页并检查 completed sales/sales history；只能返回页面"
+                        "定向查询已由后端在预算内执行，以 web_research 的实际查询和捕获为准；"
+                        "未抓取或无内容时不得宣称第三方没有成交，必须说明未覆盖范围。只能返回页面"
                         "明确列出的日期和成交价，搜索摘要、当前在售和页面估算价均不得冒充成交。"
                         "评级状态是硬约束：目标为裸卡时，comparables 和 fallback references 只能"
                         "使用 condition_type=raw 且没有评级公司/分数的裸卡；目标为评级卡时，只能"
@@ -2675,17 +2764,7 @@ class AutomatedValuationWorker:
                                 not in {"collection_item_id", "card_definition_id"}
                             },
                             "required_base_currency": identity["base_currency"],
-                            "required_search_query_ladder": query_ladder,
-                            "ebay_completed_search_urls": [
-                                ebay_completed_search_url(query)
-                                for query in query_ladder[:6]
-                            ],
-                            "search_index_discovery_queries": (
-                                search_index_query_ladder(identity)
-                            ),
-                            "third_party_exact_search_queries": (
-                                third_party_exact_search_queries(identity)
-                            ),
+                            "required_search_query_ladder": research_queries,
                         },
                         ensure_ascii=False,
                         default=str,
@@ -2693,16 +2772,8 @@ class AutomatedValuationWorker:
                 },
             ],
             response_format={"type": "json_object"},
-            extra_body={
-                "enable_search": True,
-                "search_options": {
-                    "forced_search": True,
-                    "search_strategy": "turbo",
-                    "assigned_site_list": VALUATION_SITES,
-                },
-            },
         )
-        content = response.choices[0].message.content
+        content = response.choices[0].message.content if response else None
         if not content:
             parsed = ComparableSearchResult(notes=["通用市场检索未返回结果"])
         else:
@@ -2714,6 +2785,20 @@ class AutomatedValuationWorker:
                     ]
                 }
             )
+        fallback = parsed.fallback_valuation
+        if fallback is not None:
+            references = [ref for ref in fallback.references if capture.observed(ref.source_url)]
+            fallback = fallback.model_copy(update={"references": references}) if references else None
+        parsed = parsed.model_copy(update={
+            "search_queries": capture.queries, "web_research": capture.as_dict(),
+            "comparables": [comp for comp in parsed.comparables if capture.observed(comp.source_url)],
+            "fallback_valuation": fallback,
+            "player_adjustments": [adjustment.model_copy(update={"pairs": [
+                pair for pair in adjustment.pairs
+                if capture.observed(pair.target_url) and capture.observed(pair.reference_url)
+            ]}) for adjustment in parsed.player_adjustments],
+            "notes": [*parsed.notes, *capture.errors],
+        })
         if cardhobby_result is not None:
             parsed = parsed.model_copy(
                 update={
@@ -3273,6 +3358,21 @@ class AutomatedValuationWorker:
     async def _store_comparables(self, identity: dict, search: ComparableSearchResult) -> None:
         if not search.comparables:
             return
+        # A competing writer can hold a row needed by this batch. Retry only
+        # after the entire transaction has rolled back, without repeating the
+        # market search or its model calls. Other database failures still fail
+        # the job with their original diagnostic.
+        for attempt in range(3):
+            try:
+                await self._store_comparables_once(identity, search)
+                return
+            except DeadlockDetected:
+                if attempt == 2:
+                    raise
+                logger.warning("market_comp transaction deadlocked; retry %s/2", attempt + 1)
+                await asyncio.sleep(0.05 * (2 ** attempt))
+
+    async def _store_comparables_once(self, identity: dict, search: ComparableSearchResult) -> None:
         async with self.database.connection() as connection, connection.transaction():
             sources = await connection.execute(
                 "SELECT id, code FROM data_source "
@@ -3281,6 +3381,7 @@ class AutomatedValuationWorker:
                 "'public_market_research')"
             )
             source_ids = {row["code"]: row["id"] for row in await sources.fetchall()}
+            ordered = []
             for comp in search.comparables:
                 cardhobby_key = cardhobby_external_id(
                     comp.source_url, comp.title, comp.occurred_at, comp.sale_price
@@ -3297,6 +3398,11 @@ class AutomatedValuationWorker:
                     if ebay_key is not None
                     else comp.source_url
                 )
+                ordered.append((source_id, external_id, comp, source_code, ebay_key))
+            # Lock the actual conflict keys in one order even when searches
+            # return the same sales in different orders or URL aliases.
+            ordered.sort(key=lambda item: (str(item[0]), item[1]))
+            for source_id, external_id, comp, source_code, ebay_key in ordered:
                 classification = (
                     {"origin_source_code": "ebay", "ebay_item_id": ebay_key}
                     if ebay_key is not None
@@ -3476,6 +3582,13 @@ class AutomatedValuationWorker:
         self, job_id: UUID, identity: dict, search: ComparableSearchResult
     ) -> None:
         async with self.database.connection() as connection, connection.transaction():
+            from card_platform.domain.model_failures import parse_model_failures
+            await connection.execute(
+                "UPDATE valuation_job SET result_summary=COALESCE(result_summary,'{}'::jsonb)||%s WHERE id=%s",
+                (Jsonb({'upstream_failures': parse_model_failures([
+                    *getattr(search, 'notes', []), *(r for comp in search.comparables for r in getattr(comp, 'visual_reasons', []))]),
+                    'search_execution': getattr(search, 'search_execution', 'unknown'),
+                    'executed_query_count': 0 if getattr(search, 'search_execution', None) == 'cache_replay' else None}), job_id))
             result = await connection.execute(
                 """
                 SELECT market_comp.id, market_comp.occurred_at,
@@ -3556,6 +3669,7 @@ class AutomatedValuationWorker:
                 if source_matches_current_search(row["source_url"], allowed_source_urls)
             ]
             rows, duplicate_sales = deduplicate_market_rows(raw_rows)
+            from card_platform.domain.sale_independence import unique_physical_rows, seller_key
             audit_current = {
                 **identity,
                 "insert_name": identity.get("insert_name"),
@@ -3577,143 +3691,9 @@ class AutomatedValuationWorker:
                         connection, job_id, identity, fallback, search
                     )
                 if fallback is not None:
-                    coefficients = self.build_player_coefficients(
-                        identity, search.player_adjustments
+                    fallback_failure_reason = (
+                        "模型类比参考缺少当前商品图像、版本与实际成交资格；仅保留影子记录，不能补成当前价格"
                     )
-                    adjusted_references: list[tuple[ValuationReference, Decimal, dict | None]] = []
-                    for reference in fallback.references:
-                        if not is_formal_fallback_reference(reference):
-                            continue
-                        if reference.player_name.casefold() == str(identity["player_name"]).casefold():
-                            adjusted_references.append(
-                                (reference, reference.observed_price_base, None)
-                            )
-                            continue
-                        coefficient = coefficients.get(reference.player_name.casefold())
-                        if coefficient is not None:
-                            adjusted_references.append(
-                                (
-                                    reference,
-                                    reference.observed_price_base * coefficient["coefficient"],
-                                    coefficient,
-                                )
-                            )
-                    if not adjusted_references:
-                        fallback_failure_reason = (
-                            "跨球员参考未满足至少3组来源可访问、卡型相近且评级状态一致的"
-                            "成对成交，无法计算可复算的球员价格系数"
-                        )
-                        fallback = None
-                if fallback is not None:
-                    fallback_estimate = estimate_from_comps(
-                        [
-                            ComparableSale(
-                                value_base=adjusted_value,
-                                age_days=0,
-                                match_confidence=reference.match_confidence,
-                            )
-                            for reference, adjusted_value, _ in adjusted_references
-                        ]
-                    )
-                    confidence = min(fallback.confidence, fallback_estimate.confidence)
-                    evidence = {
-                        "knowledge_version": (
-                            self.knowledge_runtime.resolver.version
-                            if self.knowledge_runtime
-                            else None
-                        ),
-                        "strategy": "分层类比估值（含可复算的跨球员价格系数）",
-                        "formula": (
-                            "后端先用至少3组成对成交的目标/参考球员价格比中位数计算系数，"
-                            "再折算参考价格并计算加权分位数。"
-                        ),
-                        "search_queries": search.search_queries,
-                        "notes": [*search.identity_conflicts, *search.notes],
-                        "resolved_identity": search.resolved_identity,
-                        "player_adjustments": [
-                            {
-                                **coefficient,
-                                "coefficient": str(coefficient["coefficient"]),
-                                "ratio_low": str(coefficient["ratio_low"]),
-                                "ratio_high": str(coefficient["ratio_high"]),
-                            }
-                            for coefficient in coefficients.values()
-                        ],
-                        "comparables": [
-                            {
-                                "id": f"fallback-{index}",
-                                "title": reference.title,
-                                "source_url": reference.source_url,
-                                "occurred_at": (
-                                    reference.occurred_at.isoformat()
-                                    if reference.occurred_at
-                                    else datetime.now().isoformat()
-                                ),
-                                "original_price": str(reference.observed_price_base),
-                                "currency": identity["base_currency"],
-                                "fx_rate_to_base": "1",
-                                "normalized_price": str(adjusted_value),
-                                "match_confidence": str(reference.match_confidence),
-                                "age_days": 0,
-                                "evidence_type": reference.evidence_type,
-                                "adjustment": reference.adjustment,
-                                "condition_type": reference.condition_type,
-                                "grade_company": reference.grade_company,
-                                "grade_value": (
-                                    str(reference.grade_value)
-                                    if reference.grade_value is not None
-                                    else None
-                                ),
-                                "player_name": reference.player_name,
-                                "player_coefficient": (
-                                    str(coefficient["coefficient"])
-                                    if coefficient is not None
-                                    else "1"
-                                ),
-                            }
-                            for index, (reference, adjusted_value, coefficient) in enumerate(
-                                adjusted_references
-                            )
-                        ],
-                    }
-                    valuation = await connection.execute(
-                        """
-                        INSERT INTO valuation_snapshot (
-                            collection_item_id, method, currency, low_value, fair_value,
-                            high_value, confidence, evidence, model_version
-                        ) VALUES (%s, 'ai_estimate', %s, %s, %s, %s, %s, %s, 'player-index-comp-1.2')
-                        RETURNING id
-                        """,
-                        (
-                            identity["collection_item_id"],
-                            identity["base_currency"],
-                            fallback_estimate.low,
-                            fallback_estimate.fair,
-                            fallback_estimate.high,
-                            confidence,
-                            Jsonb(evidence),
-                        ),
-                    )
-                    valuation_id = (await valuation.fetchone())["id"]
-                    await connection.execute(
-                        """
-                        UPDATE valuation_job SET status = 'succeeded',
-                            result_summary = COALESCE(result_summary, '{}'::jsonb) || %s,
-                            finished_at = now(), updated_at = now() WHERE id = %s
-                        """,
-                        (
-                            Jsonb(
-                                {
-                                    "valuation_id": str(valuation_id),
-                                    "evidence_count": len(adjusted_references),
-                                    "confidence": str(confidence),
-                                    "valuation_tier": "fallback",
-                                }
-                            ),
-                            job_id,
-                        ),
-                    )
-                    return
                 await connection.execute(
                     """
                     UPDATE valuation_job SET status = 'insufficient_evidence',
@@ -3844,6 +3824,7 @@ class AutomatedValuationWorker:
                 shadow_sales.append(
                     ShadowSale(
                         id=str(row["id"]),
+                        seller_key=seller_key(row),
                         provider_code=row["source_code"],
                         price=row["value_base"],
                         shipping=row["shipping_base"],
@@ -3883,6 +3864,7 @@ class AutomatedValuationWorker:
                 classified.append(
                     ClassifiedSale(
                         id=str(row["id"]),
+                        seller_key=seller_key(row),
                         sale_price_base=row["value_base"],
                         shipping_base=row["shipping_base"],
                         age_days=row["age_days"],
@@ -3890,12 +3872,22 @@ class AutomatedValuationWorker:
                         adjustment=Adjustment(),
                     )
                 )
+            eligible_rows = [rows_by_id[sale.id] for sale in classified]
+            independent_rows, physical_excluded = unique_physical_rows(eligible_rows, identity)
+            independent_ids = {str(row['id']) for row in independent_rows}
+            excluded_ids = {row['dropped_id'] for row in physical_excluded}
+            classified = [sale for sale in classified if sale.id in independent_ids]
+            shadow_sales = [sale for sale in shadow_sales if sale.id not in excluded_ids]
+            duplicate_sales.extend(physical_excluded)
+            rejected.extend({'id':entry['dropped_id'], 'hard_conflicts':[entry['reason_code']],
+                             'raw_weight':'0', 'final_weight':'0'} for entry in physical_excluded)
+            rows_by_id = {key:row for key,row in rows_by_id.items() if key not in excluded_ids}
             shadow = ShadowValuationEstimator().estimate(
                 shadow_sales, identity, require_same_card=True,
             )
-            shadow, parallel_details = estimate_parallel_fallback(
-                identity, list(rows_by_id.values()), shadow, resolver=resolver,
-            )
+            # Different parallels remain contextual evidence. They cannot
+            # create a current same-card price when exact evidence is absent.
+            parallel_details = {}
             for comp_id, detail in parallel_details.items():
                 selected = rows_by_id[comp_id]
                 selected['same_card_classification'] = selected['classification']

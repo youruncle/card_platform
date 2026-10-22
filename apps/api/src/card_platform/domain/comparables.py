@@ -160,13 +160,16 @@ def _contains_player(text: str, value: object, *, minimum_matches: int | None = 
 
     def contains_part(part: str) -> bool:
         normalized_part = normalize_text(part)
-        published = {normalize_text(a) for a in published_subject_aliases(part, resolver)}
         # Initial punctuation varies across labels and seller titles (C.J./CJ).
-        # Collapse only adjacent one-letter initials, not arbitrary name words.
+        # Use the same bounded normalization for alias lookup as literal names;
+        # otherwise a translated title loses a roster member despite its alias.
         compact_part = re.sub(r"\b([a-z])\s+([a-z])\b", r"\1\2", normalized_part)
+        lookup_names = tuple(dict.fromkeys((part, normalized_part, compact_part)))
+        published = {normalize_text(a) for name in lookup_names
+                     for a in published_subject_aliases(name, resolver)}
         compact_title = re.sub(r"\b([a-z])\s+([a-z])\b", r"\1\2", normalize_text(text))
         return (
-            published_subject_matches(text, part, resolver)
+            any(published_subject_matches(text, name, resolver) for name in lookup_names)
             or (normalized_part not in published and _contains(text, part))
             or bool(
                 normalized_part not in published and re.search(
@@ -178,7 +181,7 @@ def _contains_player(text: str, value: object, *, minimum_matches: int | None = 
                 _contains(text, alias)
                 for alias in (
                     *aliases.get(normalized_part, ()),
-                    *matching_player_aliases(normalized_part),
+                    *(alias for name in lookup_names for alias in matching_player_aliases(name)),
                 )
                 if alias not in PLAYER_MATCH_ALIAS_EXCLUSIONS.get(normalized_part, set())
                 and normalize_text(alias) not in published
@@ -1128,6 +1131,13 @@ class ComparableClassifier:
         )
         if partial_roster_image_proxy:
             player = True
+        # A scene has no athlete to invent. Require its explicit printed work
+        # and collector anchors plus sealed current paired-image evidence.
+        work_subject_verified = bool(not target.player_name and target.insert and card_number
+            and _contains(text, target.insert) and product and season and paired_finish
+            and comp.visual_verdict == 'same' and visual_confidence >= Decimal('.95'))
+        if work_subject_verified:
+            player = True
         if not player:
             conflicts.append("player_conflict")
         parent_child_image_proxy = bool(
@@ -1290,6 +1300,19 @@ class ComparableClassifier:
             known_other_insert = True
         if known_other_insert:
             conflicts.append("insert_conflict")
+        if target.insert and is_explicit_base_listing(text) and not insert:
+            conflicts.append('insert_conflict')
+        # A current paired image comparison supplies the physical finish, even
+        # when seller/recognition parallel names differ or the title omits #208.
+        # Compare edition denominators, never the copy's individual numerator.
+        image_similar_same_card = bool(
+            comp.source_code in {'cardhobby', 'cardhobby_provider'} and paired_finish
+            and comp.visual_verdict == 'same' and visual_confidence >= Decimal('.80')
+            and not target.is_redemption and player and season and product
+            and (totals == {int(target_total)} if target_total else not totals)
+        )
+        if image_similar_same_card:
+            conflicts = [reason for reason in conflicts if reason != 'parallel_conflict']
         if conflicts:
             return Classification(
                 ComparableTier.REJECTED,
@@ -1298,7 +1321,23 @@ class ComparableClassifier:
                 hard_conflicts=conflicts,
             )
 
+        if image_similar_same_card:
+            return Classification(
+                ComparableTier.T1, Decimal('.86'), comp.source_reliability,
+                field_matches={
+                    'player': True, 'season': True, 'product': True, 'grade': True,
+                    'card_number': card_number, 'insert': insert,
+                    'parallel': True, 'serial_total': bool(target_total),
+                    'visual': True, 'visual_same_template_anchor': True,
+                    'image_similar_same_card': True,
+                    'finish_evidence_status': 'similar_pattern_color_and_numbering',
+                    'exact_finish_verified': False,
+                    'valuation_limitations': ['按图片花纹、颜色及编号兼容性判断同款，未独立核实平行名称'],
+                },
+            )
+
         fields = {
+            'subject_role': 'work_or_scene' if work_subject_verified else 'person_or_roster',
             "finish_evidence_status": ('paired_front_verified' if paired_finish else 'pending')
                 if unknown_finish else 'named_or_base',
             "player": player,
@@ -1373,14 +1412,6 @@ class ComparableClassifier:
         identity_anchor = insert if target.insert else card_number or serial_total
         visual_exact_template = geometry_same_template
         explicit_base_title = is_explicit_base_listing(text)
-        if target.insert and explicit_base_title and not insert:
-            conflicts.append("insert_conflict")
-            return Classification(
-                ComparableTier.REJECTED,
-                Decimal("0"),
-                comp.source_reliability,
-                hard_conflicts=conflicts,
-            )
         visual_base_anchor = bool(
             target.card_number
             and not target.insert

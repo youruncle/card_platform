@@ -4,7 +4,9 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   output: "standalone",
   // Auth recovery plus paginated order reads can exceed the default proxy timeout.
-  experimental: { proxyTimeout: 180_000 },
+  // Formal Canon PNGs exceed Next's default 10 MB cloned request body.
+  // Keep room for the API's 80 MB whole-sheet limit and multipart framing.
+  experimental: { cpus: 1, proxyTimeout: 180_000, middlewareClientMaxBodySize: "100mb" },
   async rewrites() {
     const publicApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
     const apiUrl =

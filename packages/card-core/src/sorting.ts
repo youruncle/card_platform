@@ -1,4 +1,4 @@
-/** Server sorts the full final projection; clients never sort a page locally. */
+/** Server owns global ordering. Time order uses a member snapshot and page-only values. */
 export type PortfolioSortBy = 'created_at' | 'player_name' | 'season_start' | 'remaining_cost' | 'fair_value' | 'unrealized_profit' | 'relevance';
 export type PortfolioSortOrder = 'asc' | 'desc';
 export type PortfolioSort = { sort_by: PortfolioSortBy; order: PortfolioSortOrder };
@@ -12,8 +12,13 @@ export const PORTFOLIO_SORT_OPTIONS: ReadonlyArray<{value: PortfolioSortBy; labe
   {value:'relevance',label:'相关度'},
 ];
 export const DEFAULT_PORTFOLIO_SORT: PortfolioSort = {sort_by:'created_at',order:'desc'};
-export function portfolioSortQuery(sort: PortfolioSort, snapshotToken?: string | null): string {
+export function portfolioSortQuery(
+  sort: PortfolioSort,
+  snapshotToken?: string | null,
+  snapshotMode: 'membership' | 'full' = sort.sort_by === 'created_at' ? 'membership' : 'full',
+): string {
   const params = new URLSearchParams(sort);
+  if (sort.sort_by === 'created_at' && snapshotMode === 'membership') params.set('snapshot_mode', 'membership');
   if (snapshotToken) params.set('snapshot_token',snapshotToken);
   else params.set('snapshot','true');
   return `&${params}`;

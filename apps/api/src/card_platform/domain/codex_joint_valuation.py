@@ -19,7 +19,7 @@ from card_platform.domain.comparables import (
 from card_platform.domain.hierarchical_estimator import ClassifiedSale, HierarchicalEstimator
 from card_platform.domain.valuation_synthesis import _date, _number, _url
 
-RULE_VERSION = "codex-joint-evidence-2"
+RULE_VERSION = "codex-joint-evidence-3"
 UNCERTAIN = re.compile(
     r"疑似|候选|未确认|待确认|不确定|难读|可能|candidate|uncertain|unknown|\?", re.I
 )
@@ -317,6 +317,15 @@ def joint_valuation(
     if original and original.get("method") in {"manual", "manual_override"}:
         result["reasons"].append("保留人工估值；历史证据仅供校验")
         return result
+    if item.get('valuation_status') not in {None, 'succeeded'}:
+        result['status'] = 'review_required'
+        result['reasons'].append('当前市场任务尚未验证价格；联合展示不得将不足、失败或进行中任务改成成功')
+        return result
+    from card_platform.domain.codex_sales_research import assess_sales_research, research_target_binding_reasons
+    raw = history[0].get('raw_result') or {}
+    research = assess_sales_research(raw.get('market_research') or {}, now=now)
+    research_qualified = (raw.get('research_captures_verified') is True
+        and research['status'] == 'supported_observation' and research['currency'] == base_currency)
     item = dict(item)
     key = str(image_hashes.get("front")) + ":" + str(image_hashes.get("back"))
     review = (identity_reviews or {}).get(key) or {}
@@ -363,6 +372,10 @@ def joint_valuation(
         result["status"] = "review_required"
         result["reasons"].extend(check["reasons"])
         return result
+    binding_reasons = research_target_binding_reasons(raw.get('market_research') or {}, target, image_hashes)
+    if binding_reasons:
+        research_qualified = False
+        result['reasons'].extend(binding_reasons)
     eligible_snapshots = {str(history[0]["id"])}
     for snapshot in history[1:]:
         _, older = reconcile_identity(target, snapshot, image_hashes)
@@ -387,10 +400,27 @@ def joint_valuation(
         result["rejected_evidence"].append(
             dict(source="system", id=comp_id, reasons=["原估值引用的成交记录缺失"])
         )
+    if not research_qualified:
+        result['status'] = 'review_required'
+        result['reasons'].append('历史Codex缺少当前两市场商品级成交研究合同；保留原记录，不重算或背书当前价格')
+        if not result['rejected_evidence']:
+            result['rejected_evidence'].append(dict(source='codex',reasons=['历史文字成交未完成当前商品图像/版本/品相/实际成交金额合同']))
+        return result
+    snapshot_id = str(history[0]['id'])
+    result['recovered_evidence'].extend(dict(snapshot_id=snapshot_id, kind='reported_sale',url=sale['url'])
+                                       for sale in research['accepted'])
+    reviews = {sale['url']: {**sale, 'price':sale['price_base'], 'currency':base_currency,
+        'original_price':sale['price'], 'original_currency':sale['currency'],
+        'sale_confirmed':True, 'scope':'current two-market item/image/condition contract'}
+        for sale in research['accepted']}
     for comp in market:
         if str(comp["id"]) not in used_ids:
             continue
         url = sale_url(comp.get("source_url"))
+        if url not in {sale_url(sale['url']) for sale in research['accepted']}:
+            result['rejected_evidence'].append(dict(source='system',url=url,
+                reasons=['未在当前两市场逐卡图像/成交合同中核验；保留历史，不增加独立成交数']))
+            continue
         date = _date(comp.get("occurred_at"))
         price = _base_price(comp.get("sale_price"), comp.get("currency"), base_currency, fx, now)
         payload = comp.get("raw_payload") or {}
@@ -542,6 +572,10 @@ def joint_valuation(
             price_base=price,
             original_price=review["price"],
             currency=review["currency"],
+            source_original_price=review.get('original_price'),
+            source_original_currency=review.get('original_currency'),
+            shipping=review.get('shipping'),
+            shipping_status=review.get('shipping_status'),
             sold_at=review["sold_at"],
             checked_at=review["checked_at"],
             snapshot_id=e["snapshot_id"],

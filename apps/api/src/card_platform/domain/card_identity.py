@@ -9,6 +9,7 @@ from card_platform.domain.product_identity import product_matches_title
 
 
 INSERT_ALIASES = {
+    "rookie of the year favorites": ("rookie of the year favorites", "roty favorites"),
     "roses": ("roses", "玫瑰", "玫瑰特卡"),
     "playing cards": ("playing cards", "扑克", "扑克牌"),
     # The circular artwork crosses the printed word, so OCR/vision commonly
@@ -214,7 +215,9 @@ _IDENTITY_PLACEHOLDERS = {
 
 def is_placeholder_identity_value(value: object) -> bool:
     """Identify serialization/OCR placeholders before they become card facts."""
-    return normalize_text(value) in _IDENTITY_PLACEHOLDERS
+    token = normalize_text(value)
+    return token in _IDENTITY_PLACEHOLDERS or bool(re.fullmatch(
+        r'(?:无法识别|未识别|未知)(?:球员|人物|主体|品牌|产品|卡号|系列)', token))
 
 
 def canonical_insert(value: object) -> str | None:
@@ -394,7 +397,10 @@ class CardIdentityResolver:
         card_number = stored.get("card_number")
         if misplaced_season_numbering:
             card_number = None
-        if is_placeholder_identity_value(card_number):
+        from card_platform.domain.number_roles import is_layout_label
+        if (is_placeholder_identity_value(card_number) or is_layout_label(card_number)
+                or normalize_text(card_number) in {"top left", "top right", "bottom left", "bottom right",
+                                                   "top center", "bottom center"}):
             card_number = None
         if card_number:
             normalized_number = str(card_number).strip().lstrip("#")
@@ -495,7 +501,8 @@ class CardIdentityResolver:
         ):
             context_insert = "Rookie Patch Autographs"
         values = {
-            "player_name": stored.get("player_name") or "",
+            "player_name": ("" if is_placeholder_identity_value(stored.get("player_name"))
+                            else stored.get("player_name") or ""),
             "season_start": stored.get("season_start"),
             "season_end": stored.get("season_end"),
             "brand_name": (

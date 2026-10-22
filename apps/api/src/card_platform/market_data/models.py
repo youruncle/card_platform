@@ -112,6 +112,7 @@ class ProviderFetchResult(BaseModel):
     notes: list[str] = Field(default_factory=list)
     incremental_cursor: str | None = None
     query_diagnostics: list[dict[str, Any]] = Field(default_factory=list)
+    web_research: dict[str, Any] = Field(default_factory=dict)
     source_error: str | None = None
 
 

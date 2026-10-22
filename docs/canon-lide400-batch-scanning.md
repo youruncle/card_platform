@@ -4,6 +4,41 @@ The Canon path is independent from the NETUM camera/NSSDK path. It uses a small
 ImageCaptureCore Swift process so that every command owns exactly one exclusive
 scanner session and closes it before exiting.
 
+## Cloud website with a locally connected Canon
+
+On the Mac with the USB scanner, run the loopback helper with Node 22:
+
+```sh
+node scripts/canon-scanner-helper.mjs
+```
+
+The installed LaunchAgent `com.cardplatform.canon-scanner` keeps this helper
+running after login. It listens only on `127.0.0.1:8766`; do not expose this port
+on the network. Its log is `~/Library/Logs/CardPlatform/canon-scanner.log`.
+
+In `https://cardsp.cn`, open **图片识别 → Canon 扫描仪 → 连接本机扫描仪**.
+Allow the browser's local-network permission when prompted. Then use overview
+or a 300/600 DPI scan for each side. The helper returns the PNG to the browser;
+the browser uploads it using the current cloud account and batch. It never
+passes cloud cookies, model keys, or credentials to the helper. Existing cloud
+cropping, layout correction, pair review and confirmation remain the next steps.
+
+If cloud upload fails, keep the dialog open and use **重试上传扫描图**; this
+reuses the captured bytes instead of scanning again. **保存扫描原图** downloads
+the retained image before closing the page. While an image is waiting, a new
+scan/batch cannot overwrite it. Closing during local capture aborts the request
+and interrupts the native process. After a helper restart, reconnect in the UI.
+
+The helper checks the exact Origin and loopback Host, requires the web client
+header, and requires an in-memory process token for scanning. It only accepts
+`dpi` and `preview`; output paths and commands are never supplied by the web.
+PNG metadata travels in `X-Scan-Resolution`, then the optional multipart
+`source_resolution` form field. The cloud verifies its dimensions against the
+decoded image before using the DPI. Existing file imports omit this field.
+
+Local pages at `localhost:3000` and `127.0.0.1:3000` retain their original
+same-machine API scan path. Cloud servers never execute the Mac bridge.
+
 ## Local bridge contract
 
 ```sh

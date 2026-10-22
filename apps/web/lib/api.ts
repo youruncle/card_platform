@@ -5,6 +5,7 @@ import type {
   AuthUser,
   AuthSession,
   ScannerRecognitionJob,
+  CaptureJob,
   ScannerCameraProperty,
   ScannerCameraControls,
   FlatbedCropQuality,
@@ -136,6 +137,11 @@ function knowledgeHeaders(actorId?: string, idempotencyKey?: string) {
     ...(actorId ? { "X-Knowledge-Actor": actorId } : {}),
     ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
   };
+}
+
+/** Read-only published catalogue; retains the existing cookie/session boundary. */
+export function requestKnowledgeBrowser<T>(path: string, signal?: AbortSignal): Promise<T> {
+  return request<T>(`/v1/knowledge/browse${path}`, { signal });
 }
 
 export function getKnowledgeWorkspace(): Promise<KnowledgeWorkspace> {
@@ -551,7 +557,7 @@ export function getPortfolioPage(
   ownerId: string, page: number, filters: SearchFilters, pageSize: number,
   sort: PortfolioSort, snapshotToken?: string | null, includeSummary = false,
 ): Promise<PortfolioPage> {
-  return request(`/v1/portfolio/items/page?owner_id=${ownerId}&page=${page}&page_size=${pageSize}${searchQuery(filters)}${portfolioSortQuery(sort, snapshotToken)}${includeSummary ? '&include_summary=true' : ''}`);
+  return request(`/v1/portfolio/items/page?owner_id=${ownerId}&page=${page}&page_size=${pageSize}${searchQuery(filters)}${portfolioSortQuery(sort, snapshotToken, includeSummary ? 'full' : undefined)}${includeSummary ? '&include_summary=true' : ''}`);
 }
 
 export function getPortfolio(
@@ -566,7 +572,7 @@ export function getPortfolio(
   if (sort) {
     const reuseSummary = snapshotToken && snapshotSummary;
     return request<PortfolioPage>(
-      `/v1/portfolio/items/page?owner_id=${ownerId}&page=${page}&page_size=${pageSize}${searchQuery(filters)}${portfolioSortQuery(sort, snapshotToken)}${reuseSummary ? "" : "&include_summary=true"}`,
+      `/v1/portfolio/items/page?owner_id=${ownerId}&page=${page}&page_size=${pageSize}${searchQuery(filters)}${portfolioSortQuery(sort, snapshotToken, "full")}${reuseSummary ? "" : "&include_summary=true"}`,
     ).then(async result => [
       result.summary ?? (reuseSummary || await request<PortfolioSummary>(`/v1/portfolio/summary?owner_id=${ownerId}`)),
       result,
@@ -904,6 +910,29 @@ export async function recognizeCardPair(
   return response.json() as Promise<CardRecognition>;
 }
 
+export async function enqueueCaptureRecognition(front: File, back: File, requestId: string): Promise<CaptureJob> {
+  const form = new FormData();
+  form.append("front", front);
+  form.append("back", back);
+  const response = await fetch(`${multipartApiUrl()}/v1/capture/jobs`, {
+    method: "POST", credentials: "include", headers: {"Idempotency-Key": requestId}, body: form,
+  });
+  if (response.status === 401) window.dispatchEvent(new Event("card-platform:unauthorized"));
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(typeof body.detail === "string" ? body.detail : body.detail?.message ?? `保存识别任务失败 (${response.status})`);
+  }
+  return response.json() as Promise<CaptureJob>;
+}
+
+export function getCaptureRecognitionJob(jobId: string): Promise<CaptureJob> {
+  return request(`/v1/capture/jobs/${jobId}`);
+}
+
+export function confirmCaptureRecognition(jobId: string, payload: unknown): Promise<{id: string}> {
+  return request(`/v1/capture/jobs/${jobId}/confirm`, {method: "POST", body: JSON.stringify(payload)});
+}
+
 export async function recognizeCardBatch(
   files: File[],
 ): Promise<BatchCardRecognition[]> {
@@ -983,21 +1012,28 @@ export function getFlatbedDevice(): Promise<{ status: string; name: string; seri
   return request("/v1/flatbed/device");
 }
 
-export function createFlatbedSession(dpi: 300 | 600): Promise<FlatbedSession> {
-  return request("/v1/flatbed/sessions", { method: "POST", body: JSON.stringify({ dpi }) });
+export function createFlatbedSession(dpi: 300 | 600, newBatch = false): Promise<FlatbedSession> {
+  return request("/v1/flatbed/sessions", { method: "POST", body: JSON.stringify({ dpi, new_batch: newBatch }) });
 }
 
 export function getFlatbedSessions(): Promise<FlatbedSession[]> { return request("/v1/flatbed/sessions"); }
 export function getFlatbedSession(sessionId: string): Promise<FlatbedSession> { return request(`/v1/flatbed/sessions/${sessionId}`); }
 
-export async function uploadFlatbedSheet(sessionId: string, side: "front" | "back", image: File): Promise<{ id: string; regions: FlatbedRegion[]; failures: string[] }> {
+export async function uploadFlatbedSheet(sessionId: string, side: "front" | "back", image: File, sourceResolution?: Record<string, unknown>): Promise<{ id: string; revision: number; regions: FlatbedRegion[]; failures: string[] }> {
   const form = new FormData(); form.append("image", image);
-  const response = await fetch(`${multipartApiUrl()}/v1/flatbed/sessions/${sessionId}/sheets/${side}`, { method: "POST", credentials: "include", body: form });
+  if (sourceResolution) form.append("source_resolution", JSON.stringify(sourceResolution));
+  let response: Response;
+  try {
+    response = await fetch(`${multipartApiUrl()}/v1/flatbed/sessions/${sessionId}/sheets/${side}`, { method: "POST", credentials: "include", body: form, signal: AbortSignal.timeout(180_000) });
+  } catch (error) {
+    if (error instanceof Error && error.name === "TimeoutError") throw new Error("整版图上传或处理超时，请重试上传。");
+    throw error;
+  }
   if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.detail ?? `扫描整版上传失败 (${response.status})`); }
   return response.json();
 }
 
-export function captureFlatbedSheet(sessionId: string, side: "front" | "back", preview = false, captureId?: string): Promise<{ id: string; regions: FlatbedRegion[]; failures: string[] }> {
+export function captureFlatbedSheet(sessionId: string, side: "front" | "back", preview = false, captureId?: string): Promise<{ id: string; revision: number; regions: FlatbedRegion[]; failures: string[] }> {
   // A full-bed scan regularly takes longer than Next's development rewrite
   // proxy is willing to keep the upstream response open. The API may finish
   // and persist the sheet after that proxy has already returned a misleading
@@ -1018,16 +1054,16 @@ export function proposeFlatbedPairs(sessionId: string): Promise<{ pairs: Flatbed
   return request(`/v1/flatbed/sessions/${sessionId}/pair`, { method: "POST" });
 }
 
-export function confirmFlatbedPairs(sessionId: string, pairs: Array<{ front_region_id: string; back_region_id: string }>): Promise<{ status: string; count: number; skipped: { front: number; back: number } }> {
+export function confirmFlatbedPairs(sessionId: string, pairs: Array<{ front_region_id: string; back_region_id: string }>): Promise<{ status: string; count: number; confirmation_token: string; skipped: { front: number; back: number } }> {
   return request(`/v1/flatbed/sessions/${sessionId}/pairs`, { method: "PUT", body: JSON.stringify({ pairs }) });
 }
 
-export function confirmFlatbedLayout(sheetId: string, regions: Array<{ points: Array<{ x: number; y: number }> }>): Promise<{ id: string; regions: FlatbedRegion[]; failures: string[] }> {
+export function confirmFlatbedLayout(sheetId: string, regions: Array<{ points: Array<{ x: number; y: number }> }>): Promise<{ id: string; revision: number; regions: FlatbedRegion[]; failures: string[] }> {
   return request(`/v1/flatbed/sheets/${sheetId}/layout`, { method: "PUT", body: JSON.stringify({ regions }) });
 }
 
-export function submitFlatbedSession(sessionId: string): Promise<{ status: string; job_ids: string[] }> {
-  return request(`/v1/flatbed/sessions/${sessionId}/submit`, { method: "POST" });
+export function submitFlatbedSession(sessionId: string, confirmationToken: string): Promise<{ status: string; job_ids: string[] }> {
+  return request(`/v1/flatbed/sessions/${sessionId}/submit`, { method: "POST", body: JSON.stringify({confirmation_token: confirmationToken}) });
 }
 
 export function recognizeCardAuto(file: File): Promise<SheetCardRecognition> {

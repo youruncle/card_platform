@@ -258,7 +258,7 @@ def test_sort_snapshot_performance_baseline(client, count):
     )
 
 
-def test_sort_uses_joint_recalculation_when_database_order_is_reversed(client, monkeypatch):
+def test_sort_preserves_original_prices_when_legacy_research_is_unqualified(client, monkeypatch):
     from datetime import datetime, timezone
     from decimal import Decimal
     from psycopg.types.json import Jsonb
@@ -323,11 +323,11 @@ def test_sort_uses_joint_recalculation_when_database_order_is_reversed(client, m
     )
     assert response.status_code == 200, response.text
     rows = response.json()["items"]
-    assert [row["id"] for row in rows] == [recovered, ordinary], [
+    assert [row["id"] for row in rows] == [ordinary, recovered], [
         (row["fair_value"], row["valuation_synthesis"]) for row in rows
     ]
-    assert Decimal(rows[0]["fair_value"]) == Decimal("61.98")
-    assert rows[0]["valuation_synthesis"]["status"] == "joint_recalculated"
+    assert Decimal(rows[1]["fair_value"]) == Decimal("200")
+    assert rows[1]["valuation_synthesis"]["status"] == "review_required"
     with psycopg.connect(os.environ["TEST_DATABASE_URL"]) as db:
         assert db.execute(
             "SELECT fair_value FROM valuation_snapshot WHERE collection_item_id=%s", (recovered,)

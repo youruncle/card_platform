@@ -75,6 +75,7 @@ class CardHobbyMarketDataProvider(MarketDataProvider):
             public_image_sources=result.public_source_pool,
             evidence=evidence,
             notes=result.notes,
+            web_research=result.web_research,
             query_diagnostics=[item.model_dump(mode="json") for item in result.query_diagnostics],
             source_error="; ".join(
                 f"{item.query}: {item.error or 'query failed'}"

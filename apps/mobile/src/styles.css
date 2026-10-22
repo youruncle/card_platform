@@ -36,6 +36,9 @@ button:disabled,
   cursor: default;
 }
 button:focus-visible,
+select:focus-visible,
+a:focus-visible,
+.button:focus-within,
 input:focus-visible {
   outline: 3px solid #a3b89c;
   outline-offset: 2px;
@@ -73,7 +76,7 @@ a {
 }
 small {
   display: block;
-  color: #788378;
+  color: #667362;
   font-size: 12px;
 }
 .primary {
@@ -85,7 +88,7 @@ small {
   width: 100%;
 }
 .muted {
-  color: #778173;
+  color: #657260;
 }
 .small {
   font-size: 12px;
@@ -200,7 +203,9 @@ small {
   background: #f2f2e9;
 }
 .card-tile .card-image {
-  height: 210px;
+  height: auto;
+  aspect-ratio: 3 / 4;
+  padding: 6px;
 }
 .image-placeholder {
   min-height: 160px;
@@ -267,7 +272,7 @@ small {
 }
 .photo-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin: 20px 0;
 }
@@ -276,7 +281,8 @@ small {
   margin: 0;
 }
 .photo-grid .card-image {
-  height: 240px;
+  height: auto;
+  aspect-ratio: 3 / 4;
 }
 .actions {
   display: flex;
@@ -302,7 +308,7 @@ small {
   border: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 12px;
   min-width: 0;
 }
@@ -356,7 +362,7 @@ small {
 dl {
   margin: 0;
   display: grid;
-  grid-template-columns: 100px 1fr;
+  grid-template-columns: minmax(70px, 100px) minmax(0, 1fr);
   gap: 14px;
 }
 dt {
@@ -541,7 +547,7 @@ summary {
 .price-player > details > summary strong { white-space: nowrap; }
 .price-card { border-top: 1px solid #dcded5; padding-top: 16px; margin-top: 16px; }
 .price-card h2 { font-size: 16px; overflow-wrap: anywhere; }
-.price-windows { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.price-windows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .price-windows strong { display: block; font-size: 22px; }
 .price-up { color: #246044; }
 .price-down { color: #ae483c; }
@@ -563,4 +569,71 @@ summary {
 .login-password-field button {
   flex: 0 0 auto;
   min-width: 60px;
+}
+
+/* Mobile presentation: retain the warm paper and forest-green palette. */
+h1 { font-size: clamp(26px, 7vw, 32px); line-height: 1.25; overflow-wrap: anywhere; }
+.panel { background: #fffefa; border-color: #e1e5da; box-shadow: 0 4px 18px #233a3208; }
+.panel > :last-child { margin-bottom: 0; }
+.login { padding-top: calc(24px + env(safe-area-inset-top)); padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+.brand-mark { display: grid; place-items: center; width: 68px; height: 80px; margin-top: 24px; border: 1px solid #ced8c5; border-radius: 18px; background: #eaf0e2; font-size: 52px; }
+.app-shell { min-height: 100dvh; }
+.app-shell > header { align-items: center; gap: 12px; background: #f5f3eef2; }
+.app-shell > main { padding-top: 16px; }
+.heading { gap: 12px; }
+.heading > div, .search > input, .job-row > :first-child,
+.price-player summary > span, .price-windows > div { min-width: 0; }
+.heading > button { flex-shrink: 0; }
+.card-title { border-radius: 0; background: transparent; }
+.card-title strong, .card-title span, .job-row, .price-player summary > span,
+.price-windows strong { overflow-wrap: anywhere; }
+.actions { gap: 8px; }
+.actions > button, .actions > .button, .actions > label { max-width: 100%; }
+.account-links { display: grid; gap: 10px; margin: 20px 0; }
+.account-links button { justify-content: space-between; padding: 16px; }
+.account-links button::after { content: "›"; color: #7b8875; font-size: 20px; }
+.price-sort { flex-wrap: wrap; }
+.price-sort button { flex: 1; }
+.price-windows > div { background: #f1f4eb; border-radius: 12px; padding: 12px; }
+.price-windows strong { font-size: clamp(18px, 5vw, 22px); font-variant-numeric: tabular-nums; }
+.viewer-toolbar { flex-wrap: wrap; }
+.app-shell nav { gap: 4px; box-shadow: 0 -4px 24px #233a3208; }
+.app-shell nav button { min-width: 0; padding: 8px 4px; }
+@media (max-width: 380px) {
+  .app-shell > main { padding-left: 14px; padding-right: 14px; }
+  .app-shell > header { padding-left: 16px; padding-right: 16px; }
+  .panel { padding: 16px; border-radius: 16px; }
+  .card-tile, .photo-grid .panel { padding: 10px; }
+  .collection-grid, .photo-grid, .batch-grid { gap: 10px; }
+  .login { padding-left: 18px; padding-right: 18px; }
+  .job-row { flex-wrap: wrap; }
+  .pagination { flex-wrap: wrap; gap: 10px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  button, .button { transition: background-color 140ms ease, border-color 140ms ease; }
+  button:active:not(:disabled), .button:active { filter: brightness(.95); }
+}
+
+/* Core management controls remain readable and tappable on narrow screens. */
+.danger { color: #a6372b; border-color: #e4c7be; }
+.bulk-actions { border-block: 1px solid #dfe5d7; padding: 4px 0 14px; margin: 16px 0; }
+.batch-results { max-height: 360px; overflow-y: auto; overscroll-behavior: contain; }
+.card-select { margin: 0 0 10px; font-size: 12px; color: #657260; }
+.card-select input { flex-shrink: 0; }
+.tile-actions { display: grid; grid-template-columns: 1fr; }
+.tile-actions button { width: 100%; }
+.cost-focus { border-color: #9daf91; }
+.panel form { min-width: 0; }
+.panel fieldset { min-width: 0; border: 1px solid #dfe5d7; border-radius: 12px; padding: 12px; }
+.panel textarea { width: 100%; min-height: 90px; border: 1px solid #dcded5; border-radius: 10px; padding: 12px; font: inherit; font-size: 16px; background: #fbfcf8; color: inherit; }
+.panel select { width: 100%; min-width: 0; }
+.panel h2, .panel h3, .panel strong, .panel li, .panel a { overflow-wrap: anywhere; }
+.panel pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.panel iframe { max-width: 100%; }
+.panel input[type="radio"] { width: 20px; height: 20px; accent-color: #31563a; }
+.cost-candidate, .identity-candidate { padding: 12px; border: 1px solid #dfe5d7; border-radius: 12px; }
+.cost-order-snapshot img, .cost-candidate img { max-width: 100%; max-height: 240px; object-fit: contain; }
+@media (max-width: 380px) {
+  .panel .fields { grid-template-columns: 1fr; }
+  .actions > button { flex: 1 1 auto; }
 }

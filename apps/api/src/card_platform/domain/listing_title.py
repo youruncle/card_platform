@@ -168,6 +168,10 @@ def is_multi_card_listing(title: str, product_name: object = None) -> bool:
     MJ's Back.  Explicit quantity, lot, sealed-product, or full-set language
     remains a hard rejection.
     """
+    named_inserts = {match.casefold() for match in re.findall(
+        r'(?<![A-Za-z])([A-Za-z][A-Za-z\'-]{3,})[\u3400-\u9fff]{0,8}特卡', title)}
+    if len(named_inserts) > 1:
+        return True
     # ``第2张`` labels one listing in a seller's sequence; it is not a two-card
     # lot.  Remove ordinals before matching quantity language.  Long strings
     # such as ``260504张总`` are seller/account codes and are excluded by the

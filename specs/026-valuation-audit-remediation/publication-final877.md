@@ -1,0 +1,9 @@
+# 最终共性源码发布
+
+源码提交`ae44abf4c20dd8851666a4b3204fb1ddcd6b60b9`，父文档头`2cef926b53a96f1bd1689df0da664c37922e6220`，沿用远程`codex/valuation-audit-remediation`。
+
+独立index限定4份域源码和2份测试：finish_evidence、parallel_valuation、sale_independence、market_price_projection、test_audit_final_publication、test_owned_market_projection_postgres。4份源的任务分支父内容逐字节等于实际quality1父源；该提交补丁叠加实际父187源，与运行最终镜像的187源逐SHA一致。完整manifest SHA：`d3b4044125864d3a65ed14ae0434fe32d677172c114b55f016e57a58222d6af7`。
+
+主HEAD及默认index不动，现有未提交/未跟踪成果与12个独立成本差异保留；没有切换、重置或恢复旧worktree。文档另用独立index提交，仅维护同一026 spec/plan/tasks及本次验证、部署和发布报告。文档头与远程核验、主HEAD/index不变证明见私有docs-publication.json与final-verification.json。
+
+本机从约373MiB空闲开始，只建立小型源码/测试产物，复用封存图/载荷与已有测试库；云端构建。未删任何原始证据或并行成果。

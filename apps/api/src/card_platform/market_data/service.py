@@ -208,6 +208,7 @@ class MarketDataService:
                             "evidence_count": len(fetched.evidence),
                             "notes": fetched.notes,
                             "query_diagnostics": fetched.query_diagnostics,
+                            **({"web_research": fetched.web_research} if fetched.web_research else {}),
                             "error": fetched.source_error,
                         }
                     )

@@ -83,7 +83,7 @@ async def test_transient_connection_failure_is_retried():
 
 @pytest.mark.parametrize("verdict,anchor,rejected", [
     (None, False, True), ("uncertain", False, True), ("compatible", False, True),
-    ("same", False, True), ("same", True, False), ("different", True, True),
+    ("same", False, True), ("same", True, True), ("different", True, True),
 ])
 def test_descriptive_alias_never_becomes_formal_evidence_on_image_failure(verdict, anchor, rejected):
     preliminary = Classification(ComparableTier.T1, Decimal(".9"), Decimal(".7"),

@@ -5,7 +5,6 @@ import hashlib
 import json
 import os
 import signal
-import re
 from dataclasses import replace
 from collections.abc import Callable
 from pathlib import Path
@@ -31,6 +30,7 @@ from card_platform.flatbed_detection import (
     visual_signals,
 )
 from card_platform.flatbed_matching import CardRegion, propose_pairs
+from card_platform.flatbed_pair_signals import extract_pair_signals
 from card_platform.flatbed_ml import refine_with_sam2
 from card_platform.flatbed_object_quality import audit_object_crop_integrity, audit_original_content_integrity, restore_content_preserving_quads
 from card_platform.flatbed_object_quads import resolve_object_layout
@@ -38,6 +38,10 @@ from card_platform.local_vision_process import LocalVisionCircuitOpen, run_local
 
 
 class FlatbedBridgeError(RuntimeError):
+    pass
+
+
+class FlatbedSourceConflict(ValueError):
     pass
 
 
@@ -263,6 +267,7 @@ class FlatbedService:
         ml_worker_script: str = "scripts/flatbed_sam2_worker.py",
         ml_checkpoint: str = ".runtime/models/sam2.1_hiera_tiny.pt",
         ml_timeout_seconds: float = 20.0,
+        cloud_observer=None,
     ) -> None:
         self.root = Path(root).resolve()
         self.bridge_script = Path(bridge_script).resolve()
@@ -273,9 +278,25 @@ class FlatbedService:
         self.ml_checkpoint = ml_checkpoint
         self.ml_timeout_seconds = ml_timeout_seconds
         self._ocr_timed_out = False
+        self.cloud_observer = cloud_observer
         self.orientation_classifier = AppleVisionOrientationClassifier(
             str(self.bridge_script.with_name("orient_card_images.swift"))
         )
+
+    async def observe_crop(self, image_path: Path) -> tuple[OrientationDecision | None, dict]:
+        orientation = await self.orientation_classifier.classify(image_path)
+        if orientation is not None and orientation.confidence >= .35:
+            return orientation, {}
+        if self.cloud_observer is None:
+            return orientation, {}
+        try:
+            observed = await self.cloud_observer.classify(image_path)
+            if observed.confidence < .65:
+                return orientation, {"cloud_vision_failure": "low_confidence"}
+            text = (observed.local_vision or {}).get("text", "")
+            return observed, {**extract_pair_signals(text), "ocr_method": observed.method}
+        except Exception as error:
+            return orientation, {"cloud_vision_failure": type(error).__name__}
 
     async def ocr_signals(self, image_path: Path) -> dict:
         if self.ocr_script is None or not self.ocr_script.is_file():
@@ -298,16 +319,7 @@ class FlatbedService:
         except (OSError, json.JSONDecodeError):
             return {"ocr_failure": "local_vision_failed"}
         text = str(payload.get("text") or "")
-        tokens = sorted(set(re.findall(r"[A-Za-z0-9#/-]{2,}", text.casefold())))
-        signals: dict = {"ocr_text": text, "ocr_tokens": tokens}
-        if match := re.search(r"\b(?:19|20)\d{2}\b", text):
-            signals["year"] = match.group(0)
-        if match := re.search(r"\b(\d{1,4})\s*/\s*(\d{1,4})\b", text):
-            signals["serial_number"] = match.group(1)
-            signals["serial_total"] = match.group(2)
-        if match := re.search(r"(?:NO\.?|#)\s*([A-Z0-9-]{1,12})", text, re.IGNORECASE):
-            signals["card_number"] = match.group(1)
-        return signals
+        return extract_pair_signals(text)
 
     async def bridge(
         self, command: str, *, output: Path | None = None, dpi: int = 300, timeout: float = 60
@@ -333,6 +345,15 @@ class FlatbedService:
             process = await asyncio.create_subprocess_exec(
                 *arguments, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
             )
+        except OSError as error:
+            # Cloud containers cannot run the Mac ImageCaptureCore bridge.
+            # Missing scripts/interpreters and execution permissions are a
+            # scanner availability failure, not an unhandled API failure.
+            raise FlatbedBridgeError(
+                "当前服务无法启动 Canon 本机扫描程序。请在连接扫描仪的 Mac 上使用本机网页扫描，"
+                "或先扫描为整版图片后导入。"
+            ) from error
+        try:
             stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout + 5)
         except asyncio.TimeoutError as error:
             process.send_signal(signal.SIGINT)
@@ -359,7 +380,7 @@ class FlatbedService:
             raise FlatbedBridgeError(message)
         return events
 
-    async def create_session(self, connection, owner_id: UUID, dpi: int) -> dict:
+    async def create_session(self, connection, owner_id: UUID, dpi: int, *, new_batch: bool = False) -> dict:
         # Opening the scanner tab and React development strict-mode can issue
         # concurrent initialization requests. Serialize them per account and
         # reuse the unfinished session instead of creating duplicate batches.
@@ -374,7 +395,7 @@ class FlatbedService:
             (owner_id,),
         )
         row = await existing.fetchone()
-        if row is not None:
+        if row is not None and not new_batch:
             return dict(row)
         row = await connection.execute(
             """INSERT INTO flatbed_scan_session(owner_id,device_serial,dpi) VALUES (%s,'4706E5',%s) RETURNING *""",
@@ -393,16 +414,25 @@ class FlatbedService:
         detections_override: list[Detection] | None = None,
         source_resolution: dict | None = None,
         on_progress: Callable[[int, int], None] | None = None,
+        expected_source_sheet_id: UUID | None = None,
     ) -> dict:
         session_result = await connection.execute(
-            "SELECT * FROM flatbed_scan_session WHERE id=%s AND owner_id=%s",
+            "SELECT * FROM flatbed_scan_session WHERE id=%s AND owner_id=%s FOR UPDATE",
             (session_id, owner_id),
         )
         session = await session_result.fetchone()
         if session is None:
             raise LookupError("扫描会话不存在")
         if session.get("submitted_at") is not None or session.get("status") == "submitted":
-            raise ValueError("扫描会话已经录入，请创建新会话")
+            raise FlatbedSourceConflict("扫描会话已经录入，请创建新会话")
+        if expected_source_sheet_id is not None:
+            latest = await connection.execute(
+                "SELECT id FROM flatbed_scan_sheet WHERE session_id=%s AND owner_id=%s AND side=%s ORDER BY revision DESC LIMIT 1",
+                (session_id, owner_id, side),
+            )
+            latest_row = await latest.fetchone()
+            if latest_row is None or latest_row["id"] != expected_source_sheet_id:
+                raise FlatbedSourceConflict("扫描版本已更换，请打开最新图片后重新校正")
         decoded = await asyncio.to_thread(
             cv2.imdecode, np.frombuffer(content, np.uint8), cv2.IMREAD_COLOR
         )
@@ -617,7 +647,7 @@ class FlatbedService:
                         stream.write(encoded.tobytes())
                 if unresolved_quad:
                     ok = False
-                orientation = await self.orientation_classifier.classify(crop_path) if ok else None
+                orientation, observation = await self.observe_crop(crop_path) if ok else (None, {})
                 if orientation is not None and orientation.confidence >= 0.35:
                     rotation = orientation.rotation_degrees
                 elif crop.shape[1] > crop.shape[0] * 1.08:
@@ -646,7 +676,8 @@ class FlatbedService:
                 signals["orientation_text_count"] = orientation.text_count
                 signals["orientation_face_count"] = orientation.face_count
                 signals["crop_quality"] = quality_report.as_dict()
-                if ok:
+                signals.update(observation)
+                if ok and "ocr_method" not in observation:
                     signals.update(await self.ocr_signals(crop_path))
                 if self.orientation_classifier._timed_out:
                     signals["orientation_failure"] = "local_vision_timeout"
@@ -708,7 +739,7 @@ class FlatbedService:
         if current is None:
             raise LookupError("扫描会话不存在")
         if current.get("submitted_at") is not None or current.get("status") == "submitted":
-            raise ValueError("扫描会话已经录入，请创建新会话")
+            raise FlatbedSourceConflict("扫描会话已经录入，请创建新会话")
         revision_result = await connection.execute(
             "SELECT COALESCE(max(revision),0)+1 AS revision FROM flatbed_scan_sheet WHERE session_id=%s AND side=%s",
             (session_id, side),
@@ -759,12 +790,14 @@ class FlatbedService:
             if any(signals.get(key) == "local_vision_timeout" for key in ("ocr_failure", "orientation_failure")):
                 if "local_vision_timeout" not in detection_failures:
                     detection_failures.append("local_vision_timeout")
+            if signals.get("cloud_vision_failure") and "cloud_vision_failed" not in detection_failures:
+                detection_failures.append("cloud_vision_failed")
             await connection.execute(
                 """INSERT INTO flatbed_scan_region(id,sheet_id,owner_id,ordinal,bounds,confidence,failure_reason,crop_path,signals) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                 parameters,
             )
             regions.append(region)
-        if "local_vision_timeout" in detection_failures:
+        if "local_vision_timeout" in detection_failures or "cloud_vision_failed" in detection_failures:
             await connection.execute(
                 "UPDATE flatbed_scan_sheet SET requires_review=true WHERE id=%s AND owner_id=%s",
                 (sheet_id, owner_id),
@@ -778,7 +811,7 @@ class FlatbedService:
             (session_id, owner_id),
         )
         await connection.execute(
-            "UPDATE flatbed_scan_session SET status=%s,pairing_requires_review=true,pairing_transform=NULL,updated_at=now() WHERE id=%s",
+            "UPDATE flatbed_scan_session SET status=%s,pairing_requires_review=true,pairing_transform=NULL,confirmed_sources=NULL,updated_at=now() WHERE id=%s",
             (status, session_id),
         )
         if detections_override is not None:
@@ -835,17 +868,19 @@ class FlatbedService:
             "DELETE FROM flatbed_pair_proposal WHERE session_id=%s AND owner_id=%s",
             (session_id, owner_id),
         )
-        selected_keys = {(pair["front_id"], pair["back_id"]) for pair in proposal["pairs"]}
-        for pair in proposal["candidates"]:
+        selected_pairs = {(pair["front_id"], pair["back_id"]): pair for pair in proposal["pairs"]}
+        selected_keys = set(selected_pairs)
+        for candidate in proposal["candidates"]:
+            pair = {**candidate, **selected_pairs.get((candidate["front_id"], candidate["back_id"]), {})}
             confidence_level = (
                 "high"
-                if pair["score"] >= 0.82 and not pair["conflicts"]
+                if pair["score"] >= 0.82 and not pair["conflicts"] and pair.get("identity_status") == "consistent"
                 else "medium"
                 if pair["score"] >= 0.62
                 else "low"
             )
             await connection.execute(
-                """INSERT INTO flatbed_pair_proposal(session_id,owner_id,front_region_id,back_region_id,score,confidence_level,transform,signals,conflicts,selected) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                """INSERT INTO flatbed_pair_proposal(session_id,owner_id,front_region_id,back_region_id,score,confidence_level,transform,signals,conflicts,selected,identity_status,identity_reason_codes) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                 (
                     session_id,
                     owner_id,
@@ -857,10 +892,12 @@ class FlatbedService:
                     Jsonb(pair["signals"]),
                     Jsonb(list(pair["conflicts"])),
                     (pair["front_id"], pair["back_id"]) in selected_keys,
+                    pair.get("identity_status", "unknown"),
+                    Jsonb(pair.get("identity_reason_codes", [])),
                 ),
             )
         await connection.execute(
-            "UPDATE flatbed_scan_session SET status='pairing',pairing_transform=%s,pairing_requires_review=%s,updated_at=now() WHERE id=%s AND owner_id=%s",
+            "UPDATE flatbed_scan_session SET status='pairing',pairing_transform=%s,pairing_requires_review=%s,confirmed_sources=NULL,updated_at=now() WHERE id=%s AND owner_id=%s",
             (proposal["transform"], proposal["requires_review"], session_id, owner_id),
         )
         return proposal

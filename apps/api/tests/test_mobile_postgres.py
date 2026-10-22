@@ -1,6 +1,7 @@
 """Mobile sessions and capture use real PostgreSQL, image files and ownership checks."""
 
 import os
+from pathlib import Path
 from uuid import uuid4
 
 import cv2
@@ -12,6 +13,7 @@ from psycopg.types.json import Jsonb
 
 from card_platform.config import get_settings
 from card_platform.main import app
+from pair_ingestion_fixtures import consistent_pair
 
 pytestmark = pytest.mark.skipif(
     "TEST_DATABASE_URL" not in os.environ, reason="requires disposable PostgreSQL"
@@ -22,7 +24,7 @@ pytestmark = pytest.mark.skipif(
 def client(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", os.environ["TEST_DATABASE_URL"])
     monkeypatch.setenv("AUTH_REGISTRATION_ENABLED", "true")
-    for name in ("VALUATION", "RECOGNITION", "SCANNER", "PURCHASE_COST"):
+    for name in ("VALUATION", "RECOGNITION", "SCANNER", "PURCHASE_COST", "PLAYER_PRICE"):
         monkeypatch.setenv(f"{name}_WORKER_ENABLED", "false")
     get_settings.cache_clear()
     with TestClient(app) as value:
@@ -47,10 +49,14 @@ def account(client):
 
 
 def photos(shade=140):
-    pixels = np.full((160, 100, 3), shade, dtype=np.uint8)
-    ok, data = cv2.imencode(".png", pixels)
-    assert ok
-    return {side: (f"{side}.png", data.tobytes(), "image/png") for side in ("front", "back")}
+    result = {}
+    for side in ("front", "back"):
+        pixels = np.full((160, 100, 3), shade, dtype=np.uint8)
+        cv2.putText(pixels, side, (4, 30), cv2.FONT_HERSHEY_SIMPLEX, .45, (0, 0, 0), 1)
+        ok, data = cv2.imencode(".png", pixels)
+        assert ok
+        result[side] = (f"{side}.png", data.tobytes(), "image/png")
+    return result
 
 
 def test_mobile_session_revocation_and_invalid_bearer_never_falls_back(client):
@@ -103,9 +109,13 @@ def test_capture_is_idempotent_private_and_requires_confirmation(client):
             "SELECT require_confirmation FROM scanner_recognition_job WHERE id=%s", (job["id"],)
         ).fetchone()
         assert row == (True,)
+        paths = db.execute("SELECT front_image_path,back_image_path FROM scanner_recognition_job WHERE id=%s", (job["id"],)).fetchone()
+        contents = {side: (Path(get_settings().scanner_job_dir).resolve() / relative).read_bytes()
+                    for side, relative in zip(("front", "back"), paths)}
         db.execute(
             "UPDATE scanner_recognition_job SET status='succeeded',result=%s WHERE id=%s",
-            (Jsonb({"confidence": "0.7", "player_name": "Synthetic test"}), job["id"]),
+            (Jsonb({"confidence": "0.7", "player_name": "Synthetic test",
+                    "pair_validation": consistent_pair(contents=contents)}), job["id"]),
         )
     saved = client.post(confirm, headers=headers, json=body)
     assert saved.status_code == 201, saved.text
@@ -122,6 +132,10 @@ def test_capture_is_idempotent_private_and_requires_confirmation(client):
     with psycopg.connect(os.environ["TEST_DATABASE_URL"]) as db:
         assert db.execute(
             "SELECT count(*) FROM collection_item WHERE owner_id=%s", (user["id"],)
+        ).fetchone() == (1,)
+        assert db.execute(
+            "SELECT count(*) FROM automatic_purchase_cost WHERE owner_id=%s AND item_id=%s",
+            (user["id"], saved.json()["id"]),
         ).fetchone() == (1,)
 
 

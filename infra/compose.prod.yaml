@@ -60,16 +60,25 @@ services:
       AI_PROVIDER: ${AI_PROVIDER:-deepseek}
       AI_API_KEY: ${AI_API_KEY:-}
       AI_BASE_URL: ${AI_BASE_URL:-https://api.deepseek.com}
-      AI_MODEL: ${AI_MODEL:-deepseek-v4-flash}
+      AI_MODEL: ${AI_MODEL:-deepseek-flash}
       VISION_API_KEY: ${VISION_API_KEY:-}
-      VISION_BASE_URL: ${VISION_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
-      VISION_MODEL: ${VISION_MODEL:-qwen3-vl-flash}
+      VISION_BASE_URL: ${VISION_BASE_URL:-https://api.deepseek.com}
+      VISION_MODEL: ${VISION_MODEL:-deepseek-flash}
+      VISION_PLUS_MODEL: ${VISION_PLUS_MODEL:-deepseek-flash}
+      VISION_MAX_MODEL: ${VISION_MAX_MODEL:-deepseek-flash}
+      VISION_FINISH_CONFIRMATION_MODEL: ${VISION_FINISH_CONFIRMATION_MODEL:-deepseek-flash}
+      VISION_THINKING_ENABLED: 'false'
+      SEARCH_API_KEY: ${SEARCH_API_KEY:-}
+      SEARCH_BASE_URL: ${SEARCH_BASE_URL:-}
       CARD_SEARCH_ENABLED: ${CARD_SEARCH_ENABLED:-true}
-      CARD_SEARCH_MODEL: ${CARD_SEARCH_MODEL:-qwen-plus}
+      CARD_SEARCH_MODEL: ${CARD_SEARCH_MODEL:-deepseek-flash}
+      VALUATION_SEARCH_MODEL: ${VALUATION_SEARCH_MODEL:-deepseek-flash}
+      PURCHASE_COST_WORKER_ENABLED: 'true'
       NEWS_RSS_URL_TEMPLATE: ${NEWS_RSS_URL_TEMPLATE:?set NEWS_RSS_URL_TEMPLATE}
       INJURY_RSS_URL_TEMPLATE: ${INJURY_RSS_URL_TEMPLATE:?set INJURY_RSS_URL_TEMPLATE}
       UPLOAD_DIR: /app/uploads
       SCANNER_JOB_DIR: /app/scanner-jobs
+      KNOWLEDGE_BROWSER_CACHE_DIR: /app/scanner-jobs/.knowledge-browser-cache
       SCANNER_WORKER_ENABLED: ${SCANNER_WORKER_ENABLED:-true}
       SCANNER_WORKER_POLL_SECONDS: ${SCANNER_WORKER_POLL_SECONDS:-1}
       SCANNER_JOB_MAX_ATTEMPTS: ${SCANNER_JOB_MAX_ATTEMPTS:-3}

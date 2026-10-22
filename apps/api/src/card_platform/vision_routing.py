@@ -20,13 +20,27 @@ BIRTHDATE_SERIAL_CAVEAT = "birthday_serial_fraction_removed"
 class VisionTier:
     name: str
     model: str
-    input_cny_per_million: Decimal
-    output_cny_per_million: Decimal
+    input_cny_per_million: Decimal | None
+    output_cny_per_million: Decimal | None
+    pricing_basis: str = "published_uncached_rate"
 
 
 FLASH_TIER = VisionTier("flash", "qwen3-vl-flash", Decimal("0.15"), Decimal("1.5"))
 PLUS_TIER = VisionTier("plus", "qwen3-vl-plus", Decimal("1"), Decimal("10"))
 MAX_TIER = VisionTier("max", "qwen3.8-max", Decimal("12"), Decimal("36"))
+
+
+def vision_tier_for_model(name: str, model: str) -> VisionTier:
+    if model == "deepseek-flash":
+        # Conservative bound: peak rates and no cache discount. Holidays and
+        # provider credits cannot be inferred from an API response.
+        return VisionTier(name, model, Decimal("2"), Decimal("8"),
+                          "peak_uncached_upper_bound")
+    known = {tier.model: tier for tier in (FLASH_TIER, PLUS_TIER, MAX_TIER)}
+    tier = known.get(model)
+    if tier is None:
+        return VisionTier(name, model, None, None, "unknown_rate")
+    return VisionTier(name, model, tier.input_cny_per_million, tier.output_cny_per_million)
 
 
 def recognition_quality_issues(result: CardRecognitionResult) -> list[str]:
@@ -153,7 +167,9 @@ def recognition_quality_score(result: CardRecognitionResult) -> Decimal:
 
 def estimate_call_cost_cny(
     tier: VisionTier, prompt_tokens: int | None, completion_tokens: int | None
-) -> Decimal:
+) -> Decimal | None:
+    if tier.input_cny_per_million is None or tier.output_cny_per_million is None:
+        return None
     input_cost = Decimal(prompt_tokens or 0) * tier.input_cny_per_million / Decimal(1_000_000)
     output_cost = Decimal(completion_tokens or 0) * tier.output_cny_per_million / Decimal(1_000_000)
     return (input_cost + output_cost).quantize(Decimal("0.000001"))
@@ -218,7 +234,9 @@ class TieredVisionRouter:
         *,
         plus_threshold: Decimal = Decimal("0.88"),
         max_threshold: Decimal = Decimal("0.74"),
+        tiers: tuple[VisionTier, VisionTier, VisionTier] = (FLASH_TIER, PLUS_TIER, MAX_TIER),
     ) -> None:
+        self.tiers = tiers
         self.flash = flash
         self.plus = plus
         self.maximum = maximum
@@ -228,7 +246,7 @@ class TieredVisionRouter:
     async def recognize(self) -> CardRecognitionResult:
         candidates: list[CardRecognitionResult] = []
         trace: list[dict[str, object]] = []
-        total_cost = Decimal("0")
+        total_cost: Decimal | None = Decimal("0")
 
         async def call(tier: VisionTier, function, reason: str) -> CardRecognitionResult | None:
             nonlocal total_cost
@@ -250,23 +268,24 @@ class TieredVisionRouter:
             cost = estimate_call_cost_cny(
                 tier, usage.get("prompt_tokens"), usage.get("completion_tokens")
             )
-            total_cost += cost
+            total_cost = total_cost + cost if total_cost is not None and cost is not None else None
             trace.append({
                 "tier": tier.name, "model": tier.model, "reason": reason,
                 "confidence": str(result.confidence), "quality_issues": issues,
                 "prompt_tokens": usage.get("prompt_tokens"),
                 "completion_tokens": usage.get("completion_tokens"),
-                "estimated_cost_cny": str(cost),
+                "estimated_cost_cny": str(cost) if cost is not None else None,
+                "pricing_basis": tier.pricing_basis,
                 "latency_ms": round((time.monotonic() - started) * 1000),
                 "status": "succeeded",
             })
             candidates.append(result)
             return result
 
-        current = await call(FLASH_TIER, self.flash, "default_low_cost_route")
+        current = await call(self.tiers[0], self.flash, "default_low_cost_route")
         issues = recognition_quality_issues(current) if current else ["flash_call_failed"]
         if self.plus and (current is None or current.confidence < self.plus_threshold or issues):
-            upgraded = await call(PLUS_TIER, self.plus, "flash_quality_gate_failed")
+            upgraded = await call(self.tiers[1], self.plus, "flash_quality_gate_failed")
             if upgraded is not None:
                 current = upgraded
                 issues = recognition_quality_issues(current)
@@ -278,7 +297,7 @@ class TieredVisionRouter:
             current is None or current.confidence < self.max_threshold
             or visual_hard_issues.intersection(issues) or missing_critical
         ):
-            await call(MAX_TIER, self.maximum, "plus_hard_identity_gate_failed")
+            await call(self.tiers[2], self.maximum, "plus_hard_identity_gate_failed")
 
         if not candidates:
             raise RuntimeError("all configured vision model tiers failed")

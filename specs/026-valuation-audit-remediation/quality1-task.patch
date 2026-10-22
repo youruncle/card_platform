@@ -1,0 +1,341 @@
+diff --git a/apps/api/src/card_platform/domain/sale_independence.py b/apps/api/src/card_platform/domain/sale_independence.py
+--- a/apps/api/src/card_platform/domain/sale_independence.py
++++ b/apps/api/src/card_platform/domain/sale_independence.py
+@@ -36,7 +36,67 @@
+     return next(iter(pairs)) if len(pairs) == 1 else None
+ 
+ 
+-def physical_keys(row: dict) -> list[tuple[str, str]]:
++_VERSION_FIELDS = (
++    'card_definition_id', 'brand_name', 'season_start', 'season_end', 'product_name',
++    'set_name', 'card_number', 'insert_name', 'parallel_name', 'serial_total',
++    'is_autograph', 'is_memorabilia', 'is_patch', 'is_redemption', 'redemption_status',
++)
++
++
++def _version_values(row):
++    from card_platform.domain.card_identity import normalize_text
++    values = dict(row.get('identity') or {})
++    values.update({key: row[key] for key in _VERSION_FIELDS if key in row})
++    return {key: normalize_text(value) for key, value in values.items()
++            if key in _VERSION_FIELDS and value is not None}
++
++
++def _same_printed_version(row, identity):
++    # Callers first admit the full current identity/finish. Explicit differing
++    # versions still must not share a copy key or claim the target's serial.
++    tier = row.get('comparable_tier')
++    if tier is not None and str(tier) not in {'T0', 'T1'}:
++        return False
++    target, candidate = _version_values(identity), _version_values(row)
++    return not any(target[key] != value for key, value in candidate.items() if key in target)
++
++
++def _certificate_key(row):
++    source = row.get('provider_raw_payload') or {}
++    company = str(row.get('grade_company') or source.get('grade_company') or '').strip().casefold()
++    certificate = str(row.get('grade_cert_number') or source.get('grade_cert_number') or '').strip().casefold()
++    # Only explicit structured certificate fields; never arbitrary title/order
++    # numbers or a common company+grade label. Companies have separate namespaces.
++    if company and re.fullmatch(r'[a-z0-9-]{4,80}', certificate):
++        return f'{company}:{certificate}'
++    return None
++
++
++def owned_copy_history(row: dict, identity: dict | None = None) -> bool:
++    """Whether an admitted current source is this held physical card's history.
++
++    A cached classification boolean, notes URL or purchase amount is not proof.
++    The source binding must validate for this owner/item; serial/certificate
++    comparisons apply only after full same-version admission by the caller.
++    """
++    from card_platform.purchase_source_roles import is_owned_purchase_source
++    identity = identity or {}
++    source = row.get('provider_raw_payload') or {}
++    if is_owned_purchase_source(identity, {'source_url': row.get('source_url') or source.get('source_url')}):
++        return True
++    if not _same_printed_version(row, identity):
++        return False
++    certificate = _certificate_key(row)
++    if certificate and certificate == _certificate_key(identity):
++        return True
++    try:
++        owned = (int(identity['serial_number']), int(identity['serial_total']))
++    except (KeyError, TypeError, ValueError, OverflowError):
++        return False
++    return 0 < owned[0] <= owned[1] and full_serial(str(row.get('listing_title') or '')) == owned
++
++
++def physical_keys(row: dict, identity: dict | None = None) -> list[tuple[str, str]]:
+     payload = row.get('raw_payload') or {}
+     keys = []
+     binding = payload.get('visual_evidence_binding') or {}
+@@ -54,6 +114,9 @@
+     serial = full_serial(str(row.get('listing_title') or ''))
+     if serial:
+         keys.append(('same_physical_card_serial', f'{serial[0]}/{serial[1]}'))
++    certificate = _certificate_key(row)
++    if certificate:
++        keys.append(('same_physical_card_certificate', certificate))
+     # Only explicit seller-scoped consignment codes, never arbitrary trailing
+     # warehouse IDs or similar photographs alone, establish duplicate risk.
+     source = row.get('provider_raw_payload') or payload
+@@ -61,7 +124,28 @@
+     code = str(source.get('consignment_code') or '').strip()
+     if seller and code:
+         keys.append(('same_seller_consignment', f'{row.get("source_code")}:{seller}:{code}'))
+-    return keys
++    # The worker supplies one fully admitted version. Keep explicit row scopes
++    # separate as well: repeated serial/cert digits across products are not copies.
++    scope = {**_version_values(identity or {}), **_version_values(row)}
++    prefix = repr(tuple(sorted(scope.items())))
++    tier = row.get('comparable_tier')
++    contextual = tier is not None and str(tier) not in {'T0', 'T1'}
++    contextual_prefix = prefix
++    owned_photo = False
++    if contextual:
++        # Contextual rows can reach _calculate without hard conflicts, but their
++        # complete finish/version is unproven. Purchase ownership proves this
++        # source's history, not its title serial/certificate/consignment claims.
++        # Only its already observed primary photo may propagate that ownership.
++        contextual_scope = {**scope, 'non_same_card_source': str(row.get('id') or row.get('source_url') or '')}
++        contextual_prefix = repr(tuple(sorted(contextual_scope.items())))
++        owned_photo = owned_copy_history(row, identity)
++    scoped_keys = []
++    for kind, value in keys:
++        share_owned_photo = owned_photo and kind == 'same_card_photo_reuse_risk'
++        key_prefix = contextual_prefix if contextual and not share_owned_photo else prefix
++        scoped_keys.append((kind, f'{key_prefix}:{value}'))
++    return scoped_keys
+ 
+ 
+ def cluster_copy_records(records):
+@@ -97,10 +181,8 @@
+ 
+ def unique_physical_rows(rows: list[dict], identity: dict | None = None):
+     """Call only after source/identity admission; never merge rejected variants."""
+-    owned = ((identity or {}).get('serial_number'), (identity or {}).get('serial_total'))
+-    owned = tuple(int(x) for x in owned) if all(owned) else None
+-    records = [dict(keys=physical_keys(row), owned=owned is not None and
+-                    full_serial(str(row.get('listing_title') or '')) == owned) for row in rows]
++    records = [dict(keys=physical_keys(row, identity), owned=owned_copy_history(row, identity))
++               for row in rows]
+     kept, dropped = cluster_copy_records(records)
+     excluded = [dict(dropped_id=str(rows[i].get('id')),
+         kept_id=str(rows[anchor].get('id')) if anchor is not None else None,
+diff --git a/apps/api/src/card_platform/valuation_worker.py b/apps/api/src/card_platform/valuation_worker.py
+--- a/apps/api/src/card_platform/valuation_worker.py
++++ b/apps/api/src/card_platform/valuation_worker.py
+@@ -1378,6 +1378,7 @@
+                        cd.is_memorabilia, cd.memorabilia_types,
+                        cd.is_patch, cd.print_run,
+                        ci.serial_number, ci.serial_total, ci.grade_company, ci.grade_value,
++                       ci.grade_cert_number,
+                        ci.image_front_url, ci.image_back_url, ci.notes,
+                        purchase.notes AS purchase_context,
+                        purchase.venue AS purchase_venue,
+@@ -2350,7 +2351,7 @@
+             ]],
+         })
+ 
+-    def _visual_candidate_can_stop(self, identity, comp, decision) -> bool:
++    def _visual_candidate_can_stop(self, identity, comp, decision, *, admitted_rows=None) -> bool:
+         """Only a formally admissible same-card lead ends further image discovery.
+ 
+         Final publication still revalidates persisted source facts and decisions.
+@@ -2387,7 +2388,27 @@
+                 visual_facts=visual_facts,
+                 resolver=self.knowledge_runtime.resolver if self.knowledge_runtime else None,
+             )
+-        return judged.tier in {ComparableTier.T0, ComparableTier.T1} and not judged.hard_conflicts
++        if judged.tier not in {ComparableTier.T0, ComparableTier.T1} or judged.hard_conflicts:
++            return False
++        from card_platform.domain.sale_independence import unique_physical_rows
++        row = {
++            'id': comp.source_url, 'source_code': comp.source_code,
++            'source_url': comp.source_url, 'listing_title': comp.title,
++            'grade_company': comp.grade_company,
++            'comparable_tier': judged.tier.value,
++            'provider_raw_payload': comp.provider_payload,
++            'raw_payload': {
++                'visual_verdict': decision.verdict, 'visual_confidence': decision.confidence,
++                'visual_evidence_binding': decision.evidence_binding,
++                'visual_match_evidence': [item.model_dump(mode='json') for item in decision.match_evidence],
++            },
++        }
++        # Keep only formally admitted observations in this local stage's pool.
++        # An owned source can also identify its same-photo relisting transitively.
++        pool = admitted_rows if admitted_rows is not None else []
++        pool.append(row)
++        independent, _ = unique_physical_rows(pool, identity)
++        return any(item['id'] == row['id'] for item in independent)
+ 
+     async def _verify_comparable_images(
+         self, identity: dict, search: ComparableSearchResult, *, reviewed_urls: set[str] | None = None,
+@@ -2458,6 +2479,7 @@
+         new_count = 0
+         evidence_review_attempt_count = 0
+         post_review_rejected = {}
++        admitted_visual_rows = []
+         stop_reason = "candidate_pool_exhausted"
+         notes = list(search.notes)
+ 
+@@ -2496,7 +2518,8 @@
+                                 for c in batch
+                             )
+                         stop_candidate = next((c for c in batch if c.id in decisions
+-                            and self._visual_candidate_can_stop(identity, by_url[c.id], decisions[c.id])), None)
++                            and self._visual_candidate_can_stop(
++                                identity, by_url[c.id], decisions[c.id], admitted_rows=admitted_visual_rows)), None)
+                         if stop_candidate is not None:
+                             if (getattr(self, 'evidence_reviewer', None) is not None
+                                     and stop_candidate.id not in reviewed_urls):
+@@ -2513,6 +2536,8 @@
+                                 )
+                                 notes.extend(checked.notes)
+                                 if not checked.comparables:
++                                    admitted_visual_rows[:] = [row for row in admitted_visual_rows
++                                                              if row['id'] != stop_candidate.id]
+                                     post_review_rejected[stop_candidate.id] = next(
+                                         (item for item in checked.rejected_candidates
+                                          if item.get('source_url') == stop_candidate.id),
+diff --git a/apps/api/src/card_platform/domain/comparables.py b/apps/api/src/card_platform/domain/comparables.py
+--- a/apps/api/src/card_platform/domain/comparables.py
++++ b/apps/api/src/card_platform/domain/comparables.py
+@@ -160,13 +160,16 @@
+ 
+     def contains_part(part: str) -> bool:
+         normalized_part = normalize_text(part)
+-        published = {normalize_text(a) for a in published_subject_aliases(part, resolver)}
+         # Initial punctuation varies across labels and seller titles (C.J./CJ).
+-        # Collapse only adjacent one-letter initials, not arbitrary name words.
++        # Use the same bounded normalization for alias lookup as literal names;
++        # otherwise a translated title loses a roster member despite its alias.
+         compact_part = re.sub(r"\b([a-z])\s+([a-z])\b", r"\1\2", normalized_part)
++        lookup_names = tuple(dict.fromkeys((part, normalized_part, compact_part)))
++        published = {normalize_text(a) for name in lookup_names
++                     for a in published_subject_aliases(name, resolver)}
+         compact_title = re.sub(r"\b([a-z])\s+([a-z])\b", r"\1\2", normalize_text(text))
+         return (
+-            published_subject_matches(text, part, resolver)
++            any(published_subject_matches(text, name, resolver) for name in lookup_names)
+             or (normalized_part not in published and _contains(text, part))
+             or bool(
+                 normalized_part not in published and re.search(
+@@ -178,7 +181,7 @@
+                 _contains(text, alias)
+                 for alias in (
+                     *aliases.get(normalized_part, ()),
+-                    *matching_player_aliases(normalized_part),
++                    *(alias for name in lookup_names for alias in matching_player_aliases(name)),
+                 )
+                 if alias not in PLAYER_MATCH_ALIAS_EXCLUSIONS.get(normalized_part, set())
+                 and normalize_text(alias) not in published
+diff --git a/apps/api/src/card_platform/repository.py b/apps/api/src/card_platform/repository.py
+--- a/apps/api/src/card_platform/repository.py
++++ b/apps/api/src/card_platform/repository.py
+@@ -7,6 +7,8 @@
+ from psycopg.types.json import Jsonb
+ 
+ from card_platform.domain.redemption import redemption_identity
++from card_platform.purchase_source_roles import PURCHASE_SOURCE_LATERAL
++from card_platform.domain.market_price_projection import apply_market_snapshot_read_contract
+ from card_platform.domain.codex_joint_valuation import joint_valuation
+ from card_platform.codex_joint_context import current_image_hashes, recovery_reviews
+ from card_platform.domain.portfolio import LedgerEntry, TransactionKind, calculate_position
+@@ -479,6 +481,7 @@
+                 ci.is_numbered,
+                 ci.serial_number, ci.serial_total, ci.grade_company, ci.grade_value,
+                 ci.strategy_tags, ci.image_front_url, ci.image_back_url, u.base_currency,
++                purchase_sources.sources AS market_purchase_sources,
+                 purchase.unit_price AS purchase_price,
+                 purchase.unit_price * purchase.quantity + purchase.fee_amount AS purchase_total_cost,
+                 purchase.currency AS purchase_currency,
+@@ -541,6 +544,7 @@
+             JOIN player p ON p.id = cd.player_id
+             JOIN card_set cs ON cs.id = cd.card_set_id
+             JOIN brand b ON b.id = cs.brand_id
++            {PURCHASE_SOURCE_LATERAL}
+             LEFT JOIN LATERAL (
+                 SELECT s.*, to_jsonb(s) AS snapshot
+                 FROM valuation_snapshot s
+@@ -658,6 +662,7 @@
+         items: list[PortfolioItem] = []
+         for row in rows:
+             original = row.pop("synthesis_original", None)
++            row, original = apply_market_snapshot_read_contract(row, original)
+             if original and original.get('model_version') in {'codex-independent-fallback-v1','codex-researched-fallback-v2'}:
+                 source_evidence = original.get('evidence') or {}
+                 row['valuation_result_summary'] = {**(row.get('valuation_result_summary') or {}),
+diff --git a/apps/api/src/card_platform/domain/market_price_projection.py b/apps/api/src/card_platform/domain/market_price_projection.py
+new file mode 100644
+--- /dev/null
++++ b/apps/api/src/card_platform/domain/market_price_projection.py
+@@ -0,0 +1,67 @@
++"""Read-only market publication checks against current ownership provenance."""
++from decimal import Decimal, InvalidOperation
++
++from card_platform.purchase_source_roles import is_owned_purchase_source
++
++CONTRACT = "market-price-ownership-read-v1"
++HISTORICAL_CODEX_MODELS = {"codex-independent-fallback-v1", "codex-researched-fallback-v2"}
++
++
++def apply_market_snapshot_read_contract(row: dict, snapshot: dict | None):
++    """Withhold a contaminated market projection, retaining its immutable record.
++
++    Only the owner/item-scoped assignment join is authority. A persisted role
++    boolean, notes link or another holding's purchase does not establish ownership.
++    Manual prices and explicitly labelled historical Codex references retain their
++    existing presentation contract.
++    """
++    purchase_sources = row.pop("market_purchase_sources", None) or []
++    if (not snapshot or snapshot.get("method") in {"manual", "manual_override"}
++            or snapshot.get("model_version") in HISTORICAL_CODEX_MODELS):
++        return row, snapshot
++    evidence = snapshot.get("evidence") or {}
++    if not isinstance(evidence, dict):
++        return row, snapshot
++    used = []
++    for key in ("used_comparables", "comparables"):
++        entries = evidence.get(key)
++        if not isinstance(entries, list):
++            continue
++        for entry in entries:
++            if not isinstance(entry, dict) or entry.get("used_for_center") is False:
++                continue
++            if "final_weight" in entry:
++                try:
++                    weight = Decimal(str(entry["final_weight"]))
++                    if weight.is_finite() and weight <= 0:
++                        continue
++                except (InvalidOperation, ValueError):
++                    pass
++            used.append(entry)
++    identity = {"owner_id": row.get("owner_id"), "collection_item_id": row.get("id"),
++                "purchase_sources": purchase_sources}
++    owned = [entry["source_url"] for entry in used if isinstance(entry, dict)
++             and is_owned_purchase_source(identity, entry)]
++    if not owned:
++        return row, snapshot
++    prior_status = row.get("valuation_status")
++    summary = dict(row.get("valuation_result_summary") or {})
++    if prior_status in {None, "succeeded"}:
++        summary["reason"] = "持仓本件成交已保留为历史参考；缺少可独立支持的市场估值"
++    summary.update(publication_validation={"contract": CONTRACT, "status": "withheld",
++                       "reason_codes": ["owned_copy_history_not_independent_market_price"],
++                       "snapshot_id": str(snapshot.get("id")), "source_urls": owned,
++                       "persisted_job_status": prior_status,
++                       "historical_value": {key: snapshot.get(key) for key in
++                           ("currency", "low_value", "fair_value", "high_value")}})
++    row.update(valuation_currency=None, valuation_low=None, fair_value=None,
++               valuation_high=None,
++               valuation_status=("insufficient_evidence" if prior_status in {None, "succeeded"}
++                                 else prior_status),
++               valuation_result_summary=summary,
++               shadow_valuation_currency=None, shadow_valuation_low=None,
++               shadow_fair_value=None, shadow_valuation_high=None,
++               shadow_valuation_status="insufficient")
++    # Neither the joint valuation nor the shadow fallback may reintroduce the
++    # same contaminated market estimate. No persisted snapshot or job is changed.
++    return row, None

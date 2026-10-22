@@ -167,6 +167,11 @@ def build_purchase_cost_search_plan(
         # Round-robin by subject before spending a limited query budget on
         # one person's aliases. These terms discover, never verify, a roster.
         per_subject = [_player_candidates({}, subject, knowledge) for subject in roster]
+        # A three-person roster exhausted the budget on English names, while
+        # domestic titles named all subjects only in Chinese. Prefer a reviewed
+        # Han query for each subject; matching still verifies the entire roster.
+        per_subject = [sorted(group, key=lambda entry: not bool(_HAN.search(entry[0])))
+                       for group in per_subject]
         players = [(group[index][0], 'roster_subject')
                    for index in range(max(map(len, per_subject), default=0))
                    for group in per_subject if index < len(group)]

@@ -296,7 +296,7 @@ class MarketRepository:
             WHERE collection_item_id = %s AND method = 'ai_estimate'
               AND identity_compatibility <> 'incompatible'
               AND (%s::timestamptz IS NULL OR valued_at >= %s OR (
-                  model_version = 'codex-independent-fallback-v1' AND id = (
+                  model_version IN ('codex-independent-fallback-v1','codex-researched-fallback-v2') AND id = (
                       SELECT current_value.id FROM valuation_snapshot current_value
                       WHERE current_value.collection_item_id = v.collection_item_id
                         AND current_value.identity_compatibility <> 'incompatible'

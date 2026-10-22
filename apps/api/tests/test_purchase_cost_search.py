@@ -183,3 +183,8 @@ def test_planner_does_not_require_newer_identity_placeholder_helper(monkeypatch)
     assert module.CardIdentityResolver is card_identity.CardIdentityResolver
     assert module._clean_name("N/A") == ""
     assert module._clean_name("Test Player") == "Test Player"
+
+def test_three_subject_roster_reserves_chinese_recall_in_three_keyword_budget():
+    plan=build_purchase_cost_search_plan({'player_name':'Jason Kidd / Jason Terry / Dirk Nowitzki'})
+    assert len(plan['keywords'])==3
+    assert all(any('\u4e00' <= char <= '\u9fff' for char in term) for term in plan['keywords'])

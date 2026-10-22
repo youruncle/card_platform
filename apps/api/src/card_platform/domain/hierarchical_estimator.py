@@ -14,6 +14,7 @@ class ClassifiedSale:
     age_days: int
     classification: Classification
     adjustment: Adjustment = Adjustment()
+    seller_key: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,6 +139,11 @@ class HierarchicalEstimator:
             + recency_quality * Decimal("0.14")
             + source_quality * Decimal("0.12"),
         )
+        # Coverage is a count of independent current sales, never model
+        # certainty about the match. A single or old record cannot be high
+        # confidence even with perfect title/visual agreement.
+        from card_platform.domain.sale_independence import independence_confidence_cap
+        confidence = min(confidence, independence_confidence_cap(center_sales))
         return HierarchicalEstimate(
             low=_q(low), fair=_q(fair), high=_q(high),
             landed_low=_q(low + shipping), landed_fair=_q(fair + shipping),

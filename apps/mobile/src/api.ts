@@ -2,7 +2,7 @@ import {
   captureForm,
   type CaptureDraft,
 } from "../../../packages/card-core/src/capture";
-import { platformFetch } from "./transport";
+import { platformFetch, type TimedRequestInit } from "./transport";
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -61,26 +61,32 @@ export class MobileApi {
     path: string,
     options: RequestInit = {},
     image = false,
+    timeoutMs?: number,
   ): Promise<T> {
     if (this.closed) throw new Error("会话已结束");
+    if (options.signal?.aborted) throw new Error("请求已取消");
     const url = protectedUrl(this.origin, path);
     const controller = new AbortController();
     this.controllers.add(controller);
+    const cancel = () => controller.abort();
+    options.signal?.addEventListener("abort", cancel, { once: true });
     const timeout = setTimeout(
       () => controller.abort(),
-      options.body instanceof FormData ? 180000 : 30000,
+      timeoutMs ?? (options.body instanceof FormData ? 180000 : 30000),
     );
     const headers = new Headers(options.headers);
     if (this.token) headers.set("Authorization", `Bearer ${this.token}`);
     try {
-      const response = await this.transport(url, {
+      const requestOptions: TimedRequestInit = {
         ...options,
         headers,
         signal: controller.signal,
         credentials: "omit",
         cache: "no-store",
         redirect: "error",
-      });
+        requestTimeoutMs: timeoutMs,
+      };
+      const response = await this.transport(url, requestOptions);
       if (this.closed) throw new Error("会话已结束");
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
@@ -133,11 +139,12 @@ export class MobileApi {
           throw new Error("无法建立安全连接，请检查设备日期和网络后重试。");
         throw new Error("无法连接云端，请检查网络后重试。");
       }
-      if (error instanceof Error && error.name === "AbortError")
+      if (error && typeof error === "object" && "name" in error && error.name === "AbortError")
         throw new Error("请求已取消或超时，草稿会保留，可重新尝试");
       throw error;
     } finally {
       clearTimeout(timeout);
+      options.signal?.removeEventListener("abort", cancel);
       this.controllers.delete(controller);
     }
   }

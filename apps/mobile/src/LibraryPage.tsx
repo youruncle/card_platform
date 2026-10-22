@@ -15,10 +15,17 @@ import {
   type PortfolioSort,
 } from "../../../packages/card-core/src/sorting";
 import { PrivateImage } from "./PrivateImage";
+import { BulkActions, TrashPage } from "./LibraryActions";
+import { PurchaseCostPanel } from "./PurchaseCost";
+import type { CostSearchResult } from "./purchaseCostApi";
+import { CardManagement } from "./CardManagement";
 export const statusName = (status?: string | null) =>
   ({
     queued: "排队中",
     running: "处理中",
+    identifying: "核验身份中",
+    searching: "搜索证据中",
+    calculating: "计算估值中",
     succeeded: "已完成",
     failed: "处理失败",
     cancelled: "已取消",
@@ -32,8 +39,10 @@ export function LibraryPage({
   onOpen,
   capabilities = LEGACY_CAPABILITIES,
   active = true,
+  ownerId,
 }: {
   active?: boolean;
+  ownerId?: string;
   capabilities?: ClientCapabilities;
   api: MobileApi;
   onOpen: (id: string) => void;
@@ -45,6 +54,9 @@ export function LibraryPage({
     [data, setData] = useState<Page | null>(null),
     [error, setError] = useState(""),
     [revision, setRevision] = useState(0);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [trash, setTrash] = useState(false);
+  const [costItem, setCostItem] = useState<{id:string; result?:CostSearchResult}|null>(null);
   const [sort, setSort] = useState<PortfolioSort>(DEFAULT_PORTFOLIO_SORT);
   const snapshot = useRef<string | undefined>(undefined);
   const [loading, setLoading] = useState(false);
@@ -81,6 +93,8 @@ export function LibraryPage({
     setRevision(v => v + 1);
   }
   function resetPage() {
+    setSelected(new Set());
+    setCostItem(null);
     loadedPages.current = 1;
     refreshPages.current = 1;
     setData(null);
@@ -102,7 +116,7 @@ export function LibraryPage({
         search: JSON.stringify(parseSearchDraft({ q: search, holding_status: holding })),
       });
       const sorting = capabilities.portfolio_sort
-        ? portfolioSortQuery(sort, token) + (sort.sort_by === "created_at" ? "&snapshot_mode=membership" : "") : "";
+        ? portfolioSortQuery(sort, token) : "";
       return api.get<Page>(`/v1/portfolio/items/page?${params}${sorting}`);
     };
     const load = async () => {
@@ -152,15 +166,18 @@ export function LibraryPage({
     }
   }
   useEffect(() => {
-    if (!active || loading || error || !sentinel.current || typeof IntersectionObserver === "undefined") return;
+    if (!active || trash || costItem || loading || error || !sentinel.current || typeof IntersectionObserver === "undefined") return;
     const observer = new IntersectionObserver(entries => {
       if (entries.some(entry => entry.isIntersecting)) more();
     }, { rootMargin: "500px" });
     observer.observe(sentinel.current);
     return () => observer.disconnect();
-  }, [active, loading, error, data]);
+  }, [active, trash, costItem, loading, error, data]);
   return (
     <>
+      {trash && ownerId && <TrashPage api={api} ownerId={ownerId} onBack={() => setTrash(false)} onChanged={refresh} />}
+      {costItem && <section className="cost-focus" aria-label="所选卡片成本"><button onClick={() => setCostItem(null)}>‹ 返回卡库</button><h1>购入成本</h1><PurchaseCostPanel key={costItem.id} api={api} itemId={costItem.id} initialResult={costItem.result} onChanged={refresh} /></section>}
+      <div hidden={trash || !!costItem}>
       <div className="heading">
         <div>
           <p className="eyebrow">MY COLLECTION</p>
@@ -174,6 +191,7 @@ export function LibraryPage({
           刷新
         </button>
       </div>
+      {ownerId && <div className="actions"><button onClick={() => { setCostItem(null); setTrash(true); }}>回收站</button></div>}
       <form
         className="search"
         onSubmit={(e) => {
@@ -253,6 +271,7 @@ export function LibraryPage({
       ) : (
         <>
           <p className="muted">共 {data.total} 张卡片</p>
+          {ownerId && <BulkActions api={api} ownerId={ownerId} items={data.items} selected={selected} onSelectionChange={setSelected} onChanged={refresh} active={active && !trash && !costItem} onOpenCost={(id,result) => setCostItem({id,result})} />}
           {data.snapshot_at && (
             <p className="small muted">
               列表更新于{" "}
@@ -274,6 +293,7 @@ export function LibraryPage({
             <div className="collection-grid">
               {data.items.map((card) => (
                 <article className="panel card-tile" key={card.id}>
+                  {ownerId && <label className="check card-select"><input type="checkbox" aria-label={`选择 ${card.player_name}`} checked={selected.has(card.id)} onChange={event => {const checked=event.target.checked;setSelected(current => {const next=new Set(current);if(checked)next.add(card.id);else next.delete(card.id);return next;});}} />选择</label>}
                   <PrivateImage
                     api={api}
                     path={
@@ -316,6 +336,7 @@ export function LibraryPage({
                       </span>
                     </span>
                   </button>
+                  {ownerId && <div className="actions tile-actions"><button onClick={() => setCostItem({id:card.id})}>获取成本</button><button onClick={() => onOpen(card.id)}>估值与管理</button></div>}
                 </article>
               ))}
             </div>
@@ -327,6 +348,7 @@ export function LibraryPage({
           </div>
         </>
       )}
+      </div>
     </>
   );
 }
@@ -346,13 +368,18 @@ export function DetailPage({
   onBack,
   capabilities = LEGACY_CAPABILITIES,
   onSupplement,
+  ownerId,
+  baseCurrency = "CNY",
 }: {
   api: MobileApi;
   id: string;
   capabilities?: ClientCapabilities;
   onSupplement?: (side: Side) => Promise<void>;
+  ownerId?: string;
+  baseCurrency?: string;
   onBack: () => void;
 }) {
+  const [revision, setRevision] = useState(0);
   const [supplementing, setSupplementing] = useState(false);
   const [card, setCard] = useState<Card | null>(null),
     [evidence, setEvidence] = useState<Evidence | null>(null),
@@ -379,7 +406,7 @@ export function DetailPage({
     return () => {
       active = false;
     };
-  }, [api, id]);
+  }, [api, id, revision]);
   return (
     <>
       <button onClick={onBack}>‹ 返回卡库</button>
@@ -457,9 +484,16 @@ export function DetailPage({
                 {card.fair_value
                   ? `${card.valuation_currency ?? ""} ${card.fair_value}`
                   : "尚无可靠估值"}
+                {card.fair_value && card.valuation_status !== "succeeded" && (
+                  <small> 历史参考；本轮{statusName(card.valuation_status)}，未验证此价格</small>
+                )}
               </dd>
             </dl>
           </section>
+          {ownerId && <>
+            <PurchaseCostPanel api={api} itemId={id} onChanged={() => setRevision(v => v + 1)} />
+            <CardManagement api={api} id={id} ownerId={ownerId} baseCurrency={baseCurrency} onChanged={() => setRevision(v => v + 1)} onDeleted={onBack} />
+          </>}
           <section className="panel">
             <details>
               <summary>估值与成交证据</summary>

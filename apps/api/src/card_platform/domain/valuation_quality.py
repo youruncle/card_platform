@@ -100,6 +100,7 @@ class ShadowSale:
     source_reliability: Decimal
     evidence_level: str
     pricing_basis: str | None = None
+    seller_key: str | None = None
 
     @property
     def card_value(self) -> Decimal:
@@ -302,6 +303,8 @@ class ShadowValuationEstimator:
             ComparableTier.T3: Decimal("0.20"),
         }[eligible[0].tier]
         confidence = min(confidence, tier_confidence_cap)
+        from card_platform.domain.sale_independence import independence_confidence_cap
+        confidence = min(confidence, independence_confidence_cap(eligible))
         if identity_blockers:
             confidence = min(confidence, Decimal("0.25"))
         return ShadowEstimate(

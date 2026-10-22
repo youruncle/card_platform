@@ -470,6 +470,7 @@ CARDS = {
 
 
 async def main() -> None:
+    raise SystemExit('旧硬编码区间与固定汇率导入已停用。请执行 scripts/codex_sales_research.py 的逐卡两市场研究流程；历史快照保留。')
     root = Path(__file__).resolve().parents[1] / "apps/api"
     db = Database(get_settings())
     await db.open()

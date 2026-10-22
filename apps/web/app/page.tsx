@@ -3,10 +3,13 @@
 import { DEFAULT_PORTFOLIO_SORT, PORTFOLIO_SORT_OPTIONS, type PortfolioSort, type PortfolioSortBy, type PortfolioSortOrder } from "../../../packages/card-core/src/sorting";
 
 import { confirmationPayload } from "../../../packages/card-core/src/confirmation";
+import { pairReviewPayload, pairReviewState, type PairReview } from "../../../packages/card-core/src/recognition";
+import { PairReviewFields } from "../components/pair-review-fields";
 import { HoldingStatusControl } from "../components/holding-status-control";
 import { NewsRiskAlerts } from "../components/news-risk-alerts";
 
-import { PurchaseCostPanel, PurchaseCostAudit, PurchaseCostEvidenceModal } from "../components/purchase-cost-panel";
+import dynamic from "next/dynamic";
+import { deferredPanel, DeferredPanelLoading } from "../components/deferred-panel";
 import { PurchaseCostValues } from "../components/purchase-cost-values";
 import { usePurchaseCostLookup } from "../lib/use-purchase-cost-lookup";
 import { CollectionSearch } from "../components/collection-search";
@@ -40,9 +43,9 @@ import {
 import { FormEvent, MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { GlobalImageViewer, OpenableImage } from "@/components/image-viewer";
-import { CapturePanel } from "@/components/capture-panel";
+
 import { PortfolioImage } from "@/components/portfolio-image";
-import { FlatbedBatchPanel } from "@/components/flatbed-batch-panel";
+
 import {
   acceptedEvidenceComparableIds,
   selectUsedComparableRows,
@@ -90,12 +93,14 @@ import {
   retryAutomatedValuation,
   estimateMarket,
   enqueueScannerRecognition,
+  enqueueCaptureRecognition,
+  getCaptureRecognitionJob,
+  confirmCaptureRecognition,
   getScannerJobImage,
   getScannerCameraControls,
   getScannerRecognitionJobs,
   recognizeCardAuto,
   recognizeCardBatch,
-  recognizeCardPair,
   retryScannerRecognition,
   updateScannerCameraControls,
   deleteScannerRecognition,
@@ -127,6 +132,13 @@ import {
   type ScannerRecognitionJob,
   type ScannerCameraControls,
 } from "@/lib/api";
+
+
+const CapturePanel = deferredPanel(() => dynamic(() => import("../components/capture-panel").then(module => module.CapturePanel), { loading: DeferredPanelLoading }));
+const FlatbedBatchPanel = deferredPanel(() => dynamic(() => import("../components/flatbed-batch-panel").then(module => module.FlatbedBatchPanel), { loading: DeferredPanelLoading }));
+const PurchaseCostPanel = deferredPanel(() => dynamic(() => import("../components/purchase-cost-panel").then(module => module.PurchaseCostPanel), { loading: DeferredPanelLoading }));
+const PurchaseCostAudit = deferredPanel(() => dynamic(() => import("../components/purchase-cost-panel").then(module => module.PurchaseCostAudit), { loading: DeferredPanelLoading }));
+const PurchaseCostEvidenceModal = deferredPanel(() => dynamic(() => import("../components/purchase-cost-panel").then(module => module.PurchaseCostEvidenceModal), { loading: DeferredPanelLoading }));
 
 function closeOnBackdrop(
   event: ReactMouseEvent<HTMLDivElement>,
@@ -312,6 +324,7 @@ export default function Dashboard() {
   const portfolioPageRef = useRef(1);
   const portfolioRequestRef = useRef(0);
   const portfolioMetricsRequestRef = useRef(0);
+  const portfolioMetricsOwnerRef = useRef<string | null>(null);
   const portfolioBusyRef = useRef(false);
   const importedScannerItemsRef = useRef(new Set<string>());
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
@@ -404,6 +417,8 @@ export default function Dashboard() {
   const [scannerJobs, setScannerJobs] = useState<ScannerRecognitionJob[]>([]);
   const [scannerResetToken, setScannerResetToken] = useState(0);
   const [selectedScannerJobId, setSelectedScannerJobId] = useState<string | null>(null);
+  const [pairReview, setPairReview] = useState<PairReview | null>(null);
+  const pairCaptureRequest = useRef<{front: File; back: File; requestId: string} | null>(null);
   const [cardDraft, setCardDraft] = useState<EditableRecognition | null>(null);
   const [editingPurchase, setEditingPurchase] = useState<{ id: string; value: string } | null>(null);
   const [editingSerial, setEditingSerial] = useState<{
@@ -414,6 +429,7 @@ export default function Dashboard() {
 
   const refreshMetrics = useCallback((id: string, summarySource?: Promise<PortfolioSummary>) => {
     const version = ++portfolioMetricsRequestRef.current;
+    portfolioMetricsOwnerRef.current = id;
     setPortfolioAuxErrors({summary: "", corrections: ""});
     void (summarySource ?? getPortfolioSummary(id)).then(value => {
       if (version !== portfolioMetricsRequestRef.current) return;
@@ -449,23 +465,20 @@ export default function Dashboard() {
     }
     if (!paginate) portfolioSnapshotRef.current = null;
     try {
-      // If the page already projects the entire account, compute its summary once.
-      // Filtered lists stay independent of the account-wide summary request.
-      const combineSummary = reloadMetrics && Object.keys(searchFiltersRef.current).length === 0;
+      // Render the requested page before starting expensive account-wide metrics.
+      // Combining summary into this request would project every card on first load.
       const loadPage = async () => {
         try {
           return await getPortfolioPage(id, requestedPage, searchFiltersRef.current, portfolioPageSizeRef.current,
-            portfolioSortRef.current, portfolioSnapshotRef.current, combineSummary);
+            portfolioSortRef.current, portfolioSnapshotRef.current);
         } catch (reason) {
           if (!(reason instanceof ApiError) || reason.code !== "snapshot_expired" || requestId !== portfolioRequestRef.current) throw reason;
           portfolioSnapshotRef.current = null;
-          return getPortfolioPage(id, 1, searchFiltersRef.current, portfolioPageSizeRef.current, portfolioSortRef.current, null, combineSummary);
+          // Rebuild the snapshot at the requested page so an idle list still navigates.
+          return getPortfolioPage(id, requestedPage, searchFiltersRef.current, portfolioPageSizeRef.current, portfolioSortRef.current, null);
         }
       };
       const pageRequest = loadPage();
-      if (reloadMetrics) refreshMetrics(id, combineSummary
-        ? pageRequest.then(result => result.summary ?? getPortfolioSummary(id))
-        : undefined);
       const nextPage = await pageRequest;
       // A page change or session change supersedes any earlier response.
       if (requestId !== portfolioRequestRef.current) return false;
@@ -478,6 +491,7 @@ export default function Dashboard() {
       setPortfolioTotalPages(nextPage.total_pages);
       portfolioPageRef.current = nextPage.page;
       setPortfolioError("");
+      if (reloadMetrics || portfolioMetricsOwnerRef.current !== id) refreshMetrics(id);
       return true;
     } catch (reason) {
       if (requestId === portfolioRequestRef.current) {
@@ -593,6 +607,7 @@ export default function Dashboard() {
       active = false;
       ++portfolioRequestRef.current;
       ++portfolioMetricsRequestRef.current;
+      portfolioMetricsOwnerRef.current = null;
       ++detailRequestRef.current;
       portfolioBusyRef.current = false;
     };
@@ -602,6 +617,7 @@ export default function Dashboard() {
     const expireSession = () => {
       ++portfolioRequestRef.current;
       ++portfolioMetricsRequestRef.current;
+      portfolioMetricsOwnerRef.current = null;
       ++detailRequestRef.current;
       setItemDetail(null);
       setItems([]);
@@ -836,6 +852,7 @@ export default function Dashboard() {
     } finally {
       ++portfolioRequestRef.current;
       ++portfolioMetricsRequestRef.current;
+      portfolioMetricsOwnerRef.current = null;
       ++detailRequestRef.current;
       setItemDetail(null);
       portfolioBusyRef.current = false;
@@ -921,7 +938,7 @@ export default function Dashboard() {
         is_autograph: String(form.get("isAutograph") === "on"),
         is_patch: String(form.get("isPatch") === "on"),
       });
-      const created = await createItem({
+      const payload = {
         ...identity,
         strategy_tags: form.getAll("strategyTags"),
         purchase: {
@@ -933,28 +950,27 @@ export default function Dashboard() {
           venue: form.get("sellerName") || null,
           notes: form.get("purchaseNotes") || null,
         },
-      });
-      if (cardDraft) await uploadItemImages(created.id, ownerId, [
+      };
+      const paired = !!cardDraft && !!recognitionFile && !!recognitionBackFile;
+      const captureJobId = cardDraft ? selectedScannerJobId : null;
+      const pairConfirmation = pairReviewPayload(cardDraft ?? {}, paired, pairReview);
+      if (cardDraft && paired && !selectedScannerJobId)
+        throw new Error("双面录入需要保存的识别任务，请重新识别当前照片");
+      const created = captureJobId
+        ? await confirmCaptureRecognition(captureJobId, {...payload, ...pairConfirmation})
+        : await createItem(payload);
+      if (cardDraft && !captureJobId) await uploadItemImages(created.id, ownerId, [
         ...(recognitionFile ? [{side: "front" as const, file: recognitionFile}] : []),
         ...(recognitionBackFile ? [{side: "back" as const, file: recognitionBackFile}] : []),
       ]);
-      const consumedScannerJobId = selectedScannerJobId;
+      const consumedScannerJobId = captureJobId;
       let remainingScannerJobs: ScannerRecognitionJob[] | null = null;
-      let scannerCleanupError = "";
       if (consumedScannerJobId) {
-        try {
-          await deleteScannerRecognition(consumedScannerJobId);
-          remainingScannerJobs = await getScannerRecognitionJobs().catch(() =>
-            scannerJobs.filter((job) => job.id !== consumedScannerJobId),
-          );
-        } catch (cleanupError) {
-          remainingScannerJobs = scannerJobs.filter((job) => job.id !== consumedScannerJobId);
-          scannerCleanupError = cleanupError instanceof Error
-            ? `卡片已录入，但队列清理失败：${cleanupError.message}`
-            : "卡片已录入，但队列清理失败";
-        }
+        remainingScannerJobs = (await getScannerRecognitionJobs().catch(() => scannerJobs))
+          .filter(job => job.id !== consumedScannerJobId);
         setScannerJobs(remainingScannerJobs);
         setSelectedScannerJobId(null);
+        setPairReview(null);
       }
       setShowAddCard(false);
       setCardDraft(null);
@@ -972,7 +988,6 @@ export default function Dashboard() {
         if (nextScannerJob) {
           await openScannerJob(nextScannerJob);
         }
-        if (scannerCleanupError) setError(scannerCleanupError);
       } else if (selectedBatchIndex !== null && batchDrafts.length > 1) {
         const remaining = batchDrafts.filter((_, index) => index !== selectedBatchIndex);
         const nextIndex = remaining.findIndex((draft) => draft.result !== null);
@@ -1120,6 +1135,8 @@ export default function Dashboard() {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     setError("");
+    setPairReview(null);
+    setRecognitionResult(null);
     setRecognitionLoading(true);
     setRecognitionProgress(8);
     setRecognitionPhase("正在上传并校验图片");
@@ -1128,7 +1145,7 @@ export default function Dashboard() {
       setRecognitionProgress((current) => {
         const next = Math.min(current + (current < 45 ? 7 : 3), 90);
         if (next >= 62) setRecognitionPhase("正在联网核验目录与候选");
-        else if (next >= 24) setRecognitionPhase("Qwen3-VL 正在提取卡面信息");
+        else if (next >= 24) setRecognitionPhase("正在提取卡面信息");
         return next;
       });
     }, 900);
@@ -1171,7 +1188,29 @@ export default function Dashboard() {
           return;
         setRecognitionFile(front);
         setRecognitionBackFile(back);
-        setRecognitionResult(await recognizeCardPair(front, back));
+        if (pairCaptureRequest.current?.front !== front || pairCaptureRequest.current?.back !== back)
+          pairCaptureRequest.current = {front, back, requestId: crypto.randomUUID()};
+        let job = await enqueueCaptureRecognition(front, back, pairCaptureRequest.current!.requestId);
+        setSelectedScannerJobId(job.id);
+        const deadline = Date.now() + 180000;
+        while (job.status === "queued" || job.status === "running") {
+          if (Date.now() >= deadline)
+            throw new Error("识别任务已保存，可在照片录卡 / 任务中继续查看");
+          setRecognitionPhase("任务已保存，正在核对正反面身份");
+          await new Promise(resolve => window.setTimeout(resolve, 1000));
+          job = await getCaptureRecognitionJob(job.id);
+        }
+        if (job.status !== "succeeded" || !job.result)
+          throw new Error(job.error_message || "识别未完成，请在照片录卡 / 任务中重试");
+        if (!job.front_image_url || !job.back_image_url)
+          throw new Error("识别任务缺少当前双面照片，请在照片录卡 / 任务中检查");
+        const [currentFront, currentBack] = await Promise.all([
+          getScannerJobImage(job.front_image_url, "front"),
+          getScannerJobImage(job.back_image_url, "back"),
+        ]);
+        setRecognitionFile(currentFront);
+        setRecognitionBackFile(currentBack);
+        setRecognitionResult(job.result);
       } else if (recognitionMode === "scanner") {
         const front = form.get("frontImage");
         const back = form.get("backImage");
@@ -1232,6 +1271,7 @@ export default function Dashboard() {
       setRecognitionFile(front);
       setRecognitionBackFile(back);
       setRecognitionResult(job.result);
+      setPairReview(null);
       setSelectedScannerJobId(job.id);
       setSelectedBatchIndex(null);
       setError("");
@@ -1281,6 +1321,12 @@ export default function Dashboard() {
   function handleUseRecognition(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!recognitionResult) return;
+    try {
+      pairReviewPayload(recognitionResult, !!recognitionFile && !!recognitionBackFile, pairReview);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "请先核对正反面");
+      return;
+    }
     const form = new FormData(event.currentTarget);
     const optionalNumber = (name: string) => {
       const value = String(form.get(name) ?? "").trim();
@@ -1904,7 +1950,7 @@ export default function Dashboard() {
             <article className="metric-card hero-metric">
               <p>当前总市值</p>
               <strong>
-                {loading && !summary.owner_id
+                {!summary.owner_id
                   ? "—"
                   : money(summary.total_market_value, summary.base_currency)}
               </strong>
@@ -1915,10 +1961,10 @@ export default function Dashboard() {
                   ) : (
                     <ArrowDownRight size={15} />
                   )}
-                  {returnRate.toFixed(1)}%
+                  {summary.owner_id ? `${returnRate.toFixed(1)}%` : "—"}
                 </span>
                 <small>
-                  {summary.unvalued_item_count > 0
+                  {!summary.owner_id ? "统计加载后显示" : summary.unvalued_item_count > 0
                     ? `${summary.unvalued_item_count} 张按成本暂估`
                     : "相对持仓成本"}
                 </small>
@@ -1927,22 +1973,22 @@ export default function Dashboard() {
             <article className="metric-card">
               <p>持仓成本</p>
               <strong>
-                {money(summary.total_cost, summary.base_currency)}
+                {summary.owner_id ? money(summary.total_cost, summary.base_currency) : "—"}
               </strong>
-              <small>{summary.item_count} 张资产卡</small>
+              <small>{summary.owner_id ? `${summary.item_count} 张资产卡` : "统计加载后显示"}</small>
             </article>
             <article className="metric-card">
               <p>未实现盈亏</p>
               <strong
                 className={unrealized >= 0 ? "positive-text" : "negative-text"}
               >
-                {money(summary.unrealized_profit, summary.base_currency)}
+                {summary.owner_id ? money(summary.unrealized_profit, summary.base_currency) : "—"}
               </strong>
-              <small>{summary.valued_item_count} 张已完成估值</small>
+              <small>{summary.owner_id ? `${summary.valued_item_count} 张已完成估值` : "统计加载后显示"}</small>
             </article>
             <article className="metric-card">
               <p>待补充估值</p>
-              <strong>{summary.unvalued_item_count}</strong>
+              <strong>{summary.owner_id ? summary.unvalued_item_count : "—"}</strong>
               <small>完善估值后组合更准确</small>
             </article>
           </section>
@@ -2521,6 +2567,10 @@ export default function Dashboard() {
           onSubmit={handleAddCard}
           currency={summary.base_currency}
           initialValues={cardDraft}
+          frontFile={cardDraft ? recognitionFile : null}
+          backFile={cardDraft ? recognitionBackFile : null}
+          pairReview={pairReview}
+          onPairReview={setPairReview}
         />
       )}
       {analysisItem && (
@@ -2628,6 +2678,10 @@ export default function Dashboard() {
       {showRecognition && (
         <RecognitionDialog
           result={recognitionResult}
+          frontFile={recognitionFile}
+          backFile={recognitionBackFile}
+          pairReview={pairReview}
+          onPairReview={setPairReview}
           mode={recognitionMode}
           batchDrafts={batchDrafts}
           selectedBatchIndex={selectedBatchIndex}
@@ -3054,14 +3108,23 @@ function CardDialog({
   onSubmit,
   currency,
   initialValues,
+  frontFile,
+  backFile,
+  pairReview,
+  onPairReview,
 }: {
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   currency: string;
   initialValues: EditableRecognition | null;
+  frontFile: File | null;
+  backFile: File | null;
+  pairReview: PairReview | null;
+  onPairReview: (review: PairReview | null) => void;
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const pairState = pairReviewState(initialValues ?? {}, !!frontFile && !!backFile, pairReview);
 
   async function submitCard(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -3103,6 +3166,10 @@ function CardDialog({
           </button>
         </div>
         <form noValidate onSubmit={submitCard}>
+          {frontFile && backFile && <>
+            <div className="recognition-pair-inputs"><FileThumbnail file={frontFile} alt="当前任务正面" /><FileThumbnail file={backFile} alt="当前任务背面" /></div>
+            <PairReviewFields result={initialValues ?? {}} paired review={pairReview} onChange={onPairReview} disabled={submitting} />
+          </>}
           <div className="form-grid">
             <label className="wide">
               球员
@@ -3316,7 +3383,7 @@ function CardDialog({
             >
               取消
             </button>
-            <button type="submit" className="primary-button" disabled={submitting}>
+            <button type="submit" className="primary-button" disabled={submitting || pairState.blocked}>
               {submitting ? "保存中…" : "保存到卡库"}
             </button>
           </div>
@@ -4774,8 +4841,11 @@ function AutomatedValuationDialog({
             <p className="detail-subtitle">
               {item.valuation_synthesis?.status === "joint_recalculated"
                 ? "联合估值已更新" : evidence?.pricing_basis === "codex_independent_fallback"
-                ? "已有 Codex 独立估值 · 低置信参考" : valuationStatusLabels[detail.status ?? ""] ?? "尚未估值"}
+                ? `历史 Codex 参考 · 本轮${valuationStatusLabels[detail.status ?? ""] ?? "尚未验证"}` : valuationStatusLabels[detail.status ?? ""] ?? "尚未估值"}
             </p>
+            {evidence?.pricing_basis === "codex_independent_fallback" && (
+              <p className="detail-subtitle">历史价格未经过本轮成交验证；来源时间：{String(evidence.source_analyzed_at ?? "未记录")}。当前任务状态与历史价格分别保留。</p>
+            )}
           </div>
           <button className="icon-button" onClick={onClose}>
             <X size={20} />
@@ -5526,6 +5596,10 @@ function ImagePreview({ label, url }: { label: string; url: string | null }) {
 
 function RecognitionDialog({
   result,
+  frontFile,
+  backFile,
+  pairReview,
+  onPairReview,
   mode,
   batchDrafts,
   selectedBatchIndex,
@@ -5547,6 +5621,10 @@ function RecognitionDialog({
   onFlatbedCompleted,
 }: {
   result: CardRecognition | null;
+  frontFile: File | null;
+  backFile: File | null;
+  pairReview: PairReview | null;
+  onPairReview: (review: PairReview | null) => void;
   mode: RecognitionMode;
   batchDrafts: BatchRecognitionDraft[];
   selectedBatchIndex: number | null;
@@ -5844,6 +5922,10 @@ function RecognitionDialog({
         )}
         {result && (
           <div className="recognition-result">
+            {frontFile && backFile && <>
+              <div className="recognition-pair-inputs"><FileThumbnail file={frontFile} alt="当前任务正面" /><FileThumbnail file={backFile} alt="当前任务背面" /></div>
+              <PairReviewFields result={result} paired review={pairReview} onChange={onPairReview} disabled={loading} />
+            </>}
             {selectedBatchIndex !== null && (
               <div className="recognized-crop-preview">
                 <FileThumbnail
@@ -6039,7 +6121,7 @@ function RecognitionDialog({
                   </label>
                 </fieldset>
               </div>
-              <button type="submit" className="primary-button full">
+              <button type="submit" className="primary-button full" disabled={pairReviewState(result, !!frontFile && !!backFile, pairReview).blocked}>
                 确认修改并带入录卡
               </button>
             </form>

@@ -1,9 +1,11 @@
 // Build an isolated web copy first. Run with PERFORMANCE_WEB_DIR and NODE_PATH
 // pointing to a Next build and installed Playwright package respectively.
-const {chromium}=require('playwright');
+const {chromium}=require('@playwright/test');
 const {spawn}=require('node:child_process');
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
 
 test('built browser renders core views independently of auxiliary requests',async()=>{
  const cwd=process.env.PERFORMANCE_WEB_DIR;
@@ -21,6 +23,7 @@ test('built browser renders core views independently of auxiliary requests',asyn
   assert.ok(ready,'isolated web server started');
   browser=await chromium.launch({headless:true, ...(process.env.PERFORMANCE_BROWSER_CHANNEL ? {channel:process.env.PERFORMANCE_BROWSER_CHANNEL} : {})});
   const page=await browser.newPage({viewport:{width:1440,height:1000}});
+  const scriptRequests=new Set();page.on('request',request=>{if(request.resourceType()==='script')scriptRequests.add(new URL(request.url()).pathname);});
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   const summary={owner_id:'browser-owner',base_currency:'CNY',item_count:1,valued_item_count:1,unvalued_item_count:0,total_cost:'100',total_market_value:'200',unrealized_profit:'100',realized_profit:'0'};
   const card={id:'browser-card',player_name:'Browser Card',player_id:'browser-player',season_start:2024,product_name:'Browser Product',brand_name:'Test',strategy_tags:[],recognition_quality_issues:[],valuation_status:'succeeded',quantity_held:'1',remaining_cost:'100',fair_value:'200',valuation_currency:'CNY',unrealized_profit:'100'};
@@ -31,7 +34,7 @@ test('built browser renders core views independently of auxiliary requests',asyn
    if(path==='/v1/auth/me')return respond({id:'browser-owner',display_name:'Browser Fixture'});
    if(path==='/v1/scanner/jobs')return respond([]);
    if(path==='/v1/portfolio/identity-corrections'){held.push(route);return;}
-   if(path==='/v1/portfolio/summary'){summaryCalls++;return respond(summary);}
+   if(path==='/v1/portfolio/summary'){summaryCalls++;held.push(route);return;}
    if(path==='/v1/portfolio/items/page'){
     pages.push(url.searchParams);
     return respond({items:[card],page:1,total:1,total_pages:1,page_size:30,snapshot_token:'browser-snapshot',...(url.searchParams.get('include_summary')==='true'?{summary}:{})});
@@ -44,12 +47,31 @@ test('built browser renders core views independently of auxiliary requests',asyn
   });
   await page.goto('http://127.0.0.1:13001');
   await page.getByRole('button',{name:'Browser Card',exact:true}).waitFor();
-  assert.equal(summaryCalls,0,'initial combined response computes summary once');
+  assert.equal(summaryCalls,1,'summary is independent and may remain pending');
+  assert.equal(pages[0].has('include_summary'),false);
+  assert.equal(pages[0].get('snapshot_mode'),'membership');
+  assert.equal(await page.locator('.hero-metric strong').innerText(),'—');
   await page.getByLabel('搜索全部卡片').fill('Browser');
   await page.getByRole('button',{name:'搜索',exact:true}).click();
   await page.getByRole('button',{name:'Browser Card',exact:true}).waitFor();
   assert.equal(pages.at(-1).has('include_summary'),false);
-  assert.equal(summaryCalls,0,'search reuses metrics');
+  assert.equal(summaryCalls,1,'search reuses pending metrics');
+  const lazy=JSON.parse(fs.readFileSync(path.join(cwd,'.next/react-loadable-manifest.json'),'utf8'));
+  const captureChunks=Object.entries(lazy).find(([key])=>key.includes('capture-panel'))[1].files.map(file=>'/_next/'+file);
+  for(const component of ['capture-panel','flatbed-batch-panel','purchase-cost-panel']){
+   const chunks=Object.entries(lazy).find(([key])=>key.includes(component))[1].files;
+   assert.ok(chunks.length);
+   for(const file of chunks)assert.equal(scriptRequests.has('/_next/'+file),false,component+' is not loaded on first paint');
+  }
+  let failChunk=true;
+  await page.route('**'+captureChunks[0],route=>failChunk?route.abort():route.continue());
+  await page.getByRole('button',{name:'照片录卡 / 任务',exact:true}).click();
+  await page.getByRole('alert').filter({hasText:'功能面板加载失败'}).waitFor({timeout:5000});
+  assert.equal(await page.getByRole('button',{name:'Browser Card',exact:true}).count(),1,'chunk failure preserves card library');
+  failChunk=false;
+  await page.getByRole('button',{name:'重新加载面板',exact:true}).click();
+  await page.getByRole('dialog',{name:'通用照片录卡'}).waitFor();
+  await page.getByRole('dialog',{name:'通用照片录卡'}).getByRole('button',{name:'关闭',exact:true}).click();
   await page.getByRole('button',{name:'Browser Card',exact:true}).click();
   await page.getByText('CARD DOSSIER / 卡片档案',{exact:true}).waitFor();
   await page.getByText('正在读取纠错与身份复核…',{exact:true}).waitFor();

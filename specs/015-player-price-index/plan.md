@@ -31,3 +31,13 @@
 ## 发布补充
 
 将价格DTO、排序、同款名称抽取到 packages/card-core/src/player-prices.ts；Web保留原有导出，Mobile在「我的」展示原生价格页，通过MobileApi沿用Bearer、取消及过期处理。发布包只含程序、共享源和迁移。先保留旧程序包/镜像/编排和数据库备份，在服务保持运行时完成构建；切换前退出旧API，应用增量迁移并启用新API，然后切换Web。保留原服务器工作进程开关、数据库与持久卷；只显式启用新价格工作进程。iOS使用已存在的匹配签名身份与设备开发描述文件，先构建，再安装到配对且开发模式已启用的iPhone；无需TestFlight。
+
+
+## 2026-10-17 v2 implementation plan
+用户已确认方案并要求实施，当前会话原生执行，沿用当前功能分支，不自动提交/发布。
+1. domain.py新增calculate_market(rows, report_date)：独立成交90日行情、最多20卡款、30日非重叠窗口；select_basket优先近期可比，compute仅ready时固定。先测试单卡、边界、冲突、截断和旧指数。
+2. discovery.py新增独立观察去重及拒绝原因；service统计诊断，已有确认成交生成未固定阶段精确查询。先测试重复/冲突与精确补采，保留失败旧指数。
+3. repository.board批量读取账户范围内90日成交派生market和summary；enqueue支持可选player_id；API校验UUID/账户范围。先测试旧快照、历史日、账户隔离及404。
+4. card-core新增可选market/summary兼容类型与状态函数；Web/Mobile独立行情、概览和单球员刷新；先写单卡/异常/低样本/刷新交互测试。
+5. scripts/player_price_audit.py只读审计；真实样本、后端/两端测试及类型/构建、审查并记录验证。
+Review focus：未来成交、冲突重复、旧接口/快照、账户隔离、采集失败与已有行情共存。既有篮子和指数不追溯改写。

@@ -15,6 +15,12 @@ CHARACTER_ALIASES = (
 
 
 def purchase_player_aliases(player, knowledge, *, discovery=False):
+    from card_platform.purchase_cost_knowledge import memoize_purchase_value
+    return memoize_purchase_value(knowledge, 'player_aliases', [player, discovery],
+                                 lambda: _purchase_player_aliases(player, knowledge, discovery=discovery))
+
+
+def _purchase_player_aliases(player, knowledge, *, discovery=False):
     aliases = list(knowledge.aliases_for("player", player)) or [str(player)]
     if discovery:
         aliases.extend(knowledge.query_aliases_for("player", player))
