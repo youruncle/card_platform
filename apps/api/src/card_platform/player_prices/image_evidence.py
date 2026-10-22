@@ -92,6 +92,9 @@ class PriceImageResult(BaseModel):
     )
     condition_status: Literal["ordinary_visible", "material_damage", "uncertain"] = "uncertain"
     physical_evidence: list[PhysicalEvidence] = Field(default_factory=list, max_length=60)
+    observation_contract: Literal["price-per-face-observation-v1"] | None = None
+    face_observations: list[dict] = Field(default_factory=list, max_length=2)
+    derivations: list[dict] = Field(default_factory=list)
 
 
 def _hash(content):
@@ -201,7 +204,36 @@ def _read_bound_receipt(observation, receipt, blob_reader):
         seen.add(image["sha256"])
     if gallery_primary(gallery) not in [image["url"] for image in body["images"]]:
         raise ValueError("price_primary_image_changed")
-    return sale, PriceImageResult.model_validate(body["result"])
+    result = PriceImageResult.model_validate(body["result"])
+    if result.observation_contract:
+        from card_platform.player_prices.image_observations import compose_faces
+
+        trace_sha = body["usage"]["observation_trace_sha256"]
+        content = blob_reader(trace_sha)
+        if _hash(content) != trace_sha:
+            raise ValueError("price_model_trace_changed")
+        trace = json.loads(content)
+        records = trace["observations"]
+        if (
+            trace["contract"] != "price-image-model-trace-v1"
+            or trace["model_calls"] != 2
+            or len(records) != 2
+        ):
+            raise ValueError("price_model_trace_incomplete")
+        raw_faces = []
+        for index, record in enumerate(records):
+            if (
+                type(record["image_index"]) is not int
+                or record["image_index"] != index
+                or record["image_sha256"] != body["images"][index]["sha256"]
+                or record["model"] != body["model"]
+                or record["request_extra"] != body["request_extra"]
+            ):
+                raise ValueError("price_model_trace_unbound")
+            raw_faces.append(json.loads(record["raw_response"]))
+        if compose_faces(raw_faces).model_dump(mode="json") != result.model_dump(mode="json"):
+            raise ValueError("price_model_derivation_changed")
+    return sale, result
 
 
 def _same_value(field, observed, expected):

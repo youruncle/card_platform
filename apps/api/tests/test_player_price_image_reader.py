@@ -7,6 +7,7 @@ from card_platform.config import Settings
 from test_player_price_image_evidence import FRONT, BACK, HTML, photo, visual, admit
 from test_player_market import observation
 from test_player_price_catalog import catalog, fact
+from test_player_price_face_observations import faces
 
 
 @pytest.mark.asyncio
@@ -28,7 +29,9 @@ async def test_real_model_adapter_sends_bound_images_disabled_thinking_and_valid
                     dict(
                         index=0,
                         finish_reason="stop",
-                        message=dict(role="assistant", content=json.dumps(visual())),
+                        message=dict(
+                            role="assistant", content=json.dumps(faces()[len(requests) - 1])
+                        ),
                     )
                 ],
                 usage=dict(prompt_tokens=100, completion_tokens=50, total_tokens=150),
@@ -48,10 +51,80 @@ async def test_real_model_adapter_sends_bound_images_disabled_thinking_and_valid
             [(photo("white"), "image/png"), (photo("gray"), "image/png")]
         )
     assert result.card_number == "201" and result.parallel_name == "Refractor"
-    assert usage["prompt_tokens"] == 100
-    body = requests[0]
-    assert body["model"] == "deepseek-flash" and body["thinking"] == {"type": "disabled"}
-    assert len([p for p in body["messages"][-1]["content"] if p["type"] == "image_url"]) == 2
+    assert usage["prompt_tokens"] == 200 and usage["model_calls"] == 2
+    assert len(requests) == 2
+    for body in requests:
+        assert body["model"] == "deepseek-flash" and body["thinking"] == {"type": "disabled"}
+        assert len([p for p in body["messages"][-1]["content"] if p["type"] == "image_url"]) == 1
+    assert len(usage["observations"]) == 2
+    assert json.loads(usage["observations"][1]["raw_response"])["card_number"]["value"] == "201"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure_stage", ["face", "composition"])
+async def test_a_paid_but_malformed_face_response_is_archived_before_capture_fails(
+    tmp_path, failure_stage
+):
+    from card_platform.player_prices.image_reader import (
+        EvidenceBlobs,
+        PriceImageReader,
+        PriceImageReadError,
+        capture_receipt,
+    )
+
+    malformed = '{"role":"front","confidence":90}'
+    inputs = faces()
+    inputs[1]["serial_stamp"].update(
+        value="0/99",
+        number_role="unique_serial",
+        detail="back actual machine stamp 0/99, a malformed individual stamp",
+    )
+    inputs[1]["presence"]["serial"]["state"] = "present"
+    responses = [malformed] if failure_stage == "face" else [json.dumps(face) for face in inputs]
+    returned = []
+
+    def model_answer(request):
+        raw = responses[len(returned)]
+        returned.append(raw)
+        return httpx.Response(
+            200,
+            json=dict(
+                id="fixture",
+                object="chat.completion",
+                created=1,
+                model="deepseek-flash",
+                choices=[
+                    dict(index=0, finish_reason="stop", message=dict(role="assistant", content=raw))
+                ],
+                usage=dict(prompt_tokens=100, completion_tokens=20, total_tokens=120),
+            ),
+        )
+
+    def source_answer(request):
+        if "/market/item/123" in request.url.path.lower():
+            return httpx.Response(200, text=HTML)
+        return httpx.Response(200, content=photo("white" if str(request.url) == FRONT else "gray"))
+
+    store = EvidenceBlobs(tmp_path / "blobs")
+    async with (
+        httpx.AsyncClient(transport=httpx.MockTransport(model_answer)) as model_client,
+        httpx.AsyncClient(transport=httpx.MockTransport(source_answer)) as source_client,
+    ):
+        reader = PriceImageReader(
+            Settings(
+                vision_api_key="fixture",
+                vision_model="deepseek-flash",
+                vision_base_url="https://api.deepseek.com",
+            ),
+            http_client=model_client,
+        )
+        with pytest.raises(PriceImageReadError) as caught:
+            await capture_receipt(observation(), store, reader, client=source_client)
+    assert caught.value.model_calls == len(responses)
+    assert caught.value.trace_sha256 is not None
+    trace = json.loads(store.read(caught.value.trace_sha256))
+    assert trace["observations"][-1]["raw_response"] == responses[-1]
+    assert trace["model_calls"] == len(responses)
 
 
 @pytest.mark.asyncio

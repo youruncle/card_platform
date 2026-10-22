@@ -1,6 +1,7 @@
 """A title/official number cannot replace bound physical-card evidence."""
 
 import hashlib
+import json
 from io import BytesIO
 
 from PIL import Image
@@ -134,7 +135,28 @@ def fixture(result=None, *, title=None, html=HTML):
     images = [(FRONT, photo("white"), "image/png"), (BACK, photo("gray"), "image/png")]
     blobs = {hashlib.sha256(content).hexdigest(): content for _, content, _ in images}
     blobs[hashlib.sha256(html.encode()).hexdigest()] = html.encode()
-    receipt = make_receipt(obs, html, images, result or visual(), model="deepseek-flash", usage={})
+    parsed = result or visual()
+    usage = {}
+    if parsed.get("observation_contract"):
+        trace = dict(
+            contract="price-image-model-trace-v1",
+            model_calls=2,
+            observations=[
+                dict(
+                    image_index=i,
+                    image_sha256=hashlib.sha256(images[i][1]).hexdigest(),
+                    model="deepseek-flash",
+                    request_extra={"thinking": {"type": "disabled"}},
+                    raw_response=json.dumps(face),
+                )
+                for i, face in enumerate(parsed["face_observations"])
+            ],
+        )
+        data = json.dumps(trace).encode()
+        sha = hashlib.sha256(data).hexdigest()
+        blobs[sha] = data
+        usage["observation_trace_sha256"] = sha
+    receipt = make_receipt(obs, html, images, parsed, model="deepseek-flash", usage=usage)
     official = catalog(
         [
             fact(
