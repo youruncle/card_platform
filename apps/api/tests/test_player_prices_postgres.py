@@ -152,7 +152,7 @@ def test_partial_collection_exposes_confirmed_sales_without_marking_daily_succes
                 obs = observation(int(uuid4().int % 100000000000), '2024-25 Panini Prizm Exact Testperson #23 base')
                 from card_platform.public_source_catalog import store_observations
                 await store_observations(c, [obs])
-                async def partial(name, targets, report_date):
+                async def partial(name, targets, report_date, **kwargs):
                     assert targets and targets[0]['identity']['card_number'] == '23'
                     return [obs], dict(errors=[{'reason':'source timeout'}], pages=2, scope='bounded_sample')
                 result = await refresh_player(c, dict(id=player, full_name='Exact Testperson'), date(2026,10,10), collector=partial)
@@ -162,6 +162,58 @@ def test_partial_collection_exposes_confirmed_sales_without_marking_daily_succes
                 assert state['last_success_at'] is None and state['last_report_date'] is None
                 assert state['coverage']['identified_count'] == 1
                 assert (await (await c.execute('SELECT count(*) AS n FROM player_price_snapshot WHERE player_id=%s', (player,))).fetchone())['n'] == 0
+            finally:
+                await c.rollback()
+    asyncio.run(run())
+
+
+def test_history_state_survives_refresh_partial_failure_and_local_replay():
+    async def run():
+        from test_player_market import observation
+        async with await psycopg.AsyncConnection.connect(os.environ['TEST_DATABASE_URL'], row_factory=dict_row) as c:
+            try:
+                player = (await (await c.execute(
+                    "INSERT INTO player(full_name,normalized_name) VALUES('Exact Testperson',%s) RETURNING id",
+                    (str(uuid4()),),
+                )).fetchone())['id']
+                calls = []
+                async def collector(name, targets, report_date, *, query_state=None):
+                    calls.append(query_state)
+                    return [observation(int(uuid4().int % 100000000000),
+                                        '2024-25 Panini Prizm Exact Testperson #23 base')], dict(
+                        errors=[] if len(calls) == 1 else [{'reason': 'source failed'}],
+                        history_queries={'Exact Testperson': {'next_page': 4 * len(calls)}},
+                        history_complete=False, incremental_complete=True,
+                    )
+                p = dict(id=player, full_name='Exact Testperson')
+                await refresh_player(c, p, date(2026, 10, 10), collector=collector)
+                await refresh_player(c, p, date(2026, 10, 10), collector=collector)
+                assert calls == [{}, {'Exact Testperson': {'next_page': 4}}]
+                await refresh_player(c, p, date(2026, 10, 10), fetch=False)
+                state = await (await c.execute('SELECT coverage FROM player_price_state WHERE player_id=%s', (player,))).fetchone()
+                assert state['coverage']['history_queries'] == {'Exact Testperson': {'next_page': 8}}
+            finally:
+                await c.rollback()
+    asyncio.run(run())
+
+
+def test_completed_daily_report_with_incomplete_history_is_still_scheduled():
+    async def run():
+        async with await psycopg.AsyncConnection.connect(os.environ['TEST_DATABASE_URL'], row_factory=dict_row) as c:
+            try:
+                owner = (await (await c.execute("INSERT INTO app_user(email,display_name) VALUES(%s,'history test') RETURNING id", (f'{uuid4()}@example.com',))).fetchone())['id']
+                player = (await (await c.execute("INSERT INTO player(full_name,normalized_name) VALUES('History Test',%s) RETURNING id", (str(uuid4()),))).fetchone())['id']
+                brand = (await (await c.execute('INSERT INTO brand(name) VALUES(%s) RETURNING id', (str(uuid4()),))).fetchone())['id']
+                cs = (await (await c.execute("INSERT INTO card_set(brand_id,season_start,product_name) VALUES(%s,2024,'Prizm') RETURNING id", (brand,))).fetchone())['id']
+                cd = (await (await c.execute('INSERT INTO card_definition(card_set_id,player_id) VALUES(%s,%s) RETURNING id', (cs,player))).fetchone())['id']
+                await c.execute('INSERT INTO collection_item(owner_id,card_definition_id) VALUES(%s,%s)', (owner,cd))
+                await c.execute("INSERT INTO player_price_state(player_id,last_report_date,last_attempt_at,coverage) VALUES(%s,'2026-10-21',now()-interval '31 minutes','{\"history_complete\":false}')", (player,))
+                due = await PriceRepository().due_player(c, date(2026,10,21))
+                assert due and due['id'] == player
+                await c.execute("UPDATE player_price_state SET coverage='{\"history_complete\":true}' WHERE player_id=%s", (player,))
+                assert await PriceRepository().due_player(c, date(2026,10,21)) is None
+                await c.execute("UPDATE player_price_state SET coverage='{\"history_complete\":true,\"incremental_complete\":false}' WHERE player_id=%s", (player,))
+                assert (await PriceRepository().due_player(c, date(2026,10,21)))['id'] == player
             finally:
                 await c.rollback()
     asyncio.run(run())

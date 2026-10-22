@@ -294,3 +294,35 @@ def test_effective_numbering_is_part_of_card_key():
     assert card_key({**base, "serial_total": 99}) == card_key({**base, "print_run": 99})
     with pytest.raises(ValueError):
         card_key({**base, "serial_total": 99, "print_run": 199})
+
+
+@pytest.mark.parametrize("known", [[], [{
+    "player_name": "Stephen Curry", "season_start": 2025, "season_end": 2026,
+    "brand_name": "Topps", "product_name": "Topps Chrome",
+    "card_number": "XBW10", "parallel_name": "Silver",
+}]])
+def test_real_seller_hash_chain_cannot_establish_catalog_card_number_even_from_cache(known):
+    title = ("【古都代拍】 2025-26 Topps Chrome Stephen Curry 斯蒂芬 库里 勇士 "
+             "银折 正TC 品相如图 选图帅气 实卡好看 凑套收藏必备#132B#AIR#XBW10#")
+    assert identify_sale(market_sale(title), "Stephen Curry", known) is None
+
+
+@pytest.mark.parametrize("number", ["23", "PA5", "SS-12"])
+def test_real_catalog_number_before_seller_hash_chain_is_preserved(number):
+    title = f"2024-25 Panini Prizm Stephen Curry #{number} base #132B#AIR#XBW10#"
+    result = identify_sale(market_sale(title), "Stephen Curry", [])
+    assert result and result["card_number"] == number
+
+
+def test_seller_auction_sequence_before_season_is_not_a_catalog_card_number():
+    title = ("【甲子拍卖】#17 2019-20 Panini Prizm LeBron James PZ 湖人 勒布朗 "
+             "詹姆斯 正base PSA10分 评级卡 完美卡品 专收必备 鹰SH9A")
+    assert identify_sale(market_sale(title), "LeBron James", []) is None
+
+
+def test_cached_product_word_cannot_act_as_both_insert_and_parallel_anchor():
+    known = dict(player_name="Stephen Curry", season_start=2023, season_end=2024,
+                 brand_name="Panini", product_name="Prizm", insert_name="prizm",
+                 card_number="152", parallel_name="prizm")
+    assert identify_sale(market_sale("2023-24 Panini Prizm Stephen Curry 银折"),
+                         "Stephen Curry", [known]) is None

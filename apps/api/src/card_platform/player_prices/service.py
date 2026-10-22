@@ -117,8 +117,13 @@ async def refresh_player(c, player, report_date, *, collector=collect_player, fe
               last_attempt_at=clock_timestamp()""",
             (player_id,),
         )
+        state = await (await c.execute(
+            "SELECT coverage FROM player_price_state WHERE player_id=%s", (player_id,),
+        )).fetchone()
+        previous_coverage = state["coverage"] or {}
         saved = await repo.basket(c, player_id, report_date)
-        coverage = {"source": "cardhobby", "scope": "local_sample", "errors": [], "pages": 0}
+        coverage = {**previous_coverage, "source": "cardhobby", "scope": "local_sample",
+                    "errors": [], "pages": 0}
         try:
             observations = await existing_samples(c, name, report_date)
             known = await (
@@ -137,7 +142,10 @@ async def refresh_player(c, player, report_date, *, collector=collect_player, fe
                 targets = saved["cards"] if saved else discovery_targets(
                     [*await repo.sales(c, player_id, report_date), *prior_rows], report_date
                 )
-                fetched, coverage = await collector(name, targets, report_date)
+                fetched, coverage = await collector(
+                    name, targets, report_date,
+                    query_state=previous_coverage.get("history_queries", {}),
+                )
                 await repo.exclude_sources(c, conflicting_sources(observations + fetched))
                 await store_observations(c, fetched)
             observations += fetched
@@ -153,6 +161,12 @@ async def refresh_player(c, player, report_date, *, collector=collect_player, fe
             # Do not publish a new daily index or mark the incomplete run successful.
             if coverage["errors"]:
                 raise ValueError("卡淘部分查询失败，保留上次统计；稍后重试")
+            if not coverage.get("incremental_complete", True):
+                await c.execute(
+                    "UPDATE player_price_state SET error=NULL,coverage=%s WHERE player_id=%s",
+                    (Jsonb(coverage), player_id),
+                )
+                return {"status": "collecting"}
             snapshot = await repo.compute(c, player_id, report_date, coverage=coverage)
             await c.execute(
                 """UPDATE player_price_state SET last_success_at=clock_timestamp(),

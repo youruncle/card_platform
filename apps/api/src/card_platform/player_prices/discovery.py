@@ -3,10 +3,7 @@
 import hashlib
 import json
 import re
-from datetime import date, timedelta
 from decimal import Decimal
-
-import httpx
 
 from card_platform.domain.listing_title import (
     GRADING_DETAIL_PATTERN,
@@ -19,15 +16,12 @@ from card_platform.domain.listing_title import (
     has_ambiguous_finish_marker,
     title_without_inventory_hash_tail,
 )
-from card_platform.domain.player_aliases import query_player_aliases
 from card_platform.ingestion.cardhobby import (
-    CardHobbyProvider,
     assess_cardhobby_match,
     _insert_aliases,
     _contains_phrase,
 )
-from card_platform.player_prices.domain import day_end
-from card_platform.public_source_catalog import observe_public_sale
+from card_platform.player_prices.collection import collect_player as collect_player
 
 # Narrow initial automatic coverage. Existing verified catalog identities extend it.
 PRODUCTS = {
@@ -44,6 +38,20 @@ FINISHES = {
     "Blue": r"\bblue\s+(?:prizm|refractor)\b|蓝折(?:射)?",
     "Gold": r"\bgold\s+(?:prizm|refractor)\b|金折(?:射)?",
 }
+
+
+def identity_title(title: str) -> str:
+    """Ignore a seller's closed hash-code chain, keeping earlier card claims.
+
+    Real captures contain tails such as #132B#AIR#XBW10#. None of those
+    adjacent warehouse/consignor tokens establishes a catalog number. The
+    immutable sale and displayed source title are never changed.
+    """
+    title = re.sub(r"(?:#[^#\s]+){2,}#\s*$", "", title_without_inventory_hash_tail(title))
+    # A seller-bracketed sequence before the release year is equally ambiguous
+    # (one real capture series numbers the same LeBron card #5, #6, ... #17).
+    return re.sub(r"^(\s*[【\[].*?[】\]]\s*)#[A-Za-z0-9-]+\s+(?=(?:19|20)\d{2})",
+                  r"\1", title)
 
 
 def card_key(identity: dict) -> str:
@@ -83,7 +91,8 @@ def card_key(identity: dict) -> str:
 
 def identify_sale(sale, player_name: str, known_identities: list[dict]) -> dict | None:
     """Only accept a single, unambiguous, fully anchored deterministic match."""
-    title = title_without_inventory_hash_tail(sale.title)
+    title = identity_title(sale.title)
+    sale = sale.model_copy(update={"title": title})
     if is_multi_card_listing(title):
         return None
     grade = GRADING_DETAIL_PATTERN.search(title)
@@ -120,12 +129,16 @@ def identify_sale(sale, player_name: str, known_identities: list[dict]) -> dict 
         number_match = known.get("card_number") and str(known["card_number"]).casefold() in {
             n.casefold() for n in numbers
         }
-        insert_match = known.get("insert_name") and any(
+        insert = str(known.get("insert_name") or "").strip()
+        product = str(known.get("product_name") or "").strip()
+        insert_match = insert and not _contains_phrase(product, insert) and any(
             _contains_phrase(title, a) for a in _insert_aliases(known)
         )
         if not number_match and not insert_match:
             continue
         parallel = str(known.get("parallel_name") or "").casefold()
+        if parallel and _contains_phrase(product, parallel):
+            continue  # A product word cannot independently prove its version.
         if parallel in {"base", "普卡", "基础卡"}:
             if not base:
                 continue
@@ -209,7 +222,7 @@ def identify_sale(sale, player_name: str, known_identities: list[dict]) -> dict 
 
 def rejection_reason(sale) -> str:
     """Report observable missing anchors; do not invent an identity or reason."""
-    title = title_without_inventory_hash_tail(sale.title)
+    title = identity_title(sale.title)
     if is_multi_card_listing(title):
         return "multi_card"
     if (is_graded_listing(title) or re.search(rf"(?<![A-Za-z])(?:{GRADING_COMPANIES})(?![A-Za-z])", title, re.I)) and not GRADING_DETAIL_PATTERN.search(title):
@@ -217,71 +230,3 @@ def rejection_reason(sale) -> str:
     if len(re.findall(r"\b(20\d{2}|19\d{2})(?:[-/](20\d{2}|19\d{2}|\d{2}))?\b", title)) != 1:
         return "season_unclear"
     return "identity_unresolved"
-
-
-async def collect_player(
-    player_name: str, basket: list[dict], report_date: date, *, provider=None, page_budget=12
-) -> tuple[list[dict], dict]:
-    """Budget is split among aliases and fixed cards; no early broad-query monopoly."""
-    provider = provider or CardHobbyProvider(None, "", min_interval=1.0)
-    aliases = list(dict.fromkeys([player_name, *query_player_aliases(player_name)]))[:2]
-    precise = []
-    for entry in basket:
-        i = entry["identity"]
-        precise.append(
-            " ".join(
-                str(v)
-                for v in [
-                    player_name,
-                    i.get("season_start"),
-                    i.get("product_name"),
-                    i.get("parallel_name"),
-                    i.get("card_number"),
-                    i.get("grade_company"),
-                    i.get("grade_value"),
-                ]
-                if v
-            )
-        )
-    queries = list(dict.fromkeys([*precise, *aliases]))
-    observations, errors, query_counts = [], [], {}
-    cutoff, end = day_end(report_date) - timedelta(days=90), day_end(report_date)
-    pages = 0
-    # Match the existing public CardHobby search client. The endpoint closes
-    # otherwise valid requests from the default httpx client without these headers.
-    headers = {
-        "Referer": "https://www.cardhobby.com.cn/",
-        "User-Agent": "Mozilla/5.0 AppleWebKit/537.36 Chrome/139 Safari/537.36",
-    }
-    async with httpx.AsyncClient(timeout=provider.timeout, headers=headers) as client:
-        for index, query in enumerate(queries):
-            budget = page_budget // len(queries) + (index < page_budget % len(queries))
-            for page in range(1, budget + 1):
-                pages += 1
-                try:
-                    payload = await provider._get_search_payload(client, query, page)
-                except (httpx.HTTPError, ValueError, TypeError):
-                    errors.append({"query": query, "reason": "卡淘查询失败，稍后重试"})
-                    break
-                rows = payload["data"]["PagedMarketItemList"]
-                query_counts[query] = query_counts.get(query, 0) + len(rows)
-                dates = []
-                for row in rows:
-                    observation = observe_public_sale(row)
-                    if observation:
-                        occurred = provider.parse_market_item(row).occurred_at
-                        dates.append(occurred)
-                        if cutoff <= occurred < end:
-                            observations.append(observation)
-                if len(rows) < 60 or (dates and max(dates) < cutoff):
-                    break
-    coverage = dict(
-        source="cardhobby",
-        scope="bounded_sample",
-        pages=pages,
-        page_budget=page_budget,
-        queries=query_counts,
-        errors=errors,
-        budget_exhausted=pages >= page_budget,
-    )
-    return observations, coverage

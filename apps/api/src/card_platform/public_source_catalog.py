@@ -12,6 +12,12 @@ PUBLIC_FIELDS = frozenset({
     'ID', 'Title', 'EffectiveDate', 'LowestPrice', 'NewPostageMoney',
     'OutCount', 'PriceCount', 'ByWay', 'Status', 'TitImg',
 })
+# Added after v1 captures already existed. Only absent, uninformative defaults
+# are schema-compatible; captured values and original transaction facts stay exact.
+LEGACY_OPTIONAL_DEFAULTS = {
+    'seller_id': None, 'consignment_code': None,
+    'source_metadata': {}, 'source_gallery': {},
+}
 
 
 def _row_hash(row):
@@ -48,7 +54,13 @@ def validated_sale(observation):
                 or _row_hash(raw) != observation['raw_row_sha256']):
             raise ValueError('invalid_public_observation')
         sale = CardHobbyProvider.parse_market_item(raw)
-        if sale is None or sale.model_dump(mode='json') != observation['sale']:
+        current = sale.model_dump(mode='json') if sale is not None else None
+        captured_sale = observation['sale']
+        if isinstance(current, dict) and isinstance(captured_sale, dict):
+            for key, default in LEGACY_OPTIONAL_DEFAULTS.items():
+                if key not in captured_sale and current.get(key) == default:
+                    current.pop(key, None)
+        if sale is None or current != captured_sale:
             raise ValueError('public_sale_facts_changed')
         public_source_pair(dict(provider_code='cardhobby', source_url=sale.source_url,
                                 image_url=sale.image_url))

@@ -49,14 +49,24 @@ class PriceRepository:
               AND ((s.requested_at IS NOT NULL AND
                     (s.last_attempt_at IS NULL OR s.requested_at>s.last_attempt_at))
                    OR ((s.last_report_date IS NULL OR s.last_report_date<%s)
+                       AND (s.error IS NULL OR s.last_attempt_at<now()-interval '6 hours'))
+                   OR (s.coverage->>'history_complete'='false'
+                       AND s.last_attempt_at<now()-interval '30 minutes'
+                       AND (s.error IS NULL OR s.last_attempt_at<now()-interval '6 hours'))
+                   OR (s.coverage->>'incremental_complete'='false'
                        AND (s.error IS NULL OR s.last_attempt_at<now()-interval '6 hours')))
               AND EXISTS (SELECT 1 FROM collection_item ci
                    JOIN card_definition cd ON cd.id=ci.card_definition_id
                    JOIN card_set cs ON cs.id=cd.card_set_id
                    WHERE cd.player_id=p.id AND ci.deleted_at IS NULL
                      AND ci.holding_status='held' AND cs.sport='basketball')
-            ORDER BY s.requested_at NULLS LAST, s.last_attempt_at NULLS FIRST, p.id LIMIT 1""",
-            (report_date,),
+            ORDER BY CASE
+                WHEN s.requested_at IS NOT NULL AND
+                     (s.last_attempt_at IS NULL OR s.requested_at>s.last_attempt_at) THEN 0
+                WHEN s.last_report_date IS NULL OR s.last_report_date<%s THEN 1
+                ELSE 2 END,
+                s.last_attempt_at NULLS FIRST,p.id LIMIT 1""",
+            (report_date, report_date),
         )
         return await result.fetchone()
 
