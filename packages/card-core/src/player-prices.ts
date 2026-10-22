@@ -9,6 +9,7 @@ export type PriceMarket = {
   report_date:string; window_days:number; min_sales:number;
   sale_count:number; card_count:number; trend_count:number;
   latest_sale_at:string|null; cards:PriceCard[]; cards_truncated:boolean;
+  reference_card?:PriceCard|null;
   current_window?:{start:string;end:string}; previous_window?:{start:string;end:string};
 };
 export type PriceSummary = {tracked:number;with_sales:number;with_trends:number;with_index:number;queued:number;source_errors:number};
@@ -26,20 +27,48 @@ export type PriceBoard = {
   report_date:string; timezone:string; window_days:number; min_sales:number; currency:string;
   players:PricePlayer[]; summary?:PriceSummary; worker_enabled?:boolean;
 };
-export function sortPlayers(players:PricePlayer[],direction:PriceSort) {
+export function marketReference(player:PricePlayer,reportDate?:string):PriceCard|null {
+  const market=player.market,card=market?.reference_card;
+  if(!market || market.window_days!==30 || (reportDate && market.report_date!==reportDate)
+    || !card || card.status!=='ready' || card.current_count<Math.max(3,market.min_sales)
+    || card.previous_count<Math.max(3,market.min_sales) || card.change_pct===null
+    || !Number.isFinite(Number(card.change_pct))) return null;
+  return card;
+}
+export function marketCards(player:PricePlayer,reportDate?:string):PriceCard[] {
+  if(!player.market) return player.cards;
+  const reference=marketReference(player,reportDate);
+  return reference ? [reference,...player.market.cards.filter(card=>card.card_key!==reference.card_key)].slice(0,20) : player.market.cards;
+}
+export function marketWindowDescription(player:PricePlayer):string {
+  const market=player.market;
+  if(!market?.current_window || !market.previous_window) return '';
+  const format=new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'});
+  const dates=[market.current_window.start,market.current_window.end,market.previous_window.start,market.previous_window.end].map(value=>new Date(value).getTime());
+  if(dates.some(value=>!Number.isFinite(value))) return '';
+  return `近30日 ${format.format(dates[0])}—${format.format(dates[1]-1)} · 此前30日 ${format.format(dates[2])}—${format.format(dates[3]-1)}`;
+}
+export function sortPlayers(players:PricePlayer[],direction:PriceSort,reportDate?:string) {
   return [...players].sort((a,b)=>{
     if(direction === "activity") {
-      const activity = (b.market?.sale_count ?? b.cards.reduce((n,c)=>n+c.current_count,0)) - (a.market?.sale_count ?? a.cards.reduce((n,c)=>n+c.current_count,0));
+      const activityOf=(player:PricePlayer)=>player.market && (!reportDate || player.market.report_date===reportDate) ? player.market.sale_count : null;
+      const aa=activityOf(a),ba=activityOf(b);
+      if(aa===null) return ba===null?a.player_name.localeCompare(b.player_name):1;
+      if(ba===null) return -1;
+      const activity = ba-aa;
       if(activity) return activity;
     }
-    if(a.change_pct===null) return b.change_pct===null?a.player_name.localeCompare(b.player_name):1;
-    if(b.change_pct===null) return -1;
-    return (Number(a.change_pct)-Number(b.change_pct))*(direction==="gainers"?-1:1)
+    const av=marketReference(a,reportDate)?.change_pct ?? null,bv=marketReference(b,reportDate)?.change_pct ?? null;
+    if(av===null) return bv===null?a.player_name.localeCompare(b.player_name):1;
+    if(bv===null) return -1;
+    return (Number(av)-Number(bv))*(direction==="losers"?1:-1)
       || a.player_name.localeCompare(b.player_name);
   });
 }
 export function priceIdentity(identity:Record<string,unknown>) {
-  return [identity.season_start,identity.product_name,
+  const season=identity.season_start && identity.season_end && identity.season_start!==identity.season_end
+    ? `${identity.season_start}-${String(identity.season_end).slice(-2)}` : identity.season_start;
+  return [season,identity.brand_name,identity.product_name,
     identity.insert_name,identity.card_number?`#${identity.card_number}`:null,
     identity.parallel_name,(identity.serial_total||identity.print_run)?`/${identity.serial_total||identity.print_run}`:null,
     identity.grade_company?`${identity.grade_company} ${identity.grade_value??""}`:"裸卡"
@@ -57,10 +86,12 @@ export function priceSummary(data:PriceBoard):PriceSummary {
     source_errors:data.players.filter(p=>Boolean(p.refresh.error)).length,
   };
 }
-export function marketDescription(player:PricePlayer):string {
+export function marketDescription(player:PricePlayer,reportDate?:string):string {
   if(player.market) {
     const m=player.market;
-    if(m.sale_count) return `近90日 ${m.sale_count} 笔确认成交 · ${m.card_count} 种卡款 · ${m.trend_count} 种可比卡款`;
+    const prior=reportDate && m.report_date!==reportDate ? `旧行情 ${m.report_date} · ` : '';
+    if(m.sale_count) return `${prior}近90日 ${m.sale_count} 笔确认成交 · ${m.card_count} 种卡款 · ${m.trend_count} 种可比卡款`;
+    if(prior) return `${prior}等待更新公开成交`;
     if(player.refresh.error) return "采集异常，暂未取得可确认成交";
     if(player.refresh.queued) return "等待补采公开成交";
     if(player.coverage.sample_count) return "已有成交候选，卡款身份尚未确认";

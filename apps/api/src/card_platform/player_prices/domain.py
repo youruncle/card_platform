@@ -137,10 +137,18 @@ def calculate_market(rows, report_date: date) -> dict:
                      for r in sorted(sales, key=lambda r: (r["occurred_at"], r["source_id"]), reverse=True)[:30]],
         ))
     cards.sort(key=lambda c: (c["status"] != "ready", -c["current_count"], -c["selection_count"], c["card_key"]))
+    # One disclosed exact card represents this signal at 100% weight. Select
+    # across every qualified card before limiting the detail list to 20.
+    reference = min(
+        (card for card in cards if card['status'] == 'ready'),
+        key=lambda card: (-card['selection_count'], card['card_key']),
+        default=None,
+    )
     return dict(
         report_date=report_date.isoformat(), window_days=30, min_sales=MIN_SALES,
         sale_count=sum(len(sales) for sales in groups.values()), card_count=len(cards),
         trend_count=sum(c["status"] == "ready" for c in cards),
+        reference_card=reference,
         latest_sale_at=max((c["latest_sale_at"] for c in cards), key=datetime.fromisoformat, default=None),
         cards=cards[:20], cards_truncated=len(cards) > 20,
         current_window=dict(start=current_start.isoformat(), end=end.isoformat()),

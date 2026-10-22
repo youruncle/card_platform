@@ -321,3 +321,17 @@ Deep Space130536241实图正面DEEP SPACE、背面No.3/独立PRIZM及2024-25产�
 云端只读原件预检：114个免费manifest全部完成原观察/商品HTML/primary/两图字节绑定，32个模型收据仍完整绑定；4组重复包括LaMelo135290436/137970677、LeBron7笔、Luka3笔、Curry130868990/048。新增模型调用0、图库registry/价格写入0；本预检与原32价格回放均不能冒充免费证据已正式接入。旧32检查点已独立归档至云端thirtytwo-first-trend-20261022.tar.gz，226273822字节，SHA256 2bc65b569a2428b50a624ca00c0d1748f67f7de91a8217779d11d8ebb8a82c80；manifest 9951e93409c866291b82a2ffccf66a943d23957e27a31bb94760b305096b862e，243个blob逐一校验、0600。其作为新peer纳入前历史状态保留。
 
 独立审查最终无Critical/Important/Minor，113项及40项窄回归分别通过；额外真实有commit的coordinator控制验证两轮pending均暂退旧价、删除受影响旧快照、不写新快照/不推进last_success，恢复精确manifest后再完成复核；canonical旧alias owner、非持仓通知、6小时错误重试、事务外读字节及8184001双连接写锁控制通过。生产完整备份before-0086.dump为396968883字节，SHA256 66ebc699f9e99bbfc8ef63f808ee713d13128ec20af4f5a0aec9f0061caa69ee，pg_restore --list验证成功，0600。发布顺序限定：0086可先加表/列；严格API部署前不能正式record免费图库并唤醒旧价格worker。影子核验仅stage已预检索引、读evidence后rollback，再事务外核图和纯domain回放，不调用会commit的refresh或写serving价格；正式登记/旧派生修复及31有效样本仍待严格代码发布后回读确认。
+
+0086云端已应用并第二独立进程重跑幂等，SQL SHA256 d2ddd3b9013a783e4200894dbaa6ec239d317c00455d11b4689258fcee915664；实际仍free_captures=0、32 jobs/30 approvals、0 audit/0 revision，未替换服务包或写价格，成本worker=true。114份原件预检后只stage索引、读真实server evidence后立即rollback，再事务外核图和纯domain回放，并只读重载确认最终输入token未变：31 confirmed，仅137970677因135290436同图退出，photo_reuse_sources完整列出二者；文班#136 Base在10/19、20、21仍3当前/4前期、+3.6565%。这是影子31，不是正式31或后台更新。该批源码/RED/最终验证/原始capture归档free-photo-reviewed-4aa773d4.tar.gz为459852036字节，SHA256 27b18ec64a84d725d10574d9852006019b11022e72f0c432f0e997e217beee29，manifest 9595b06ddf5249e83459f5d63fa057db10635e29feeda6f951436b3f4d328713；436 blob逐一独立核验，0600，云端持久backups已读回。
+
+### 第十九批：首屏参考卡、同款30日排序与双端可见性（2026-10-22，未发布）
+
+沿已授权FR-018/019、T030，calculate_market在全部ready同款中先按90日独立成交数最多、card_key稳定tie选单卡reference_card，再截断20种展开卡；不跨卡平均、不借7日旧指数，单卡100%并披露完整发行季/品牌/产品/编号/版本/品相口径。API 4 RED→12含市场正常控制通过；随后行情/公开观察兼容聚焦399通过，1既有Starlette/httpx警告。共享core、网页和手机以同一server reference首屏及涨跌排序，参考不在20列表也仍显式置首；无参考保持缺失，不把null变0；旧7日三卡指数只在独立详情。上海日历显示服务端两窗口，demo亦补同口径窗口，实体印刷跨年季标保留。
+
+Web新增4个主流程、日期与参考身份RED→green；Mobile新增2个主流程RED→8通过。独立审查找到stale market的旧90日999笔仍压过当日fresh 0的Important，已补RED并修复activity也校验report_date，不用旧7日样本填90日，并明确旧行情日期；旧7日指数过期的手机外侧文案限定“三卡7日指数待更新”，避免误指新30日行情。另真实窄屏截图发现首条趋势被说明/大概览推离首屏，手机还被真实App固定nav遮住：保持44px触控，压缩价格页专属标题/刷新/概览、口径默认折叠，未改全局App导航。最终独立真实shell控制390×844及375×812、59/34或47/34安全区均使主指标位于nav上方，中心命中STRONG自身，0横向溢出/0pageerror；参考价量亦首屏可见，最窄安全区日期末行可能需少量滚动。
+
+使用云端31笔影子核验的实际公开价量构造本地真实组件预览（不是合成市场数字）：9人/31笔/1参考趋势，文班主行+3.66%、400与385.89、3与4笔。桌面、Web390和带真实App header/main/fixed四按钮nav的手机390，及59/34安全区均已实际浏览。脚手架前几次因未注入Next PUBLIC环境、两套React runtime和过宽summary选择器失败，均保留；均在.runtime预览壳内纠正，成功v5为0pageerror，Web主metric bottom813.86<844，手机safe metric661<nav727.5；独立复核无预览提示条的实际App壳位置更靠上（390×844+59/34为553–597<nav727.5）。本地桌面控制native pipe不可用，已用本地Chromium替代，不冒充已发布账户路径或真机验收。
+
+第十九批同时冻结6笔前期窗口控制，只对已获两面原件发起最多12次独立观察：4笔完成两面、2笔首面解析失败，实际10次付费调用、累计150次；没有重试、批准或写price/registry。4笔完整收据仍因字段/配对等未达标保持rejected，后续须查看完整原件与原始响应后处理，不能把.95置信度直接当准入。该批不能计增加可信成交或趋势。至少5人三日报告、严格包发布后正式免费登记/派生修复、连续后台更新及Web/API/iPhone交付仍未完成；goal继续active。
+
+本批最终独立审查无剩余Critical/Important：API reference+market12、Web14、Mobile8分别通过，两端TypeScript与diff通过；根进程最终全Web190通过、全Mobile128通过且最终Vite生产构建通过。提交不等于T030生产验收完成，任务勾选继续保留待发布/真实账户和数据覆盖验证。

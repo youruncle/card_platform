@@ -46,7 +46,7 @@ test('source failure and no result are visible and refresh is disabled in demo',
 });
 test('stale snapshots and source errors are visible before expanding a row',()=>{
  const data=demoBoard('2026-10-10');
- data.players=[{...data.players[0],status:'stale',report_date:'2026-10-09',change_pct:null,last_change_pct:'8.5000',refresh:{queued:false,error:'卡淘采集失败'}}];
+ data.players=[{...data.players[0],status:'stale',report_date:'2026-10-09',market:undefined,change_pct:null,last_change_pct:'8.5000',refresh:{queued:false,error:'卡淘采集失败'}}];
  const {container}=render(React.createElement(PlayerPriceBoard,{data}));
  const summary=container.querySelector('.pp-player > summary');
  assert.match(summary.textContent,/待更新/);
@@ -60,6 +60,7 @@ test('single-card market survives a missing index and refresh targets just that 
    market:{report_date:'2026-10-10',window_days:30,min_sales:3,sale_count:8,card_count:1,trend_count:1,
      latest_sale_at:'2026-10-10T12:00:00+08:00',cards_truncated:false,
      cards:[{...data.players[0].cards[0],current_count:4,previous_count:4,change_pct:'20.0000',current_price:'120',previous_price:'100'}]}};
+ p.market.reference_card=p.market.cards[0];
  data.players=[p];
  let refreshed;
  const {container,getByRole}=render(React.createElement(PlayerPriceBoard,{data,onRefresh:()=>{},onRefreshPlayer:id=>{refreshed=id;}}));

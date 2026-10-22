@@ -1,6 +1,6 @@
 import type { PriceBoard, PriceCard } from "../../../packages/card-core/src/player-prices";
 export type { PriceSource, PriceCard, PricePlayer, PriceBoard } from "../../../packages/card-core/src/player-prices";
-export { sortPlayers, priceIdentity, priceSummary, marketDescription, rejectionDescription } from "../../../packages/card-core/src/player-prices";
+export { sortPlayers, marketReference, marketCards, marketWindowDescription, priceIdentity, priceSummary, marketDescription, rejectionDescription } from "../../../packages/card-core/src/player-prices";
 export function demoBoard(reportDate:string):PriceBoard {
   const start=new Date(`${reportDate}T00:00:00+08:00`);
   const cards=(change:number|null):PriceCard[]=>["Prizm","Donruss Optic","Hoops"].map((product,i)=>({
@@ -15,7 +15,8 @@ export function demoBoard(reportDate:string):PriceBoard {
   ].map(([name,change],i)=>({player_id:`demo-${i}`,player_name:String(name),status:change===null?"insufficient":"ready",
     change_pct:change===null?null:Number(change).toFixed(4),cards:cards(change===null?null:Number(change)),
     basket_selected_on:reportDate,basket_frozen:true,coverage:{sample_count:180,identified_count:95,rejected_count:85,pages:4},
-    refresh:{queued:false,error:null}}))};
+    refresh:{queued:false,error:null},
+    market:{report_date:reportDate,window_days:30,min_sales:3,sale_count:75,card_count:3,trend_count:change===null?0:3,latest_sale_at:start.toISOString(),current_window:{start:new Date(start.getTime()-29*86400000).toISOString(),end:new Date(start.getTime()+86400000).toISOString()},previous_window:{start:new Date(start.getTime()-59*86400000).toISOString(),end:new Date(start.getTime()-29*86400000).toISOString()},cards:cards(change===null?null:Number(change)),cards_truncated:false,reference_card:change===null?null:cards(Number(change))[0]}}))};
 }
 const API_URL=process.env.NEXT_PUBLIC_API_URL??"";
 async function request(path:string,method="GET") {
