@@ -155,7 +155,10 @@ def test_partial_collection_exposes_confirmed_sales_without_marking_daily_succes
                 async def partial(name, targets, report_date, **kwargs):
                     assert targets and targets[0]['identity']['card_number'] == '23'
                     return [obs], dict(errors=[{'reason':'source timeout'}], pages=2, scope='bounded_sample')
-                result = await refresh_player(c, dict(id=player, full_name='Exact Testperson'), date(2026,10,10), collector=partial)
+                from test_player_price_catalog import catalog, fact
+                official = catalog([fact(player='Exact Testperson')])
+                result = await refresh_player(c, dict(id=player, full_name='Exact Testperson'),
+                                              date(2026,10,10), collector=partial, catalog=official)
                 assert result['status'] == 'source_error'
                 assert len(await PriceRepository().sales(c, player, date(2026,10,10))) == 1
                 state = await (await c.execute('SELECT * FROM player_price_state WHERE player_id=%s', (player,))).fetchone()
@@ -186,12 +189,33 @@ def test_history_state_survives_refresh_partial_failure_and_local_replay():
                         history_complete=False, incremental_complete=True,
                     )
                 p = dict(id=player, full_name='Exact Testperson')
-                await refresh_player(c, p, date(2026, 10, 10), collector=collector)
-                await refresh_player(c, p, date(2026, 10, 10), collector=collector)
+                from test_player_price_catalog import catalog, fact
+                official = catalog([fact(player='Exact Testperson')])
+                await refresh_player(c, p, date(2026, 10, 10), collector=collector, catalog=official)
+                await refresh_player(c, p, date(2026, 10, 10), collector=collector, catalog=official)
                 assert calls == [{}, {'Exact Testperson': {'next_page': 4}}]
-                await refresh_player(c, p, date(2026, 10, 10), fetch=False)
+                await refresh_player(c, p, date(2026, 10, 10), fetch=False, catalog=official)
                 state = await (await c.execute('SELECT coverage FROM player_price_state WHERE player_id=%s', (player,))).fetchone()
                 assert state['coverage']['history_queries'] == {'Exact Testperson': {'next_page': 8}}
+            finally:
+                await c.rollback()
+    asyncio.run(run())
+
+
+def test_missing_official_publication_is_not_a_successful_zero_sample_refresh():
+    async def run():
+        from card_platform.player_prices.catalog import PriceCardCatalog
+        async with await psycopg.AsyncConnection.connect(os.environ['TEST_DATABASE_URL'], row_factory=dict_row) as c:
+            try:
+                player = (await (await c.execute(
+                    "INSERT INTO player(full_name,normalized_name) VALUES('Catalog Offline Test',%s) RETURNING id",
+                    (str(uuid4()),),
+                )).fetchone())['id']
+                result = await refresh_player(c, dict(id=player,full_name='Catalog Offline Test'),
+                                              date(2026,10,10),fetch=False,catalog=PriceCardCatalog({}))
+                assert result['status'] == 'source_error' and '官方' in result['error']
+                state = (await (await c.execute('SELECT * FROM player_price_state WHERE player_id=%s', (player,))).fetchone())
+                assert state['last_success_at'] is None and state['coverage']['catalog_available'] is False
             finally:
                 await c.rollback()
     asyncio.run(run())

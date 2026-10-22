@@ -4,6 +4,7 @@ from collections import defaultdict
 from psycopg.types.json import Jsonb
 
 from card_platform.player_prices.domain import TZ, calculate_market, calculate_snapshot, day_end, select_basket
+from card_platform.player_prices.subjects import SubjectIndex
 
 ROSTER_SQL = """SELECT DISTINCT p.id, p.full_name FROM player p
     JOIN card_definition cd ON cd.player_id=p.id
@@ -13,18 +14,30 @@ ROSTER_SQL = """SELECT DISTINCT p.id, p.full_name FROM player p
 
 
 class PriceRepository:
+    async def subjects(self, c):
+        rows = await (await c.execute(
+            "SELECT id,full_name,birth_date,nba_person_id,created_at FROM player"
+        )).fetchall()
+        return SubjectIndex(rows)
+
+    async def subject(self, c, player_id):
+        return (await self.subjects(c)).get(player_id)
+
     async def roster(self, c, owner_id=None):
         sql = ROSTER_SQL + (" AND ci.owner_id=%s" if owner_id is not None else "")
-        return await (
+        held = await (
             await c.execute(
                 sql + " ORDER BY p.full_name", (owner_id,) if owner_id is not None else ()
             )
         ).fetchall()
+        if not held:
+            return []
+        return (await self.subjects(c)).for_ids([p['id'] for p in held])
 
     async def enqueue(self, c, owner_id=None, player_id=None):
         roster = await self.roster(c, owner_id)
         if player_id is not None:
-            roster = [p for p in roster if p["id"] == player_id]
+            roster = [p for p in roster if player_id in p["member_ids"]]
         for player in roster:
             await c.execute(
                 """INSERT INTO player_price_state(player_id,requested_at)
@@ -34,14 +47,17 @@ class PriceRepository:
         return len(roster)
 
     async def seed_states(self, c):
+        roster = await self.roster(c)
         await c.execute(
-            """INSERT INTO player_price_state(player_id)
-            SELECT id FROM ("""
-            + ROSTER_SQL
-            + """) roster ON CONFLICT DO NOTHING"""
+            "INSERT INTO player_price_state(player_id) SELECT unnest(%s::uuid[]) ON CONFLICT DO NOTHING",
+            ([p['id'] for p in roster],),
         )
 
     async def due_player(self, c, report_date):
+        roster = await self.roster(c)
+        ids = [p['id'] for p in roster]
+        if not ids:
+            return None
         result = await c.execute(
             """SELECT p.id,p.full_name,s.requested_at,s.last_attempt_at FROM player_price_state s
             JOIN player p ON p.id=s.player_id WHERE
@@ -55,18 +71,14 @@ class PriceRepository:
                        AND (s.error IS NULL OR s.last_attempt_at<now()-interval '6 hours'))
                    OR (s.coverage->>'incremental_complete'='false'
                        AND (s.error IS NULL OR s.last_attempt_at<now()-interval '6 hours')))
-              AND EXISTS (SELECT 1 FROM collection_item ci
-                   JOIN card_definition cd ON cd.id=ci.card_definition_id
-                   JOIN card_set cs ON cs.id=cd.card_set_id
-                   WHERE cd.player_id=p.id AND ci.deleted_at IS NULL
-                     AND ci.holding_status='held' AND cs.sport='basketball')
+              AND p.id=ANY(%s)
             ORDER BY CASE
                 WHEN s.requested_at IS NOT NULL AND
                      (s.last_attempt_at IS NULL OR s.requested_at>s.last_attempt_at) THEN 0
                 WHEN s.last_report_date IS NULL OR s.last_report_date<%s THEN 1
                 ELSE 2 END,
                 s.last_attempt_at NULLS FIRST,p.id LIMIT 1""",
-            (report_date, report_date),
+            (report_date, ids, report_date),
         )
         return await result.fetchone()
 
@@ -83,6 +95,9 @@ class PriceRepository:
             )
 
     async def store_sales(self, c, player_id, rows):
+        subject = await self.subject(c, player_id)
+        if subject:
+            player_id = subject['id']
         for r in rows:
             await c.execute(
                 """INSERT INTO player_price_sale(source_id,player_id,card_key,
@@ -109,18 +124,23 @@ class PriceRepository:
             )
 
     async def sales(self, c, player_id, report_date):
+        subject = await self.subject(c, player_id)
+        ids = subject['member_ids'] if subject else [player_id]
         end = day_end(report_date)
         return await (
             await c.execute(
                 """SELECT source_id,card_key,identity,sale_price,
-            occurred_at,source_url,raw_title FROM player_price_sale WHERE player_id=%s
+            occurred_at,source_url,raw_title FROM player_price_sale WHERE player_id=ANY(%s)
               AND NOT excluded AND occurred_at >= %s AND occurred_at < %s
             ORDER BY occurred_at DESC,source_id""",
-                (player_id, end - timedelta(days=90), end),
+                (ids, end - timedelta(days=90), end),
             )
         ).fetchall()
 
     async def basket(self, c, player_id, report_date):
+        subject = await self.subject(c, player_id)
+        if subject:
+            player_id = subject['id']
         row = await (
             await c.execute(
                 """SELECT cards,selected_on FROM player_price_basket
@@ -131,6 +151,9 @@ class PriceRepository:
         return row
 
     async def compute(self, c, player_id, report_date, *, coverage=None):
+        subject = await self.subject(c, player_id)
+        if subject:
+            player_id = subject['id']
         await c.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,81))", (str(player_id),))
         rows = await self.sales(c, player_id, report_date)
         saved = await self.basket(c, player_id, report_date)
@@ -164,6 +187,7 @@ class PriceRepository:
     async def board(self, c, owner_id, report_date: date, direction: str):
         roster = await self.roster(c, owner_id)
         ids = [p["id"] for p in roster]
+        names = {p['id']: p['full_name'] for p in roster}
         data = (
             await (
                 await c.execute(
@@ -180,16 +204,17 @@ class PriceRepository:
         )
         market_rows = defaultdict(list)
         if ids:
+            member_to_subject = {member: p['id'] for p in roster for member in p['member_ids']}
             end = day_end(report_date)
             result = await c.execute(
                 """SELECT player_id,source_id,card_key,identity,sale_price,occurred_at,source_url,raw_title
                 FROM player_price_sale WHERE player_id=ANY(%s) AND NOT excluded
                   AND occurred_at >= %s AND occurred_at < %s
                 ORDER BY player_id,occurred_at DESC,source_id""",
-                (ids, end - timedelta(days=90), end),
+                (list(member_to_subject), end - timedelta(days=90), end),
             )
             for sale in await result.fetchall():
-                market_rows[sale["player_id"]].append(sale)
+                market_rows[member_to_subject[sale["player_id"]]].append(sale)
         players = []
         for row in data:
             snapshot = row["result"] or {"status": "pending", "change_pct": None, "cards": []}
@@ -207,7 +232,7 @@ class PriceRepository:
                 {
                     **snapshot,
                     "player_id": str(row["id"]),
-                    "player_name": row["full_name"],
+                    "player_name": names[row['id']],
                     "computed_at": row["computed_at"],
                     "market": calculate_market(market_rows[row["id"]], report_date),
                     "coverage": row["coverage"] or snapshot.get("coverage", {}),

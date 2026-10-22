@@ -10,10 +10,15 @@ from card_platform.domain.player_aliases import query_player_aliases, matching_p
 from card_platform.player_prices.discovery import card_key, collect_player, identify_sale, rejection_reason
 from card_platform.player_prices.domain import TZ, day_end, select_basket
 from card_platform.player_prices.repository import PriceRepository
+from card_platform.player_prices.catalog import published_catalog
 from card_platform.public_source_catalog import store_observations, validated_sale
 
 log = logging.getLogger(__name__)
 repo = PriceRepository()
+
+
+class CatalogUnavailableError(ValueError):
+    pass
 
 
 def report_day(now=None):
@@ -60,7 +65,7 @@ def conflicting_sources(observations):
     return {source for source, values in facts.items() if len(values) > 1}
 
 
-def analyze_observations(observations, name, identities):
+def analyze_observations(observations, name, identities, *, catalog=None):
     by_source, reasons = {}, Counter()
     invalid = set()
     for observation in observations:
@@ -80,15 +85,21 @@ def analyze_observations(observations, name, identities):
             reasons["conflicting_source"] += 1
             continue
         sale = sales[0]
-        identity = identify_sale(sale, name, identities)
+        identity = identify_sale(sale, name, identities, catalog=catalog)
         if identity is None:
-            reasons[rejection_reason(sale)] += 1
+            reason = ("catalog_unconfirmed" if catalog is not None
+                      and identify_sale(sale, name, identities) is not None else rejection_reason(sale))
+            reasons[reason] += 1
             continue
         rows.append(dict(source_id=source, card_key=card_key(identity), identity=identity,
                          sale_price=sale.sale_price, occurred_at=sale.occurred_at,
                          source_url=sale.source_url, raw_title=sale.title))
-    return rows, dict(sample_count=len(by_source) + len(invalid), identified_count=len(rows),
-                      rejected_count=sum(reasons.values()), rejection_reasons=dict(reasons))
+    coverage = dict(sample_count=len(by_source) + len(invalid), identified_count=len(rows),
+                    rejected_count=sum(reasons.values()), rejection_reasons=dict(reasons))
+    if catalog is not None:
+        coverage.update(catalog_version=catalog.version, catalog_errors=len(catalog.errors),
+                        catalog_available=catalog.version is not None)
+    return rows, coverage
 
 
 def group_observations(observations, name, identities):
@@ -100,7 +111,8 @@ def discovery_targets(rows, report_date):
     return select_basket(rows, report_date)
 
 
-async def refresh_player(c, player, report_date, *, collector=collect_player, fetch=True):
+async def refresh_player(c, player, report_date, *, collector=collect_player, fetch=True, catalog=None):
+    player = await repo.subject(c, player["id"]) or player
     player_id, name = player["id"], player["full_name"]
     async with c.transaction():
         locked = await (
@@ -125,6 +137,13 @@ async def refresh_player(c, player, report_date, *, collector=collect_player, fe
         coverage = {**previous_coverage, "source": "cardhobby", "scope": "local_sample",
                     "errors": [], "pages": 0}
         try:
+            catalog = catalog if catalog is not None else await published_catalog(c)
+            catalog = catalog.session()
+            coverage.update(catalog_version=catalog.version,
+                            catalog_available=catalog.version is not None)
+            if catalog.version is None:
+                coverage["errors"].append({"reason": "official_catalog_unavailable"})
+                raise CatalogUnavailableError()
             observations = await existing_samples(c, name, report_date)
             known = await (
                 await c.execute(
@@ -138,10 +157,17 @@ async def refresh_player(c, player, report_date, *, collector=collect_player, fe
                 identities += [b["identity"] for b in saved["cards"]]
             fetched = []
             if fetch:
-                prior_rows, _ = await asyncio.to_thread(analyze_observations, observations, name, identities)
-                targets = saved["cards"] if saved else discovery_targets(
-                    [*await repo.sales(c, player_id, report_date), *prior_rows], report_date
+                prior_rows, _ = await asyncio.to_thread(
+                    analyze_observations, observations, name, identities, catalog=catalog,
                 )
+                # Legacy baskets/identity caches are not authority for query
+                # targets. Re-verify source titles under the current publication.
+                targets = discovery_targets(prior_rows, report_date)
+                seeds = await asyncio.to_thread(catalog.discovery_targets, name,
+                                               [o.get("sale", {}) for o in observations])
+                seen = {card_key(target["identity"]) for target in targets}
+                targets += [seed for seed in seeds if card_key(seed["identity"]) not in seen]
+                targets = targets[:3]
                 fetched, coverage = await collector(
                     name, targets, report_date,
                     query_state=previous_coverage.get("history_queries", {}),
@@ -150,13 +176,16 @@ async def refresh_player(c, player, report_date, *, collector=collect_player, fe
                 await store_observations(c, fetched)
             observations += fetched
             rows, diagnostics = await asyncio.to_thread(
-                analyze_observations, observations, name, identities
+                analyze_observations, observations, name, identities, catalog=catalog,
             )
             coverage.update(
                 **diagnostics,
                 local_limit_reached=len(observations) >= 20000,
             )
             await repo.store_sales(c, player_id, rows)
+            if catalog.errors:
+                coverage["errors"].append({"reason": "official_artifact_unavailable"})
+                raise CatalogUnavailableError()
             # Valid exact-card evidence remains useful even if another query failed.
             # Do not publish a new daily index or mark the incomplete run successful.
             if coverage["errors"]:
@@ -174,9 +203,11 @@ async def refresh_player(c, player, report_date, *, collector=collect_player, fe
                 (report_date, Jsonb(coverage), player_id),
             )
             return snapshot
-        except (ValueError, httpx.HTTPError):
+        except (ValueError, httpx.HTTPError) as error:
             # Use a fixed public error, never expose credential/transport details.
-            message = "卡淘采集失败，历史结果保留，稍后重试"
+            message = ("官方卡款资料暂不可用，历史结果保留，稍后重试"
+                       if isinstance(error, CatalogUnavailableError)
+                       else "卡淘采集失败，历史结果保留，稍后重试")
             await c.execute(
                 "UPDATE player_price_state SET error=%s,coverage=%s WHERE player_id=%s",
                 (message, Jsonb(coverage), player_id),

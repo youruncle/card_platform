@@ -22,6 +22,7 @@ from card_platform.ingestion.cardhobby import (
     _contains_phrase,
 )
 from card_platform.player_prices.collection import collect_player as collect_player
+from card_platform.player_prices.subjects import canonical_subject_name
 
 # Narrow initial automatic coverage. Existing verified catalog identities extend it.
 PRODUCTS = {
@@ -80,6 +81,7 @@ def card_key(identity: dict) -> str:
     ):
         raise ValueError("conflicting print run")
     identity = {**identity, "print_run": identity.get("serial_total") or identity.get("print_run")}
+    identity["player_name"] = canonical_subject_name(identity.get("player_name")) or None
     canonical = {}
     for key in fields:
         value = identity.get(key, False if key.startswith("is_") else None)
@@ -89,7 +91,7 @@ def card_key(identity: dict) -> str:
     return hashlib.sha256(json.dumps(canonical, sort_keys=True).encode()).hexdigest()
 
 
-def identify_sale(sale, player_name: str, known_identities: list[dict]) -> dict | None:
+def identify_sale(sale, player_name: str, known_identities: list[dict], *, catalog=None) -> dict | None:
     """Only accept a single, unambiguous, fully anchored deterministic match."""
     title = identity_title(sale.title)
     sale = sale.model_copy(update={"title": title})
@@ -179,6 +181,7 @@ def identify_sale(sale, player_name: str, known_identities: list[dict]) -> dict 
     if "Donruss Optic" in products:
         products = [p for p in products if p != "Donruss"]
     finishes = [name for name, pattern in FINISHES.items() if re.search(pattern, title, re.I)]
+    explicit_finish = re.search(r"\b(silver|red|blue|gold)\s+(prizm|refractor)\b", title, re.I)
     base = is_explicit_base_listing(title)
     print_runs = explicit_print_runs(title)
     if (
@@ -202,7 +205,8 @@ def identify_sale(sale, player_name: str, known_identities: list[dict]) -> dict 
                     set_name=None,
                     card_number=numbers[0],
                     insert_name=None,
-                    parallel_name="Base" if base else finishes[0],
+                    parallel_name="Base" if base else (
+                        explicit_finish.group().title() if explicit_finish else finishes[0]),
                     print_run=next(iter(print_runs), None),
                     is_autograph=False,
                     is_memorabilia=False,
@@ -214,6 +218,10 @@ def identify_sale(sale, player_name: str, known_identities: list[dict]) -> dict 
             )
     matches = {}
     for identity in identities:
+        if catalog is not None:
+            identity = catalog.confirm_title(identity, sale)
+            if identity is None:
+                continue
         score, conflicts = assess_cardhobby_match(identity, sale)
         if not conflicts and score >= Decimal(".65"):
             matches[card_key(identity)] = identity
