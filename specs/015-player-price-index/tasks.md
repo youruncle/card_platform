@@ -58,3 +58,9 @@ Parallel opportunities: 纯计算、保守身份解析和前端独立文件可�
 - [x] T033 修复当前线上联网搜索与视觉混用DeepSeek端点/密钥的配置及代码；恢复已备份的独立百炼qwen-plus搜索链路，缺配置不发送请求，验证实际请求/来源捕获与生产不变量后再发布。
 
 本轮基线：82ef5f7d；价格/公开拍卖聚焦基线65通过、1失败（既有视觉prompt文案断言），不将该失败计为本轮新引入。业务基线及证据路径见spec v3。
+
+## Phase 1: Convergence
+
+2026-10-22：按19项FR、4项SC、10个故事验收场景、12个v3计划段落及5项宪法原则复核。云端当前只读回放三个报告日仍为9位成交/5位趋势，40条有效价；已有鉴权/两端构建/后台推进/原件及审计回退证据已读回。唯一HIGH partial交付缺口仍是设备可信应用服务连接（CoreDevice4016），不表示整项已完成。SPECIFY只读路径解析保留当前027 feature pin，未切换其他任务上下文。
+
+- [ ] T034 [T031续接验收] 在已配对个人iPhone可信应用服务恢复后，使用已编译签名的1.1.14/build18保留数据覆盖安装，实际读回设备bundle/version/build并启动；将devicectl结果记入validation-v3.md，再核对T031/T032和全部完成门槛 per spec:v3完成门槛5/6、plan:T031/T032（partial，HIGH）。仅本地构建或缓存设备信息不构成通过；最新失败证据`.runtime/player-price-review-20261022/device-apps-goal-continuation-1.{json,txt}`。
