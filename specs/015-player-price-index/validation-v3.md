@@ -1,6 +1,6 @@
 # 球员行情 v3 持续执行记录
 
-任务目标及全部完成门槛见本目录spec v3；任务尚未完成，线上仍是原版，没有把本轮代码发布到生产或改写生产行情。
+任务目标及全部完成门槛见本目录spec v3；当前六项门槛已通过，API/Web及个人iPhone均已实际发布。下文按批次保留当时状态，最终验收及尚存覆盖/验证边界见文末，早期“未发布/待真机”不是当前状态。
 
 ## 2026-10-22 第一批：证据、标题身份与可恢复采集
 
@@ -397,3 +397,13 @@ Web新增4个主流程、日期与参考身份RED→green；Mobile新增2个主�
 - 最终运行证明：免费capture120、captured43、批准39、有效价40，134份审计（包含持续后台的新增审计）；后台5次真实模型调用的逐条原trace均明确deepseek-flash/thinking disabled，日预留100未超限、成本与行情worker实际true，独立搜索保留。
 - 增量证据云归档9,267,668B，17个新增blob逐SHA核对，SHA6a79855ff0413d29498e92c729820226aefd326153b8ed427fbd94479dac0d9e；连同父归档的610个原件保留全部手工/后台成功与失败证据。最终公开来源＋独立价格表备份63,093,684B，SHA18432c95b30f455ec145cd6bcc3c95ca4852e8617e63d5b3fa5f1d1298577a7d，pg_restore目录通过。路径及完整proof见cloud-final-delivery-durable-checkpoint.json。
 - T027/T029/T030完成，T031尚缺个人iPhone覆盖安装/设备版本读回/启动，T032及持续目标保持未完成；不将云端可用验收代替真机交付。当前只需要恢复已配对iPhone可信应用服务连接；签名产物已就绪，保持数据覆盖安装。
+
+## 个人iPhone交付及全部完成门槛闭环
+
+- 用户回复已连接并解锁后，真实设备应用服务恢复。安装前设备实际为cn.cardsp.alpha.local/1.1.13/build17；冻结IPA SHA4db39062b6328bc33979afef93b88fc10d9a1ea4f3b0dfe27d3c47065fcd1f80再次核对，35个包内文件与待安装App逐字节相同，codesign --verify --deep --strict通过。
+- devicectl device install app实际成功，采用覆盖安装，未执行卸载/清空。随后device info apps实际读回1.1.14/build18，process launch成功PID64354，后续device info processes仍查到相同App路径/PID。原始证明device-apps-connected-before.json、device-install-v3.json、device-apps-v3-after.json、device-launch-v3.json、device-process-v3.json；归纳及各原件SHA为mobile-1.1.14-build18-delivered.json。应用内部每项数据内容未逐项读回，真机屏幕中的全部行情交互未逐项手工重演；详细路径已有生产浏览器及Bearer实测。
+- 最终只读云端复验final-completion-cloud-readback.json：2026-10-19/20/21均9位有核验成交、5位有效参考卡趋势；40条有效价/134审计/120免费图库捕获，固定10人中Kon Knueppel仍0，305个持仓主体仍无三卡7日指数。887条卡库ID/owner/card_definition签名保持；API/Web实际镜像与发布SHA一致，成本与行情worker=true、图片预留日限100、DeepSeek显式非思考和独立百炼qwen-plus均保持，原env SHA未变。
+- 最新source_errors=1，原因是詹姆斯“老詹”第5页于13:01UTC部分采集失败，11页已处理，next_page仍5，没有跳过失败页；6笔已核验成交及12:27UTC上次成功结果保留，incremental/history均明确false，按现有6小时退避等待下一轮。底层传输原因未保存，不能断言具体HTTP状态或网络原因。其他不在当前持仓canonical榜内的历史错误仍保留，不冒充本轮新故障或清空错误。证据final-source-error-audit.json；本轮不通过伪造成功时间或直接清错实现“全绿”。
+- T032逐项核对19项FR、4项SC、10个故事场景、12项计划决策及5项宪法原则：原失败/正常/篡改回归与132份审计回退通过；固定10人三个报告日均9/5达标；至少30笔实际纳入经Codex逐图及绑定收据复核（不是用户人工签核），最终40笔覆盖裸卡/PSA/常见平行/历史窗；实际多轮后台及同查询2→4推进已留存；真实鉴权与API/Web/iPhone交付通过；全部未覆盖和既有测试失败如实保留。六项完成门槛均通过，T031/T032/T034关闭，未增加新规格或更换固定验收组。完整逐项映射与证据SHA见final-completion-audit.json。
+- 测试结论沿用最终产品代码的有效实跑结果：价格/API聚焦462通过（包含真实隔离PostgreSQL）、Web190、Mobile128，类型/构建及Release签名通过。API全套未通过，无关共享CardHobby23失败/147通过对比原24失败/146通过无新增；共享采购图片3失败/38通过与原基线一致，详情及失败日志保留。此次仅补设备交付与报告，没有再次付费调用模型或同步本地知识库。
+- 最终手机/验收证据及当前唯一spec/plan/tasks/validation/deployment文件另存云端私有`final-mobile-completion-20261022.tar.gz`，逐文件及归档SHA在`final-mobile-completion-manifest.json`，读回结果final-mobile-completion-checkpoint.json。不含密钥或完整设备应用清单，保留此前数据库/610父原件/17增量归档。最终converge为0缺口：19FR/4SC/10场景、12计划决策、5宪法原则，未追加空阶段；当前027 feature pin保持。

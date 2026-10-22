@@ -1,10 +1,10 @@
 # 球员行情 v3 云端发布记录
 
-2026-10-22；唯一任务见tasks.md，当前整项尚未完成，个人iPhone安装/启动仍待连接。
+2026-10-22；唯一任务见tasks.md。本轮六项可用门槛已验收，API/Web及个人iPhone均已发布；覆盖不足、采集异常及验证范围见下文和validation-v3.md。
 
 - API：`card-platform-api:0.6.4-20261022-prices1`，源码469683ee，镜像44cb89fcc6bf0e614d63d970b588d75ec7a374f520e7beae509faa80a53a7dc4。沿用原bailian2依赖/OCR，212 Python文件逐hash通过。
 - Web：`card-platform-web:0.6.4-20261022-prices1`，源码537fcc58（UI源与56146b4d一致），镜像db1cf89afc991a438861ecf99a6517e2f983874b8012ca8a5e14650ae551674f。
-- 手机：1.1.14/build18，bundle cn.cardsp.alpha.local，原个人开发签名。实际Release构建、codesign验证通过；IPA SHA4db39062b6328bc33979afef93b88fc10d9a1ea4f3b0dfe27d3c47065fcd1f80；尚未安装、读回设备版本或启动。
+- 手机：1.1.14/build18，bundle cn.cardsp.alpha.local，原个人开发签名。实际Release构建、codesign严格验证通过；IPA SHA4db39062b6328bc33979afef93b88fc10d9a1ea4f3b0dfe27d3c47065fcd1f80。用户连接并解锁后，devicectl覆盖安装成功，设备从1.1.13/build17读回1.1.14/build18；启动PID64354，随后实际进程查询仍存在。未卸载或清空应用；未逐项读取应用内部数据内容。
 - 当前运行成本worker=true，行情worker=true，自动图片调用独立日限100；视觉deepseek-flash显式thinking disabled，搜索保持独立百炼qwen-plus；原环境文件未修改。
 
 ## 数据与真实验证
@@ -27,4 +27,10 @@
 
 最终增量归档`final-cloud-delivery-54ef4f61.tar.gz` SHA6a79855ff0413d29498e92c729820226aefd326153b8ed427fbd94479dac0d9e，17新原件逐hash；父归档610原件保留。公开来源/价格表最终备份`final-public-price-registry-54ef4f61.dump` SHA18432c95b30f455ec145cd6bcc3c95ca4852e8617e63d5b3fa5f1d1298577a7d，pg_restore目录通过。均在同云端私有delivery备份目录。完整证明及机器元数据为该目录`final-checkpoint.json`。
 
-仍未通过：个人iPhone可信应用服务连接（CoreDevice4016），当前1.1.14/build18尚未覆盖安装及启动。整项任务不标完成。
+上述封存时的CoreDevice4016阻断已在用户连接并解锁后解除。实际安装、版本读回、启动及进程证明见`.runtime/player-price-review-20261022/mobile-1.1.14-build18-delivered.json`及对应device-*-v3.json。所有完成门槛审计见final-completion-audit.json，T031/T032/T034已关闭。
+
+最终只读复验：40条有效成交，三个报告日均9位有成交、5位有同款30日趋势、0三卡7日指数；887条卡库所有权/卡款签名保持，API/Web镜像及原环境文件SHA一致，成本/行情worker开启，DeepSeek非思考及独立百炼搜索保持。最新source_errors为1：詹姆斯“老詹”第5页于13:01UTC采集失败，游标仍5，6笔已核验成交及12:27UTC成功结果保留，按6小时退避重试；底层传输原因未留存。失败不能报成完整更新，也不使已有行情归零。
+
+真机本轮直接验证范围为覆盖安装、版本和启动进程；详细搜索/排序/来源/刷新及鉴权路径在真实公网页面和手机同通道Bearer验证，未宣称逐项手工操作真机屏幕。全API套件仍有已记录的无关既有失败；本轮价格聚焦462、Web190、Mobile128通过。原件、审计与数据备份保持原私有目录，新增最终手机交付证明另作小型归档，不覆盖历史检查点。
+
+手机交付、最终只读核验和逐项验收证据的独立私有归档为`/home/ubuntu/card-platform/backups/player-price-delivery-20261022/final-mobile-completion-20261022.tar.gz`；逐文件SHA及归档SHA保存在同目录`final-mobile-completion-manifest.json`，本地读回验证为`.runtime/player-price-review-20261022/final-mobile-completion-checkpoint.json`。此归档不含密钥或完整设备应用清单，既有数据库/原件备份不覆盖。
