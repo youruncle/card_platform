@@ -194,9 +194,9 @@ API仍是0.6.4-20261022-bailian2；本次新价格模块只在一次性进程载
 当前生产证据登记已有5笔，正式行情尚未消费这些收据；可靠业务覆盖、至少30笔实际纳入、≥8位球员/≥5位三日报告趋势、两次独立后台更新和双端发布均未达成。此处的两次导入不是两次后台日更。下一步优先实现runner逐调用租约/预算检查与refresh严格证据消费，并在无新增模型支出的条件下回放已登记5笔，再补真实同款历史窗口、完成旧派生修复及Web/iPhone验收。goal继续active。
 
 
-## 2026-10-22 第十一批：严格行情刷新、并发边界及可回退派生修复（尚未生产应用）
+## 2026-10-22 第十一批：严格行情刷新、并发边界及可回退派生修复（价格代码尚未生产启用）
 
-新增admission.py、reconciliation.py、coordinator.py和0085迁移；生产worker及CLI改经短DB阶段协调器，HTTP/图片字节与官方卡款验证在已提交事务之外。旧事务绑定helper仅供隔离回放，禁止默认真实collector。标题/清单只用于discovery，实际player_price_sale仅消费当前DB候选/收据与服务器批准集合，并重走现行原图/版本/品相/官方资料门槛；最新批准失败不能回退到旧批准。原币CNY成交金额、日期和标题不被upsert改写，冲突只剔除并留标记。0085尚未应用生产，也未替换线上价格模块。
+新增admission.py、reconciliation.py、coordinator.py和0085迁移；生产worker及CLI改经短DB阶段协调器，HTTP/图片字节与官方卡款验证在已提交事务之外。旧事务绑定helper仅供隔离回放，禁止默认真实collector。标题/清单只用于discovery，实际player_price_sale仅消费当前DB候选/收据与服务器批准集合，并重走现行原图/版本/品相/官方资料门槛；最新批准失败不能回退到旧批准。原币CNY成交金额、日期和标题不被upsert改写，冲突只剔除并留标记。本段最初尚未应用0085，后续生产迁移见本节末；未替换线上价格模块。
 
 独立复核最初实证五项Important，均先补RED后修复：旧回退只检查sales却删除后来报告；最终校验与审批提交存在race；多人标题占唯一job阻断第二位球员；纯新增成交删除全部旧报告，部分采集失败后无报告可用；blocked来源漏原owner且提前提交exclude使审计失真。现审计完整保存scope成交/冲突标记/篮子/快照/revision，回退对完整状态指纹作保护；finalize仅限创建audit的同txid，coordinator计算后封存，后续事务禁止重封。首次修复清当前主体污染报告/篮子；正常新增保留历史；以前可用来源失效按原成交上海日到+7日清理受影响日指数，其他历史及固定月篮子保留。此处是已有两个7日窗口相隔1天的8源日口径，没有改指数算法。冲突原owner的canonical成员加锁/审计/失效一起处理。调度state另行维护，不冒充全库回滚。
 
@@ -216,3 +216,6 @@ v3为替换已诊断的低效旧shadow候选而显式SIGINT中断，触发取消
 本批v8已完整退出0：5位×2026-10-19/20/21共15次正式协调器影子读回，每位每次均恰好1笔原已批准成交、evidence_policy正确、verification_pending=false，状态均insufficient；首次修复audit共6条（含首位回退后重新应用），rollback_and_reapply_verified=true，账本仍5attempts/0actual，新增模型调用0。来源范围真实最高为詹姆斯10079条，未经收据的其余来源仅pending，不能计可靠纳入。temporary schema及其候选/报告已经finally清理；不是15笔不同成交，也不是3个已满足行情覆盖的完整报告日，0有效球员趋势没有改变。准确捕获cloud-shadow-verified-refresh-v8.jsonl及其input/source包保留，不利v1至v7记录不删除。
 
 发布前新增云端完整备份/home/ubuntu/card-platform/backups/player-price-verified-refresh-20261022/before-0085.dump，396780591字节，SHA256 c2e2c08576209482be738e970747ed0f1dbe84b1872eb180e3cbcfc10dab9743；pg_restore --list有效，明确排除了临时price_verified_shadow_* schema，0600并仅服务器保存。最终cloud-verified-refresh-runtime-check-v3.json：正式0085两表仍不存在、shadow schema=0、原5job/5批准仍在；cost worker=true、DeepSeek Flash thinking disabled、独立原百炼host/key与两个qwen-plus模型、/health及/health/ready均通过。此前误探测/ready得到404导致断言失败，属于探测路径错误，原记录保留；未当作实际API故障或未验证通过。
+
+
+实现已提交efa176ab。完整shadow和独立复核通过且最新备份校验后，实际生产应用0085并同事务登记schema_migration版本，SQL SHA与隔离验证一致；cloud-0085-apply.json读回public两表存在、audits=0/revisions=0、原5job/5批准及版本记录=1。独立第二次cloud-0085-idempotent.json重新连接读回newly_applied=false，没有重复建表或新登记；cloud-verified-refresh-post-0085.json确认shadow=0、两审计表为空、health/ready正确路径200及全部worker/视觉/搜索不变量通过。API镜像和实际价格包仍为本节之前的线上版本，没有执行正式派生repair、没有开启图片runner或新增模型请求；T031双端发布尚未完成。此迁移只为后续受审计的准入/修复建立存储，不算新增业务覆盖。
