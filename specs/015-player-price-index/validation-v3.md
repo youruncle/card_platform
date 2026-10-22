@@ -391,3 +391,9 @@ Web新增4个主流程、日期与参考身份RED→green；Mobile新增2个主�
 - 自动核图真实运行日预留100达到配置上限后停止claim；另有5次后台实际付费调用（两完整捕获及一次失败响应），与前160次手工控制分账，累计165。捕获不等于准入，未自动批准人工review。最终运行模型/非思考原trace核验及数量另存cloud-final-runtime-model-proof.json。
 - 两个20分钟临时验证会话均按精确hash/UA撤销，空隔离账户删除，原账户保留；公网用已撤销Bearer实测401，本地0600秘密文件已删除。证据release-session-cleanup-verified.json。
 - 最后再次调用真实设备应用服务仍CoreDevice4016无可信连接；不能把缓存设备资料可读当成连接/安装成功。手机1.1.14/build18签名包已在本地及云端私有备份，安装、设备版本读回、启动保持未完成。
+
+## 云端交付最终封存（整项目标仍待真机）
+
+- 最终运行证明：免费capture120、captured43、批准39、有效价40，134份审计（包含持续后台的新增审计）；后台5次真实模型调用的逐条原trace均明确deepseek-flash/thinking disabled，日预留100未超限、成本与行情worker实际true，独立搜索保留。
+- 增量证据云归档9,267,668B，17个新增blob逐SHA核对，SHA6a79855ff0413d29498e92c729820226aefd326153b8ed427fbd94479dac0d9e；连同父归档的610个原件保留全部手工/后台成功与失败证据。最终公开来源＋独立价格表备份63,093,684B，SHA18432c95b30f455ec145cd6bcc3c95ca4852e8617e63d5b3fa5f1d1298577a7d，pg_restore目录通过。路径及完整proof见cloud-final-delivery-durable-checkpoint.json。
+- T027/T029/T030完成，T031尚缺个人iPhone覆盖安装/设备版本读回/启动，T032及持续目标保持未完成；不将云端可用验收代替真机交付。当前只需要恢复已配对iPhone可信应用服务连接；签名产物已就绪，保持数据覆盖安装。
