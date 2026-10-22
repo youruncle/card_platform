@@ -22,7 +22,11 @@ from card_platform.ingestion.cardhobby_public_item import (
 from card_platform.knowledge_card_catalog import text_key, product_key
 from card_platform.model_requests import nonthinking_extra_body
 from card_platform.pair_integrity import derive_pair_validation
-from card_platform.player_prices.discovery import identity_title, source_finish_conflict
+from card_platform.player_prices.discovery import (
+    identity_title,
+    source_finish_conflict,
+    _plain_base_title,
+)
 from card_platform.player_prices.subjects import canonical_subject_name
 from card_platform.public_source_catalog import validated_sale
 from card_platform.purchase_cost_images import validate_photo
@@ -352,6 +356,41 @@ def _decision(reason, identity=None):
     )
 
 
+def _bound_subject_title(identity, title):
+    """Disambiguate isolated nicknames only after complete physical checks."""
+    if not (
+        canonical_subject_name(identity.get("player_name")) == "Victor Wembanyama"
+        and text_key(identity.get("brand_name")) == "panini"
+        and product_key(identity.get("product_name")) == "prizm"
+        and text_key(identity.get("parallel_name")) == "base"
+        and not identity.get("insert_name")
+    ):
+        return title, []
+    compact = re.sub(r"[^A-Za-z0-9\u3400-\u9fff]+", "", title)
+    kind_context = re.search(r"[纹折版]|特卡|插入|平行|卡种|卡款", compact) or re.search(
+        r"(?<![A-Za-z0-9])(?:version|variant|variation|parallel|insert|zebra)(?![A-Za-z0-9])",
+        title,
+        re.I,
+    )
+    if re.search(r"斑马|外星人", title) and kind_context:
+        return None, []
+    alias_pattern = r"(?<![A-Za-z0-9\u3400-\u9fff])(?:斑马|外星人)(?![A-Za-z0-9\u3400-\u9fff])"
+    if not re.search(alias_pattern, title):
+        return title, []
+    if not (
+        _plain_base_title(title)
+        and re.search(r"(?<![A-Za-z])Victor\s+Wembanyama(?![A-Za-z])|文班亚马", title, re.I)
+    ):
+        return None, []
+    aliases = []
+
+    def remove(match):
+        aliases.append(match[0])
+        return " "
+
+    return re.sub(alias_pattern, remove, title), aliases
+
+
 def admit_receipt(observation, receipt, player_name, catalog, *, blob_reader):
     """Re-run deterministic membership on the CURRENT cloud publication."""
     try:
@@ -536,14 +575,19 @@ def _admit_bound_result(observation, receipt, sale, result, player_name, catalog
         print_run=result.serial_total,
         grade_value=str(result.grade_value) if result.grade_value is not None else None,
     )
-    confirmed = catalog.confirm_image(identity, sale.model_copy(update={"title": title}))
+    match_title, subject_aliases = _bound_subject_title(identity, title)
+    if match_title is None:
+        return _decision("source_identity_conflict")
+    confirmed = catalog.confirm_image(identity, sale.model_copy(update={"title": match_title}))
     if confirmed is None:
         return _decision("official_card_unconfirmed")
     if text_key(confirmed.get("insert_name")) != text_key(result.insert_name):
         return _decision("image_insert_conflict")
     # All original title/source gates still run. Only enumerated missing fields
     # can be resolved by the independently read, bound physical observations.
-    _score, conflicts = assess_cardhobby_match(confirmed, sale.model_copy(update={"title": title}))
+    _score, conflicts = assess_cardhobby_match(
+        confirmed, sale.model_copy(update={"title": match_title})
+    )
     allowed = {
         "标题未命中目标卡号，基础/原生闪卡需图像确认": "card_number",
         "标题未命中目标卡种，需图像确认": "insert_name",
@@ -569,6 +613,7 @@ def _admit_bound_result(observation, receipt, sale, result, player_name, catalog
         observed_at=receipt["captured_at"],
         image_sha256=[image["sha256"] for image in images],
         resolved_title_conflicts=conflicts,
+        resolved_subject_aliases=subject_aliases,
         physical_condition="ordinary_visible",
         serial_number=result.serial_number,
         grade_cert_number=result.grade_cert_number,

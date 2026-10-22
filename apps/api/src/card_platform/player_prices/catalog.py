@@ -14,7 +14,10 @@ from card_platform.player_prices.subjects import canonical_subject_name
 BASE_SECTIONS = {"base", "basecards", "baseset"}
 # Reviewed seller kind vocabulary can veto an explicit contradiction, but
 # cannot establish membership in a product/release or supply physical fields.
-TITLE_KIND_CONFLICT_NAMES = {"Finalists"}
+TITLE_KIND_CONFLICT_NAMES = {
+    "Finalists": ("Finalists",),
+    "Extraterrestrial Talent": ("Extraterrestrial Talent", "外星天才"),
+}
 
 
 def _official(row):
@@ -138,7 +141,7 @@ class PriceCardCatalog:
         normalized = _normalized(title)
         spans = set()
         for name in names:
-            for alias in _insert_aliases({"insert_name": name}):
+            for alias in TITLE_KIND_CONFLICT_NAMES.get(name, _insert_aliases({"insert_name": name})):
                 phrase = _normalized(alias)
                 if not phrase:
                     continue

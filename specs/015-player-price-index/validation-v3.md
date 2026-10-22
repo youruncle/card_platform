@@ -278,3 +278,18 @@ Miller132720172完整两面实际查看后，保留模型.95置信度，仅更�
 两批均未替换线上价格包，正式revision/audit仍0，0有效趋势、0满足三个完整报告日的球员；至少30笔可靠纳入、5位有效趋势、两次独立后台更新、Web/API与iPhone发布验收继续未完成，goal/T029–T032保持开放。
 
 上述证据/源码/不利记录已归档numberless-seventeen-20261022.tar.gz至既有云端备份目录，287231126字节，SHA256 3e6839d11d7d8528bcf6f038eee733b21a1be28d2009a1072ab269332b31cf9b，manifest 10db4bfd6b3d9d91ea7d519b4e25221b8082ebdc65cdcc47c3fb779270c15a17；独立读取归档全317个blob，逐一hash验证，0600。最新运行不变量读回17jobs/16批准/revisions0、publication22、成本worker=true、deepseek-flash显式thinking disabled、独立原百炼搜索及两个qwen-plus模型、health/ready正确路径200。未部署本批源码。原cohort30图库JSONL另由服务器gzip封存并独立解压核验178152293字节/SHA c1a90d8e3ef7bc615e06e50d1df32a21d7e8069ba0a9b16dcd0de8492c3e64a7，归档135192422字节/SHA 45309820993102859c53477ac6b38269097770d45e00df30ee8db884fe798ba5；首次无sudo目录权限失败记录保留，成功后仅删除本任务已验证冗余本地副本以释放空间。
+
+
+## 2026-10-22 第十六批：二十五笔全链读回、昵称与版本语境消歧
+
+无卡号20笔冻结控制实际40次付费请求，包含2笔逐面解析失败（133135388、141363288），原失败trace与调用数保存，不把失败请求记0。五笔置信度.80/.86/.86/.87/.78继续hold；Scottie135417675完整原图有多处表面划痕、Miller131017418底部可见白色掉层/磕边，未批准普通品相。10笔提出逐图更正后先执行完整准入，3笔被来源/官方校验继续拒绝，先登记其余7笔；两个独立进程完整读回且幂等，保留原观察hash预检和写前审计blob。
+
+Deep Space130536241实图正面DEEP SPACE、背面No.3/独立PRIZM及2024-25产品行清楚。初次实际准入仍拒绝，独立诊断发现原模型把编号读成字符串“No. 3”而非3，导致当前官方lookup=0；未改源事实，按完整背面将No.引导字与实际编号分开更正，原输出/置信度.95/所有trace不变。另按原图纠正标准星空设计与额外平行纹理的混淆、独立PRIZM反面版本标记的角色。正式准入确认Deep Space #3 Silver Prizm，实际服务器登记及第二独立进程幂等读回成功。这是第十五批修复的首个真实完整收据控制，不再仅是fixture。
+
+全库现25jobs/24批准/9位球员。cloud-verified-current-twentyfive.json独立从正式DB来源/批准和scanner持久卷读取原字节，25confirmed、25组不同精确双面hash，相关历史capture0、新模型0、未写价格/登记，不是后台更新。后续7笔窗口控制另有14次真实请求，累计付费图像调用140次；两笔低置信度及一笔invalid_image_receipt保留待核验，不重复到通过。相关原图、原始JSONL、review版本及不利preflight均保留；本批新证据尚待追加完整云端备份，不声称已归档。
+
+三个实际Wemby标题均明确普通Prizm Base，但“斑马”被当material_parallel、“外星人”被当其他insert，成为可靠实图的来源冲突。新增绑定fixture RED4失败/6通过，其中完整Extraterrestrial Talent/外星天才的跨产品明确卡种声明原来也误接收；只增加精确否决词汇，不引入歧义Talent/外星人作全局正向身份。窄消歧限完整物理Wemby/Panini Prizm/普通Base、标题明确Base及完整主体，解析独立昵称后仍执行官方/全部formal gates；原观察/真实标题未改，proof记resolved_subject_aliases，title-only无新增权限。
+
+独立审查发现“斑马 折/纹、版本: 斑马、外星人 插入”等被简单token删除，RED9失败/11通过后关闭；第一版只保留原标题仍留2失败/93通过，因为原formal也漏其他insert声明，现明确语境直接hold。随后Unicode边界和分隔中文卡种词RED8失败/20通过，现英文ASCII字母数字边界、中文语境去空白/标点、标点边界昵称均覆盖。三相关文件103通过，独立额外19项上下文控制通过，Critical/Important/Minor均无剩余；最终完整价格/market/公开源兼容/knowledge catalog聚焦392通过、1条既有Starlette/httpx警告，Ruff/diff通过。未声称全仓后端通过。
+
+最终模块云端用三笔真实源/原模型trace/实际review/blob完整preflight：132959900原始自动收据、139929544/137377490原逐图review全部confirmed，不新增模型/登记/价格。此前真实标题fixture仅作上下文控制，此处才是完整真实收据链；本记录时尚未登记这3笔，不提前增加25计数，也不计有效趋势。线上价格包未替换、正式revision/audit仍0，其他可用性门槛及双端发布继续未完成。
