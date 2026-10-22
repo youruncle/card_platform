@@ -1,7 +1,7 @@
 "use client";
 import React, {useState} from "react";
 import {ArrowDownRight,ArrowUpRight,ArrowLeft,RefreshCw,TrendingUp,FlaskConical,Minus,ExternalLink} from "lucide-react";
-import {demoBoard,sortPlayers,marketReference,marketCards,marketWindowDescription,priceIdentity,priceSummary,marketDescription,rejectionDescription,type PriceBoard,type PricePlayer,type PriceCard} from "../lib/player-prices";
+import {demoBoard,sortPlayers,marketReference,marketReferenceGap,marketCards,marketWindowDescription,priceIdentity,priceSummary,marketDescription,rejectionDescription,type PriceBoard,type PricePlayer,type PriceCard} from "../lib/player-prices";
 
 function money(value:string|null) {
   return value===null?"—":new Intl.NumberFormat("zh-CN",{style:"currency",currency:"CNY",maximumFractionDigits:2}).format(Number(value));
@@ -44,7 +44,7 @@ function PlayerRow({player,rank,demo,onRefresh,refreshDisabled,reportDate}:{play
       </small>
       {reference&&<><small className="pp-reference">参考卡（100%）：{priceIdentity(reference.identity)}</small><small className="pp-reference">近30日 {money(reference.current_price)} · {reference.current_count} 笔 ｜ 此前30日 {money(reference.previous_price)} · {reference.previous_count} 笔</small><small>{marketWindowDescription(player)}</small></>}
       </div>
-      {reference?<Change value={reference.change_pct}/>:(player.market?player.market.report_date!==reportDate:player.status==="stale")?<span className="pp-change pp-muted">待更新</span>:<span className="pp-change pp-muted">可比样本不足</span>}<span className="pp-expand">明细 <span>⌄</span></span>
+      {reference?<Change value={reference.change_pct}/>:(player.market?player.market.report_date!==reportDate:player.status==="stale")?<span className="pp-change pp-muted">待更新</span>:<span className="pp-change pp-muted">{marketReferenceGap(player)}</span>}<span className="pp-expand">明细 <span>⌄</span></span>
     </summary>
     <div className="pp-detail">
       {player.refresh.error&&<p className="pp-error" role="status">{player.refresh.error}；当前展示已保存结果。</p>}
@@ -89,7 +89,7 @@ export function PlayerPriceBoard({data,error="",loading=false,refreshing=false,o
       <div><small>有确认成交</small><strong>{summary.with_sales}</strong><span>近90日已确认同款的独立成交</span></div>
       <div><small>有卡款趋势</small><strong>{summary.with_trends}</strong><span>30日参考卡 · 上涨 {up} / 下跌 {down}</span></div>
       <div><small>有综合指数</small><strong>{summary.with_index}</strong><span>三卡7日窗口全部达标</span></div></section>
-    <section className="pp-method"><TrendingUp size={21}/><details><summary>同款30日变化 · 每窗至少3笔</summary><p>首屏以样本最活跃的一款同款卡作参考，权重100%，比较近30日与此前30日中位价，每窗至少3笔；卡款、价格和样本量随行披露。三卡7日指数单列在明细。所有价格不含运费。</p></details><span>卡淘 · 人民币</span></section>
+    <section className="pp-method"><TrendingUp size={21}/><details><summary>同款30日变化 · 每窗至少3笔</summary><p>参考卡限正系列折射或带编卡（Topps／Topps Chrome、Prizm、Donruss Optic、Select），排除普通Base、特卡及签字球衣卡；按已确认成交活跃度选一款，权重100%，比较近30日与此前30日中位价，每窗至少3笔；卡款、价格和样本量随行披露。主流卡样本不足时不以普通Base补位。三卡7日指数单列在明细。所有价格不含运费。</p></details><span>卡淘 · 人民币</span></section>
     <section className="pp-board"><div className="pp-toolbar"><div className="pp-tabs"><button className={direction==="activity"?"active":""} onClick={()=>setDirection("activity")}>成交优先</button><button className={direction==="gainers"?"active":""} onClick={()=>setDirection("gainers")}>涨幅优先</button><button className={direction==="losers"?"active":""} onClick={()=>setDirection("losers")}>跌幅优先</button></div>
       <input type="search" aria-label="搜索球员" placeholder="搜索球员…" value={search} onChange={e=>setSearch(e.target.value)}/></div>
       <div className="pp-table-head"><span>球员 / 确认成交</span><span>同款30日变化</span></div>

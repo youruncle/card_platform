@@ -131,6 +131,22 @@ async def check():
             assert board["players"][0]["market"]["sale_count"] == 48
             assert board["summary"] == dict(tracked=1, with_sales=1, with_trends=0, with_index=1,
                                              queued=0, source_errors=0)
+            # Legacy monthly baskets/snapshots must not keep ordinary base
+            # as a player index after the mainstream selection policy changes.
+            from psycopg.types.json import Jsonb
+            legacy_cards = [dict(card, identity={**card['identity'], 'parallel_name':'Base'})
+                            for card in first['cards']]
+            await c.execute('UPDATE player_price_basket SET cards=%s WHERE player_id=%s',
+                            (Jsonb(legacy_cards), player))
+            await c.execute('UPDATE player_price_snapshot SET result=%s WHERE player_id=%s AND report_date=%s',
+                            (Jsonb({**first, 'cards':legacy_cards}), player, D))
+            legacy_board = await repo.board(c, owner, D, 'gainers')
+            assert legacy_board['players'][0]['change_pct'] is None
+            assert legacy_board['summary']['with_index'] == 0
+            repaired = await repo.compute(c, player, D)
+            assert repaired['change_pct'] == '0.0000'
+            assert all(card['identity']['parallel_name']=='Refractor'
+                       for card in (await repo.basket(c, player, D))['cards'])
             assert (await repo.board(c, owner, date(2026, 9, 1), "gainers"))["players"][0]["market"]["sale_count"] == 0
             assert await repo.enqueue(c, owner, player_id=player) == 1
             assert await repo.enqueue(c, uuid4(), player_id=player) == 0

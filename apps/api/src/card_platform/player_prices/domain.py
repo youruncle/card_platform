@@ -1,11 +1,69 @@
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
+import re
 from statistics import median
 from zoneinfo import ZoneInfo
 
 TZ = ZoneInfo("Asia/Shanghai")
 MIN_SALES = 3
+
+
+def is_mainstream_card(identity: dict) -> bool:
+    """Selection only: verified sales of other cards remain market evidence."""
+    def normalized(value):
+        return " ".join(str(value or "").casefold().split())
+
+    product = normalized(identity.get("product_name"))
+    brand = normalized(identity.get("brand_name"))
+    families = {
+        "topps": "topps", "topps basketball": "topps", "topps chrome": "topps",
+        "prizm": "panini", "panini prizm": "panini",
+        "donruss optic": "panini", "panini donruss optic": "panini",
+        "select": "panini", "panini select": "panini",
+    }
+    # Some official identities store brand and product in separate fields.
+    if product == "chrome" and brand == "topps":
+        product = "topps chrome"
+    expected_brand = families.get(product)
+    if expected_brand is None or (brand and brand != expected_brand):
+        return False
+    if identity.get("insert_name") or any(identity.get(field) for field in (
+        "is_autograph", "is_memorabilia", "is_patch", "is_redemption"
+    )):
+        return False
+    finish = normalized(identity.get("parallel_name"))
+    if (finish in {"", "parallel"}
+            or re.search(r"\b(?:unknown|unconfirmed|unreadable|non|not|no)\b|未知|不明|非折|无折", finish)):
+        return False
+    totals = []
+    for field in ("print_run", "serial_total"):
+        value = identity.get(field)
+        if value is None:
+            continue
+        try:
+            total = Decimal(str(value))
+        except (InvalidOperation, ValueError):
+            return False
+        if isinstance(value, bool) or not total.is_finite() or total <= 0 or total != int(total):
+            return False
+        totals.append(total)
+    if len(set(totals)) > 1:
+        return False
+    # Product chrome/foil stock is not itself a refractor. A numbered base
+    # variant is eligible only with a confirmed, positive print run.
+    if totals:
+        return True
+    if product in {"topps", "topps basketball"} or "foil" in finish:
+        return False
+    if finish in {"base", "regular", "standard", "普卡", "正base", "基础卡", "base prizm"}:
+        return False
+    if product == "topps chrome":
+        return bool(re.search(r"\brefractors?\b|折|镭射", finish))
+    return bool(re.search(
+        r"\b(?:holo|silver|red|blue|gold|green|purple|orange|pink|black|white|bronze|"
+        r"wave|mojo|hyper|disco|scope|ice|pulsar|fast break)\b|折|镭射", finish,
+    ))
 
 
 def unique_sales(rows):
@@ -31,7 +89,8 @@ def select_basket(rows, report_date: date) -> list[dict]:
     end = day_end(report_date)
     groups = defaultdict(list)
     for row in unique_sales(rows):
-        if end - timedelta(days=90) <= row["occurred_at"] < end:
+        if (end - timedelta(days=90) <= row["occurred_at"] < end
+                and is_mainstream_card(row["identity"])):
             groups[row["card_key"]].append(row)
     def priority(key):
         sales = groups[key]
@@ -47,6 +106,8 @@ def select_basket(rows, report_date: date) -> list[dict]:
 
 
 def calculate_snapshot(rows, basket: list[dict], report_date: date) -> dict:
+    # Old persisted baskets must not bypass the current selection policy.
+    basket = [entry for entry in basket if is_mainstream_card(entry["identity"])]
     end = day_end(report_date)
     current_start, previous_end = end - timedelta(days=7), end - timedelta(days=1)
     previous_start = end - timedelta(days=8)
@@ -136,11 +197,13 @@ def calculate_market(rows, report_date: date) -> dict:
                           source_url=r["source_url"])
                      for r in sorted(sales, key=lambda r: (r["occurred_at"], r["source_id"]), reverse=True)[:30]],
         ))
-    cards.sort(key=lambda c: (c["status"] != "ready", -c["current_count"], -c["selection_count"], c["card_key"]))
+    cards.sort(key=lambda c: (not is_mainstream_card(c["identity"]), c["status"] != "ready",
+                              -c["current_count"], -c["selection_count"], c["card_key"]))
     # One disclosed exact card represents this signal at 100% weight. Select
     # across every qualified card before limiting the detail list to 20.
     reference = min(
-        (card for card in cards if card['status'] == 'ready'),
+        (card for card in cards if card['status'] == 'ready'
+         and is_mainstream_card(card['identity'])),
         key=lambda card: (-card['selection_count'], card['card_key']),
         default=None,
     )
@@ -149,6 +212,9 @@ def calculate_market(rows, report_date: date) -> dict:
         sale_count=sum(len(sales) for sales in groups.values()), card_count=len(cards),
         trend_count=sum(c["status"] == "ready" for c in cards),
         reference_card=reference,
+        reference_status=("ready" if reference else "insufficient_mainstream_sales"
+                          if any(is_mainstream_card(card['identity']) for card in cards)
+                          else "no_mainstream_cards"),
         latest_sale_at=max((c["latest_sale_at"] for c in cards), key=datetime.fromisoformat, default=None),
         cards=cards[:20], cards_truncated=len(cards) > 20,
         current_window=dict(start=current_start.isoformat(), end=end.isoformat()),

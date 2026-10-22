@@ -10,6 +10,7 @@ export type PriceMarket = {
   sale_count:number; card_count:number; trend_count:number;
   latest_sale_at:string|null; cards:PriceCard[]; cards_truncated:boolean;
   reference_card?:PriceCard|null;
+  reference_status?:"ready"|"no_mainstream_cards"|"insufficient_mainstream_sales";
   current_window?:{start:string;end:string}; previous_window?:{start:string;end:string};
 };
 export type PriceSummary = {tracked:number;with_sales:number;with_trends:number;with_index:number;queued:number;source_errors:number};
@@ -39,6 +40,11 @@ export function marketCards(player:PricePlayer,reportDate?:string):PriceCard[] {
   if(!player.market) return player.cards;
   const reference=marketReference(player,reportDate);
   return reference ? [reference,...player.market.cards.filter(card=>card.card_key!==reference.card_key)].slice(0,20) : player.market.cards;
+}
+export function marketReferenceGap(player:PricePlayer):string {
+  if(player.market?.reference_status==='no_mainstream_cards') return '暂无符合条件的主流卡';
+  if(player.market?.reference_status==='insufficient_mainstream_sales') return '主流卡样本不足';
+  return '可比样本不足';
 }
 export function marketWindowDescription(player:PricePlayer):string {
   const market=player.market;
@@ -80,7 +86,7 @@ export function priceSummary(data:PriceBoard):PriceSummary {
   return data.summary ?? {
     tracked:data.players.length,
     with_sales:data.players.filter(p=>(p.market?.sale_count ?? p.cards.reduce((n,c)=>n+c.selection_count,0))>0).length,
-    with_trends:data.players.filter(p=>p.market ? p.market.trend_count>0 : p.cards.some(c=>c.change_pct!==null)).length,
+    with_trends:data.players.filter(p=>p.market ? marketReference(p,data.report_date)!==null : p.cards.some(c=>c.change_pct!==null)).length,
     with_index:data.players.filter(p=>p.change_pct!==null).length,
     queued:data.players.filter(p=>p.refresh.queued).length,
     source_errors:data.players.filter(p=>Boolean(p.refresh.error)).length,

@@ -67,3 +67,14 @@ test('reference identity preserves a printed two-year season and its manufacture
  assert.match(priceIdentity({season_start:2023,season_end:2024,brand_name:'Panini',product_name:'Prizm',card_number:'136',parallel_name:'Base'}),/2023-24 · Panini · Prizm · #136/);
  assert.match(priceIdentity({season_start:2025,season_end:2025,brand_name:'Topps',product_name:'Chrome'}),/^2025 · Topps · Chrome/);
 });
+test('ineligible base trend remains evidence without a player reference or headline gain',()=>{
+ const p=player('Curry',null,null);
+ p.market.cards[0].change_pct='200';p.market.cards[0].current_price='3';p.market.cards[0].previous_price='1';
+ p.market.sale_count=7;p.market.trend_count=1;p.market.reference_status='insufficient_mainstream_sales';
+ const {container}=render(React.createElement(PlayerPriceBoard,{data:board([p])}));
+ const summary=container.querySelector('.pp-player > summary');
+ assert.match(summary.textContent,/主流卡样本不足/);
+ assert.doesNotMatch(summary.textContent,/200.00%|参考卡（100%）/);
+ assert.match(container.querySelector('.pp-card').textContent,/200.00%/);
+ assert.equal(container.querySelector('.pp-stats div:nth-child(3) strong').textContent,'0');
+});

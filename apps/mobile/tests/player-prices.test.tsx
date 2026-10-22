@@ -6,6 +6,20 @@ import type { MobileApi } from "../src/api";
 import type { PriceBoard } from "../../../packages/card-core/src/player-prices";
 
 afterEach(cleanup);
+it('keeps base sale evidence while explaining missing mainstream reference samples', async () => {
+  const data=board();
+  data.players=[{...data.players[0],change_pct:null,cards:[]}];
+  data.players[0].market!.reference_card=null;
+  data.players[0].market!.reference_status='insufficient_mainstream_sales';
+  data.players[0].market!.cards[0].identity={product_name:'Prizm',parallel_name:'Base'};
+  data.players[0].market!.cards[0].change_pct='200';
+  render(<PlayerPricesPage api={{get:async()=>data} as unknown as MobileApi} onBack={()=>{}}/>);
+  const row=await screen.findByRole('group',{name:'Curry'});
+  expect(row.querySelector('summary')!.textContent).toContain('主流卡样本不足');
+  expect(row.querySelector('summary')!.textContent).not.toContain('200.00%');
+  expect(row.querySelector('[data-price-reference]')).toBeNull();
+  expect(screen.getByText(/有卡款趋势 0/)).toBeTruthy();
+});
 function board(): PriceBoard {
   const data:PriceBoard={report_date: "2026-10-11", timezone: "Asia/Shanghai", currency: "CNY", window_days: 7, min_sales: 3,
     worker_enabled: true, players: [

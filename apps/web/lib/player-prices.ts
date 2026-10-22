@@ -1,6 +1,6 @@
 import type { PriceBoard, PriceCard } from "../../../packages/card-core/src/player-prices";
 export type { PriceSource, PriceCard, PricePlayer, PriceBoard } from "../../../packages/card-core/src/player-prices";
-export { sortPlayers, marketReference, marketCards, marketWindowDescription, priceIdentity, priceSummary, marketDescription, rejectionDescription } from "../../../packages/card-core/src/player-prices";
+export { sortPlayers, marketReference, marketReferenceGap, marketCards, marketWindowDescription, priceIdentity, priceSummary, marketDescription, rejectionDescription } from "../../../packages/card-core/src/player-prices";
 export function demoBoard(reportDate:string):PriceBoard {
   const start=new Date(`${reportDate}T00:00:00+08:00`);
   const cards=(change:number|null):PriceCard[]=>["Prizm","Donruss Optic","Hoops"].map((product,i)=>({

@@ -3,7 +3,9 @@ from collections import defaultdict
 
 from psycopg.types.json import Jsonb
 
-from card_platform.player_prices.domain import TZ, calculate_market, calculate_snapshot, day_end, select_basket
+from card_platform.player_prices.domain import (
+    TZ, calculate_market, calculate_snapshot, day_end, is_mainstream_card, select_basket,
+)
 from card_platform.player_prices.subjects import SubjectIndex
 
 ROSTER_SQL = """SELECT DISTINCT p.id, p.full_name FROM player p
@@ -165,6 +167,8 @@ class PriceRepository:
         await c.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,81))", (str(player_id),))
         rows = await self.sales(c, player_id, report_date)
         saved = await self.basket(c, player_id, report_date)
+        if saved and any(not is_mainstream_card(card["identity"]) for card in saved["cards"]):
+            saved = None
         cards = saved["cards"] if saved else select_basket(rows, report_date)
         selected_on = saved["selected_on"] if saved else report_date
         # Insufficient first discovery must not freeze an empty basket for a month.
@@ -172,7 +176,8 @@ class PriceRepository:
         if saved is None and snapshot["status"] == "ready":
             await c.execute(
                 """INSERT INTO player_price_basket(player_id,month,selected_on,cards)
-                VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
+                VALUES(%s,%s,%s,%s) ON CONFLICT(player_id,month) DO UPDATE SET
+                selected_on=EXCLUDED.selected_on,cards=EXCLUDED.cards""",
                 (player_id, report_date.replace(day=1), report_date, Jsonb(cards)),
             )
         snapshot = calculate_snapshot(rows, cards, report_date)
@@ -226,6 +231,11 @@ class PriceRepository:
         players = []
         for row in data:
             snapshot = row["result"] or {"status": "pending", "change_pct": None, "cards": []}
+            if any(not is_mainstream_card(card["identity"]) for card in snapshot["cards"]):
+                snapshot = {**snapshot, "status": "insufficient", "change_pct": None,
+                            "last_change_pct": None, "basket_frozen": False,
+                            "cards": [card for card in snapshot["cards"]
+                                      if is_mainstream_card(card["identity"])]}
             if snapshot.get("report_date") and snapshot["report_date"] != report_date.isoformat():
                 snapshot = {
                     **snapshot,
@@ -271,7 +281,7 @@ class PriceRepository:
             summary=dict(
                 tracked=len(players),
                 with_sales=sum(p["market"]["sale_count"] > 0 for p in players),
-                with_trends=sum(p["market"]["trend_count"] > 0 for p in players),
+                with_trends=sum(p["market"]["reference_card"] is not None for p in players),
                 with_index=sum(p["change_pct"] is not None for p in players),
                 queued=sum(p["refresh"]["queued"] for p in players),
                 source_errors=sum(bool(p["refresh"]["error"]) for p in players),

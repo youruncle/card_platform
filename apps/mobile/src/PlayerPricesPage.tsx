@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { priceIdentity, sortPlayers, marketReference, marketCards, marketWindowDescription, priceSummary, marketDescription, rejectionDescription, type PriceBoard, type PricePlayer, type PriceCard } from "../../../packages/card-core/src/player-prices";
+import { priceIdentity, sortPlayers, marketReference, marketReferenceGap, marketCards, marketWindowDescription, priceSummary, marketDescription, rejectionDescription, type PriceBoard, type PricePlayer, type PriceCard } from "../../../packages/card-core/src/player-prices";
 import type { MobileApi } from "./api";
 
 const money = (value: string | null) => value === null ? "—" : `¥${Number(value).toFixed(2)}`;
@@ -24,7 +24,7 @@ function PlayerRow({player,onRefresh,disabled,reportDate}: {player: PricePlayer;
     </section>));
   return <section className="panel price-player" role="group" aria-label={player.player_name}><details>
     <summary><span>{player.player_name}</span><strong className={Number(reference?.change_pct) > 0 ? "price-up" : Number(reference?.change_pct) < 0 ? "price-down" : ""}>
-      {reference?change(reference.change_pct):(player.market?player.market.report_date!==reportDate:player.status === "stale") ? "待更新" : "可比样本不足"}
+      {reference?change(reference.change_pct):(player.market?player.market.report_date!==reportDate:player.status === "stale") ? "待更新" : marketReferenceGap(player)}
     </strong></summary>
     <p className="small muted">最近尝试：{player.refresh.last_attempt_at?new Date(player.refresh.last_attempt_at).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai"}):"尚未采集"} · 最近成功统计：{player.refresh.last_success_at?new Date(player.refresh.last_success_at).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai"}):"尚未完成"}</p>
     {monthly&&<p className="small muted">行情截至 {player.market!.report_date} · 近30日与此前30日样本比较</p>}
@@ -86,7 +86,7 @@ export function PlayerPricesPage({api, onBack}: {api: MobileApi; onBack: () => v
       <button aria-label="更新公开成交" disabled={busy || !data || data.worker_enabled === false} onClick={() => void refresh()}>{busy ? "请求中…" : "更新"}</button>
     </div>
     {data && <p className="small muted">报告日 {data.report_date} · 北京时间 · 当前持仓篮球球员</p>}
-    <details className="panel small"><summary>同款30日变化 · 每窗至少3笔</summary><p>首屏以样本最活跃的一款同款卡作参考，权重100%，比较近30日与此前30日中位价，每窗至少3笔；卡款与样本量随行披露。三卡7日指数单列在明细。成交价不含运费。</p></details>
+    <details className="panel small"><summary>同款30日变化 · 每窗至少3笔</summary><p>参考卡限正系列折射或带编卡（Topps／Topps Chrome、Prizm、Donruss Optic、Select），排除普通Base、特卡及签字球衣卡；按已确认成交活跃度选一款，权重100%，比较近30日与此前30日中位价，每窗至少3笔；卡款与样本量随行披露。主流卡样本不足时不以普通Base补位。三卡7日指数单列在明细。成交价不含运费。</p></details>
     {data?.worker_enabled === false && <p className="small muted">服务器未开启自动采集，展示已保存的公开样本。</p>}
     {notice && <p role="status">{notice}</p>}
     {error && <p role="alert" className="error">{error} <button onClick={() => setRetry(n => n + 1)}>重试</button></p>}

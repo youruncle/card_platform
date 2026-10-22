@@ -64,3 +64,12 @@ Parallel opportunities: 纯计算、保守身份解析和前端独立文件可�
 2026-10-22：按19项FR、4项SC、10个故事验收场景、12个v3计划段落及5项宪法原则复核。云端当前只读回放三个报告日仍为9位成交/5位趋势，40条有效价；已有鉴权/两端构建/后台推进/原件及审计回退证据已读回。唯一HIGH partial交付缺口仍是设备可信应用服务连接（CoreDevice4016），不表示整项已完成。SPECIFY只读路径解析保留当前027 feature pin，未切换其他任务上下文。
 
 - [x] T034 [T031续接验收] 已配对个人iPhone可信应用服务恢复后，使用已编译签名的1.1.14/build18覆盖安装，未卸载或清空数据；设备实际读回cn.cardsp.alpha.local/1.1.14/18，启动PID64354后再次查到同一进程。已将devicectl结果记入validation-v3.md并核对T031/T032全部门槛 per spec:v3完成门槛5/6、plan:T031/T032（原partial/HIGH缺口已关闭）。原4016失败证据保留，新证明为`.runtime/player-price-review-20261022/mobile-1.1.14-build18-delivered.json`及device-install/launch/process-v3.json。
+
+
+## 2026-10-23 主流参考卡纠偏
+
+- [x] T035 云端真实复现、集中筛选策略及旧月篮子/快照防绕过；先失败再通过回归，保留普通卡真实成交。
+- [x] T036 两端统一缺口说明与趋势人数；独立PostgreSQL行情、Web/Mobile交互及构建验证。构建最终结果另记本次validation。
+- [x] T037 基于线上当前程序备份、增量发布及云端读回，手机个人签名构建/可用设备安装验证；报告主流卡真实样本缺口及未验证范围。
+
+本轮实际证据见[validation-mainstream-20261023.md](validation-mainstream-20261023.md)：行情500/Web194/Mobile129通过，API/Web及iPhone1.1.15/build19交付；新主流口径三日均0趋势，真实缺口保留，不继承旧Base五位趋势验收结论。

@@ -16,7 +16,9 @@ def sale(key="a", price="100", day=10, source_id=None):
     return dict(
         source_id=source_id or f"{key}-{day}-{price}",
         card_key=key,
-        identity={"player_name": "Stephen Curry", "card_number": key},
+        identity={"player_name": "Stephen Curry", "card_number": key,
+                  "brand_name": "Topps", "product_name": "Topps Chrome",
+                  "season_start": 2025, "parallel_name": "Refractor"},
         sale_price=Decimal(price),
         occurred_at=datetime(2026, 10, day, 12, tzinfo=TZ),
         source_url="https://cardhobby.com.cn/Market/Item/123",
