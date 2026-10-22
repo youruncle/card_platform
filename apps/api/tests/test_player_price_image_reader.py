@@ -11,10 +11,16 @@ from test_player_price_face_observations import faces
 
 
 @pytest.mark.asyncio
-async def test_real_model_adapter_sends_bound_images_disabled_thinking_and_validates_json():
+@pytest.mark.parametrize("unknown_manufacturer", [None, 0, 1])
+async def test_real_model_adapter_sends_bound_images_disabled_thinking_and_validates_json(
+    unknown_manufacturer,
+):
     from card_platform.player_prices.image_reader import PriceImageReader
 
     requests = []
+    inputs = faces()
+    if unknown_manufacturer is not None:
+        inputs[unknown_manufacturer]["brand_name"] = None
 
     def answer(request):
         requests.append(json.loads(request.content))
@@ -30,7 +36,7 @@ async def test_real_model_adapter_sends_bound_images_disabled_thinking_and_valid
                         index=0,
                         finish_reason="stop",
                         message=dict(
-                            role="assistant", content=json.dumps(faces()[len(requests) - 1])
+                            role="assistant", content=json.dumps(inputs[len(requests) - 1])
                         ),
                     )
                 ],
@@ -51,6 +57,9 @@ async def test_real_model_adapter_sends_bound_images_disabled_thinking_and_valid
             [(photo("white"), "image/png"), (photo("gray"), "image/png")]
         )
     assert result.card_number == "201" and result.parallel_name == "Refractor"
+    assert result.brand_name == "Topps"
+    if unknown_manufacturer is not None:
+        assert result.face_observations[unknown_manufacturer]["brand_name"] is None
     assert usage["prompt_tokens"] == 200 and usage["model_calls"] == 2
     assert len(requests) == 2
     for body in requests:

@@ -134,7 +134,11 @@ class PriceImageReader:
         await self.client.close()
 
     async def observe(self, images):
-        from card_platform.player_prices.image_observations import FaceFacts, compose_faces
+        from card_platform.player_prices.image_observations import (
+            FaceFacts,
+            PAIR_MANUFACTURER_CONTRACT,
+            compose_faces,
+        )
 
         if len(images) != 2:
             raise ValueError("price_pair_images_required")
@@ -190,7 +194,7 @@ class PriceImageReader:
                     "price_face_observation_failed", observations, calls
                 ) from error
         try:
-            result = compose_faces(faces)
+            result = compose_faces(faces, identity_derivation_contract=PAIR_MANUFACTURER_CONTRACT)
         except Exception as error:
             raise PriceImageReadError(
                 "price_face_composition_failed", observations, calls

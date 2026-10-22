@@ -97,6 +97,7 @@ class PriceImageResult(BaseModel):
     condition_status: Literal["ordinary_visible", "material_damage", "uncertain"] = "uncertain"
     physical_evidence: list[PhysicalEvidence] = Field(default_factory=list, max_length=60)
     observation_contract: Literal["price-per-face-observation-v1"] | None = None
+    identity_derivation_contract: Literal["price-pair-manufacturer-v2"] | None = None
     face_observations: list[dict] = Field(default_factory=list, max_length=2)
     derivations: list[dict] = Field(default_factory=list)
 
@@ -248,6 +249,8 @@ def _read_bound_receipt(observation, receipt, blob_reader):
         expected_gallery=body["gallery"],
     )
     result = PriceImageResult.model_validate(body["result"])
+    if result.identity_derivation_contract and not result.observation_contract:
+        raise ValueError("price_identity_derivation_requires_face_trace")
     if result.observation_contract:
         from card_platform.player_prices.image_observations import compose_faces
 
@@ -274,7 +277,9 @@ def _read_bound_receipt(observation, receipt, blob_reader):
             ):
                 raise ValueError("price_model_trace_unbound")
             raw_faces.append(json.loads(record["raw_response"]))
-        if compose_faces(raw_faces).model_dump(mode="json") != result.model_dump(mode="json"):
+        if compose_faces(
+            raw_faces, identity_derivation_contract=result.identity_derivation_contract
+        ).model_dump(mode="json") != result.model_dump(mode="json"):
             raise ValueError("price_model_derivation_changed")
     return sale, result
 
@@ -461,9 +466,13 @@ def _admit_bound_result(observation, receipt, sale, result, player_name, catalog
         or not result.parallel_name
     ):
         return _decision("image_identity_incomplete")
+    manufacturer_from_pair = result.identity_derivation_contract == "price-pair-manufacturer-v2"
     if any(
         product_key(face.get("product_name")) != product_key(result.product_name)
-        or text_key(face.get("brand_name")) != text_key(result.brand_name)
+        or (
+            (not manufacturer_from_pair or text_key(face.get("brand_name")))
+            and text_key(face.get("brand_name")) != text_key(result.brand_name)
+        )
         for face in (paired["front"], paired["back"])
     ):
         return _decision("image_product_conflict")

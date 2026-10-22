@@ -11,6 +11,7 @@ from card_platform.knowledge_card_catalog import product_key, text_key
 from card_platform.player_prices.subjects import canonical_subject_name
 
 OBSERVATION_CONTRACT = "price-per-face-observation-v1"
+PAIR_MANUFACTURER_CONTRACT = "price-pair-manufacturer-v2"
 ATTRIBUTES = {
     "autograph": "is_autograph",
     "memorabilia": "is_memorabilia",
@@ -166,7 +167,7 @@ def _known_nonvariant_mark(mark, scope):
     )
 
 
-def _finish(front, back, numbered):
+def _finish(front, back, numbered, *, scope=None):
     # These narrow recipes require affirmative surface observations and a
     # complete independently observed reverse. An absent pattern is not an
     # unreadable pattern. The current official catalog still checks core scope.
@@ -183,7 +184,8 @@ def _finish(front, back, numbered):
         or surface.pattern != "none"
     ):
         return None, None
-    scope = (text_key(front.brand_name), product_key(front.product_name))
+    if scope is None:
+        scope = (text_key(front.brand_name), product_key(front.product_name))
     version_marks = []
     for mark in [*front.finish_markings, *back.finish_markings]:
         if _known_nonvariant_mark(mark, scope):
@@ -238,10 +240,12 @@ def _season(face):
     return None, None
 
 
-def compose_faces(raw_faces):
+def compose_faces(raw_faces, *, identity_derivation_contract=None):
     """Return the established admission contract, preserving per-view originals."""
     from card_platform.player_prices.image_evidence import PriceImageResult
 
+    if identity_derivation_contract not in {None, PAIR_MANUFACTURER_CONTRACT}:
+        raise ValueError("unknown_price_identity_derivation")
     if len(raw_faces) != 2:
         raise ValueError("price_pair_images_required")
     faces = [FaceFacts.model_validate(raw) for raw in raw_faces]
@@ -257,7 +261,28 @@ def compose_faces(raw_faces):
         for face in faces
     ):
         attributes["is_numbered"] = None
-    parallel, recipe = _finish(front, back, attributes["is_numbered"])
+    brand = front.brand_name
+    manufacturer_sources = []
+    if identity_derivation_contract == PAIR_MANUFACTURER_CONTRACT:
+        # A printed manufacturer can occur on only one face. Unknown stays
+        # unknown in that face's facts; contradictory printed brands never merge.
+        known = [(i, face) for i, face in enumerate(faces) if text_key(face.brand_name)]
+        manufacturer_sources = [
+            i for i, face in known if len("; ".join(face.identity_evidence)) >= 8
+        ]
+        brand = (
+            known[0][1].brand_name
+            if known
+            and len({text_key(face.brand_name) for _, face in known}) == 1
+            and len(manufacturer_sources) == len(known)
+            else None
+        )
+    parallel, recipe = _finish(
+        front,
+        back,
+        attributes["is_numbered"],
+        scope=(text_key(brand), product_key(front.product_name)),
+    )
     conditions = [
         {
             "present": "material_damage",
@@ -337,7 +362,7 @@ def compose_faces(raw_faces):
     return PriceImageResult.model_validate(
         dict(
             player_name=names[0] if len(set(names)) == 1 else None,
-            brand_name=front.brand_name,
+            brand_name=brand,
             product_name=_product(front),
             card_number=back.card_number.value,
             insert_name=front.insert_name or back.insert_name,
@@ -364,16 +389,30 @@ def compose_faces(raw_faces):
             ),
             physical_evidence=evidence,
             observation_contract=OBSERVATION_CONTRACT,
+            identity_derivation_contract=identity_derivation_contract,
             face_observations=[face.model_dump(mode="json") for face in faces],
-            derivations=[
-                dict(
-                    field="parallel_name",
-                    rule=recipe,
-                    front_index=front_index,
-                    back_index=back_index,
-                )
-            ]
-            if recipe
-            else [],
+            derivations=(
+                [
+                    dict(
+                        field="brand_name",
+                        rule=PAIR_MANUFACTURER_CONTRACT,
+                        source_indices=manufacturer_sources,
+                    )
+                ]
+                if identity_derivation_contract and brand
+                else []
+            )
+            + (
+                [
+                    dict(
+                        field="parallel_name",
+                        rule=recipe,
+                        front_index=front_index,
+                        back_index=back_index,
+                    )
+                ]
+                if recipe
+                else []
+            ),
         )
     )

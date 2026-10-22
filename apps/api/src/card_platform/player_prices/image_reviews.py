@@ -11,7 +11,7 @@ import hashlib
 import json
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from card_platform.player_prices.image_evidence import (
     _admit_bound_result,
@@ -65,7 +65,23 @@ class ImageReview(BaseModel):
     based_on_receipt_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     observation_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     reviewed_images: list[ReviewedImage] = Field(min_length=2, max_length=2)
-    corrections: list[Correction] = Field(min_length=1, max_length=36)
+    identity_derivation_contract: Literal["price-pair-manufacturer-v2"] | None = None
+    corrections: list[Correction] = Field(max_length=36)
+
+    @model_validator(mode="after")
+    def require_change_or_version_upgrade(self):
+        if not self.corrections and not self.identity_derivation_contract:
+            raise ValueError("price_review_requires_change_or_version_upgrade")
+        return self
+
+
+def _result_fingerprint(result):
+    payload = result.model_dump(mode="json")
+    if result.identity_derivation_contract is None:
+        # Preserve the audit fingerprint of frozen v1 results, whose schema
+        # predates the optional version field.
+        payload.pop("identity_derivation_contract", None)
+    return _seal(payload)
 
 
 def admit_review(
@@ -116,15 +132,24 @@ def admit_review(
                 raise ValueError("price_review_previous_value_changed")
             faces[correction.image_index][correction.field] = deepcopy(correction.after)
             changed.add(key)
-        result = compose_faces(faces)
+        if (
+            not review.corrections
+            and review.identity_derivation_contract == original.identity_derivation_contract
+        ):
+            raise ValueError("price_review_requires_change_or_version_upgrade")
+        result = compose_faces(
+            faces, identity_derivation_contract=review.identity_derivation_contract
+        )
         proof = dict(
             review_sha256=review_sha256,
             reviewer_kind=review.reviewer_kind,
             reviewed_at=review.reviewed_at.isoformat(),
             correction_count=len(changed),
-            original_result_fingerprint=_seal(original.model_dump(mode="json")),
-            corrected_result_fingerprint=_seal(result.model_dump(mode="json")),
+            original_result_fingerprint=_result_fingerprint(original),
+            corrected_result_fingerprint=_result_fingerprint(result),
         )
+        if review.identity_derivation_contract:
+            proof["identity_derivation_contract"] = review.identity_derivation_contract
     except (ValueError, TypeError, KeyError, OSError, AttributeError, UnicodeError, IndexError):
         return _decision("invalid_image_review")
     return _admit_bound_result(
