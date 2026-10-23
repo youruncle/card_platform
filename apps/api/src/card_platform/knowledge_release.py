@@ -62,10 +62,17 @@ def _verified_identity(asset: dict, cache: dict, official_artifact: dict) -> dic
         if sha256(data).hexdigest() != review_key[1]:
             raise ValueError("identity review checksum differs from reviewed record")
         cache[review_key] = json.loads(data)
-    cert = asset.get("pair_evidence", {}).get("record_id")
-    reviews = [r for r in cache[review_key]["records"] if r.get("certification_number") == cert]
+    capture = json.loads(Path(asset["source_artifact_path"]).read_bytes())
+    evidence = asset.get("pair_evidence", {})
+    # A reviewed single face has source identity, but cannot declare a pair.
+    # Recover its record from the checksum-bound capture when pairing is absent.
+    listing = (evidence or capture).get("record_type") == "public_specimen_listing"
+    cert = (evidence.get("record_id") if evidence else
+            capture.get("record_id") if listing else str(capture.get("cert") or ""))
+    identity_field = "specimen_listing_id" if listing else "certification_number"
+    reviews = [r for r in cache[review_key]["records"] if r.get(identity_field) == cert]
     if len(reviews) != 1:
-        raise ValueError("identity review has no unique certification record")
+        raise ValueError("identity review has no unique listing or certification record")
     review = reviews[0]
     source_identity = review.get("source_identity", {})
     if (review.get("status") not in {"core_identity_matched_variant_unresolved", "exact_official_section_matched"}
@@ -80,8 +87,34 @@ def _verified_identity(asset: dict, cache: dict, official_artifact: dict) -> dic
             or not any(e.get("sha256") == asset["sha256"] and e.get("side") == asset["side"]
                        for e in review.get("image_evidence", []))):
         raise ValueError("card identity review does not bind this image, source and checklist candidate")
-    capture = json.loads(Path(asset["source_artifact_path"]).read_bytes())
-    if (str(capture.get("cert")) != cert or capture.get("page_url") != asset["source_url"]
+    if listing:
+        serial = review.get("serial_evidence", {})
+        number, total = serial.get("number"), serial.get("total")
+        if (capture.get("record_type") != "public_specimen_listing" or capture.get("record_id") != cert
+                or not isinstance(number, int) or not isinstance(total, int) or not 0 < number <= total
+                or (asset.get("serial_number"), asset.get("serial_total")) != (number, total)
+                or serial != capture.get("serial_evidence") or not serial.get("locator")
+                or not serial.get("image_sha256")
+                or not any(e.get("side") == "detail" and e.get("sha256") == serial["image_sha256"]
+                           for e in review.get("image_evidence", []))
+                or any(cache[cache_key][i]["attributes"].get("serial_total") != total for i in ids)):
+            raise ValueError("listing identity requires a reviewed unique serial and official matching limit")
+        detail_root = Path(asset["source_artifact_path"]).resolve().parent
+        detail = (detail_root / str(serial.get("image_path") or "")).resolve()
+        if (not serial.get("image_path") or not detail.is_relative_to(detail_root)
+                or not serial.get("image_url")
+                or not any(e.get("url") == serial["image_url"] for e in capture.get("observed_link_bindings", []))):
+            raise ValueError("listing serial closeup requires a sealed relative path and same-listing URL")
+        try:
+            if sha256(detail.read_bytes()).hexdigest() != serial["image_sha256"]:
+                raise ValueError("listing serial closeup checksum mismatch")
+            from PIL import Image
+            with Image.open(detail) as image:
+                image.verify()
+        except OSError as exc:
+            raise ValueError("listing serial closeup is missing or undecodable") from exc
+    source_record_id = capture.get("record_id") if listing else capture.get("cert")
+    if (str(source_record_id) != cert or capture.get("page_url") != asset["source_url"]
             # The source proves the URL, while reviewed image hashes above prove
             # orientation. Link ordinal by itself is never side evidence.
             or not any(e.get("url") == asset["image_url"]
@@ -150,8 +183,10 @@ def attach_reference_images(manifest: dict, assets: list[dict], media_root: Path
         if verified:
             reference.update(player=asset["player"], card_number=asset["card_number"],
                              variant=asset.get("variant"), identity_verification=verified)
+            if asset.get("pair_evidence", {}).get("record_type") == "public_specimen_listing":
+                reference.update(serial_number=asset["serial_number"], serial_total=asset["serial_total"])
             evidence = asset.get("pair_evidence", {})
-            if (asset.get("pair_id") and evidence.get("record_type") == "certification"
+            if (asset.get("pair_id") and evidence.get("record_type") in {"certification", "public_specimen_listing"}
                     and evidence.get("record_id") and evidence.get("record_url") == asset["source_url"]):
                 pair_candidates.setdefault(asset["pair_id"], []).append((reference, evidence))
         references.append(reference)
