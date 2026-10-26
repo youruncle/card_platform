@@ -47,10 +47,12 @@
 
 本地构建、冻结源码清单、测试/基线失败日志、设备状态与部署收据位于 `.runtime/releases/20261023-v065/`；云端staging同名目录保留构建和激活脚本。此前其他任务的未提交改动和样本保留。
 
-## iPhone构建与待安装状态
+## iPhone构建与安装验证
 
 沿用个人开发团队 `YLV27B9G9U`、bundle `cn.cardsp.alpha.local`；签名描述文件有效至北京时间2026-10-29 09:53:01，包含原iPhone 16 Plus。安装包：`.runtime/releases/20261023-v065/CardPlatform-1.1.16-build20.ipa`。
 
 IPA SHA256：`1ef7eaac7a861981d062ae64d302c1bb02ecdf23bef9995d854c32a7b3f879b1`。
 
-设备配对记录存在，但实际连接超时并显示unavailable；已请求连接并解锁。尚未覆盖安装，未验证设备版本/启动，也未进行真机登录、相机或页面交互验收。
+2026-10-23初次发布时设备不可连接，安装暂缓。2026-10-27用户连接并解锁后，设备安装前已读到1.1.16/build20；本次仍使用上述SHA一致的原签名IPA，解包后重新通过codesign严格校验，再沿用原bundle覆盖安装成功。安装后设备再次读回1.1.16/build20，启动PID86576，随后独立进程查询确认仍在运行。未卸载或清除应用数据，未逐项审计应用内部数据；本次不包含真机登录、相机及页面交互验收。
+
+本次复查云端API仍为0.6.5且ready通过，运行成本worker=true、四视觉角色deepseek-flash显式thinking disabled、独立原百炼qwen-plus搜索配置均通过。安装、版本、启动、进程及云端复查收据位于 `.runtime/releases/20261023-v065/install-20261027/`。
