@@ -30,3 +30,7 @@ Python/FastAPI/PostgreSQL；复用 PortfolioRepository.create_item、PurchaseCos
 2. 在`auto_purchase_cost.py`实现安全汇总与受限恢复；在`purchase_cost_api.py`提供GET；`cardhobby_account.py`保存成功会话后重新排队受阻任务。不会新增自动短信或绕过验证，不改变worker开关。
 3. 在`packages/card-core/src/automatic-cost-attention.ts`实现两端共用的只读轮询与生命周期取消；两端新增提示组件，嵌入已登录根界面，复用各自现有账号表单。组件保存当前挂载账户已提示的notice_key，关闭后保留入口；无跨用户持久存储。
 4. 真实组件先红后绿覆盖首次/延迟阻塞、重复轮询、关闭和重新打开、验证流程、卸载迟到响应；运行相关PG、Web与Mobile测试及类型/构建检查。核查任务diff、记录实际结果和未运行项。不在本次修复中直接部署或自动提交短信。
+
+
+### 2026-10-28 发布授权
+用户明确要求将本次改动发布线上。以实际云端源码逐模块SHA一致的HEAD为基线，只叠加本次账号提醒及手机版本号；排除其他任务未提交源码。完成冻结产物回归、云端数据库/Compose/镜像备份、API/Web镜像构建及仅镜像切换，保留环境与挂载。验证worker=true、DeepSeek显式非思考和独立百炼搜索；回读新增接口与真实登录浏览器提示。个人iPhone使用既有团队/bundle覆盖安装1.1.17（21），核验设备版本与运行进程。
