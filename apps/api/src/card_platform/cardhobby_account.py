@@ -321,6 +321,8 @@ class CardHobbyAccountService:
             await conn.execute('UPDATE cardhobby_account SET credentials_enc=%s WHERE owner_id=%s',
                                (self.cipher.encrypt(owner, 'credentials', credentials), owner))
         await conn.execute("UPDATE cardhobby_account SET session_enc=%s, pending_enc=NULL, state='connected', retry_after=NULL, updated_at=now() WHERE owner_id=%s", (token, owner))
+        from card_platform.auto_purchase_cost import resume_account_blocked_costs
+        await resume_account_blocked_costs(conn, owner)
 
     async def login(self, conn, owner, credentials=None, sms_code=None):
         row = await self.row(conn, owner)

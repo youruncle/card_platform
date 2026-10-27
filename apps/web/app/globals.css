@@ -3615,3 +3615,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .news-risk-alert p { margin: 8px 0; line-height: 1.6; }
 .news-risk-alert small { display: block; margin-top: 6px; color: #667085; }
 .news-risk-alert a { text-decoration: underline; }
+/* Account blocks from background cost lookup remain actionable after dismissal. */
+.automatic-cost-reminder {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 90;
+  max-width: min(420px, calc(100vw - 40px));
+  padding: 16px;
+  border: 1px solid #d6a84b;
+  border-radius: 12px;
+  color: #482f05;
+  background: #fff7df;
+  box-shadow: 0 8px 32px #0002;
+}

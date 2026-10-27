@@ -1,6 +1,7 @@
 """Durable, per-new-card cost lookup shared by every ingestion client."""
 import asyncio
 import logging
+import hashlib
 
 import httpx
 
@@ -11,6 +12,48 @@ from card_platform.purchase_cost import OrderCapture
 from card_platform.repository import ConflictError, NotFoundError
 
 logger = logging.getLogger(__name__)
+
+
+async def account_attention(conn, owner):
+    """Expose only actionable account blocks, never credentials or other owners."""
+    row = await (await conn.execute(
+        """SELECT count(*) AS blocked_count,max(pc.updated_at) AS latest
+        FROM automatic_purchase_cost pc JOIN collection_item ci ON ci.id=pc.item_id
+        WHERE pc.owner_id=%s AND ci.owner_id=%s AND ci.deleted_at IS NULL
+          AND pc.status='completed' AND pc.result->>'status'='account_required'
+          AND NOT EXISTS(SELECT 1 FROM card_transaction t WHERE t.collection_item_id=ci.id)""",
+        (owner, owner),
+    )).fetchone()
+    account = await (await conn.execute(
+        'SELECT state FROM cardhobby_account WHERE owner_id=%s', (owner,),
+    )).fetchone()
+    state = account['state'] if account else 'unbound'
+    count = row['blocked_count']
+    key = hashlib.sha256(f"{owner}:{row['latest']}:{state}".encode()).hexdigest() if count else None
+    return dict(blocked_count=count, notice_key=key,
+                latest_blocked_at=row['latest'].isoformat() if count else None,
+                code=('VERIFICATION_REQUIRED' if state == 'verification_required' else 'LOGIN_REQUIRED') if count else None)
+
+
+async def resume_account_blocked_costs(conn, owner):
+    """Successful account recovery releases only its existing login-blocked jobs.
+
+    Do not acquire the cost-owner lock from inside an account session lock:
+    workers acquire those locks in the opposite order. These completed rows
+    cannot be claimed by a worker until this transaction commits; ordinary
+    lookup checks transactions again before writing any cost.
+    """
+    await conn.execute(
+        """UPDATE automatic_purchase_cost pc SET status='queued',attempts=0,
+        run_after=clock_timestamp(),updated_at=clock_timestamp()
+        FROM collection_item ci WHERE ci.id=pc.item_id AND pc.owner_id=%s
+          AND ci.owner_id=%s AND ci.deleted_at IS NULL AND pc.status='completed'
+          AND pc.result->>'status'='account_required'
+          AND NOT EXISTS(SELECT 1 FROM card_transaction t WHERE t.collection_item_id=ci.id)
+          AND EXISTS(SELECT 1 FROM cardhobby_account a WHERE a.owner_id=pc.owner_id
+                     AND a.state='connected' AND a.credentials_enc IS NOT NULL)""",
+        (owner, owner),
+    )
 
 
 async def process_automatic_cost(conn, service, account_factory=None):

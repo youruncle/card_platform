@@ -21,3 +21,12 @@ Python/FastAPI/PostgreSQL；复用 PortfolioRepository.create_item、PurchaseCos
 
 ## Validation
 先写隔离PG集成测试并观察失败，再最小实现；回归成本、手机、scanner与账户相关测试。两端走同一仓储不加重复客户端任务。仅本地实现，未授权在本轮修改云端真实卡库。
+
+## 2026-10-28 账号阻塞提醒修复计划
+
+沿用FastAPI和两端React，无新依赖、无数据库迁移。继续在当前工作区，仅修改本任务文件，保留其他未提交工作。
+
+1. 在`test_auto_purchase_cost_postgres.py`添加GET `/v1/purchase-cost/automatic/attention`鉴权、仅本用户有效阻塞计数及GET无副作用测试；在账号PG测试添加成功登录后只恢复账号阻塞任务、保留已有交易的测试，先确认失败。
+2. 在`auto_purchase_cost.py`实现安全汇总与受限恢复；在`purchase_cost_api.py`提供GET；`cardhobby_account.py`保存成功会话后重新排队受阻任务。不会新增自动短信或绕过验证，不改变worker开关。
+3. 在`packages/card-core/src/automatic-cost-attention.ts`实现两端共用的只读轮询与生命周期取消；两端新增提示组件，嵌入已登录根界面，复用各自现有账号表单。组件保存当前挂载账户已提示的notice_key，关闭后保留入口；无跨用户持久存储。
+4. 真实组件先红后绿覆盖首次/延迟阻塞、重复轮询、关闭和重新打开、验证流程、卸载迟到响应；运行相关PG、Web与Mobile测试及类型/构建检查。核查任务diff、记录实际结果和未运行项。不在本次修复中直接部署或自动提交短信。

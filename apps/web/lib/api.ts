@@ -1,4 +1,5 @@
 export type * from "../../../packages/card-core/src/contracts";
+import type {AutomaticCostAttention} from "../../../packages/card-core/src/automatic-cost-attention";
 import type {
   PortfolioSummary,
   PortfolioPage,
@@ -102,6 +103,7 @@ export class ApiError extends Error {
 export type CardHobbyAccountStatus = {saved: boolean; state: "unbound" | "connected" | "login_required" | "verification_required"};
 const cardHobbyAccountPath = "/v1/purchase-cost/cardhobby";
 export const getCardHobbyAccountStatus = (signal?: AbortSignal) => request<CardHobbyAccountStatus>(`${cardHobbyAccountPath}/status`, {signal});
+export const getAutomaticCostAttention = (signal?: AbortSignal) => request<AutomaticCostAttention>("/v1/purchase-cost/automatic/attention", {signal});
 export const loginCardHobbyAccount = (username: string, password: string, signal?: AbortSignal) => request<CardHobbyAccountStatus>(`${cardHobbyAccountPath}/login`, {method:"POST", body:JSON.stringify({username,password}), signal});
 export const verifyCardHobbyAccount = (code: string, signal?: AbortSignal) => request<CardHobbyAccountStatus>(`${cardHobbyAccountPath}/verify`, {method:"POST", body:JSON.stringify({code}), signal});
 export type CardHobbyVerification = {captcha_url: string; sms_sent: boolean; retry_after_seconds: number};

@@ -12,6 +12,7 @@ import { loadCapabilities } from "./capabilities";
 import { type ClientCapabilities } from "../../../packages/card-core/src/capture";
 import { JobsPage } from "./JobsPage";
 import { PlayerPricesPage } from "./PlayerPricesPage";
+import { AutomaticCostNotice } from "./AutomaticCostNotice";
 
 function AccountPage({
   api,
@@ -279,6 +280,7 @@ function Workspace({
           </button>
         ))}
       </nav>
+      <AutomaticCostNotice api={api} ownerId={session.user.id} />
     </div>
   );
 }

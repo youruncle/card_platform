@@ -640,3 +640,35 @@ h1 { font-size: clamp(26px, 7vw, 32px); line-height: 1.25; overflow-wrap: anywhe
 
 .price-reference{color:#4b6959;line-height:1.8;overflow-wrap:anywhere}.price-player .price-up{color:#bb6651}.price-player .price-down{color:#41856a}
 .price-page-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}.price-page-heading h1{font-size:23px;margin:0;white-space:nowrap}.price-page-heading button{padding:8px 12px;flex-shrink:0}.player-prices-page>.panel{padding:12px;margin:12px 0}.price-overview>p{font-size:12px;margin:4px 0}.player-prices-page>.price-sort{margin:12px 0}
+.automatic-cost-reminder {
+  position: fixed;
+  right: 12px;
+  bottom: calc(86px + env(safe-area-inset-bottom));
+  z-index: 90;
+  max-width: calc(100vw - 24px);
+  padding: 14px;
+  border: 1px solid #d6a84b;
+  border-radius: 12px;
+  color: #482f05;
+  background: #fff7df;
+  box-shadow: 0 8px 32px #0002;
+}
+.automatic-cost-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom));
+  background: #0008;
+}
+.automatic-cost-dialog {
+  background: white;
+  color: #172a34;
+  border-radius: 16px;
+  padding: 20px;
+  width: min(560px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+}

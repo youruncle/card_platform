@@ -13,6 +13,7 @@ import { deferredPanel, DeferredPanelLoading } from "../components/deferred-pane
 import { PurchaseCostValues } from "../components/purchase-cost-values";
 import { usePurchaseCostLookup } from "../lib/use-purchase-cost-lookup";
 import { CollectionSearch } from "../components/collection-search";
+import { AutomaticCostNotice } from "../components/automatic-cost-notice";
 import {uploadItemImages} from "../lib/item-image-upload";
 import type { SearchFilters } from "../lib/portfolio-search";
 
@@ -2746,6 +2747,7 @@ export default function Dashboard() {
         />
       )}
       <GlobalImageViewer />
+      {currentUser && ownerId && <AutomaticCostNotice ownerId={ownerId} />}
     </main>
   );
 }

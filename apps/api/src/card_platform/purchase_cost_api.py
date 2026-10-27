@@ -17,6 +17,17 @@ router = APIRouter(prefix="/v1/purchase-cost", dependencies=[Depends(current_use
 service = PurchaseCostService()
 
 
+@router.get('/automatic/attention')
+async def automatic_account_attention(user: AuthenticatedUser = Depends(current_user),
+                                      conn: AsyncConnection = Depends(get_connection)):
+    from card_platform.auto_purchase_cost import account_attention
+    from card_platform.config import get_settings
+    from fastapi.responses import JSONResponse
+    value = await account_attention(conn, user.id)
+    return JSONResponse({**value, 'worker_enabled': get_settings().purchase_cost_worker_enabled},
+                        headers={'Cache-Control': 'no-store'})
+
+
 class HistorySyncRequest(StrictModel):
     restart: StrictBool = False
 
