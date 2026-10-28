@@ -111,3 +111,75 @@ US8：管理员运行后台命令，从云端已发布清单生成300–500款�
 - FR42 审核针对不可变候选hash，接受/拒绝均需理由和逐图角色；确认身份须与冻结清单逐字段一致，同实物配对须来源及视觉依据。未审核不能导出ready媒体；审核输入或文件改变使审核失效。支持结构化审核文件；模型/人工审核结果使用同一合同，不自行调用搜索模型凭空认定身份。
 - FR43 导出可交给现有媒体/向量/发布工具的public_reference资产与台账，审核通过的正面可单独导出；待审、缺图、来源失败、可用未发布独立统计。导出不等于知识发布；云端发布仍遵守SOP、多来源、基线保护及回读门禁。
 - FR44 首版交付CLI、数据库迁移、真实云端试点和操作说明。测试覆盖错产品/年份、空壳响应、恶意链接、超量响应、损坏文件、重复运行、过期租约、旧审核及未审导出；试点300款冻结队列，实际网络请求使用明确卡款/页数/候选数量上限。
+
+
+## 2026-10-27 获批首片：离线增量计划与可信覆盖
+
+用户已批准实现；本节为既有 009 规格的只读首片，不替代知识录入 SOP。
+
+### 目的、选择与边界
+
+用户已选择：官方目录主干＋第三方补规则＋按缺口补图；先确定性提取，保留来源，分开基础卡／版本／实物，冲突不覆盖，内容哈希缓存，模型仅用于异常。
+
+首片只交付一个**离线、只读生产数据**的 CLI：从已导出的云端快照及已有捕获生成 `plan.json`、`coverage.json`、`report.md`。输出“哪些跳过、哪些有变化、哪些缺材料、哪些待审”，不生成可发布包。首次和重复运行 LLM 调用都为 **0**；异常进入人工／后续模型审核队列。不是整个 12–20 天 MVP。
+
+已考虑方案：①从头实现采集/工作台/发布，范围过大；②直接重跑旧批次脚本，会重算且存在硬编码；③在既有编译器和发布闸门前加只读规划层，采用③。无 DB migration、新 API、网络采集、图片下载、向量生成、自动跨源合并、生产写入、push 或发布。
+
+已知云端历史观察：2026-10-27 01:57 UTC，v23/rev1853/checksum `78e1bf3a8400530c264b3ccc5a1f376160debb1d785ac7db75e1d69ce5a730fc`。不是本次完整快照，也不是未来发布基线。浏览汇总曾 503/preparing，coverage registry 为空；CLI 不依赖它们。
+
+### 已核对的复用与禁止误用
+
+| 现有实现 | 首片处理 |
+|---|---|
+| `knowledge_text.compile_source(product, receipt, output_root)` | 在独立缓存子目录调用；已有源身份/字节/SHA校验及来源定位；官方 PDF/XLSX/Panini CSV 复用 `official_checklists.parse_document`，保留特殊 Mercury/UConn 分流 |
+| `knowledge_text.compare_card_facts(cards, previous, *, normalize_participant_order=True)` | 仅对同一产品、同一来源作用域做变化摘要；不是全局去重器，重复身份先检测，不让 dict 覆盖隐藏冲突 |
+| `PARSER_VERSION=official-layout-v8-release-season`、`COMPILER_VERSION=official-text-compiler-v1` | 进入缓存依赖键；升级使缓存失效，但不自动调用模型 |
+| `knowledge.snapshot_checksum(snapshot)` | 校验导出的完整发布快照；文件 SHA 与语义 checksum 分开保存 |
+| `ScopedCardCatalog` / `product_key` | 保留其严格作用域作为回归；不使用模糊产品名归一化作为全局合并主键 |
+| `scripts/supplement_knowledge_sources.py` | 复用第三方 `checklists.json` 的产品、facts、capture 字段约定；**不调用 stage**，它写批次且有历史硬编码 |
+| `publish_knowledge_release.validate_intake_audit` | 沿用 focused-v2 将来发布闸门，首片只报告缺少哪些输入；**不调用 publish**，不宣称计划已满足发布 |
+| `build_annual_inventory` / `KnowledgeBrowser.summary` | 沿用“来源已知≠完整年度”的口径；不创建浏览索引，不以其数据库行数充当全集分母 |
+
+### 输入合同（新版本号均为首片本地文件合同）
+
+所有输入路径相对 `--input-root`，resolve 后须在其内，拒绝逃逸/symlink 逃逸；只允许输出/缓存目录写入且不得与输入目录相同、互为祖先或包含输入文件。UTF-8 JSON，拒绝重复键、非有限数值。无凭据字段、无连接字符串。
+
+1. `baseline.json` (`contract=knowledge-readonly-baseline-v1`)：`captured_at`；`workspace_revision:int|null`；`published:{version:int,version_id:str,checksum:64hex}`；完整原样 `snapshot`（现有 entities/relations/official_artifacts）；`artifact_files:[{checksum,path}]`；可选 `sources`（原始来源行，只作为证据，不伪造）；`coverage_registry:{status:"available"|"unavailable",rows:[]}`。缺 registry/来源行不等于零覆盖。快照 checksum 不匹配为致命错误。缺完整快照不接受浏览汇总替代。
+2. `scope.json`：`contract=knowledge-intake-plan-scope-v1`；`season_starts:[2023,2024,2025]`；`existing_product_keys:[...]`；`annual_research_keys:[...]`。产品 key 必须唯一且存在于完整快照的对应官方 Topps/Panini 产品中。目标必须有 `attributes.source_key`、manufacturer/product/sport/season_start/season_end；不猜单年跨年、联盟或同名子品牌。年度检索单元只报告待检索，不虚造产品。
+3. `captures.json`：`contract=knowledge-source-inputs-v1`，`items:[{input_id,product_source_key,adapter,product,receipt,facts_path?}]`。`adapter=official_document_v1` 使用现有 product+receipt 字段（source_key/title/publisher/source_url，receipt另含 status/http_status/captured_at/path/sha256/bytes）；`specialist_facts_v1` 的 facts_path 指向现有 checklist research 形状（products→source_key/page_url/site/source_authority/evidence/facts/limits）。每个 fact 保留 field/value 和原始 JSON pointer，必须有支持它的来源 locator，否则排入 review_needed，不把 JSON pointer 当作原文证据。
+
+不支持任意第三方 HTML 自动理解；未知适配器保留 `blocked:unsupported_adapter`。缺捕获、403、缺 artifact、坏哈希和解析异常分别记录。错误页不是成功资料。缺原始 source row 在 release-readiness 中显式列出，不阻断已经可验证的快照统计。
+
+### 算法与身份边界
+
+- 每个候选保留 `candidate_id,product_source_key,subject_key,field,value,source_url,source_sha256,locator,adapter_version`；URL 仅折叠 scheme/host 大小写和去 fragment，不删 query，不擅自合并 URL 别名。值用带类型的 canonical JSON；保留原值，不折叠字符串与数字，不把空值当否定。
+- subject_key 对产品级第三方主张是 `product:<source_key>`；官方卡行是 `card:<source_key>:<section/card_number/player/source_variant_label 的 canonical JSON hash>`，不跨源折叠；已有明确 subject 绑定原样保留。去重 identity 是产品原 source_key＋subject_key＋来源 URL＋来源 SHA＋field＋canonical value；locator 汇集保留。对 `supplementary_evidence` 全列表比对；有完整相同证据则 `duplicate`。缺旧 provenance 则 `review_needed:baseline_provenance_incomplete`，不能把旧值当新事实。
+- 同产品同 subject_key 同字段同值、不同来源是 `corroborating`，仍保留独立记录，不无条件合并；同产品同 subject_key 同字段不同值是 `review_needed:conflict`。若 field 的 value 只有产品级粗粒度（如 parallel_rule 对象），保守待审，不凭字段同名宣称真实语义冲突。原事实/人工修订不变。
+- 官方行 ID 与差分是 **source-local explicit variant records**。`section/card_number/player/source_variant_label` 相同但事实不同须全部保留为冲突，不能让 `compare_card_facts` 覆盖一行。跨源匹配不产生统一卡 ID。
+- 基础卡身份、版本身份、实物身份分列：能保留已有绑定则原样保留；不能由官方版本行推导全局基础卡 ID，不能由相同球员/卡号/图片推导同实物。未解析的基础卡/variant/physical ID 均 null。绝不展开基础卡×平行笛卡尔积。
+- 提取缓存键＝SHA256(canonical JSON of adapter+adapter version+parser/compiler versions+输入字节 SHA+精确产品作用域+提取参数)。缓存 envelope 同时保存 payload SHA，读取时验证；corrupt entry 仅 stderr 报告并安全重算（不影响稳定输出），覆盖只发生在独立缓存。提取与 baseline 差分分开，快照变化每次重新比对；缓存不暗含审核批准。
+- 相同来源字节/依赖且有完整缓存时不再解析；首次缓存未命中可确定性编译。changed source 才触发新的提取。所有模型/网络/DB 调用严格为零；没有“缓存未中就花模型 token”。
+- 相同输入与版本的计划/覆盖/报告输出 byte-for-byte 相同；稳定排序、JSON sort_keys、UTF-8、末尾换行，不写当前时间/绝对路径/cache-hit到结果。缓存命中/解析次数仅 stderr 运行诊断；`llm_calls=0` 可写入稳定报告。
+
+### 输出与覆盖口径
+
+`plan.json`：合同 `knowledge-intake-plan-v1`，baseline 身份/输入 hashes/版本，冻结 work_scope，按稳定 candidate_id 排序的 source_actions 与 fact_decisions，issues（代码+来源+恢复动作），review_queue，`llm_calls:0`，`publishable:false`，`focused_v2_required_inputs`。
+
+source_actions.status：`unchanged|changed|new|blocked`；fact_decisions.status：`duplicate|new_candidate|corroborating|review_needed`。这不是已审核/已发布状态。
+
+`coverage.json`：合同 `knowledge-coverage-report-v1`，`as_of=baseline.captured_at`，分开全体已知基线/当批范围，分 season_start 和 manufacturer；至少包含：
+- `known_product_count`、`work_scope_product_count`、`annual_research_unit_count`；未知年度总产品分母 `annual_product_denominator:null`，`annual_discovery_complete:false`。
+- `observed_verified_checklist_records` 为成功校验的 artifact 行数；任何必需 artifact 缺失时全集 `checklist_variant_records:null`，并列 `missing_artifact_count`；全部完整时才给该**已知基线**总数，不称基础卡数。
+- `distinct_base_cards:null`、`full_card_image_denominator:null`、`full_card_image_percent:null`。首片不解决权威跨源 base-card 对齐，故保留 null。
+- `reference_image_records`（按 asset_id；同ID不同hash为冲突）、`unique_image_hashes`、`image_type_counts`；分 design 与具体卡图；`declared_specimen_pair_records` 只统计发布快照明确声明、两面不同SHA且同pair_id的记录，不称新核图；`freshly_verified_specimen_pairs:null`。
+- registry 状态独立显示；空 rows 不覆盖快照事实，更不输出“覆盖率0%”。工作流本批未登记搜索/待审/外部阻塞分列；本 CLI 不开展检索，无真实检索审计时记 `search_evidence_not_provided`，不声称历史上从未搜过，也不能自动归类为外部阻塞。
+
+`report.md` 简短中文摘要、输入时间/版本、缺口及恢复动作，明确“只读计划，不是录入完成”。不复用历史 702430/858/46 等数字作为本次实测。
+
+focused-v2 缺项清单须包括完整年度 baseline_capture、frozen_work_scope、原始 owning source、逐目标真实三路线搜索、text/source/image review、source_fact_audit/fact_publication_map、sealed files 与 baseline revision/checksum；保留原实体/source/media/index，coverage=[]、不覆盖旧 assertions。首片输出不是 release/bundle.json，也不能绕过现有闸门。
+
+
+### 首片验收
+
+fixture 双跑三个输出 byte-for-byte 相同，第二次官方解析为 0，模型调用始终 0。基线变化重新计算差分。生产写入、网络采集、自动跨源实体合并、图片下载、模型执行和发布均不在范围内。
+缺少真实完整云端快照时仅能报告 fixture 验证，不可报告真实覆盖已测或知识已录入。

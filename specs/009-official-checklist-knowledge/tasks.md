@@ -115,3 +115,21 @@ Dependencies: T029→T030→T031；T029后T032/T033可按稳定合同独立执�
 本节不勾选原年度逐卡全量、应用融合召回、独立检索评测任务。
 
 续批验收：deepening-verification.md。云端v23/revision1853，15/15工作单元（9产品＋6年度索引）完成处理；335新增来源主张、138范围审核平行规则、33图、9组清单关联正反面样本，858参考图/1716图文向量。未搜索/待审核/可用未发布均0，649封版文件与实际云端回读/幂等/worker=true通过。46条覆盖限制或来源问题记录保留，年度完整枚举、逐卡全图与独立融合检索任务仍不勾选。
+
+
+## 2026-10-27 增量只读首片任务
+
+- [x] 输入合同：完整 snapshot checksum、精确 scope、输入不改写、JSON/路径/symlink/artifact 失败可诊断。
+- [x] 确定性适配与缓存：复用 compile_source；specialist 只读取已有结构化事实；内容/版本/作用域失效，坏缓存重算，不调用模型。
+- [x] 去重/冲突计划：全 supplementary_evidence、带类型值、来源与 locator 保留、重复 row 隔离、基线差分每次重算。
+- [x] 可信覆盖和 CLI：未知分母 null、scope 分开、图片样本不冒充实物全集；双跑稳定、无生产副作用、已有非 CLI 输出不覆盖。
+- [x] 完成一次 whole-branch 独立审查；输出回滚保护、sport 精确绑定、嵌套合同/坏 gzip 三项重要问题已逐项 RED→GREEN 修复。
+- [ ] 完整原仓库回归全绿：2026-10-28 Mac 完整仓库已运行；原始别名字典与真实 UConn capture 已验证，专项 41 passed、既有知识回归 89 passed。全仓库原有 150 failed / 22 errors 尚未解决，不能视为全绿。详见 incremental-cli-verification-20261028.md。
+- [ ] 真实完整云端快照验收：未提供，不能用历史 summary 或 fixture 替代。
+
+验证入口：
+
+```sh
+PYTHONPATH=apps/api/src python -m pytest apps/api/tests/test_knowledge_source_inputs.py apps/api/tests/test_knowledge_intake_plan.py apps/api/tests/test_knowledge_coverage_report.py scripts/tests/test_plan_knowledge_intake.py -q
+PYTHONPATH=apps/api/src python -m pytest apps/api/tests/test_official_checklists.py apps/api/tests/test_knowledge_text.py apps/api/tests/test_knowledge_card_catalog.py apps/api/tests/test_knowledge_annual.py scripts/tests/test_knowledge_intake_gate.py scripts/tests/test_supplement_knowledge_sources.py -q
+```
