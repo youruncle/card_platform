@@ -127,7 +127,8 @@ Dependencies: T029→T030→T031；T029后T032/T033可按稳定合同独立执�
 - [ ] 完整原仓库回归全绿：2026-10-28 Mac 完整仓库已运行；原始别名字典与真实 UConn capture 已验证，专项 41 passed、既有知识回归 89 passed。全仓库原有 150 failed / 22 errors 尚未解决，不能视为全绿。详见 incremental-cli-verification-20261028.md。
 - [x] 真实快照驱动首片验收：2026-10-28 只读导出当前发布 snapshot 并验证 checksum；3 个篮球产品 / 4 个真实来源双跑得 2 新增候选、1744 重复、1 已知冲突待审，重复解析 1→0，CLI 模型API调用0。仅格式预检通过，未发布。详见 real-incremental-validation-20261028.md。
 - [x] 真实规模资源修复：非本批附件不保留全部卡行，按候选产品/subject/field建立基线索引；两项回归 RED→GREEN，相关回归132 passed。
-- [ ] 后续发布验收：补齐独立审查、三路线审计、source_fact_audit/fact_publication_map及封存发布材料后，另行取得生产写入授权；本轮未执行。
+- [x] Gold Mojo /50 单条闭环：实际三路线检索/访问限制、独立原件审核、source_fact_audit/fact_publication_map、段级parallel_options及39文件封存齐备，现有完整离线validate_intake_audit通过；4类识别负样本与3类准入篡改负样本通过。见 gold-mojo-admission-20261028.md。
+- [ ] 生产发布与云端回读：单条Gold Mojo仅完成离线准入，待用户确认确切批次并授权生产写入；其余盒配置与未审核队列未纳入本批。
 
 验证入口：
 
