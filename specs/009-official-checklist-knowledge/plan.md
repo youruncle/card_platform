@@ -188,6 +188,8 @@ Review Focus：产品身份与来源混淆、SSRＦ/外域图、HTTP200空壳、
 
 ## 2026-10-27 离线增量首片实现
 
+2026-10-28 真实快照验证补充：完整冻结快照保留原样，以精确本批范围读取候选；附件校验后的行数与待差分卡行分离，非本批仅保留已验证计数。基线事实索引只展开 incoming 产品/subject/field，不为两条产品主张展开数百万历史卡行。保持未知分母与原冲突语义不变；真实实验、离线格式预检和未执行的发布步骤见 `real-incremental-validation-20261028.md`。
+
 - `knowledge_source_inputs.py`：严格 UTF-8 JSON、完整快照 checksum、精确产品/季节绑定、gzip artifact 校验和路径边界；复用 `knowledge_text.compile_source`，内容/版本/产品作用域缓存仅保存确定性成功提取。失败不缓存批准状态。
 - `knowledge_intake_plan.py`：来源级变化、候选去重、保留全部证据、主体内冲突；调用既有 `compare_card_facts` 前检测原文及语义归一化重复 row key。
 - `knowledge_coverage_report.py`：已发布基线和本批范围分开；未知年度/基础卡/图片分母为 null，样本图片不冒充全集覆盖。

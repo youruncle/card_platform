@@ -125,7 +125,9 @@ Dependencies: T029→T030→T031；T029后T032/T033可按稳定合同独立执�
 - [x] 可信覆盖和 CLI：未知分母 null、scope 分开、图片样本不冒充实物全集；双跑稳定、无生产副作用、已有非 CLI 输出不覆盖。
 - [x] 完成一次 whole-branch 独立审查；输出回滚保护、sport 精确绑定、嵌套合同/坏 gzip 三项重要问题已逐项 RED→GREEN 修复。
 - [ ] 完整原仓库回归全绿：2026-10-28 Mac 完整仓库已运行；原始别名字典与真实 UConn capture 已验证，专项 41 passed、既有知识回归 89 passed。全仓库原有 150 failed / 22 errors 尚未解决，不能视为全绿。详见 incremental-cli-verification-20261028.md。
-- [ ] 真实完整云端快照验收：未提供，不能用历史 summary 或 fixture 替代。
+- [x] 真实快照驱动首片验收：2026-10-28 只读导出当前发布 snapshot 并验证 checksum；3 个篮球产品 / 4 个真实来源双跑得 2 新增候选、1744 重复、1 已知冲突待审，重复解析 1→0，CLI 模型API调用0。仅格式预检通过，未发布。详见 real-incremental-validation-20261028.md。
+- [x] 真实规模资源修复：非本批附件不保留全部卡行，按候选产品/subject/field建立基线索引；两项回归 RED→GREEN，相关回归132 passed。
+- [ ] 后续发布验收：补齐独立审查、三路线审计、source_fact_audit/fact_publication_map及封存发布材料后，另行取得生产写入授权；本轮未执行。
 
 验证入口：
 

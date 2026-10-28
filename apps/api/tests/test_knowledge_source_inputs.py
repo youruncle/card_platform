@@ -90,6 +90,25 @@ def test_unavailable_artifact_is_visible(tmp_path):
         "missing_artifact", "artifact_checksum_mismatch"}
 
 
+def test_out_of_scope_rows_are_verified_and_counted_without_retention(tmp_path):
+    from card_platform.knowledge_coverage_report import build_coverage
+    from card_platform.knowledge_intake_plan import build_plan
+
+    _, scope = fixture(tmp_path)
+    save(tmp_path, "scope.json", {**scope, "existing_product_keys": ["optic"]})
+    inputs = load(tmp_path)
+    assert "donruss" not in inputs["baseline_cards"]
+    report = build_coverage(inputs, build_plan(inputs, []))
+    assert report["known_baseline"]["observed_verified_checklist_records"] == 1
+    assert report["known_baseline"]["missing_artifact_count"] == 1
+    assert report["work_scope"]["observed_verified_checklist_records"] == 0
+    (tmp_path / "cards.gz").write_bytes(b"tampered")
+    damaged = load(tmp_path)
+    report = build_coverage(damaged, build_plan(damaged, []))
+    assert report["known_baseline"]["observed_verified_checklist_records"] == 0
+    assert report["known_baseline"]["missing_artifact_count"] == 2
+
+
 @pytest.mark.parametrize("raw", ['{"x":1,"x":2}', '{"x":NaN}', '{"x":Infinity}'])
 def test_json_fails_closed(tmp_path, raw):
     from card_platform.knowledge_source_inputs import InputContractError

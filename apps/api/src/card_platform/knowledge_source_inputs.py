@@ -219,7 +219,7 @@ def load_inputs(input_root: Path, baseline_path: Path, scope_path: Path,
         if record["checksum"] in files and files[record["checksum"]] != record["path"]:
             raise InputContractError("Ambiguous artifact file mapping")
         files[record["checksum"]] = record["path"]
-    cards, problems = {}, []
+    cards, card_counts, problems = {}, {}, []
     for key, records in sorted(descriptors.items()):
         unique = {canonical(r): r for r in records}
         code = None
@@ -244,7 +244,9 @@ def load_inputs(input_root: Path, baseline_path: Path, scope_path: Path,
                                        or c["attributes"].get("source_key") != key for c in rows)):
                             code = "artifact_shape_mismatch"
                         else:
-                            cards[key] = rows
+                            card_counts[key] = len(rows)
+                            if key in keys:
+                                cards[key] = rows
                 except OSError:
                     code = "missing_artifact"
                 except (ValueError, EOFError, zlib.error):
@@ -269,6 +271,7 @@ def load_inputs(input_root: Path, baseline_path: Path, scope_path: Path,
     _unique_strings(ids, "input IDs")
     return {"baseline": baseline, "scope": scope, "items": deepcopy(items),
             "input_hashes": hashes, "baseline_cards": cards,
+            "baseline_card_counts": card_counts,
             "baseline_artifact_issues": problems, "input_root": root, "products": products}
 
 

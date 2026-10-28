@@ -105,9 +105,12 @@ def _card_candidates(source, cards):
     return result
 
 
-def _baseline_candidates(inputs):
+def _baseline_candidates(inputs, groups):
     result = []
+    keys = {key for key, _, _ in groups}
     for key, product in inputs["products"].items():
+        if key not in keys:
+            continue
         attrs = product["attributes"]
         for evidence in attrs.get("supplementary_evidence", []):
             source = {"product_source_key": key, "source_url": evidence.get("source_url"),
@@ -116,13 +119,21 @@ def _baseline_candidates(inputs):
                 if not isinstance(fact, dict) or "field" not in fact or "value" not in fact:
                     continue
                 locator = fact.get("source_locator") or fact.get("locator")
-                result.append(_candidate(source, fact, fact.get("subject_key") or "product:" + key,
-                                         [locator] if locator else []))
+                subject = fact.get("subject_key") or "product:" + key
+                if (key, subject, fact["field"]) in groups:
+                    result.append(_candidate(source, fact, subject, [locator] if locator else []))
+        subjects = {subject for product_key, subject, _ in groups
+                    if product_key == key and subject.startswith("card:")}
+        if not subjects:
+            continue
         for card in inputs["baseline_cards"].get(key, []):
+            if _card_subject(key, card) not in subjects:
+                continue
             ca = card["attributes"]
             source = {"product_source_key": key, "source_url": ca.get("source_url") or attrs.get("source_url"),
                       "source_sha256": ca.get("source_checksum"), "adapter_version": ca.get("compiler_version")}
-            result.extend(_card_candidates(source, [card]))
+            result.extend(candidate for candidate in _card_candidates(source, [card])
+                          if _group_key(candidate) in groups)
     return result
 
 
@@ -222,7 +233,7 @@ def build_plan(inputs: dict[str, Any], extractions: list[dict[str, Any]]) -> dic
             old["provenance"] = _unique([*old["provenance"], *candidate["provenance"]])
             old["reasons"] = sorted({*old["reasons"], *candidate["reasons"]})
     existing = defaultdict(list)
-    for old in _baseline_candidates(inputs):
+    for old in _baseline_candidates(inputs, {_group_key(c) for c in merged.values()}):
         existing[_group_key(old)].append(old)
     # Legacy product values without a provenance record are not fresh discoveries.
     for candidate in merged.values():

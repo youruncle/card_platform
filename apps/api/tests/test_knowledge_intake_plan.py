@@ -66,6 +66,24 @@ def test_conflict_is_subject_scoped_and_preserves_values(tmp_path):
     assert all(r["reasons"] == ["coarse_product_claim_requires_review"] for r in rows)
 
 
+def test_product_fact_plan_does_not_expand_unrequested_card_facts(tmp_path, monkeypatch):
+    from card_platform import knowledge_intake_plan as planner
+
+    fixture(tmp_path)
+    inputs = load(tmp_path)
+    original = planner._card_candidates
+    expanded = []
+
+    def track(source, cards):
+        expanded.extend(cards)
+        return original(source, cards)
+
+    monkeypatch.setattr(planner, "_card_candidates", track)
+    result = planner.build_plan(inputs, [extraction()])
+    assert result["fact_decisions"][0]["status"] == "new_candidate"
+    assert expanded == []
+
+
 def card(serial, *, player="A / B", marker=None):
     return {"entity_type": "card", "attributes": {
         "source_key": "optic", "section": "Base", "card_number": "1", "player": player,

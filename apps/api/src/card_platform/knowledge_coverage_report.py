@@ -9,10 +9,12 @@ from card_platform.knowledge_source_inputs import canonical, issue
 
 def _counts(inputs, keys):
     keys = set(keys)
+    counts = {**inputs.get("baseline_card_counts", {}),
+              **{key: len(rows) for key, rows in inputs["baseline_cards"].items()}}
     missing = {row["product_source_key"] for row in inputs["baseline_artifact_issues"]
                if row["product_source_key"] in keys}
-    missing.update(key for key in keys if key not in inputs["baseline_cards"])
-    observed = sum(len(inputs["baseline_cards"].get(key, [])) for key in keys)
+    missing.update(key for key in keys if key not in counts)
+    observed = sum(counts.get(key, 0) for key in keys)
     assets, problems = defaultdict(list), []
     for key in sorted(keys):
         for record in inputs["products"][key]["attributes"].get("reference_images", []):
