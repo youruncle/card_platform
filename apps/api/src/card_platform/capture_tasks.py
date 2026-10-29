@@ -290,7 +290,7 @@ async def confirm_task(
             evidence = dict(raw.get("field_evidence") or {})
             for field, value in accepted.items():
                 if value != raw.get(field):
-                    evidence[field] = ["用户保存字段；未知信息留空，非模型新识别结论"]
+                    evidence[field] = [*evidence.get(field, []), "用户保存字段；未知信息留空，非模型新识别结论"]
             raw = CardRecognitionResult.model_validate(
                 {
                     **raw,

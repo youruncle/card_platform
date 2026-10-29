@@ -433,3 +433,26 @@ def test_missing_front_product_needs_its_own_printed_logo_for_brand_layer_compat
     decision = derive_pair_validation(raw, HASHES)
     assert decision["status"] == "conflict"
     assert "brand_conflict" in decision["reason_codes"]
+
+
+@pytest.mark.parametrize("field", ["player_name", "brand_name", "product_name", "card_number", "insert_name"])
+def test_anchored_brand_layers_remain_compatible_when_uncertain_joint_identity_is_cleared(field):
+    from card_platform.pair_integrity import derive_pair_validation
+    raw = deron_missing_front_product()
+    raw[field] = None
+    decision = derive_pair_validation(raw, HASHES)
+    assert decision["status"] == "unknown"
+    assert "brand_conflict" not in decision["reason_codes"]
+    assert "draft_identity_conflict" not in decision["reason_codes"]
+    assert raw[field] is None
+    assert decision["front"]["product_name"] is None
+    gate({**raw, "pair_validation": decision})
+
+
+def test_anchored_brand_layers_do_not_require_any_joint_identity_hypothesis():
+    from card_platform.pair_integrity import derive_pair_validation
+    raw = skybox_manufacturer_layers()
+    raw.update({field: None for field in ("player_name", "brand_name", "product_name", "card_number", "insert_name")})
+    decision = derive_pair_validation(raw, HASHES)
+    assert decision["status"] == "unknown"
+    gate({**raw, "pair_validation": decision})

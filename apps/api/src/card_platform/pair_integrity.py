@@ -115,10 +115,7 @@ def _manufacturer_product_layers(job, front, back, brands, subjects, inserts, nu
         or (number and observed_numbers and number not in observed_numbers)
         or (insert and observed_inserts and insert not in observed_inserts)
     )
-    supported = (subject and brand and product
-                 and (not observed_numbers or number in observed_numbers)
-                 and (not observed_inserts or insert in observed_inserts))
-    return bool(supported and not conflict), conflict
+    return not conflict, conflict
 
 
 def _verified_dual_design(products, numbers, subjects, inserts):

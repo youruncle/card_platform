@@ -380,3 +380,45 @@ def test_anonymous_cards_have_separate_catalog_rows_and_can_later_be_completed(c
         assert db.execute('SELECT count(*) FROM valuation_job WHERE collection_item_id=%s',(ids[0],)).fetchone()[0]==1
     other = client.get('/v1/portfolio/items/'+ids[1]+'/detail',headers=h).json()['item']
     assert other['player_name'] is None and other['identity_review_required']
+
+
+@pytest.mark.parametrize('empty_field',['brand_name','player_name','product_name'])
+def test_skybox_owner_can_clear_uncertain_identity_and_still_save(client, empty_field):
+    from test_pair_integrity import skybox_manufacturer_layers
+    _,h,j=seed(client)
+    path='/v1/capture/tasks/'+j['id']
+    hashes=client.get(path,headers=h).json()['image_content_hashes']
+    raw=skybox_manufacturer_layers();raw['confidence']='.9';raw['pair_validation']['image_content_hashes']=hashes
+    with psycopg.connect(os.environ['TEST_DATABASE_URL']) as db:
+        db.execute("UPDATE scanner_recognition_job SET status='succeeded',require_confirmation=true,result=%s WHERE id=%s",(Jsonb(raw),j['id']))
+    card={k:raw.get(k) for k in ['player_name','brand_name','product_name','season_start','season_end','card_number','insert_name']}
+    card[empty_field]=None
+    saved=client.post(path+'/confirm',headers=h,json={'card':card})
+    assert saved.status_code==201,saved.text
+    item=client.get('/v1/portfolio/items/'+saved.json()['id']+'/detail',headers=h).json()['item']
+    assert item[empty_field] is None and item['identity_review_required']
+
+
+@pytest.mark.parametrize('only_missing',[False,True])
+@pytest.mark.parametrize('prior_pending',[False,True])
+def test_supplement_completing_core_identity_resumes_deferred_jobs_once(client,only_missing,prior_pending):
+    from test_capture_postgres import upload,succeed
+    user,h=account(client)
+    card={'player_name':f'Partial {uuid4()}','brand_name':f'Brand {uuid4()}','product_name':'Test','season_start':None}
+    created=client.post('/v1/portfolio/items',headers=h,json={'owner_id':user['id'],'card':card});assert created.status_code==201,created.text
+    item=created.json()['id'];target=client.get('/v1/capture/items/'+item,headers=h).json()
+    with psycopg.connect(os.environ['TEST_DATABASE_URL']) as db:
+        assert db.execute('SELECT count(*) FROM valuation_job WHERE collection_item_id=%s',(item,)).fetchone()[0]==0
+        assert db.execute('SELECT count(*) FROM automatic_purchase_cost WHERE item_id=%s',(item,)).fetchone()[0]==0
+    if prior_pending:
+        with psycopg.connect(os.environ['TEST_DATABASE_URL']) as db:
+            db.execute("INSERT INTO valuation_job(collection_item_id,status,result_summary) VALUES(%s,'insufficient_evidence',%s)",(item,Jsonb({'identity_resolution_status':'pending'})))
+    job=upload(client,h,('back',),target_item_id=item,expected_revision=target['revision']).json();succeed(job)
+    body={'accepted_identity':{'season_start':2025} if only_missing else {**target['identity'],'season_start':2025}}
+    saved=client.post('/v1/capture/jobs/'+job['id']+'/confirm',headers=h,json=body)
+    assert saved.status_code==201,saved.text
+    assert client.post('/v1/capture/jobs/'+job['id']+'/confirm',headers=h,json=body).status_code==201
+    with psycopg.connect(os.environ['TEST_DATABASE_URL']) as db:
+        assert db.execute("SELECT count(*) FROM valuation_job WHERE collection_item_id=%s AND status='queued'",(item,)).fetchone()[0]==1
+        assert db.execute('SELECT count(*) FROM valuation_job WHERE collection_item_id=%s',(item,)).fetchone()[0]==(2 if prior_pending else 1)
+        assert db.execute('SELECT count(*) FROM automatic_purchase_cost WHERE item_id=%s',(item,)).fetchone()[0]==1

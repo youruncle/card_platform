@@ -452,6 +452,29 @@ class CaptureService:
                             "UPDATE collection_item SET card_definition_id=%s,updated_at=now() WHERE id=%s",
                             (definition, item_id),
                         )
+                        stored_identity = await (
+                            await db.execute(CAPTURE_TARGET_SQL, (item_id, owner_id))
+                        ).fetchone()
+                        if stored_identity and all(stored_identity[key] for key in (
+                            "player_name", "brand_name", "product_name", "season_start"
+                        )):
+                            await db.execute(
+                                """INSERT INTO automatic_purchase_cost(item_id,owner_id)
+                                   SELECT %s,%s WHERE NOT EXISTS(
+                                     SELECT 1 FROM card_transaction WHERE collection_item_id=%s AND transaction_type='buy')
+                                   ON CONFLICT(item_id) DO NOTHING""",
+                                (item_id, owner_id, item_id),
+                            )
+                            await db.execute(
+                                """INSERT INTO valuation_job(collection_item_id,status)
+                                   SELECT %s,'queued' WHERE NOT EXISTS(
+                                     SELECT 1 FROM valuation_job WHERE collection_item_id=%s
+                                       AND (status IN ('queued','identifying','searching','calculating')
+                                         OR result_summary->>'identity_resolution_status' IS DISTINCT FROM 'pending'))
+                                   ON CONFLICT(collection_item_id)
+                                     WHERE status IN ('queued','identifying','searching','calculating') DO NOTHING""",
+                                (item_id, item_id),
+                            )
                 else:
                     payload = CollectionItemCreate.model_validate({**body, "owner_id": owner_id})
                     item_id = await PortfolioRepository().create_item(db, payload)
