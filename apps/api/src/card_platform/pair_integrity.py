@@ -85,6 +85,12 @@ def _manufacturer_product_layers(job, front, back, brands, subjects, inserts, nu
         return " ".join(re.sub(r"\b(nba|basketball|upper deck)\b", "", text).split())
 
     products = [product_label(face["product_name"]) for face in (front, back)]
+    for index, face in enumerate((front, back)):
+        if (not products[index] and brands[index] == "skybox"
+                and re.search(r"\bskybox\b", _text(" ".join(face["evidence"])))):
+            # A same-face printed logo is only a comparison anchor, not an
+            # invented product observation or a general manufacturer alias.
+            products[index] = "skybox"
     printed = _text(" ".join((job.get("field_evidence") or {}).get("brand_name") or []))
     anchored = (
         set(brands) == {"skybox", "upperdeck"}

@@ -393,3 +393,43 @@ def test_manufacturer_layers_do_not_override_physical_pair_conflicts(defect):
     decision = derive_pair_validation(raw, hashes)
     assert decision["status"] == "conflict"
     assert ("duplicate_front" if defect == "both_front" else "identical_images") in decision["reason_codes"]
+
+
+def deron_missing_front_product():
+    raw = skybox_manufacturer_layers()
+    raw.update(player_name="Deron Williams", card_number="199")
+    for side in ("front", "back"):
+        raw["pair_validation"][side]["player_names"] = ["Deron Williams"]
+    raw["pair_validation"]["front"].update(
+        product_name=None, evidence=["正面下方印有 Deron WILLIAMS", "正面下方印有 CLOSE UPS",
+                                     "正面右下角有“SkyBox”标志"],
+    )
+    raw["pair_validation"]["back"].update(
+        product_name="SkyBox", card_number="199",
+        evidence=["背面左上角印有199", "背面左侧印有CLOSE UPS和Deron WILLIAMS",
+                  "背面底部产品行原文2008-09 NBA SKYBOX"],
+    )
+    raw["pair_validation"]["reason_codes"] = ["brand_conflict"]
+    return raw
+
+
+def test_real_deron_skybox_logo_allows_brand_layers_without_inventing_front_product():
+    from card_platform.pair_integrity import derive_pair_validation
+    raw = deron_missing_front_product()
+    decision = derive_pair_validation(raw, HASHES)
+    assert decision["status"] == "unknown"
+    assert "brand_conflict" not in decision["reason_codes"]
+    assert decision["front"]["product_name"] is None
+    assert raw["pair_validation"]["front"]["product_name"] is None
+    gate({**raw, "pair_validation": decision})
+
+
+def test_missing_front_product_needs_its_own_printed_logo_for_brand_layer_compatibility():
+    from card_platform.pair_integrity import derive_pair_validation
+    raw = deron_missing_front_product()
+    raw["pair_validation"]["front"]["evidence"] = [
+        "正面下方印有 Deron WILLIAMS", "正面下方印有 CLOSE UPS",
+    ]
+    decision = derive_pair_validation(raw, HASHES)
+    assert decision["status"] == "conflict"
+    assert "brand_conflict" in decision["reason_codes"]
