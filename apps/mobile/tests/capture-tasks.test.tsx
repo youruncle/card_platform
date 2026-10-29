@@ -152,7 +152,7 @@ it("shows automatic scanner failures, pages beyond 100, and permits a new manual
   );
 });
 
-it("allows a failed task without a recognition result to be supplemented and confirms the current image hashes", async () => {
+it("allows a failed task without a recognition result to save partial identity without claiming human pair review", async () => {
   const failed = task();
   const { post, onOpen } = setup(async (path) =>
     path === "/v1/capture/tasks/scan" ? failed : page([failed]),
@@ -172,19 +172,16 @@ it("allows a failed task without a recognition result to be supplemented and con
   });
   expect(
     screen.getByRole("button", { name: "确认入库" }).hasAttribute("disabled"),
-  ).toBe(true);
-  fireEvent.click(
-    screen.getByLabelText("我已查看当前正反面，确认属于同一张卡"),
-  );
+  ).toBe(false);
   fireEvent.click(screen.getByRole("button", { name: "确认入库" }));
   await waitFor(() => expect(onOpen).toHaveBeenCalledWith("saved"));
   expect(post).toHaveBeenCalledWith(
     "/v1/capture/tasks/scan/confirm",
     expect.objectContaining({
-      pair_review: {
-        confirmed: true,
-        image_content_hashes: { front: "current-front", back: "current-back" },
-      },
+      card: expect.objectContaining({
+        player_name: "Player",
+        season_start: 2025,
+      }),
     }),
   );
 });
@@ -298,9 +295,6 @@ it("preserves unknown attributes until a user explicitly chooses yes or no", asy
   fireEvent.change(screen.getByLabelText("赛季年份"), {
     target: { value: "2025" },
   });
-  fireEvent.click(
-    screen.getByLabelText("我已查看当前正反面，确认属于同一张卡"),
-  );
   fireEvent.click(screen.getByRole("button", { name: "确认入库" }));
   await waitFor(() =>
     expect(post).toHaveBeenCalledWith(
@@ -348,7 +342,7 @@ it("confirms a supplemental task through the unified endpoint without changing i
   expect(post).toHaveBeenCalledWith("/v1/capture/tasks/scan/confirm", {});
 });
 
-it("binds supplemental manual pair review to the current task images", async () => {
+it("saves an unknown supplemental pair without inventing a human review", async () => {
   const supplement = task({
     status: "succeeded",
     display_status: "needs_review",
@@ -376,18 +370,10 @@ it("binds supplemental manual pair review to the current task images", async () 
     (
       await screen.findByRole("button", { name: "确认补充到原卡片" })
     ).hasAttribute("disabled"),
-  ).toBe(true);
-  fireEvent.click(
-    screen.getByLabelText("我已查看当前正反面，确认属于同一张卡"),
-  );
+  ).toBe(false);
   fireEvent.click(screen.getByRole("button", { name: "确认补充到原卡片" }));
   await waitFor(() =>
-    expect(post).toHaveBeenCalledWith("/v1/capture/tasks/scan/confirm", {
-      pair_review: {
-        confirmed: true,
-        image_content_hashes: { front: "current-front", back: "current-back" },
-      },
-    }),
+    expect(post).toHaveBeenCalledWith("/v1/capture/tasks/scan/confirm", {}),
   );
 });
 
@@ -403,17 +389,9 @@ it("recovers a failed supplemental task using its current photos while retaining
   fireEvent.click(await screen.findByText("新的录卡任务"));
   await screen.findByRole("button", { name: "确认补充到原卡片" });
   expect(screen.queryByLabelText("球员")).toBeNull();
-  fireEvent.click(
-    screen.getByLabelText("我已查看当前正反面，确认属于同一张卡"),
-  );
   fireEvent.click(screen.getByRole("button", { name: "确认补充到原卡片" }));
   await waitFor(() =>
-    expect(post).toHaveBeenCalledWith("/v1/capture/tasks/scan/confirm", {
-      pair_review: {
-        confirmed: true,
-        image_content_hashes: { front: "current-front", back: "current-back" },
-      },
-    }),
+    expect(post).toHaveBeenCalledWith("/v1/capture/tasks/scan/confirm", {}),
   );
 });
 
@@ -427,9 +405,8 @@ it("offers current-photo review for an older task whose recognition result lacks
     path === "/v1/capture/tasks/scan" ? old : page([old]),
   );
   fireEvent.click(await screen.findByText("Older Player"));
-  const checkbox =
-    await screen.findByLabelText("我已查看当前正反面，确认属于同一张卡");
-  fireEvent.click(checkbox);
+  await screen.findByText(/正反面配对待确认/);
+  expect(screen.queryByRole("checkbox")).toBeNull();
   expect(
     screen.getByRole("button", { name: "确认入库" }).hasAttribute("disabled"),
   ).toBe(false);
@@ -473,6 +450,44 @@ it("shows a request failure without presenting it as an empty task list", async 
     "云端任务暂不可用",
   );
   expect(screen.queryByText("还没有录卡任务")).toBeNull();
+});
+
+it("does not prefill or save unknown and conflicted model guesses from a task", async () => {
+  const review = task({
+    status: "succeeded",
+    display_status: "needs_review",
+    result: {
+      confidence: 0.6,
+      player_name: "Known Player",
+      product_name: "Unverified Chrome",
+      season_start: 2025,
+      field_assessments: {
+        product_name: { status: "conflicted" },
+        season_start: { status: "unknown" },
+      },
+    },
+  });
+  const { post } = setup(async (path) =>
+    path === "/v1/capture/tasks/scan" ? review : page([review]),
+  );
+  fireEvent.click(await screen.findByText("Known Player"));
+  expect(
+    ((await screen.findByLabelText("赛季年份")) as HTMLInputElement).value,
+  ).toBe("");
+  expect((screen.getByLabelText("产品") as HTMLInputElement).value).toBe("");
+  fireEvent.click(screen.getByRole("button", { name: "确认入库" }));
+  await waitFor(() =>
+    expect(post).toHaveBeenCalledWith(
+      "/v1/capture/tasks/scan/confirm",
+      expect.objectContaining({
+        card: expect.objectContaining({
+          player_name: "Known Player",
+          product_name: null,
+          season_start: null,
+        }),
+      }),
+    ),
+  );
 });
 
 it("falls back to legacy jobs only when the task API is unavailable", async () => {

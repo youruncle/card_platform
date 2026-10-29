@@ -6,6 +6,7 @@ import { confirmationPayload } from "../../../packages/card-core/src/confirmatio
 import type { RecognitionInput } from "../../../packages/card-core/src/recognition";
 import {pairReviewState,pairReviewPayload,type PairReview} from "../../../packages/card-core/src/recognition";
 import {PairReviewFields} from "./pair-review-fields";
+import {recognitionDraftValue} from "./capture-tasks-panel";
 
 import {identitySuggestions,acceptIdentitySuggestions,supplementIdentityLabels,type Identity} from "../../../packages/card-core/src/supplement";
 
@@ -32,7 +33,7 @@ function LocalCaptureImage({file}:{file:Blob}){
  return url?<img src={url} alt="待提交照片预览" style={{display:"block",maxWidth:220,maxHeight:220,objectFit:"contain"}}/>:null;
 }
 
-export function CapturePanel({ownerId,target,onClose,onSaved}:{ownerId:string;target?:{id:string;player_name?:string}|null;onClose:()=>void;onSaved:()=>void|Promise<void>}){
+export function CapturePanel({ownerId,target,onClose,onSaved}:{ownerId:string;target?:{id:string;player_name?:string|null}|null;onClose:()=>void;onSaved:()=>void|Promise<void>}){
  const [capabilities,setCapabilities]=useState<ClientCapabilities|null>(null);
  const [framing,setFraming]=useState<'card'|'slab'>('card');
  const [mode,setMode]=useState<'front'|'back'|'pair'>('front');
@@ -73,7 +74,7 @@ export function CapturePanel({ownerId,target,onClose,onSaved}:{ownerId:string;ta
  });}
  function openJob(job:Job){
   const sequence=++identityRequest.current;setSelected(job);setPairReview(null);setCurrentIdentity(null);setAcceptedKeys([]);setAcceptanceAllowed(true);setAcceptanceReason(null);
-  setValues(Object.fromEntries(Object.keys(fields).map(k=>[k,String(job.result?.[k as keyof RecognitionInput]??'')])));
+  setValues(Object.fromEntries(Object.keys(fields).map(k=>[k,String(recognitionDraftValue(job.result,k as keyof RecognitionInput)??'')])));
   if(job.target_item_id)void request<{identity:Identity;can_accept_identity?:boolean;identity_acceptance_reason?:string|null}>(`/v1/capture/items/${job.target_item_id}`).then(info=>{if(active.current&&sequence===identityRequest.current){setCurrentIdentity(info.identity??null);setAcceptanceAllowed(info.can_accept_identity!==false);setAcceptanceReason(info.identity_acceptance_reason??null);}}).catch(e=>{if(active.current&&sequence===identityRequest.current)setError(e.message);});
  }
  async function upload(){
@@ -93,7 +94,7 @@ export function CapturePanel({ownerId,target,onClose,onSaved}:{ownerId:string;ta
  });}
  return <div className="modal-backdrop"><section className="modal" role="dialog" aria-modal="true" aria-label="通用照片录卡" style={{maxWidth:860,maxHeight:'90vh',overflow:'auto',padding:24}}>
   <header style={{display:'flex',justifyContent:'space-between'}}><h2>{target?`补拍：${target.player_name??'卡片'}`:'照片录卡与任务'}</h2><button onClick={onClose}>关闭</button></header>
-  <p>支持单独正面、背面或双面。识别结果待人工确认；未知字段请补充。</p>
+  <p>支持单独正面、背面或双面。无法确认的字段可以留空，入库后标记“信息待确认”。</p>
   {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
   {capabilities&&!capabilities.capture_jobs&&<p>服务器尚不支持通用录卡，请使用原有图片识别入口。</p>}{capabilities?.capture_jobs&&<>
    <label>保留范围 <select aria-label="保留范围" value={framing} disabled={busy||!!crop} onChange={e=>setFraming(e.target.value as typeof framing)}><option value="card">卡面</option><option value="slab">评级盒与标签</option></select></label><label>照片模式 <select aria-label="照片模式" value={mode} disabled={!!target||busy||!!crop} onChange={e=>{const value=e.target.value as typeof mode;setMode(value);setDraft({requestId:crypto.randomUUID(),singleSide:value!=='pair'});setCrop(null);}}><option value="front">只有正面</option><option value="back">只有背面</option><option value="pair">正反两面</option></select></label>

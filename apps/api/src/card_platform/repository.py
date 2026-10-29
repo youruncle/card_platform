@@ -164,7 +164,9 @@ class PortfolioRepository:
                         purchase.notes,
                     ),
                 )
-            if payload.purchase is None:
+            identity_ready = all((payload.card.player_name, payload.card.brand_name,
+                                  payload.card.product_name, payload.card.season_start))
+            if payload.purchase is None and identity_ready:
                 # Same transaction as the new card: both clients and scanner/import
                 # paths enqueue durably, without waiting for any external service.
                 await connection.execute(
@@ -172,7 +174,8 @@ class PortfolioRepository:
                     VALUES (%s, %s) ON CONFLICT (item_id) DO NOTHING""",
                     (item_id, payload.owner_id),
                 )
-            await connection.execute(
+            if identity_ready:
+                await connection.execute(
                 """
                 INSERT INTO valuation_job (collection_item_id, status)
                 VALUES (%s, 'queued')
@@ -188,6 +191,12 @@ class PortfolioRepository:
         self, connection: AsyncConnection, payload: CollectionItemCreate
     ) -> UUID:
         card = payload.card
+        if card.player_name is None:
+            result = await connection.execute(
+                "INSERT INTO player(full_name,normalized_name,birth_date) VALUES(NULL,NULL,%s) RETURNING id",
+                (card.player_birth_date,),
+            )
+            return (await result.fetchone())["id"]
         result = await connection.execute(
             """
             SELECT id FROM player
@@ -247,7 +256,7 @@ class PortfolioRepository:
         row = await result.fetchone()
         if row:
             if (
-                card.season_end == card.season_start + 1
+                card.season_start is not None and card.season_end == card.season_start + 1
                 and row["season_end"] in {None, card.season_start}
             ):
                 # Scanner imports may initially know only the copyright/start

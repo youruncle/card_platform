@@ -119,9 +119,10 @@ def test_recognition_auto_import_preserves_editable_card_attributes() -> None:
     assert "可编辑并参与估值" in (payload.notes or "")
 
 
-def test_missing_core_identity_requires_review_instead_of_placeholder_import() -> None:
-    with pytest.raises(ValueError, match="发行赛季"):
-        _auto_import_payload(uuid4(), CardRecognitionResult(confidence="0.58"))
+def test_missing_core_identity_is_nullable_without_placeholder_import() -> None:
+    payload = _auto_import_payload(uuid4(), CardRecognitionResult(confidence="0.58"))
+    assert payload.card.player_name is None and payload.card.brand_name is None
+    assert payload.card.season_start is None and payload.card.product_name is None
 
 
 def test_recognition_auto_import_drops_incompatible_season_end() -> None:

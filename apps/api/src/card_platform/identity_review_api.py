@@ -713,6 +713,13 @@ async def confirm_identity(item_id: UUID, payload: ConfirmIdentityRequest, reque
             })),
         )
         valuation_job_id = (await valuation_job.fetchone())["id"]
+    await connection.execute(
+        """INSERT INTO automatic_purchase_cost(item_id,owner_id)
+           SELECT %s,%s WHERE NOT EXISTS(
+               SELECT 1 FROM card_transaction WHERE collection_item_id=%s AND transaction_type='buy')
+           ON CONFLICT(item_id) DO NOTHING""",
+        (item_id, owner_id, item_id),
+    )
         return {"identity_version_id": version["id"], "version": version["version"],
                 "identity_fingerprint": market_identity.fingerprint, "accepted_count": accepted,
                 "rejected_count": rejected, "needs_review_count": needs_review,

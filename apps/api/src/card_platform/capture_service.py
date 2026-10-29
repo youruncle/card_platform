@@ -18,7 +18,7 @@ from card_platform.image_service import (
 from card_platform.image_rectification import rectify_card_image, RectifiedImage
 from card_platform.scanner_queue import ScannerQueueService
 from card_platform.repository import PortfolioRepository
-from card_platform.pair_integrity import validate_pair_for_confirmation, retained_recognition_result
+from card_platform.pair_integrity import validate_pair_for_confirmation, retained_recognition_result, derive_pair_validation
 from card_platform.schemas import (
     CaptureJob,
     CollectionItemCreate,
@@ -277,6 +277,8 @@ class CaptureService:
         if not current_row["can_accept_identity"]:
             raise HTTPException(409, IDENTITY_ACCEPTANCE_REASON)
         current = CardIdentityInput.model_validate(dict(current_row)).model_dump()
+        accepted = {**current, **payload.card.model_dump(exclude_unset=True)}
+        payload = payload.model_copy(update={"card": CardIdentityInput.model_validate(accepted)})
         accepted = payload.card.model_dump()
         if any(
             current[key] != accepted[key] for key in current if key not in SUPPORTED_IDENTITY_FIELDS
@@ -293,6 +295,12 @@ class CaptureService:
         await db.execute(
             "SELECT pg_advisory_xact_lock(hashtextextended(%s,0))", ("capture-identity-rebind",)
         )
+        if not all(accepted.get(key) for key in ("player_name", "brand_name", "product_name", "season_start")):
+            repository = PortfolioRepository()
+            player = await repository._get_or_create_player(db, payload)
+            brand = await repository._get_or_create_brand(db, payload)
+            card_set = await repository._get_or_create_set(db, brand, payload)
+            return await repository._get_or_create_definition(db, player, card_set, payload)
         player = await PortfolioRepository()._get_or_create_player(db, payload)
         player_row = await (
             await db.execute("SELECT full_name FROM player WHERE id=%s", (player,))
@@ -410,6 +418,16 @@ class CaptureService:
                         processed_contents[side] = path.read_bytes()
                         image_hashes[side] = hashlib.sha256(processed_contents[side]).hexdigest()
                 validate_pair_for_confirmation(retained_recognition_result(job) or {}, image_hashes, pair_review)
+                decision = derive_pair_validation(retained_recognition_result(job) or {}, image_hashes)
+                if len(image_hashes) == 2 and decision["status"] == "unknown" and not (
+                    isinstance(pair_review, dict) and pair_review.get("confirmed") is True
+                    and pair_review.get("image_content_hashes") == image_hashes
+                ):
+                    raw = dict(job.get("result") or {"confidence": 0})
+                    raw["recognition_quality_issues"] = list(dict.fromkeys([
+                        *raw.get("recognition_quality_issues", []), "pair_validation_pending",
+                    ]))
+                    await db.execute("UPDATE scanner_recognition_job SET result=%s WHERE id=%s", (Jsonb(raw), job_id))
                 if job.get("target_item_id"):
                     await self.target(db, owner_id, job["target_item_id"], job["expected_revision"])
                     item_id = job["target_item_id"]

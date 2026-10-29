@@ -58,10 +58,15 @@ describe("credential destinations", () => {
 });
 
 describe("human confirmation", () => {
-  it("requires identity rather than inventing unknown season or player", () => {
-    expect(() =>
-      confirmationPayload("owner", { confidence: "0.7" }, {}),
-    ).toThrow();
+  it("preserves blank identity as null and saves supplied facts without inventing unknown season or player", () => {
+    expect(
+      confirmationPayload("owner", { confidence: "0.7" }, {}).card,
+    ).toMatchObject({
+      player_name: null,
+      brand_name: null,
+      product_name: null,
+      season_start: null,
+    });
     const result = confirmationPayload(
       "owner",
       { confidence: "0.7", is_autograph: true, serial_total: 99 },
@@ -138,9 +143,23 @@ it("an old upload cannot clear a newer draft, and disposed stores reject late wr
 
 it("successful writes invalidate only their API session and disposed sessions reject late responses", async () => {
   let release: ((value: Response) => void) | undefined;
-  const a = new MobileApi("https://a.example", "account-a", () => {}, async () => new Response(null, {status: 204}));
-  const b = new MobileApi("https://a.example", "account-b", () => {}, () => new Promise(resolve => {release = resolve;}));
-  const changedA = vi.fn(), changedB = vi.fn();
+  const a = new MobileApi(
+    "https://a.example",
+    "account-a",
+    () => {},
+    async () => new Response(null, { status: 204 }),
+  );
+  const b = new MobileApi(
+    "https://a.example",
+    "account-b",
+    () => {},
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+  );
+  const changedA = vi.fn(),
+    changedB = vi.fn();
   a.subscribeLibrary(changedA);
   b.subscribeLibrary(changedB);
   await a.post("/v1/portfolio/items");
@@ -148,7 +167,7 @@ it("successful writes invalidate only their API session and disposed sessions re
   expect(changedB).not.toHaveBeenCalled();
   const pending = b.get("/v1/portfolio/items/page");
   b.dispose();
-  release!(new Response(JSON.stringify({items: []})));
+  release!(new Response(JSON.stringify({ items: [] })));
   await expect(pending).rejects.toThrow("会话已结束");
   await expect(b.post("/v1/portfolio/items")).rejects.toThrow("会话已结束");
   a.dispose();

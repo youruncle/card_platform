@@ -12,13 +12,14 @@ ROSTER_SQL = """SELECT DISTINCT p.id, p.full_name FROM player p
     JOIN card_definition cd ON cd.player_id=p.id
     JOIN card_set cs ON cs.id=cd.card_set_id
     JOIN collection_item ci ON ci.card_definition_id=cd.id
-    WHERE ci.deleted_at IS NULL AND ci.holding_status='held' AND cs.sport='basketball' """
+    WHERE ci.deleted_at IS NULL AND ci.holding_status='held' AND cs.sport='basketball'
+      AND p.full_name IS NOT NULL AND btrim(p.full_name)<>'' """
 
 
 class PriceRepository:
     async def subjects(self, c):
         rows = await (await c.execute(
-            "SELECT id,full_name,birth_date,nba_person_id,created_at FROM player"
+            "SELECT id,full_name,birth_date,nba_person_id,created_at FROM player WHERE full_name IS NOT NULL AND btrim(full_name)<>''"
         )).fetchall()
         return SubjectIndex(rows)
 
@@ -67,7 +68,7 @@ class PriceRepository:
             return None
         result = await c.execute(
             """SELECT p.id,p.full_name,s.requested_at,s.last_attempt_at FROM player_price_state s
-            JOIN player p ON p.id=s.player_id WHERE
+            JOIN player p ON p.id=s.player_id WHERE p.full_name IS NOT NULL AND btrim(p.full_name)<>'' AND
               (s.last_attempt_at IS NULL OR s.last_attempt_at < now()-interval '5 minutes')
               AND ((s.requested_at IS NOT NULL AND
                     (s.last_attempt_at IS NULL OR s.requested_at>s.last_attempt_at))

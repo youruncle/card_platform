@@ -3671,3 +3671,5 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .capture-task-fields { grid-template-columns: 1fr; }
 }
 @media (max-width: 600px) { .top-actions .capture-task-entry { font-size: 12px; } }
+.identity-pending-badge { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 11px; line-height: 1.5; color: #805c00; background: #fff5d8; white-space: nowrap; }
+.capture-task-detail > .identity-pending-badge { display: block; width: fit-content; margin: 8px 0; }

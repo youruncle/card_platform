@@ -59,10 +59,10 @@ class MarketIdentity(BaseModel):
     serial_total: int | None = None
     is_redemption: bool = False
     redemption_status: str = "unknown"
-    is_rookie: bool = False
-    is_autograph: bool = False
-    is_memorabilia: bool = False
-    is_patch: bool = False
+    is_rookie: bool | None = False
+    is_autograph: bool | None = False
+    is_memorabilia: bool | None = False
+    is_patch: bool | None = False
     grade_company: str | None = None
     grade_value: Decimal | None = None
 

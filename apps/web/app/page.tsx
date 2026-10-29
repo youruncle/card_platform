@@ -13,7 +13,7 @@ import { deferredPanel, DeferredPanelLoading } from "../components/deferred-pane
 import { PurchaseCostValues } from "../components/purchase-cost-values";
 import { usePurchaseCostLookup } from "../lib/use-purchase-cost-lookup";
 import { CollectionSearch } from "../components/collection-search";
-import { CaptureTasksCenter } from "../components/capture-tasks-panel";
+import { CaptureTasksCenter, recognitionDraftValue } from "../components/capture-tasks-panel";
 import { AutomaticCostNotice } from "../components/automatic-cost-notice";
 import { AuctionDraftPanel } from "../components/auction-draft-panel";
 import {uploadItemImages} from "../lib/item-image-upload";
@@ -299,9 +299,17 @@ function money(value: string | number, currency = "CNY", fractionDigits = 0) {
 }
 
 function season(item: PortfolioItem) {
+  if (item.season_start == null) return "—";
   if (!item.season_end || item.season_end === item.season_start)
     return String(item.season_start);
   return `${item.season_start}-${String(item.season_end).slice(-2)}`;
+}
+
+function IdentityPendingBadge({ item }: { item: PortfolioItem }) {
+  if (!item.identity_review_required) return null;
+  const labels: Record<string, string> = { player_name: "球员 / 主体", brand_name: "品牌", product_name: "产品", season_start: "发行年", is_rookie: "新秀", is_autograph: "签名", is_memorabilia: "实物材质", is_patch: "Patch", has_inscription: "题字", is_numbered: "带编属性", pair_validation: "正反面配对" };
+  const missing = (item.identity_missing_fields ?? []).map(field => labels[field] ?? field);
+  return <span className="identity-pending-badge" title={missing.length ? `待确认：${missing.join("、")}` : "部分信息尚未确认"}>信息待确认</span>;
 }
 
 function isValuationRunning(status: string | null) {
@@ -926,7 +934,7 @@ export default function Dashboard() {
     event.preventDefault();
     if (!ownerId) throw new Error("账户信息尚未加载，请刷新页面后重试");
     const form = new FormData(event.currentTarget);
-    const seasonStart = Number(form.get("seasonStart"));
+    const seasonStart = String(form.get("seasonStart") ?? "").trim();
     const serialTotal = String(form.get("serialTotal") ?? "");
     setError("");
     try {
@@ -934,8 +942,8 @@ export default function Dashboard() {
         player_name: String(form.get("playerName") ?? ""),
         brand_name: String(form.get("brandName") ?? ""),
         product_name: String(form.get("productName") ?? ""),
-        season_start: String(seasonStart),
-        season_end: String(form.get("seasonEnd") || seasonStart + 1),
+        season_start: seasonStart,
+        season_end: String(form.get("seasonEnd") ?? "").trim(),
         card_number: String(form.get("cardNumber") ?? ""),
         insert_name: String(form.get("insertName") ?? ""),
         parallel_name: String(form.get("parallelName") ?? ""),
@@ -1700,7 +1708,7 @@ export default function Dashboard() {
 
   async function handleDeleteItem(item: PortfolioItem) {
     if (!ownerId) return;
-    if (!window.confirm(`确定删除 ${item.player_name}？卡片将进入回收站，可稍后恢复。`)) {
+    if (!window.confirm(`确定删除 ${item.player_name || "未确认卡片"}？卡片将进入回收站，可稍后恢复。`)) {
       return;
     }
     try {
@@ -1781,7 +1789,7 @@ export default function Dashboard() {
 
   async function handlePermanentDelete(item: PortfolioItem) {
     if (!ownerId) return;
-    const first = window.confirm(`永久删除 ${item.player_name}？交易、估值和分析数据将一并清除。`);
+    const first = window.confirm(`永久删除 ${item.player_name || "未确认卡片"}？交易、估值和分析数据将一并清除。`);
     if (!first || !window.confirm("此操作不可恢复。请再次确认永久删除。")) return;
     try {
       await permanentlyDeleteItem(item.id, ownerId);
@@ -2136,7 +2144,7 @@ export default function Dashboard() {
                         <td className="selection-column">
                           <input
                             type="checkbox"
-                            aria-label={`选择 ${item.player_name}`}
+                            aria-label={`选择 ${item.player_name || "未确认卡片"}`}
                             checked={selectedItemIds.has(item.id)}
                             disabled={bulkDeleting}
                             onChange={() => toggleItemSelection(item.id)}
@@ -2147,15 +2155,15 @@ export default function Dashboard() {
                             {(item.image_front_url || item.image_back_url) ? (
                               <div className="card-thumb has-image">
                                 <PortfolioImage itemId={item.id} side={item.image_front_url ? "front" : "back"} url={item.image_front_url || item.image_back_url} variant="thumb"
-                                  alt={`${item.player_name} 卡片${item.image_front_url ? "正面" : "背面"}`}
+                                  alt={`${item.player_name || "未确认卡片"} 卡片${item.image_front_url ? "正面" : "背面"}`}
                                   gallery={[
                                     {
                                       src: assetUrl(item.image_front_url),
-                                      alt: `${item.player_name} 卡片正面`,
+                                      alt: `${item.player_name || "未确认卡片"} 卡片正面`,
                                     },
                                     {
                                       src: assetUrl(item.image_back_url),
-                                      alt: `${item.player_name} 卡片背面`,
+                                      alt: `${item.player_name || "未确认卡片"} 卡片背面`,
                                     },
                                   ]}
                                 />
@@ -2165,9 +2173,9 @@ export default function Dashboard() {
                                 type="button"
                                 className="card-thumb"
                                 onClick={() => void openItemDetail(item.id)}
-                                aria-label={`查看 ${item.player_name} 卡片详情`}
+                                aria-label={`查看 ${item.player_name || "未确认卡片"} 卡片详情`}
                               >
-                                {item.player_name
+                                {(item.player_name || "未确认卡片")
                                   .split(" ")
                                   .map((part) => part[0])
                                   .join("")
@@ -2177,12 +2185,13 @@ export default function Dashboard() {
                             <div>
                               <div className="player-name-row">
                                 <span className="asset-display-id">ID {item.display_id}</span>
+                                <IdentityPendingBadge item={item} />
                                 {item.holding_status === "sold" && <span className="tag muted">已卖出</span>}
                                 <button
                                   className="player-link"
                                   onClick={() => void openItemDetail(item.id)}
                                 >
-                                  {item.player_name}
+                                  {item.player_name || "未确认卡片"}
                                 </button>
                                 {item.recognition_confidence !== null && (
                                   <span
@@ -2205,7 +2214,7 @@ export default function Dashboard() {
                                 )}
                               </div>
                               <small>
-                                {season(item)} · {item.product_name}
+                                {season(item)} · {item.product_name || "—"}
                                 {item.insert_name
                                   ? ` · ${item.insert_name}`
                                   : ""}
@@ -2822,34 +2831,13 @@ function CardHobbyImportDialog({
       const items = selected.map((draft) => {
         const value = (field: string) =>
           String(form.get(`${draft.id}-${field}`) ?? "").trim() || null;
-        const seasonStart = Number(value("season_start"));
-        if (
-          !value("player_name") ||
-          !value("brand_name") ||
-          !seasonStart ||
-          !value("product_name")
-        ) {
-          throw new Error(`“${draft.capture.title}”缺少必填身份字段`);
-        }
-        const serialTotal = value("serial_total")
-          ? Number(value("serial_total"))
-          : null;
+        const identity = confirmationPayload(ownerId, { confidence: 0 }, Object.fromEntries(
+          ["player_name", "brand_name", "product_name", "season_start", "card_number", "insert_name", "parallel_name", "serial_total"].map(field => [field, value(field) ?? ""]),
+        ));
         return {
           draft_id: draft.id,
           item: {
-            owner_id: ownerId,
-            card: {
-              player_name: value("player_name"),
-              brand_name: value("brand_name"),
-              season_start: seasonStart,
-              season_end: seasonStart + 1,
-              product_name: value("product_name"),
-              card_number: value("card_number"),
-              insert_name: value("insert_name"),
-              parallel_name: value("parallel_name"),
-              print_run: serialTotal,
-            },
-            serial_total: serialTotal,
+            ...identity,
             notes: `卡淘商品：${draft.capture.item_url}`,
             purchase: {
               transacted_at: draft.capture.purchased_at ?? new Date().toISOString(),
@@ -2899,6 +2887,7 @@ function CardHobbyImportDialog({
           </button>
         </div>
         {dialogError && <div className="error-banner">{dialogError}</div>}
+        <p>无法确认的身份字段可留空，导入后标记“信息待确认”。</p>
         <form onSubmit={confirm}>
           <div className="cardhobby-import-list">
             {drafts.map((draft) => {
@@ -2931,14 +2920,14 @@ function CardHobbyImportDialog({
                       球员
                       <input
                         name={`${draft.id}-player_name`}
-                        defaultValue={card?.player_name ?? ""}
+                        defaultValue={recognitionDraftValue(card, "player_name") ?? ""}
                       />
                     </label>
                     <label>
                       品牌
                       <input
                         name={`${draft.id}-brand_name`}
-                        defaultValue={card?.brand_name ?? "Panini"}
+                        defaultValue={recognitionDraftValue(card, "brand_name") ?? ""}
                       />
                     </label>
                     <label>
@@ -2946,35 +2935,35 @@ function CardHobbyImportDialog({
                       <input
                         type="number"
                         name={`${draft.id}-season_start`}
-                        defaultValue={card?.season_start ?? ""}
+                        defaultValue={recognitionDraftValue(card, "season_start") ?? ""}
                       />
                     </label>
                     <label>
                       产品
                       <input
                         name={`${draft.id}-product_name`}
-                        defaultValue={card?.product_name ?? ""}
+                        defaultValue={recognitionDraftValue(card, "product_name") ?? ""}
                       />
                     </label>
                     <label>
                       卡号
                       <input
                         name={`${draft.id}-card_number`}
-                        defaultValue={card?.card_number ?? ""}
+                        defaultValue={recognitionDraftValue(card, "card_number") ?? ""}
                       />
                     </label>
                     <label>
                       Insert
                       <input
                         name={`${draft.id}-insert_name`}
-                        defaultValue={card?.insert_name ?? ""}
+                        defaultValue={recognitionDraftValue(card, "insert_name") ?? ""}
                       />
                     </label>
                     <label>
                       平行
                       <input
                         name={`${draft.id}-parallel_name`}
-                        defaultValue={card?.parallel_name ?? ""}
+                        defaultValue={recognitionDraftValue(card, "parallel_name") ?? ""}
                       />
                     </label>
                     <label>
@@ -3181,6 +3170,7 @@ function CardDialog({
             <X size={20} />
           </button>
         </div>
+        <p>无法确认的身份字段可留空，保存后标记“信息待确认”。</p>
         <form noValidate onSubmit={submitCard}>
           {frontFile && backFile && <>
             <div className="recognition-pair-inputs"><FileThumbnail file={frontFile} alt="当前任务正面" /><FileThumbnail file={backFile} alt="当前任务背面" /></div>
@@ -3193,7 +3183,6 @@ function CardDialog({
                 name="playerName"
                 placeholder="Jalen Duren"
                 defaultValue={initialValues?.player_name ?? ""}
-                required
               />
             </label>
             <label>
@@ -3205,7 +3194,6 @@ function CardDialog({
                 min="1940"
                 max="2200"
                 defaultValue={initialValues?.season_start ?? ""}
-                required
               />
             </label>
             <label>
@@ -3224,7 +3212,6 @@ function CardDialog({
                 name="brandName"
                 placeholder="National Treasures"
                 defaultValue={initialValues?.brand_name ?? ""}
-                required
               />
             </label>
             <label className="wide">
@@ -3233,7 +3220,6 @@ function CardDialog({
                 name="productName"
                 placeholder="National Treasures Basketball"
                 defaultValue={initialValues?.product_name ?? ""}
-                required
               />
             </label>
             <label className="wide">
@@ -3420,9 +3406,9 @@ function ExpertAnalysisDialog({
           <button className="icon-button" onClick={onClose}><X size={20} /></button>
         </div>
         <div className="expert-analysis-card-link">
-          {item.image_front_url && <PortfolioImage itemId={item.id} side="front" url={item.image_front_url} variant="preview" alt={`${item.player_name} 正面`} />}
-          {item.image_back_url && <PortfolioImage itemId={item.id} side="back" url={item.image_back_url} variant="preview" alt={`${item.player_name} 背面`} />}
-          <p>{item.season_start} {item.brand_name} {item.product_name}<br />
+          {item.image_front_url && <PortfolioImage itemId={item.id} side="front" url={item.image_front_url} variant="preview" alt={`${item.player_name || "未确认卡片"} 正面`} />}
+          {item.image_back_url && <PortfolioImage itemId={item.id} side="back" url={item.image_back_url} variant="preview" alt={`${item.player_name || "未确认卡片"} 背面`} />}
+          <p>{item.season_start} {item.brand_name} {item.product_name || "—"}<br />
             <small>本结果只以这两张图片为卡片输入，独立于影子估值与正式估值，不会写入正式估值。</small></p>
         </div>
         {loading ? (
@@ -3503,7 +3489,7 @@ function AnalysisDialog({
           <div className="modal-heading">
             <div>
               <p className="eyebrow">INVESTMENT VERDICT</p>
-              <h2>{item.player_name}</h2>
+              <h2>{item.player_name || "未确认卡片"}</h2>
             </div>
             <button className="icon-button" onClick={onClose}>
               <X size={20} />
@@ -3601,7 +3587,7 @@ function AnalysisDialog({
         <div className="modal-heading">
           <div>
             <p className="eyebrow">CARD ANALYSIS</p>
-            <h2>分析 {item.player_name}</h2>
+            <h2>分析 {item.player_name || "未确认卡片"}</h2>
           </div>
           <button className="icon-button" onClick={onClose}>
             <X size={20} />
@@ -3861,8 +3847,8 @@ function TrashDialog({
           {items.map((item) => (
             <article key={item.id}>
               <div>
-                <strong>{item.player_name}</strong>
-                <span>{season(item)} · {item.product_name}</span>
+                <strong>{item.player_name || "未确认卡片"}</strong>
+                <span>{season(item)} · {item.product_name || "—"}</span>
                 <small>
                   {item.deleted_at
                     ? new Date(item.deleted_at).toLocaleString("zh-CN")
@@ -4012,9 +3998,10 @@ function ItemDetailDialog({
         <div className="modal-heading">
           <div>
             <p className="eyebrow">CARD DOSSIER / 卡片档案</p>
-            <h2>{item.player_name}</h2>
+            <h2>{item.player_name || "未确认卡片"}</h2>
+            <IdentityPendingBadge item={item} />
             <p className="detail-subtitle">
-              {season(item)} · {item.product_name}
+              {season(item)} · {item.product_name || "—"}
               {item.insert_name ? ` · ${item.insert_name}` : ""}
             </p>
           </div>
@@ -4033,7 +4020,7 @@ function ItemDetailDialog({
               <figure>
                 <div className="dossier-main-image">
                   {imageFront ? (
-                    <PortfolioImage itemId={item.id} side="front" url={item.image_front_url} variant="preview" alt={`${item.player_name} 卡片正面`} />
+                    <PortfolioImage itemId={item.id} side="front" url={item.image_front_url} variant="preview" alt={`${item.player_name || "未确认卡片"} 卡片正面`} />
                   ) : (
                     <div>
                       <strong>暂无正面图片</strong>
@@ -4054,7 +4041,7 @@ function ItemDetailDialog({
               <figure>
                 <div className="dossier-main-image">
                   {imageBack ? (
-                    <PortfolioImage itemId={item.id} side="back" url={item.image_back_url} variant="preview" alt={`${item.player_name} 卡片背面`} />
+                    <PortfolioImage itemId={item.id} side="back" url={item.image_back_url} variant="preview" alt={`${item.player_name || "未确认卡片"} 卡片背面`} />
                   ) : (
                     <div>
                       <strong>暂无背面图片</strong>
@@ -4462,7 +4449,7 @@ function ItemDetailDialog({
                   <div className="catalog-reference-pictures">
                     {referenceFront && (
                       <article>
-                        <OpenableImage src={referenceFront} alt={`${item.player_name} 卡淘高清正面`} />
+                        <OpenableImage src={referenceFront} alt={`${item.player_name || "未确认卡片"} 卡淘高清正面`} />
                         <div>
                           <span>高清正面</span>
                           <button
@@ -4478,7 +4465,7 @@ function ItemDetailDialog({
                     )}
                     {referenceBack && (
                       <article>
-                        <OpenableImage src={referenceBack} alt={`${item.player_name} 卡淘高清背面`} />
+                        <OpenableImage src={referenceBack} alt={`${item.player_name || "未确认卡片"} 卡淘高清背面`} />
                         <div>
                           <span>高清背面</span>
                           <button
@@ -4832,7 +4819,7 @@ function AutomatedValuationDialog({
         <div className="modal-heading">
           <div>
             <p className="eyebrow">AUTOMATED VALUATION</p>
-            <h2>{item.player_name} · 估值详情</h2>
+            <h2>{item.player_name || "未确认卡片"} · 估值详情</h2>
             <p className="detail-subtitle">
               {item.valuation_synthesis?.status === "joint_recalculated"
                 ? "联合估值已更新" : evidence?.pricing_basis === "codex_independent_fallback"
@@ -5277,7 +5264,7 @@ function MarketDialog({
         <div className="modal-heading">
           <div>
             <p className="eyebrow">MARKET EVIDENCE</p>
-            <h2>{item.player_name} · 市场证据</h2>
+            <h2>{item.player_name || "未确认卡片"} · 市场证据</h2>
             <p className="detail-subtitle">
               录入真实成交后，以时间和匹配度加权推导估值区间。
             </p>
@@ -5463,7 +5450,7 @@ function PotentialDialog({
         <div className="modal-heading">
           <div>
             <p className="eyebrow">POTENTIAL MODEL</p>
-            <h2>{item.player_name} · 潜力评估</h2>
+            <h2>{item.player_name || "未确认卡片"} · 潜力评估</h2>
           </div>
           <button className="icon-button" onClick={onClose}>
             <X size={20} />
@@ -5528,7 +5515,7 @@ function ImageDialog({
         <div className="modal-heading">
           <div>
             <p className="eyebrow">CARD IMAGES</p>
-            <h2>{item.player_name} · 卡片图片</h2>
+            <h2>{item.player_name || "未确认卡片"} · 卡片图片</h2>
           </div>
           <button className="icon-button" onClick={onClose}>
             <X size={20} />
@@ -6038,7 +6025,7 @@ function RecognitionDialog({
               <div className="form-grid">
                 <label className="wide">
                   球员
-                  <input name="playerName" defaultValue={result.player_name ?? ""} />
+                  <input name="playerName" defaultValue={recognitionDraftValue(result, "player_name") ?? ""} />
                 </label>
                 <label>
                   赛季起始年
@@ -6047,7 +6034,7 @@ function RecognitionDialog({
                     type="number"
                     min="1940"
                     max="2200"
-                    defaultValue={result.season_start ?? ""}
+                    defaultValue={recognitionDraftValue(result, "season_start") ?? ""}
                   />
                 </label>
                 <label>
@@ -6057,28 +6044,28 @@ function RecognitionDialog({
                     type="number"
                     min="1940"
                     max="2200"
-                    defaultValue={result.season_end ?? ""}
+                    defaultValue={recognitionDraftValue(result, "season_end") ?? ""}
                   />
                 </label>
                 <label>
                   品牌
-                  <input name="brandName" defaultValue={result.brand_name ?? ""} />
+                  <input name="brandName" defaultValue={recognitionDraftValue(result, "brand_name") ?? ""} />
                 </label>
                 <label>
                   产品线
-                  <input name="productName" defaultValue={result.product_name ?? ""} />
+                  <input name="productName" defaultValue={recognitionDraftValue(result, "product_name") ?? ""} />
                 </label>
                 <label>
                   Insert / 卡种
-                  <input name="insertName" defaultValue={result.insert_name ?? ""} />
+                  <input name="insertName" defaultValue={recognitionDraftValue(result, "insert_name") ?? ""} />
                 </label>
                 <label>
                   Parallel / 平行版本
-                  <input name="parallelName" defaultValue={result.parallel_name ?? ""} />
+                  <input name="parallelName" defaultValue={recognitionDraftValue(result, "parallel_name") ?? ""} />
                 </label>
                 <label>
                   卡号
-                  <input name="cardNumber" defaultValue={result.card_number ?? ""} />
+                  <input name="cardNumber" defaultValue={recognitionDraftValue(result, "card_number") ?? ""} />
                 </label>
                 <label>
                   编号
@@ -6086,7 +6073,7 @@ function RecognitionDialog({
                     name="serialNumber"
                     type="number"
                     min="1"
-                    defaultValue={result.serial_number ?? ""}
+                    defaultValue={recognitionDraftValue(result, "serial_number") ?? ""}
                   />
                 </label>
                 <label>
@@ -6095,13 +6082,13 @@ function RecognitionDialog({
                     name="serialTotal"
                     type="number"
                     min="1"
-                    defaultValue={result.serial_total ?? ""}
+                    defaultValue={recognitionDraftValue(result, "serial_total") ?? ""}
                   />
                 </label>
                 <fieldset className="wide">
                   <legend>卡片属性</legend>
                   {([['isRookie', 'is_rookie', 'RC'], ['isAutograph', 'is_autograph', 'Auto'], ['isPatch', 'is_patch', 'Patch']] as const).map(([name, key, label]) => <label key={name}>{label}
-                    <select name={name} defaultValue={String(result[key] ?? 'unknown')}><option value="unknown">未知</option><option value="true">是</option><option value="false">否</option></select>
+                    <select name={name} defaultValue={String(recognitionDraftValue(result, key) ?? 'unknown')}><option value="unknown">未知</option><option value="true">是</option><option value="false">否</option></select>
                   </label>)}
                 </fieldset>
               </div>

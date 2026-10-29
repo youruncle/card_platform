@@ -315,10 +315,11 @@ class CardIdentity:
     grade_value: str | None = None
     is_redemption: bool = False
     redemption_status: str = "unknown"
-    is_rookie: bool = False
-    is_autograph: bool = False
-    is_memorabilia: bool = False
-    is_patch: bool = False
+    is_rookie: bool | None = None
+    is_autograph: bool | None = None
+    is_memorabilia: bool | None = None
+    is_patch: bool | None = None
+    is_numbered: bool | None = None
     evidence: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     conflicts: list[str] = field(default_factory=list)
 
@@ -454,12 +455,13 @@ class CardIdentityResolver:
             # family remains intact (for example Flux Prizm).
             stored_parallel = None
             stored_parallel_text = ""
-        stored_is_rookie = bool(stored.get("is_rookie")) or stored_parallel_text in {
+        rookie_marker = stored_parallel_text in {
             "rc",
             "rookie",
             "新秀",
             "正新秀",
         }
+        stored_is_rookie = True if rookie_marker else stored.get("is_rookie")
         if stored_parallel_text in {"rc", "rookie", "新秀", "正新秀"}:
             stored_parallel = None
         # OCR frequently copies a product technology/logo (for example
@@ -546,13 +548,10 @@ class CardIdentityResolver:
             "is_redemption": redemption_identity(stored)[0],
             "redemption_status": redemption_identity(stored)[1],
             "is_rookie": stored_is_rookie,
-            "is_autograph": bool(stored.get("is_autograph")) or context_is_autograph,
-            "is_memorabilia": (
-                bool(stored.get("is_memorabilia"))
-                or bool(stored.get("is_patch"))
-                or context_is_memorabilia
-            ),
-            "is_patch": bool(stored.get("is_patch")) or context_is_patch,
+            "is_autograph": True if context_is_autograph else stored.get("is_autograph"),
+            "is_memorabilia": True if stored.get("is_patch") or context_is_memorabilia else stored.get("is_memorabilia"),
+            "is_patch": True if context_is_patch else stored.get("is_patch"),
+            "is_numbered": stored.get("is_numbered"),
         }
         provenance: dict[str, list[dict[str, Any]]] = {
             key: [{"source": "database", "value": value}]

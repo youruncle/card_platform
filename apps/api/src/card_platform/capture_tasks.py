@@ -12,7 +12,7 @@ from card_platform.auth_api import connection
 from card_platform.capture_service import CaptureService, capture_job_view
 from card_platform.config import get_settings
 from card_platform.image_service import read_validated_image, InvalidImageError
-from card_platform.pair_integrity import validate_pair_for_confirmation, retained_recognition_result
+from card_platform.pair_integrity import validate_pair_for_confirmation, retained_recognition_result, derive_pair_validation
 from card_platform.schemas import CardRecognitionResult, CollectionItemCreate
 
 router = APIRouter()
@@ -73,6 +73,11 @@ async def owned(db, owner, job_id, lock=False):
 def task_view(row, *, hashes=None, history=None):
     row = dict(row)
     row["result"] = retained_recognition_result(row)
+    if row["result"] and row["result"].get("pair_validation"):
+        raw = row["result"]
+        saved = raw["pair_validation"].get("image_content_hashes") or {}
+        if not hashes or not saved or hashes == saved:
+            row["result"] = {**raw, "pair_validation": derive_pair_validation(raw, hashes or saved)}
     values = capture_job_view(row).model_dump(mode="json")
     state = task_state(row)
     reasons = []
@@ -87,7 +92,7 @@ def task_view(row, *, hashes=None, history=None):
             ("season_start", "发行赛季"),
         ]:
             if not raw.get(field):
-                reasons.append(f"缺少{label}，请补充后确认")
+                reasons.append(f"{label}待确认，可留空先入库")
         pair = raw.get("pair_validation") or {}
         reasons += [REASONS[code] for code in pair.get("reason_codes", []) if code in REASONS]
         if pair.get("status") != "consistent" and not reasons:
@@ -137,7 +142,7 @@ async def detail(db, owner, job_id):
         )
         if event["source"] == "manual":
             message = (
-                "人工补充信息后确认入库"
+                "用户保存入库，未确认字段保留为空"
                 if state == "imported"
                 else "人工补充信息，未宣称模型识别成功"
             )
@@ -275,7 +280,7 @@ async def confirm_task(
             try:
                 payload = CollectionItemCreate.model_validate({**body, "owner_id": user.id})
             except ValueError as error:
-                raise HTTPException(422, "请核对主体、品牌、产品、发行赛季和编号后确认") from error
+                raise HTTPException(422, "填写的信息格式有误；无法确认的字段可留空") from error
             accepted = {
                 **payload.card.model_dump(mode="json"),
                 "serial_number": payload.serial_number,
@@ -285,14 +290,14 @@ async def confirm_task(
             evidence = dict(raw.get("field_evidence") or {})
             for field, value in accepted.items():
                 if value != raw.get(field):
-                    evidence[field] = ["用户查看当前照片后手工确认；非模型新识别结论"]
+                    evidence[field] = ["用户保存字段；未知信息留空，非模型新识别结论"]
             raw = CardRecognitionResult.model_validate(
                 {
                     **raw,
                     **accepted,
                     "field_evidence": evidence,
                     "field_assessments": {},
-                    "recognition_model": "人工确认（原模型记录见任务历史）",
+                    "recognition_model": "用户保存（未确认字段留空，原模型记录见历史）",
                     "recognition_quality_issues": [],
                 }
             ).model_dump(mode="json")

@@ -4,7 +4,6 @@ import type { Job } from "./types";
 import {
   pairReviewPayload,
   pairReviewState,
-  type PairReview,
 } from "../../../packages/card-core/src/recognition";
 import {
   identitySuggestions,
@@ -38,9 +37,8 @@ export function SupplementConfirmation({
     [busy, setBusy] = useState(false);
   const [canAccept, setCanAccept] = useState(false),
     [acceptanceReason, setAcceptanceReason] = useState("");
-  const [pairReview, setPairReview] = useState<PairReview | null>(null);
   const paired = !!job.front_image_url && !!job.back_image_url;
-  const pairState = pairReviewState(job.result ?? {}, paired, pairReview);
+  const pairState = pairReviewState(job.result ?? {}, paired);
   const active = useRef(true),
     locked = useRef(false);
   useEffect(() => {
@@ -74,7 +72,12 @@ export function SupplementConfirmation({
     ? identitySuggestions(identity, job.result ?? {})
     : [];
   async function confirm(accept: boolean) {
-    if (locked.current || pairState.blocked || (accept && !canAccept)) return;
+    if (
+      locked.current ||
+      pairState.status === "conflict" ||
+      (accept && !canAccept)
+    )
+      return;
     locked.current = true;
     setBusy(true);
     setError("");
@@ -91,7 +94,7 @@ export function SupplementConfirmation({
           : {};
       const saved = await api.post<{ id: string }>(
         confirmPath ?? `/v1/capture/jobs/${job.id}/confirm`,
-        { ...body, ...pairReviewPayload(job.result ?? {}, paired, pairReview) },
+        { ...body, ...pairReviewPayload(job.result ?? {}, paired, null) },
       );
       if (active.current) onSaved(saved.id);
     } catch (e) {
@@ -114,29 +117,9 @@ export function SupplementConfirmation({
           {reason}
         </p>
       ))}
-      {pairState.status === "unknown" &&
-        (pairState.imageHashes ? (
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={pairState.reviewed}
-              disabled={busy}
-              onChange={(event) =>
-                setPairReview(
-                  event.target.checked
-                    ? {
-                        confirmed: true,
-                        image_content_hashes: pairState.imageHashes!,
-                      }
-                    : null,
-                )
-              }
-            />
-            我已查看当前正反面，确认属于同一张卡
-          </label>
-        ) : (
-          <p className="notice">请重新识别当前两面照片，再核对配对关系。</p>
-        ))}
+      {pairState.status === "unknown" && (
+        <p className="notice">正反面配对信息待确认，可先补充入库并保留标记。</p>
+      )}
       {error && (
         <p role="alert" className="error">
           {error}
@@ -145,7 +128,7 @@ export function SupplementConfirmation({
       {pairState.status !== "conflict" && (
         <button
           className="primary"
-          disabled={busy || pairState.blocked}
+          disabled={busy || pairState.status === "conflict"}
           onClick={() => void confirm(false)}
         >
           确认补充到原卡片
@@ -170,7 +153,7 @@ export function SupplementConfirmation({
             <label className="check" key={s.key}>
               <input
                 type="checkbox"
-                disabled={busy || pairState.blocked || !canAccept}
+                disabled={busy || pairState.status === "conflict" || !canAccept}
                 checked={chosen.includes(s.key)}
                 onChange={(e) =>
                   setChosen((v) =>
@@ -189,7 +172,7 @@ export function SupplementConfirmation({
         <button
           disabled={
             busy ||
-            pairState.blocked ||
+            pairState.status === "conflict" ||
             !identity ||
             !canAccept ||
             chosen.length === 0

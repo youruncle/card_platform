@@ -53,7 +53,7 @@ export function pairReviewState(
     ...(validation?.reason_codes ?? []).map(code => pairReasonLabels[code]).filter(Boolean),
   ])];
   return { status, imageHashes, reviewed, reasons,
-    blocked: status === "conflict" || (status === "unknown" && !reviewed) };
+    blocked: status === "conflict" };
 }
 
 export function pairReviewPayload(
@@ -64,9 +64,5 @@ export function pairReviewPayload(
   const state = pairReviewState(result, paired, review);
   if (state.status === "conflict")
     throw new Error("正反面存在明确冲突，请更换照片后重新识别");
-  if (state.status === "unknown" && !state.imageHashes)
-    throw new Error("请重新识别当前两面照片，再核对配对关系");
-  if (state.blocked)
-    throw new Error("请先查看当前正反面，并单独确认属于同一张卡");
-  return state.status === "unknown" ? {pair_review: review!} : {};
+  return state.status === "unknown" && state.reviewed ? {pair_review: review!} : {};
 }

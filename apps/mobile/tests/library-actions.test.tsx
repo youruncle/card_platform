@@ -37,6 +37,15 @@ it('skips known cost including zero and continues after an individual search fai
  expect(screen.getByText("保留已有成本", {exact:true})).toBeTruthy();
  expect(changed).toHaveBeenCalled();
 });
+it('labels unnamed cards in known, found and failed cost rows without inventing an identity', async()=>{
+ vi.mocked(fetchPurchaseCost).mockResolvedValueOnce({status:'recorded',reason:'recorded',candidates:[],rejected:[]}).mockRejectedValueOnce(new Error('query failed'));
+ const items=[{...card('zero','0'),player_name:null},{...card('found'),player_name:null},{...card('failed'),player_name:null}];
+ render(<BulkActions api={{} as MobileApi} ownerId="owner" items={items} selected={new Set(['zero','found','failed'])} onSelectionChange={()=>{}} onChanged={()=>{}} onOpenCost={()=>{}} />);
+ fireEvent.click(screen.getByRole('button',{name:'获取选中成本 (3)'}));
+ await screen.findByText(/批量处理完成/);
+ expect(screen.getAllByText('信息待确认的卡片')).toHaveLength(3);
+ expect(items.every(item=>item.player_name===null)).toBe(true);
+});
 it('pauses a batch after the in-flight item when the library becomes inactive', async()=>{
  let resolve!: (value:any)=>void;
  vi.mocked(fetchPurchaseCost).mockImplementationOnce(()=>new Promise(r=>{resolve=r;}));
@@ -72,6 +81,12 @@ it('retains trashed cards after a failed restore and allows retry', async()=>{
  expect(screen.getByText('Player a')).toBeTruthy();
  fireEvent.click(screen.getByRole('button',{name:'恢复卡片'}));
  await screen.findByText('回收站为空');
+});
+it('shows blanks and an unconfirmed-card label for unnamed cards in the trash',async()=>{
+ const item={...card('unnamed'),player_name:null,season_start:null,product_name:null};
+ render(<TrashPage api={{get:async()=>[item]} as unknown as MobileApi} ownerId="owner" onBack={()=>{}} onChanged={()=>{}}/>);
+ expect(await screen.findByRole('heading',{name:'信息待确认的卡片'})).toBeTruthy();
+ expect(screen.getByText('— · —')).toBeTruthy();
 });
 it('requires reviewing stale selection instead of deleting invisible refreshed cards',async()=>{
  const request=vi.fn(),selection=vi.fn();

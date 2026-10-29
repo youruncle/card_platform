@@ -349,6 +349,9 @@ small {
 .task-history p { margin: 6px 0; }
 .task-pagination { justify-content: space-between; flex-wrap: wrap; margin: 20px 0; }
 .task-pagination span { font-size: 13px; }
+.identity-pending { display: block; margin: 10px 0; }
+.identity-pending .badge { display: inline-block; background: #fff0d3; color: #77531b; }
+.identity-pending small { margin-top: 6px; white-space: normal; overflow-wrap: anywhere; }
 .badge {
   align-self: center;
   font-size: 12px;

@@ -877,3 +877,12 @@ test('search superseding the first load still starts initial account metrics onc
  await act(async()=>initial.resolve(response(pageData(1))));
  assert.equal(metrics,1,'superseded first response cannot initialize duplicate metrics');
 });
+
+test('incomplete imported card stays visible with pending marker and blank-safe library and detail identity',async()=>{
+ const pending={...item(1),player_name:null,brand_name:null,product_name:null,season_start:null,season_end:null,identity_review_required:true,identity_missing_fields:['player_name','brand_name','product_name','season_start']};
+ const state=detailFixture();state.hold=()=>response({...pageData(1),items:[pending]});const original=global.fetch;
+ global.fetch=(url,options)=>new URL(url,'http://localhost').pathname==='/v1/portfolio/items/card-1/detail'?Promise.resolve(response({item:{...pending,strategy_tags:[],quantity_held:'1',remaining_cost:'0'},transactions:[],valuations:[]})):original(url,options);
+ await mount();assert.ok(screen.getByText('信息待确认'));const row=screen.getByRole('button',{name:'未确认卡片'}).closest('tr');assert.doesNotMatch(row.textContent,/null|undefined/);
+ await act(async()=>fireEvent.click(screen.getByRole('button',{name:'未确认卡片'})));
+ const detail=screen.getByText('CARD DOSSIER / 卡片档案').closest('.modal');assert.ok(within(detail).getByText('信息待确认'));assert.ok(within(detail).getByRole('heading',{name:'未确认卡片'}));assert.doesNotMatch(detail.querySelector('.detail-subtitle').textContent,/null|undefined/);
+});

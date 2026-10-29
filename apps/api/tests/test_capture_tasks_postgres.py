@@ -339,3 +339,44 @@ def test_unchanged_photos_cannot_create_replacement_task(client):
         files={"front": ("same.png", content, "image/png")},
     )
     assert response.status_code == 409 and "相同" in response.text
+
+
+def test_unknown_identity_can_be_imported_without_guesses_or_pair_checkbox(client):
+    _, h, j = seed(client)
+    response = client.post('/v1/capture/tasks/' + j['id'] + '/confirm', headers=h, json={'card': {'player_name': '', 'brand_name': None, 'product_name': '', 'season_start': None, 'is_rookie': None, 'is_autograph': None, 'is_memorabilia': None, 'is_patch': None, 'has_inscription': None}, 'is_numbered': None})
+    assert response.status_code == 201, response.text
+    item_id = response.json()['id']
+    view = client.get('/v1/portfolio/items/' + item_id + '/detail', headers=h)
+    assert view.status_code == 200, view.text
+    item = view.json()['item']
+    assert item['player_name'] is None and item['brand_name'] is None
+    assert item['product_name'] is None and item['season_start'] is None
+    assert item['identity_review_required'] is True
+    assert set(item['identity_missing_fields']) >= {'player_name', 'brand_name', 'product_name', 'season_start', 'pair_validation'}
+    assert item['image_front_url'] and item['image_back_url']
+    with psycopg.connect(os.environ['TEST_DATABASE_URL']) as db:
+        assert db.execute('SELECT count(*) FROM valuation_job WHERE collection_item_id=%s', (item_id,)).fetchone()[0] == 0
+        assert db.execute('SELECT count(*) FROM automatic_purchase_cost WHERE item_id=%s', (item_id,)).fetchone()[0] == 0
+        stored = db.execute('SELECT p.full_name,b.name,cs.product_name,cs.season_start FROM collection_item ci JOIN card_definition cd ON cd.id=ci.card_definition_id JOIN player p ON p.id=cd.player_id JOIN card_set cs ON cs.id=cd.card_set_id JOIN brand b ON b.id=cs.brand_id WHERE ci.id=%s', (item_id,)).fetchone()
+        assert stored == (None, None, None, None)
+
+
+def test_anonymous_cards_have_separate_catalog_rows_and_can_later_be_completed(client):
+    user, h = account(client)
+    created = [client.post('/v1/portfolio/items',headers=h,json={'owner_id':user['id'],'card':{}}) for _ in range(2)]
+    assert all(r.status_code==201 for r in created), [r.text for r in created]
+    ids = [r.json()['id'] for r in created]
+    with psycopg.connect(os.environ['TEST_DATABASE_URL']) as db:
+        rows = db.execute('SELECT card_definition_id FROM collection_item WHERE id=ANY(%s::uuid[])',(ids,)).fetchall()
+        assert len({r[0] for r in rows})==2
+    full = {'player_name':f'Known {uuid4()}','brand_name':'Topps','product_name':'Chrome','season_start':2025,'is_rookie':False,'is_autograph':False,'is_memorabilia':False,'is_patch':False,'has_inscription':False,'is_numbered':False,'autograph_type':'none'}
+    corrected = client.post('/v1/portfolio/identity-review/items/'+ids[0]+'/confirm',headers=h,json={'identity':full,'reason':'根据真实卡片补全身份'})
+    assert corrected.status_code==201,corrected.text
+    item = client.get('/v1/portfolio/items/'+ids[0]+'/detail',headers=h).json()['item']
+    assert item['player_name']==full['player_name']
+    assert not set(item['identity_missing_fields']) & {'player_name','brand_name','product_name','season_start'}
+    with psycopg.connect(os.environ['TEST_DATABASE_URL']) as db:
+        assert db.execute('SELECT count(*) FROM automatic_purchase_cost WHERE item_id=%s',(ids[0],)).fetchone()[0]==1
+        assert db.execute('SELECT count(*) FROM valuation_job WHERE collection_item_id=%s',(ids[0],)).fetchone()[0]==1
+    other = client.get('/v1/portfolio/items/'+ids[1]+'/detail',headers=h).json()['item']
+    assert other['player_name'] is None and other['identity_review_required']

@@ -180,12 +180,14 @@ def scanner_job_view(row: dict) -> ScannerRecognitionJob:
 
 
 def _auto_import_payload(owner_id: UUID, result: CardRecognitionResult) -> CollectionItemCreate:
-    if not all((result.player_name, result.brand_name, result.product_name, result.season_start)):
-        raise ValueError("请补全主体、品牌、产品和发行赛季后确认入库")
+    from card_platform.domain.recognition_evidence import assess_recognition_fields
+    result = assess_recognition_fields(result)
+    result = result.model_copy(update={field: None for field, assessment in result.field_assessments.items()
+                                       if assessment.status in {"unknown", "conflicted"}})
     season_start = result.season_start
     season_end = (
         result.season_end
-        if result.season_end in {season_start, season_start + 1}
+        if season_start is not None and result.season_end in {season_start, season_start + 1}
         else None
     )
     confidence_percent = round(float(result.confidence) * 100)
@@ -197,11 +199,11 @@ def _auto_import_payload(owner_id: UUID, result: CardRecognitionResult) -> Colle
     return CollectionItemCreate(
         owner_id=owner_id,
         card=CardIdentityInput(
-            player_name=result.player_name or "无法识别球员",
-            brand_name=result.brand_name or "无法识别品牌",
+            player_name=result.player_name,
+            brand_name=result.brand_name,
             season_start=season_start,
             season_end=season_end,
-            product_name=result.product_name or "无法识别产品",
+            product_name=result.product_name,
             card_number=result.card_number,
             insert_name=result.insert_name,
             parallel_name=result.parallel_name,
@@ -595,7 +597,9 @@ class ScannerRecognitionWorker:
                 result = CardRecognitionResult.model_validate({
                     **result.model_dump(mode="json"), "pair_validation": pair_validation,
                 })
-                pair_needs_review = pair_validation["status"] != "consistent"
+                pair_needs_review = pair_validation["status"] == "conflict"
+                if pair_validation["status"] == "unknown":
+                    result = result.model_copy(update={"recognition_quality_issues": list(dict.fromkeys([*result.recognition_quality_issues, "pair_validation_pending"]))})
             queue_ms = None
             if job.get("created_at") is not None and job.get("started_at") is not None:
                 queue_ms = max(0, round((job["started_at"] - job["created_at"]).total_seconds() * 1000))
@@ -616,7 +620,7 @@ class ScannerRecognitionWorker:
                 return result.model_copy(update={"recognition_route": [trace, *result.recognition_route]})
 
             # Phone captures remain drafts until explicit owner confirmation.
-            if job.get("require_confirmation", False) or pair_needs_review or not all((result.player_name, result.brand_name, result.product_name, result.season_start)):
+            if job.get("require_confirmation", False) or pair_needs_review:
                 async with self.database.connection() as connection:
                     if not await can_publish(connection):
                         return

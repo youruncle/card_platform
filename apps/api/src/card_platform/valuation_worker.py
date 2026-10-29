@@ -1271,6 +1271,17 @@ class AutomatedValuationWorker:
             if getattr(self, "knowledge_runtime", None):
                 await self.knowledge_runtime.refresh()
             identity = await self._load_identity(job_id)
+            missing_core = [
+                field for field in ("player_name", "brand_name", "product_name", "season_start")
+                if identity.get(field) in (None, "")
+            ]
+            if missing_core:
+                await self._finish(job_id, "insufficient_evidence", {
+                    "identity_resolution_status": "pending",
+                    "missing_identity_fields": missing_core,
+                    "reason": "卡片已入库，身份信息待补充；尚未搜索或发布估值",
+                })
+                return
             specific, missing_fields = valuation_identity_specificity(identity)
             if identity.get("latest_identity_review_status") == "rejected":
                 specific = False

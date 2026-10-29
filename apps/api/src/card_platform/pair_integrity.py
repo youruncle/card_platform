@@ -78,6 +78,43 @@ def _partial_subject_match(front, back):
     return False
 
 
+def _manufacturer_product_layers(job, front, back, brands, subjects, inserts, numbers):
+    """Recognize printed manufacturer/product layers only on an anchored pair."""
+    def product_label(value):
+        text = re.sub(r"\b(?:19|20)\d{2}\s+\d{2}\b", "", _text(value))
+        return " ".join(re.sub(r"\b(nba|basketball|upper deck)\b", "", text).split())
+
+    products = [product_label(face["product_name"]) for face in (front, back)]
+    printed = _text(" ".join((job.get("field_evidence") or {}).get("brand_name") or []))
+    anchored = (
+        set(brands) == {"skybox", "upperdeck"}
+        and products[0] == products[1] and "skybox" in products[0].split()
+        and len(subjects[0]) == 1 and subjects[0] == subjects[1]
+        and _subject_match(*subjects)
+        and ((all(inserts) and inserts[0] == inserts[1])
+             or (all(numbers) and numbers[0] == numbers[1]))
+        and front["evidence"] and back["evidence"]
+        and re.search(r"\bskybox\b", printed) and re.search(r"\bupper deck\b", printed)
+    )
+    if not anchored:
+        return False, False
+    observed_numbers = set(numbers) - {""}
+    observed_inserts = set(inserts) - {""}
+    subject, brand = _subject(job.get("player_name")), _brand(job.get("brand_name"))
+    product, number = product_label(job.get("product_name")), _card_number(job.get("card_number"))
+    insert = _text(job.get("insert_name"))
+    conflict = bool(
+        (subject and subject not in subjects[0]) or (brand and brand not in brands)
+        or (product and product != products[0])
+        or (number and observed_numbers and number not in observed_numbers)
+        or (insert and observed_inserts and insert not in observed_inserts)
+    )
+    supported = (subject and brand and product
+                 and (not observed_numbers or number in observed_numbers)
+                 and (not observed_inserts or insert in observed_inserts))
+    return bool(supported and not conflict), conflict
+
+
 def _verified_dual_design(products, numbers, subjects, inserts):
     """Narrow catalog exceptions verified from preserved original cards, not a model flag.
 
@@ -163,6 +200,13 @@ def derive_pair_validation(job_result: dict, image_hashes: dict) -> dict:
                      or "impulse" in products[0].split()
                      or front["multi_subject"] or back["multi_subject"]))
     shared_subject = _subject_match(*subjects)
+    manufacturer_layers, joint_conflict = _manufacturer_product_layers(
+        job_result, front, back, brands, subjects, inserts, numbers,
+    )
+    if manufacturer_layers:
+        reasons = [reason for reason in reasons if reason != "brand_conflict"]
+    if joint_conflict:
+        reasons.append("draft_identity_conflict")
     partial_subject = _partial_subject_match(*subjects)
     if all(subjects) and not shared_subject and not partial_subject and not multi_design and not verified_dual:
         reasons.append("subject_conflict")
@@ -171,13 +215,21 @@ def derive_pair_validation(job_result: dict, image_hashes: dict) -> dict:
         reasons.append("reported_face_conflict")
         evidence.extend(caveats)
     if pair["status"] == "conflict" and not verified_dual:
-        reasons.extend(pair["reason_codes"] or ["model_reported_conflict"])
+        model_reasons = pair["reason_codes"] or ["model_reported_conflict"]
+        if manufacturer_layers:
+            model_reasons = [reason for reason in model_reasons if reason not in {
+                "brand_conflict", "draft_identity_conflict", "shared_player_and_insert", "matching_design",
+            }]
+        reasons.extend(model_reasons)
     if reasons:
         status = "conflict"
     elif verified_dual:
         status = "unknown"
         reasons.append("verified_multi_subject_design_requires_review")
         evidence.append("该编号属于已核对的双主体版式，请查看当前两面后确认")
+    elif manufacturer_layers:
+        status = "unknown"
+        reasons.append("manufacturer_product_layers_observed")
     elif (raw and pair["status"] == "consistent"
           and front["role"] == "front" and back["role"] == "back"
           and front["evidence"] and back["evidence"]
@@ -192,7 +244,7 @@ def derive_pair_validation(job_result: dict, image_hashes: dict) -> dict:
 
 
 def validate_pair_for_confirmation(job_result: dict, image_hashes: dict, review: dict | None) -> None:
-    """An unknown pair needs explicit review of current bytes; conflicts cannot pass."""
+    """Uncertain identity may be saved pending review; conflicts cannot pass."""
     if set(image_hashes) != {"front", "back"}:
         return  # Explicit single-image capture retains its previous behavior.
     if not all(isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value)
@@ -202,6 +254,11 @@ def validate_pair_for_confirmation(job_result: dict, image_hashes: dict, review:
     saved_hashes = raw.get("image_content_hashes") if isinstance(raw, dict) else None
     if saved_hashes and saved_hashes != image_hashes:
         raise HTTPException(409, "图片已更换，原配对审核已失效，请重新识别")
+    if review is not None and not (
+        isinstance(review, dict) and review.get("confirmed") is True
+        and review.get("image_content_hashes") == image_hashes
+    ):
+        raise HTTPException(409, "配对审核与当前照片不一致，请刷新后重试")
     decision = derive_pair_validation(job_result, image_hashes)
     if decision["status"] == "conflict":
         raise HTTPException(409, "正反面存在明确冲突，请重新配对或补拍：" + ", ".join(decision["reason_codes"]))
@@ -210,7 +267,7 @@ def validate_pair_for_confirmation(job_result: dict, image_hashes: dict, review:
     if (isinstance(review, dict) and review.get("confirmed") is True
             and review.get("image_content_hashes") == image_hashes):
         return
-    raise HTTPException(409, "正反面尚未核验；请查看当前两张图片并提交 pair_review 确认")
+    return  # Missing evidence is a pending marker, never an intake prerequisite.
 
 
 def retained_recognition_result(row: dict) -> dict | None:

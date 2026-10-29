@@ -1098,6 +1098,7 @@ def test_specific_inferred_identity_reaches_automatic_market_pricing() -> None:
     async def load_identity(_job_id):
         return {
             "collection_item_id": uuid4(), "player_name": "Stephen Curry",
+            "brand_name": "Topps",
             "season_start": 2025, "season_end": 2026,
             "product_name": "Topps Basketball", "card_number": "SA-5",
             "insert_name": "Stars of the NBA", "parallel_name": None,

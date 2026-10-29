@@ -298,12 +298,14 @@ export type PortfolioItem = {
   redemption_status?: "unknown" | "unredeemed" | "redeemed" | "expired";
   id: string;
   display_id: number;
+  identity_missing_fields?: string[];
+  identity_review_required?: boolean;
   player_id: string;
-  player_name: string;
-  brand_name: string;
-  season_start: number;
+  player_name: string | null;
+  brand_name: string | null;
+  season_start: number | null;
   season_end: number | null;
-  product_name: string;
+  product_name: string | null;
   set_name: string | null;
   card_number: string | null;
   insert_name: string | null;
@@ -673,6 +675,13 @@ export type CardPairValidation = {
 };
 
 export type CardRecognition = {
+  field_assessments?: Record<string, {
+    status: "unknown" | "proposed" | "verified" | "conflicted";
+    value?: unknown;
+    source?: string;
+    evidence?: string[];
+    issues?: string[];
+  }>;
   pair_validation?: CardPairValidation | null;
   player_name: string | null;
   season_start: number | null;

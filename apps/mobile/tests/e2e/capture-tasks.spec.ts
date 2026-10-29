@@ -151,8 +151,8 @@ test("phone task center shows scanner failures, current-photo review, recovery h
   await expect(page.getByLabel("新秀卡")).toHaveValue("");
   await expect(
     page.getByRole("button", { name: "确认入库", exact: true }),
-  ).toBeDisabled();
-  await page.getByLabel("我已查看当前正反面，确认属于同一张卡").check();
+  ).toBeEnabled();
+  await expect(page.getByText(/正反面配对待确认/)).toBeVisible();
   await expect(
     page.getByRole("button", { name: "确认入库", exact: true }),
   ).toBeEnabled();

@@ -4,7 +4,6 @@ import { confirmationPayload } from "./confirmation";
 import {
   pairReviewPayload,
   pairReviewState,
-  type PairReview,
 } from "../../../packages/card-core/src/recognition";
 const labels: Record<string, string> = {
   player_name: "球员",
@@ -19,6 +18,12 @@ const labels: Record<string, string> = {
   grade_company: "评级公司",
   grade_value: "评级分数",
 };
+const booleanLabels = [
+  ["is_rookie", "新秀卡"],
+  ["is_autograph", "签字卡"],
+  ["is_memorabilia", "物料卡"],
+  ["is_patch", "Patch"],
+] as const;
 export function ConfirmationForm({
   owner,
   result,
@@ -32,16 +37,30 @@ export function ConfirmationForm({
 }) {
   const [fields, setFields] = useState<Record<string, string>>(() =>
     Object.fromEntries(
-      Object.keys(labels).map((key) => [
-        key,
-        String(result[key as keyof Recognition] ?? ""),
-      ]),
+      [...Object.keys(labels), ...booleanLabels.map(([key]) => key)].map(
+        (key) => {
+          const assessment = result.field_assessments?.[key]?.status;
+          return [
+            key,
+            assessment === "unknown" || assessment === "conflicted"
+              ? ""
+              : String(result[key as keyof Recognition] ?? ""),
+          ];
+        },
+      ),
     ),
   );
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  const [pairReview, setPairReview] = useState<PairReview | null>(null);
-  const pairState = pairReviewState(result, paired, pairReview);
+  const pairState = pairReviewState(result, paired);
+  const missingIdentity = [
+    "player_name",
+    "brand_name",
+    "product_name",
+    "season_start",
+  ]
+    .filter((key) => !fields[key]?.trim())
+    .map((key) => labels[key]);
   return (
     <form
       className="panel"
@@ -52,7 +71,7 @@ export function ConfirmationForm({
         try {
           const payload = {
             ...confirmationPayload(owner, result, fields),
-            ...pairReviewPayload(result, paired, pairReview),
+            ...pairReviewPayload(result, paired, null),
           };
           setBusy(true);
           await onConfirm(payload);
@@ -67,6 +86,12 @@ export function ConfirmationForm({
       <p className="muted">
         识别置信度 {Math.round(Number(result.confidence) * 100)}% · 请核对后入库
       </p>
+      {missingIdentity.length > 0 && (
+        <p className="notice">
+          信息待确认：{missingIdentity.join("、")}
+          。可先入库，未知字段留空，稍后补充。
+        </p>
+      )}
       {pairState.status === "conflict" && (
         <p className="error" role="alert">
           正反面存在明确冲突，请返回录卡重新拍摄或选择照片。
@@ -78,29 +103,9 @@ export function ConfirmationForm({
             {reason}
           </p>
         ))}
-      {pairState.status === "unknown" &&
-        (pairState.imageHashes ? (
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={pairState.reviewed}
-              disabled={busy}
-              onChange={(event) =>
-                setPairReview(
-                  event.target.checked
-                    ? {
-                        confirmed: true,
-                        image_content_hashes: pairState.imageHashes!,
-                      }
-                    : null,
-                )
-              }
-            />
-            我已查看当前正反面，确认属于同一张卡
-          </label>
-        ) : (
-          <p className="notice">请重新识别当前两面照片，再核对配对关系。</p>
-        ))}
+      {pairState.status === "unknown" && (
+        <p className="notice">正反面配对待确认，可先入库并保留待确认标记。</p>
+      )}
       {[
         ...(result.caveats ?? []),
         ...(result.recognition_quality_issues ?? []),
@@ -129,14 +134,7 @@ export function ConfirmationForm({
             />
           </label>
         ))}
-        {(
-          [
-            ["is_rookie", "新秀卡"],
-            ["is_autograph", "签字卡"],
-            ["is_memorabilia", "物料卡"],
-            ["is_patch", "Patch"],
-          ] as const
-        ).map(([key, label]) => (
+        {booleanLabels.map(([key, label]) => (
           <label key={key}>
             {label}
             <select
@@ -171,7 +169,10 @@ export function ConfirmationForm({
           {error}
         </p>
       )}
-      <button className="primary" disabled={busy || pairState.blocked}>
+      <button
+        className="primary"
+        disabled={busy || pairState.status === "conflict"}
+      >
         {busy ? "正在保存…" : "确认入库"}
       </button>
     </form>

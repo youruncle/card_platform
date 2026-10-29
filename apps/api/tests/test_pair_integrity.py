@@ -36,11 +36,13 @@ def test_schema_preserves_independent_observations():
     assert result.model_dump()["pair_validation"]["front"]["product_name"] == "Prizm"
 
 
-def test_missing_model_field_is_unknown_and_requires_hash_bound_review():
+def test_missing_model_field_remains_unknown_but_does_not_block_intake():
     decision = derive(None)
     assert decision["status"] == "unknown"
-    with pytest.raises(HTTPException):
-        gate({"pair_validation": decision})
+    gate({"pair_validation": decision})
+    assert decision["status"] == "unknown"
+    assert decision["front"]["evidence"] == []
+    assert decision["back"]["evidence"] == []
     gate({"pair_validation": decision}, review={"confirmed": True, "image_content_hashes": HASHES})
     with pytest.raises(HTTPException):
         gate({"pair_validation": decision}, review={"confirmed": True, "image_content_hashes": {**HASHES, "back": "c" * 64}})
@@ -101,8 +103,20 @@ def test_single_image_keeps_existing_confirmation_behavior():
 
 
 def test_client_review_cannot_replace_unknown_with_consistent_claim():
-    with pytest.raises(HTTPException):
-        gate({}, review={"status": "consistent", "confirmed": False, "image_content_hashes": HASHES})
+    raw = {}
+    gate(raw, review={"status": "consistent", "confirmed": True, "image_content_hashes": HASHES})
+    assert raw == {}
+    assert derive(None)["status"] == "unknown"
+
+
+@pytest.mark.parametrize("validation", [None, pair()])
+def test_supplied_review_for_different_current_images_still_blocks_intake(validation):
+    decision = derive(validation)
+    with pytest.raises(HTTPException) as caught:
+        gate({"pair_validation": decision}, review={
+            "confirmed": True, "image_content_hashes": {**HASHES, "back": "c" * 64},
+        })
+    assert caught.value.status_code == 409
 
 
 def test_impulse_61_and_middle_name_variation_are_not_false_subject_conflicts():
@@ -166,14 +180,16 @@ def test_known_manufacturer_spacing_is_not_a_conflict(brands):
     assert derive(raw)["status"] != "conflict"
 
 
-def test_uncertain_product_title_variation_requires_review_instead_of_hard_rejection():
+def test_uncertain_product_title_variation_stays_unknown_without_blocking_intake():
     raw = pair()
     raw["front"]["product_name"] = "Unclear foil title"
     raw["back"]["product_name"] = "Unclear title"
-    assert derive(raw)["status"] == "unknown"
+    decision = derive(raw)
+    assert decision["status"] == "unknown"
+    gate({"pair_validation": decision})
 
 
-def test_verified_century_legends_generations_missing_number_requires_review():
+def test_verified_century_legends_generations_missing_number_remains_pending():
     # Actual vision observations for the source-verified Vince/Oscar Generations card (#340).
     raw = pair(status="conflict", reason_codes=["different_players"])
     raw["front"].update(player_names=["Vince Carter"], brand_name="Upper Deck",
@@ -182,8 +198,7 @@ def test_verified_century_legends_generations_missing_number_requires_review():
                        product_name="Century Legends", insert_name="Generations", card_number=None)
     decision = derive(raw)
     assert decision["status"] == "unknown"
-    with pytest.raises(HTTPException):
-        gate({"pair_validation": decision})
+    gate({"pair_validation": decision})
     gate({"pair_validation": decision}, review={"confirmed": True, "image_content_hashes": HASHES})
     raw["back"]["card_number"] = "27"
     assert derive(raw)["status"] == "conflict"
@@ -196,12 +211,11 @@ def generations_without_printed_number():
     return raw
 
 
-def test_real_generations_observations_without_visible_number_require_review():
+def test_real_generations_observations_without_visible_number_remain_unknown_at_intake():
     raw = generations_without_printed_number()
     decision = derive(raw, caveats=['两面分别为不同球员，不能配对'])
     assert decision['status'] == 'unknown'
-    with pytest.raises(HTTPException):
-        gate({'pair_validation': decision})
+    gate({'pair_validation': decision})
     gate({'pair_validation': decision}, review={'confirmed': True, 'image_content_hashes': HASHES})
 
 
@@ -266,7 +280,7 @@ def test_distinct_full_names_or_explicit_suffixes_cannot_certify_a_pair(front_na
     ("Gary Payton", "Gary Payton Jr."),
     ("A. Thompson", "Ausar Thompson"),
 ])
-def test_incomplete_full_name_needs_review_without_a_second_identity_anchor(front_name, back_name):
+def test_incomplete_full_name_stays_unknown_without_a_second_identity_anchor(front_name, back_name):
     raw = pair()
     raw["front"]["player_names"] = [front_name]
     raw["back"]["player_names"] = [back_name]
@@ -285,7 +299,7 @@ def test_back_only_product_can_pair_with_independent_subject_and_printed_number(
 
 
 @pytest.mark.parametrize("missing", ["number", "subject", "evidence"])
-def test_back_only_product_without_independent_anchors_needs_explicit_current_image_review(missing):
+def test_back_only_product_without_independent_anchors_remains_unknown_at_intake(missing):
     raw = pair()
     raw["front"].update(product_name=None, card_number="4")
     raw["back"]["card_number"] = "4"
@@ -297,6 +311,85 @@ def test_back_only_product_without_independent_anchors_needs_explicit_current_im
         raw["front"]["evidence"] = []
     decision = derive(raw, confidence=.999)
     assert decision["status"] == "unknown"
-    with pytest.raises(HTTPException):
-        gate({"pair_validation": decision})
+    gate({"pair_validation": decision})
+    assert decision["front"]["product_name"] is None
     gate({"pair_validation": decision}, review={"confirmed": True, "image_content_hashes": HASHES})
+
+
+def skybox_manufacturer_layers():
+    # Preserved observations for the photographed 2008-09 SkyBox Close Ups #179.
+    return {
+        "player_name": "Dirk Nowitzki", "brand_name": "Upper Deck",
+        "product_name": "SkyBox", "card_number": "179", "insert_name": "Close Ups",
+        "field_evidence": {"brand_name": ['正面右下：“SkyBox™”；背面左下：“UPPER DECK™”']},
+        "pair_validation": {
+            "status": "conflict", "reason_codes": ["brand_conflict", "shared_player_and_insert",
+                                                      "matching_design", "draft_identity_conflict"],
+            "front": {"role": "front", "brand_name": "SkyBox", "product_name": "2008-09 NBA SkyBox",
+                      "player_names": ["Dirk Nowitzki"], "insert_name": "Close Ups", "card_number": None,
+                      "evidence": ["Dirk NOWITZKI", "CLOSE UPS", "SkyBox"]},
+            "back": {"role": "back", "brand_name": "Upper Deck", "product_name": "2008-09 NBA SkyBox",
+                     "player_names": ["Dirk Nowitzki"], "insert_name": "Close Ups", "card_number": "179",
+                     "evidence": ["179", "CLOSE UPS", "Dirk NOWITZKI", "2008-09 NBA SKYBOX"]},
+        },
+    }
+
+
+def test_printed_manufacturer_and_product_brand_layers_do_not_block_the_real_skybox_pair():
+    from card_platform.pair_integrity import derive_pair_validation
+    raw = skybox_manufacturer_layers()
+    decision = derive_pair_validation(raw, HASHES)
+    assert decision["status"] != "conflict"
+    assert not {"brand_conflict", "draft_identity_conflict"} & set(decision["reason_codes"])
+    assert decision["front"]["brand_name"] == "SkyBox"
+    assert decision["back"]["brand_name"] == "Upper Deck"
+    gate({**raw, "pair_validation": decision})
+    assert raw["pair_validation"]["status"] == "conflict"
+
+
+@pytest.mark.parametrize("field,value", [
+    ("player_name", "Stephen Curry"), ("card_number", "180"),
+    ("product_name", "Prizm"), ("insert_name", "Premium"),
+])
+@pytest.mark.parametrize("model_status", ["conflict", "consistent"])
+def test_brand_layers_never_hide_an_explicit_joint_identity_conflict(field, value, model_status):
+    from card_platform.pair_integrity import derive_pair_validation
+    raw = skybox_manufacturer_layers()
+    raw[field] = value
+    raw["pair_validation"]["status"] = model_status
+    decision = derive_pair_validation(raw, HASHES)
+    assert decision["status"] == "conflict"
+    assert "draft_identity_conflict" in decision["reason_codes"]
+    with pytest.raises(HTTPException):
+        gate({**raw, "pair_validation": decision})
+
+
+def test_skybox_upper_deck_are_not_global_brand_aliases_without_printed_context():
+    from card_platform.pair_integrity import derive_pair_validation
+    raw = skybox_manufacturer_layers()
+    raw["field_evidence"] = {}
+    assert derive_pair_validation(raw, HASHES)["status"] == "conflict"
+
+
+def test_genuine_panini_topps_conflict_is_not_a_manufacturer_layer_exception():
+    from card_platform.pair_integrity import derive_pair_validation
+    raw = skybox_manufacturer_layers()
+    raw["pair_validation"]["front"]["brand_name"] = "Panini"
+    raw["pair_validation"]["back"]["brand_name"] = "Topps"
+    raw["field_evidence"]["brand_name"] = ["正面 PANINI；背面 TOPPS"]
+    decision = derive_pair_validation(raw, HASHES)
+    assert decision["status"] == "conflict" and "brand_conflict" in decision["reason_codes"]
+
+
+@pytest.mark.parametrize("defect", ["both_front", "identical_images"])
+def test_manufacturer_layers_do_not_override_physical_pair_conflicts(defect):
+    from card_platform.pair_integrity import derive_pair_validation
+    raw = skybox_manufacturer_layers()
+    hashes = dict(HASHES)
+    if defect == "both_front":
+        raw["pair_validation"]["back"]["role"] = "front"
+    else:
+        hashes["back"] = hashes["front"]
+    decision = derive_pair_validation(raw, hashes)
+    assert decision["status"] == "conflict"
+    assert ("duplicate_front" if defect == "both_front" else "identical_images") in decision["reason_codes"]

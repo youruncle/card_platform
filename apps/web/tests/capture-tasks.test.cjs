@@ -30,7 +30,7 @@ test('failed task opens both images, attempt history, manual fields and bound-im
  let submitted,saved=0;global.fetch=async(url,init)=>{if(url.endsWith('/confirm')){submitted=JSON.parse(init.body);return response({id:'new-card'});}return response(url.includes('?')?page():task());};mount({onSaved:()=>saved++});
  fireEvent.click(await screen.findByRole('button',{name:'查看任务 failed-task'}));
  assert.ok(await screen.findByAltText('任务正面'));assert.ok(screen.getByAltText('任务背面'));assert.ok(await screen.findByText('第四次识别超时'));
- const confirm=screen.getByRole('button',{name:'确认入库'});assert.equal(confirm.disabled,true);
+ const confirm=screen.getByRole('button',{name:'确认入库'});assert.equal(confirm.disabled,false);
  for(const [label,value] of [['球员 / 主体','Player'],['品牌','Topps'],['产品','Chrome'],['发行年','2025']])fireEvent.change(screen.getByLabelText(label),{target:{value}});
  fireEvent.click(screen.getByLabelText('我已查看当前正反面，确认属于同一张卡'));fireEvent.click(confirm);
  await waitFor(()=>assert.equal(saved,1));assert.deepEqual(submitted.pair_review,{confirmed:true,image_content_hashes:{front:'front-hash',back:'back-hash'}});assert.equal(submitted.card.season_start,2025);assert.equal(screen.getByLabelText('任务状态').value,'attention');
@@ -71,4 +71,26 @@ test('opening a task brings its detail into view on narrow screens',async()=>{
  window.matchMedia=()=>({matches:true});HTMLElement.prototype.scrollIntoView=function(){if(this.getAttribute('aria-label')==='任务详情')scrolled++;};
  try {global.fetch=async url=>response(url.includes('?')?page():task());mount();fireEvent.click(await screen.findByRole('button',{name:'查看任务 failed-task'}));await screen.findByText('第四次识别超时');await waitFor(()=>assert.equal(scrolled,1));}
  finally {window.matchMedia=previous;delete HTMLElement.prototype.scrollIntoView;}
+});
+
+test('blank identity can be imported without asserting an unknown pair and remains visibly pending',async()=>{
+ let submitted,saved=0;global.fetch=async(url,init)=>{if(url.endsWith('/confirm')){submitted=JSON.parse(init.body);return response({id:'blank-card'});}return response(url.includes('?')?page():task());};mount({onSaved:()=>saved++});
+ fireEvent.click(await screen.findByRole('button',{name:'查看任务 failed-task'}));
+ const confirm=await screen.findByRole('button',{name:'确认入库'});assert.equal(confirm.disabled,false);
+ for(const label of ['球员 / 主体','品牌','产品','发行年'])assert.equal(screen.getByLabelText(label).required,false);
+ assert.ok(screen.getByText('信息待确认'));
+ fireEvent.click(confirm);await waitFor(()=>assert.equal(saved,1));
+ assert.equal(submitted.card.player_name,null);assert.equal(submitted.card.brand_name,null);assert.equal(submitted.card.product_name,null);assert.equal(submitted.card.season_start,null);assert.equal(submitted.card.season_end,null);assert.equal(submitted.pair_review,undefined);
+ assert.ok(screen.getByText('信息待确认'));
+});
+test('uncertain model fields start blank while explicit user corrections remain savable',async()=>{
+ let submitted;const draft=task({result:{confidence:'.3',player_name:'Player',brand_name:'Topps',product_name:'Model Product',season_start:2026,is_autograph:true,field_assessments:{product_name:{status:'conflicted'},season_start:{status:'unknown'},is_autograph:{status:'unknown'}}}});
+ global.fetch=async(url,init)=>{if(url.endsWith('/confirm')){submitted=JSON.parse(init.body);return response({id:'corrected-card'});}return response(url.includes('?')?page([draft]):draft);};mount();fireEvent.click(await screen.findByRole('button',{name:'查看任务 failed-task'}));
+ assert.equal((await screen.findByLabelText('产品')).value,'');assert.equal(screen.getByLabelText('发行年').value,'');assert.equal(screen.getByLabelText('签名').value,'unknown');
+ fireEvent.change(screen.getByLabelText('产品'),{target:{value:'Verified Product'}});fireEvent.click(screen.getByRole('button',{name:'确认入库'}));await waitFor(()=>assert.ok(submitted));assert.equal(submitted.card.product_name,'Verified Product');assert.equal(submitted.card.season_start,null);assert.equal(submitted.card.is_autograph,null);
+});
+test('explicit attribute corrections override uncertain model assessments without filling untouched flags',async()=>{
+ let submitted;const draft=task({result:{confidence:'.3',player_name:'Player',brand_name:'Topps',product_name:'Chrome',season_start:2025,is_autograph:true,has_inscription:true,field_assessments:{is_autograph:{status:'unknown'},has_inscription:{status:'conflicted'}}}});
+ global.fetch=async(url,init)=>{if(url.endsWith('/confirm')){submitted=JSON.parse(init.body);return response({id:'corrected-flags'});}return response(url.includes('?')?page([draft]):draft);};mount();fireEvent.click(await screen.findByRole('button',{name:'查看任务 failed-task'}));
+ assert.equal((await screen.findByLabelText('签名')).value,'unknown');assert.equal(screen.getByLabelText('题字').value,'unknown');fireEvent.change(screen.getByLabelText('签名'),{target:{value:'true'}});fireEvent.change(screen.getByLabelText('题字'),{target:{value:'true'}});fireEvent.click(screen.getByRole('button',{name:'确认入库'}));await waitFor(()=>assert.ok(submitted));assert.equal(submitted.card.is_autograph,true);assert.equal(submitted.card.has_inscription,true);assert.equal(submitted.card.is_rookie,null);
 });

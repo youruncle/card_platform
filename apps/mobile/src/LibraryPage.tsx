@@ -20,6 +20,33 @@ import { PurchaseCostPanel } from "./PurchaseCost";
 import type { CostSearchResult } from "./purchaseCostApi";
 import { CardManagement } from "./CardManagement";
 import { AuctionDraft } from "./AuctionDraft";
+const identityLabels: Record<string, string> = {
+  player_name: "球员",
+  brand_name: "品牌",
+  product_name: "产品",
+  season_start: "赛季年份",
+  is_rookie: "新秀卡",
+  is_autograph: "签字卡",
+  is_memorabilia: "物料卡",
+  is_patch: "Patch",
+  has_inscription: "题词",
+  is_numbered: "限编信息",
+  pair_validation: "正反面配对",
+};
+const identityValue = (value: string | number | null | undefined) =>
+  value == null || String(value).trim() === "" ? "—" : String(value);
+const cardName = (card: Card) => card.player_name?.trim() || "信息待确认的卡片";
+function IdentityPending({ card }: { card: Card }) {
+  if (!card.identity_review_required) return null;
+  const missing = [...new Set((card.identity_missing_fields ?? [])
+    .map(field => identityLabels[field] ?? "其他信息"))];
+  return (
+    <span className="identity-pending" role="note">
+      <span className="badge">信息待确认</span>
+      {missing.length > 0 && <small>待补充：{missing.join("、")}</small>}
+    </span>
+  );
+}
 export const statusName = (status?: string | null) =>
   ({
     queued: "排队中",
@@ -298,7 +325,7 @@ export function LibraryPage({
             <div className="collection-grid">
               {data.items.map((card) => (
                 <article className="panel card-tile" key={card.id}>
-                  {ownerId && <label className="check card-select"><input type="checkbox" aria-label={`选择 ${card.player_name}`} checked={selected.has(card.id)} onChange={event => {const checked=event.target.checked;setSelected(current => {const next=new Set(current);if(checked)next.add(card.id);else next.delete(card.id);return next;});}} />选择</label>}
+                  {ownerId && <label className="check card-select"><input type="checkbox" aria-label={`选择 ${cardName(card)}`} checked={selected.has(card.id)} onChange={event => {const checked=event.target.checked;setSelected(current => {const next=new Set(current);if(checked)next.add(card.id);else next.delete(card.id);return next;});}} />选择</label>}
                   <PrivateImage
                     api={api}
                     path={
@@ -312,16 +339,17 @@ export function LibraryPage({
                         : (card.image_front_url ?? card.image_back_url)
                     }
                     originalPath={card.image_front_url ?? card.image_back_url}
-                    alt={`${card.player_name}正面`}
+                    alt={`${cardName(card)}正面`}
                   />
                   <button
                     className="card-title"
                     onClick={() => onOpen(card.id)}
                   >
-                    <strong>{card.player_name}</strong>
+                    <strong>{cardName(card)}</strong>
                     <span>
-                      {card.season_start} · {card.product_name}
+                      {identityValue(card.season_start)} · {identityValue(card.product_name)}
                     </span>
+                    <IdentityPending card={card} />
                     <span className="card-prices">
                       <span className="card-price-row">
                         <span>成本价</span>
@@ -423,10 +451,11 @@ export function DetailPage({
       {card ? (
         <>
           <p className="eyebrow">CARD DETAILS</p>
-          <h1>{card.player_name}</h1>
+          <h1>{cardName(card)}</h1>
           <p className="muted">
-            {card.season_start} · {card.brand_name} · {card.product_name}
+            {identityValue(card.season_start)} · {identityValue(card.brand_name)} · {identityValue(card.product_name)}
           </p>
+          <IdentityPending card={card} />
           <div className="photo-grid">
             {(["front", "back"] as const).map((side) => (
               <PrivateImage

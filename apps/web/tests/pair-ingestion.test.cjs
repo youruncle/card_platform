@@ -93,3 +93,31 @@ test('Canon submission opens its new task and photos instead of leaving an empty
  const submit=await screen.findByRole('button',{name:'确认配对并录入 1 张卡片'});await waitFor(()=>assert.equal(submit.disabled,false));fireEvent.click(submit);
  assert.ok(await screen.findByRole('dialog',{name:'录入任务中心'}));assert.ok(await screen.findByAltText('任务正面'));assert.equal(submitted,1);assert.equal(screen.queryByText('识别卡面信息'),null);
 });
+
+test('legacy scanner confirmation saves blank identity and unknown pairing without inventing defaults',async()=>{
+ const {writes,pair}=fixture();pair.result={...pair.result,player_name:null,brand_name:null,product_name:null,season_start:null,season_end:null};await openRecognition('scanner');
+ fireEvent.click(screen.getByRole('button',{name:'查看旧任务'}));await screen.findByAltText('当前任务正面');
+ fireEvent.click(screen.getByRole('button',{name:'确认修改并带入录卡'}));
+ fireEvent.change(await screen.findByLabelText('买入价格'),{target:{value:'10'}});fireEvent.click(screen.getByRole('button',{name:'保存到卡库'}));
+ await waitFor(()=>assert.ok(writes.some(w=>w.path.endsWith('/confirm'))));const payload=JSON.parse(writes.find(w=>w.path.endsWith('/confirm')).options.body);
+ assert.equal(payload.card.player_name,null);assert.equal(payload.card.season_start,null);assert.equal(payload.card.season_end,null);assert.equal(payload.pair_review,undefined);
+});
+test('CardHobby intake leaves uncertain identity blank and imports without invented brand or years',async()=>{
+ fixture();const original=global.fetch;let submitted;
+ global.fetch=async(url,options)=>{
+  const path=new URL(url,'http://localhost').pathname;
+  if(path==='/scan')return response({batch_id:'orders',drafts:[{id:'draft-1',duplicate:false,warnings:[],proposed_item:{card:{season_start:2026,product_name:'Unverified Product',field_assessments:{season_start:{status:'unknown'},product_name:{status:'conflicted'}}}},capture:{title:'待确认订单卡片',sale_price:'10',shipping_price:'2',currency:'CNY',item_url:'https://cardhobby.com.cn/Market/Item/1'}}]});
+  if(path==='/confirm'){submitted=JSON.parse(options.body);return response({imported_item_ids:['order-card'],skipped_draft_ids:[]});}
+  return original(url,options);
+ };
+ await act(async()=>render(React.createElement(Dashboard)));fireEvent.click(await screen.findByRole('button',{name:'卡淘导入'}));fireEvent.click(screen.getByRole('button',{name:'扫描当前订单页'}));
+ const submit=await screen.findByRole('button',{name:'确认导入已选卡片'});const form=submit.closest('form');assert.equal(within(form).getByLabelText('品牌').value,'');fireEvent.click(submit);
+ await waitFor(()=>assert.ok(submitted));const identity=submitted.items[0].item.card;assert.equal(identity.player_name,null);assert.equal(identity.brand_name,null);assert.equal(identity.product_name,null);assert.equal(identity.season_start,null);assert.equal(identity.season_end,null);
+});
+test('recognition preview clears uncertain suggestions and preserves explicitly retyped identity through save',async()=>{
+ const {writes,pair}=fixture();pair.result={...pair.result,product_name:'Unverified Product',season_start:2026,field_assessments:{product_name:{status:'unknown'},season_start:{status:'conflicted'}}};await openRecognition('scanner');fireEvent.click(screen.getByRole('button',{name:'查看旧任务'}));await screen.findByAltText('当前任务正面');
+ assert.equal(screen.getByLabelText('产品线').value,'');assert.equal(screen.getByLabelText('赛季起始年').value,'');
+ fireEvent.change(screen.getByLabelText('产品线'),{target:{value:'User Verified Product'}});fireEvent.change(screen.getByLabelText('赛季起始年'),{target:{value:'2025'}});fireEvent.click(screen.getByRole('button',{name:'确认修改并带入录卡'}));
+ assert.equal((await screen.findByLabelText('产品线')).value,'User Verified Product');assert.equal(screen.getByLabelText('赛季起始年').value,'2025');fireEvent.change(screen.getByLabelText('买入价格'),{target:{value:'10'}});fireEvent.click(screen.getByRole('button',{name:'保存到卡库'}));await waitFor(()=>assert.ok(writes.some(w=>w.path.endsWith('/confirm'))));
+ const identity=JSON.parse(writes.find(w=>w.path.endsWith('/confirm')).options.body).card;assert.equal(identity.product_name,'User Verified Product');assert.equal(identity.season_start,2025);
+});

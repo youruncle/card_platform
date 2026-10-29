@@ -28,6 +28,14 @@ const fields = {
 };
 const retainedFields = { is_rookie: "新秀", is_autograph: "签名", is_memorabilia: "实物材质", is_patch: "Patch", has_inscription: "题字" };
 
+/** Only source-backed suggestions prefill a new recognition draft; typed edits remain explicit. */
+export function recognitionDraftValue<T extends object, K extends keyof T>(result: T | null | undefined, key: K): T[K] | undefined {
+  const assessments = (result as { field_assessments?: Record<string, { status?: string }> } | null | undefined)?.field_assessments;
+  const status = assessments?.[String(key)]?.status;
+  return status === "unknown" || status === "conflicted" ? undefined : result?.[key];
+}
+
+
 export function CaptureTasksCenter({ ownerId, open, onOpen, onClose, onSaved, onOpenItem, initialTaskIds }: {
   ownerId: string; open: boolean; onOpen: () => void; onClose: () => void;
   onSaved: () => void | Promise<void>; onOpenItem?: (id: string) => void;
@@ -163,8 +171,8 @@ function TaskDetail({ task, ownerId, onChanged, onSaved, onOpenItem, onSelect }:
   task: CaptureTask; ownerId: string; onChanged: (task: CaptureTask) => void;
   onSaved: () => void | Promise<void>; onOpenItem?: (id: string) => void; onSelect: (id: string) => void;
 }) {
-  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(Object.keys(fields).map(key => [key, String(task.result?.[key as keyof RecognitionInput] ?? "")])));
-  const [flags, setFlags] = useState<Record<string, string>>(() => Object.fromEntries(Object.keys(retainedFields).map(key => [key, task.result?.[key as keyof RecognitionInput] == null ? "unknown" : String(task.result?.[key as keyof RecognitionInput])])));
+  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(Object.keys(fields).map(key => [key, String(recognitionDraftValue(task.result, key as keyof RecognitionInput) ?? "")])));
+  const [flags, setFlags] = useState<Record<string, string>>(() => Object.fromEntries(Object.keys(retainedFields).map(key => [key, recognitionDraftValue(task.result, key as keyof RecognitionInput) == null ? "unknown" : String(recognitionDraftValue(task.result, key as keyof RecognitionInput))])));
   const [review, setReview] = useState<PairReview | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -173,8 +181,12 @@ function TaskDetail({ task, ownerId, onChanged, onSaved, onOpenItem, onSelect }:
   const replacementId = useRef(crypto.randomUUID());
   const paired = task.available_sides.includes("front") && task.available_sides.includes("back");
   const result: RecognitionInput = { ...(task.result ?? { confidence: 0 }), pair_validation: task.result?.pair_validation ?? { status: "unknown", image_content_hashes: task.image_content_hashes, reason_codes: [], evidence: [], version: 1 } };
-  const correctedResult: RecognitionInput = { ...result, ...Object.fromEntries(Object.entries(flags).map(([key, value]) => [key, value === "unknown" ? null : value === "true"])) };
+  const correctedResult: RecognitionInput = { ...result, is_numbered: recognitionDraftValue(result, "is_numbered") ?? null, ...Object.fromEntries(Object.entries(flags).map(([key, value]) => [key, value === "unknown" ? null : value === "true"])) };
   const pairState = pairReviewState(result, paired, review);
+  const informationPending = ["player_name", "brand_name", "product_name", "season_start"].some(key => !values[key]?.trim())
+    || Object.values(flags).some(value => value === "unknown")
+    || (result.is_numbered == null && !values.serial_number?.trim() && !values.serial_total?.trim())
+    || (pairState.status === "unknown" && !pairState.reviewed);
   const terminal = task.display_status === "failed" || task.display_status === "needs_review";
   const run = async (action: () => Promise<void>) => {
     setBusy(true); setError(""); setNotice("");
@@ -184,14 +196,14 @@ function TaskDetail({ task, ownerId, onChanged, onSaved, onOpenItem, onSelect }:
     event.preventDefault();
     if (!terminal || pairState.blocked) return;
     void run(async () => {
-      const payload = { ...(task.target_item_id ? {} : confirmationPayload(ownerId, correctedResult, values)), ...pairReviewPayload(result, paired, review) };
+      const payload = { ...(task.target_item_id ? {} : confirmationPayload(ownerId, correctedResult, { ...values, ...flags })), ...pairReviewPayload(result, paired, review) };
       const saved = await request<{ id: string }>(`/${task.id}/confirm`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       onChanged({ ...task, display_status: "imported", collection_item_id: saved.id, can_retry: false });
       setNotice("已保存到卡库"); await onSaved();
     });
   };
   return <>
-    <h3>{captureTaskLabels[task.display_status]}</h3><small>任务 {task.id} · 已尝试 {task.attempt_count} 次</small>
+    <h3>{captureTaskLabels[task.display_status]}</h3>{informationPending && <span className="identity-pending-badge" title="识别信息待核对；未知信息保留为空，不影响入库">信息待确认</span>}<small>任务 {task.id} · 已尝试 {task.attempt_count} 次</small>
     <p>创建于 {timestamp(task.created_at)} · 更新于 {timestamp(task.updated_at)}</p>
     <div className="capture-task-photos">{(["front", "back"] as const).map(side => {
       const photo = task.images?.[side]; const url = photo?.preview_url || photo?.url || task[side === "front" ? "front_image_url" : "back_image_url"];
@@ -206,7 +218,7 @@ function TaskDetail({ task, ownerId, onChanged, onSaved, onOpenItem, onSelect }:
     {terminal && <>
       <form onSubmit={confirm} className="capture-task-confirm">
         <h4>{task.target_item_id ? "补拍确认" : "补充 / 确认身份"}</h4>
-        {!task.target_item_id && <><p>发行年未知时请留空并查证；不能以版权年代替发行年。</p><div className="capture-task-fields">{Object.entries(fields).map(([key, label]) => <label key={key}>{label}<input value={values[key]} disabled={busy} required={["player_name", "brand_name", "product_name", "season_start"].includes(key)} inputMode={["season_start", "season_end", "serial_number", "serial_total"].includes(key) ? "numeric" : undefined} onChange={event => setValues(old => ({ ...old, [key]: event.target.value }))} /></label>)}</div>
+        {!task.target_item_id && <><p>无法确认的字段可以留空并直接入库，保存后标记“信息待确认”。不能以版权年代替发行年。</p><div className="capture-task-fields">{Object.entries(fields).map(([key, label]) => <label key={key}>{label}<input value={values[key]} disabled={busy} inputMode={["season_start", "season_end", "serial_number", "serial_total"].includes(key) ? "numeric" : undefined} onChange={event => setValues(old => ({ ...old, [key]: event.target.value }))} /></label>)}</div>
         <div className="capture-task-fields">{Object.entries(retainedFields).map(([key, label]) => <label key={key}>{label}<select value={flags[key]} disabled={busy} onChange={event => setFlags(old => ({ ...old, [key]: event.target.value }))}><option value="unknown">未知</option><option value="true">是</option><option value="false">否</option></select></label>)}</div></>}
         <PairReviewFields result={result} paired={paired} review={review} onChange={setReview} disabled={busy} />
         <button type="submit" className="primary-button" disabled={busy || pairState.blocked}>{task.target_item_id ? "确认补拍（保留身份）" : "确认入库"}</button>

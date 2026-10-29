@@ -286,7 +286,10 @@ def keyword_score(card, query, vocabulary):
         fields.append((weight, normalized, words))
     start, end = card.get("season_start"), card.get("season_end") or card.get("season_start")
     exact_values = {normalize(card.get(k)) for k in ("card_number", "grade_company", "grade_value", "season_start", "season_end", "serial_number", "serial_total", "display_id")}
-    exact_values.update((normalize(f"{start}-{str(end)[-2:]}"), normalize(f"{card.get('serial_number')}/{card.get('serial_total')}")))
+    if start is not None and end is not None:
+        exact_values.add(normalize(f"{start}-{str(end)[-2:]}"))
+    if card.get("serial_number") is not None and card.get("serial_total") is not None:
+        exact_values.add(normalize(f"{card['serial_number']}/{card['serial_total']}"))
     if normalize(query) in exact_values:
         # Preserve literal card numbers such as CH-5 even though Latin hyphens
         # split free-text queries like Durant-Topps into independent keywords.

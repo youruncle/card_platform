@@ -30,24 +30,24 @@ class ValuationMethod(StrEnum):
 
 
 class CardIdentityInput(ApiModel):
-    player_name: str = Field(min_length=1, max_length=160)
+    player_name: str | None = Field(default=None, min_length=1, max_length=160)
     player_birth_date: date | None = None
-    brand_name: str = Field(min_length=1, max_length=120)
+    brand_name: str | None = Field(default=None, min_length=1, max_length=120)
     manufacturer: str | None = Field(default=None, max_length=120)
     brand_tier: int | None = Field(default=None, ge=1, le=5)
-    season_start: int = Field(ge=1940, le=2200)
+    season_start: int | None = Field(default=None, ge=1940, le=2200)
     season_end: int | None = Field(default=None, ge=1940, le=2200)
-    product_name: str = Field(min_length=1, max_length=180)
+    product_name: str | None = Field(default=None, min_length=1, max_length=180)
     set_name: str | None = Field(default=None, max_length=180)
     card_number: str | None = Field(default=None, max_length=80)
     insert_name: str | None = Field(default=None, max_length=180)
     parallel_name: str | None = Field(default=None, max_length=180)
-    is_rookie: bool | None = False
-    is_autograph: bool | None = False
+    is_rookie: bool | None = None
+    is_autograph: bool | None = None
     autograph_type: Literal["on_card", "sticker", "cut", "unknown", "none"] = "none"
-    has_inscription: bool | None = False
+    has_inscription: bool | None = None
     inscription_text: str | None = Field(default=None, max_length=500)
-    is_memorabilia: bool | None = False
+    is_memorabilia: bool | None = None
     memorabilia_types: list[str] = Field(default_factory=list)
     memorabilia_usage: Literal[
         "game_used",
@@ -59,13 +59,18 @@ class CardIdentityInput(ApiModel):
         "none",
     ] = "none"
     memorabilia_player: str | None = Field(default=None, max_length=160)
-    is_patch: bool | None = False
+    is_patch: bool | None = None
     is_case_hit: bool = False
     print_run: int | None = Field(default=None, gt=0)
 
+    @field_validator("player_name", "brand_name", "product_name", "season_start", mode="before")
+    @classmethod
+    def empty_identity_is_unknown(cls, value):
+        return value.strip() or None if isinstance(value, str) else value
+
     @model_validator(mode="after")
     def validate_season(self) -> "CardIdentityInput":
-        if self.season_end is not None and self.season_end not in {
+        if self.season_start is not None and self.season_end is not None and self.season_end not in {
             self.season_start,
             self.season_start + 1,
         }:
@@ -111,7 +116,7 @@ class CollectionItemCreate(ApiModel):
     card: CardIdentityInput
     serial_number: int | None = Field(default=None, gt=0)
     serial_total: int | None = Field(default=None, gt=0)
-    is_numbered: bool | None = False
+    is_numbered: bool | None = None
     grade_company: str | None = Field(default=None, max_length=40)
     grade_value: Decimal | None = Field(default=None, ge=0, le=10)
     grade_cert_number: str | None = Field(default=None, max_length=80)
@@ -286,11 +291,11 @@ class PortfolioItem(ApiModel):
     display_id: int
     owner_id: UUID
     player_id: UUID
-    player_name: str
-    brand_name: str
-    season_start: int
+    player_name: str | None
+    brand_name: str | None
+    season_start: int | None
     season_end: int | None
-    product_name: str
+    product_name: str | None
     set_name: str | None
     card_number: str | None
     insert_name: str | None
@@ -345,6 +350,19 @@ class PortfolioItem(ApiModel):
     recognition_confidence: Decimal | None = None
     recognition_status: Literal["resolved", "research_required"] | None = None
     recognition_quality_issues: list[str] = Field(default_factory=list)
+    identity_missing_fields: list[str] = Field(default_factory=list)
+    identity_review_required: bool = False
+
+    @model_validator(mode="after")
+    def pending_identity(self) -> "PortfolioItem":
+        self.identity_missing_fields = [key for key in (
+            "player_name", "brand_name", "product_name", "season_start",
+            "is_rookie", "is_autograph", "is_memorabilia", "is_patch", "has_inscription", "is_numbered",
+        ) if getattr(self, key) is None]
+        if "pair_validation_pending" in self.recognition_quality_issues:
+            self.identity_missing_fields.append("pair_validation")
+        self.identity_review_required = bool(self.identity_missing_fields)
+        return self
     deleted_at: datetime | None = None
     deleted_reason: str | None = None
 

@@ -41,8 +41,8 @@ class Database:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("validation", [None, {"status": "conflict", "reason_codes": ["different_cards"]}])
-async def test_automatic_unknown_or_conflict_remains_succeeded_draft(tmp_path, monkeypatch, validation):
+async def test_automatic_conflict_remains_succeeded_draft_without_inventory_writes(tmp_path, monkeypatch):
+    validation = {"status": "conflict", "reason_codes": ["different_cards"]}
     job = {"id": uuid4(), "owner_id": uuid4(), "status": "running", "attempt_count": 1,
            "started_at": None, "front_image_path": "front", "back_image_path": "back",
            "front_original_image_path": "front", "back_original_image_path": "back",
@@ -67,8 +67,74 @@ async def test_automatic_unknown_or_conflict_remains_succeeded_draft(tmp_path, m
     assert writes, db.queries[-1]
     assert "require_confirmation" in writes[-1][0]
     payload = writes[-1][1][0].obj
-    assert payload["pair_validation"]["status"] == ("unknown" if validation is None else "conflict")
+    assert payload["pair_validation"]["status"] == "conflict"
     assert payload["pair_validation"]["image_content_hashes"]["front"] == sha256(b"front").hexdigest()
+
+
+@pytest.mark.asyncio
+async def test_automatic_unknown_pair_imports_blank_identity_and_preserves_pending_evidence(tmp_path, monkeypatch):
+    item_id, definition_id = uuid4(), uuid4()
+    job = {"id": uuid4(), "owner_id": uuid4(), "status": "running", "attempt_count": 1,
+           "started_at": None, "front_image_path": "front", "back_image_path": "back",
+           "front_original_image_path": "front", "back_original_image_path": "back",
+           "front_content_type": "image/jpeg", "back_content_type": "image/jpeg",
+           "require_confirmation": False,
+           "crop_recipe": {side: {"confirmed": True} for side in ("front", "back")}}
+    for side in ("front", "back"):
+        (tmp_path / side).write_bytes(side.encode())
+    created = {}
+
+    class ImportDatabase(Database):
+        async def execute(self, sql, params=None):
+            self.queries.append((sql, params))
+            if "SELECT ci.card_definition_id" in sql:
+                return Result({"card_definition_id": definition_id,
+                               **created["payload"].card.model_dump(),
+                               "serial_number": None, "serial_total": None, "is_numbered": None})
+            return Result(self.row)
+
+    class Repository:
+        async def create_item(self, connection, payload):
+            created["payload"] = payload
+            return item_id
+
+    class Storage:
+        def __init__(self, settings):
+            pass
+
+        async def save_preprocessed_item_image_content(self, connection, saved_id, owner_id, side, content, content_type):
+            (tmp_path / f"stored-{side}").write_bytes(content)
+
+    class Vision:
+        def __init__(self, settings):
+            pass
+
+        async def recognize_pair_contents(self, *args):
+            return CardRecognitionResult(confidence=".99")
+
+    monkeypatch.setattr("card_platform.scanner_queue.CardVisionService", Vision)
+    monkeypatch.setattr("card_platform.scanner_queue.PortfolioRepository", Repository)
+    monkeypatch.setattr("card_platform.scanner_queue.ImageStorageService", Storage)
+    db = ImportDatabase(job)
+    worker = ScannerRecognitionWorker(db, Settings())
+    worker.queue = SimpleNamespace(image_path=lambda path: tmp_path / path)
+    await worker._process(job["id"])
+    writes = [(sql, params) for sql, params in db.queries if "collection_item_id = %s" in sql]
+    assert len(writes) == 1, db.queries[-1]
+    sql, params = writes[0]
+    assert "imported_at = completed.at" in sql and params[1] == item_id
+    saved = params[0].obj
+    assert all(saved[field] is None for field in ("player_name", "brand_name", "product_name", "season_start"))
+    assert saved["pair_validation"]["status"] == "unknown"
+    assert saved["pair_validation"]["front"]["evidence"] == []
+    assert saved["pair_validation"]["back"]["evidence"] == []
+    assert "pair_validation_pending" in saved["recognition_quality_issues"]
+    assert "pair_review" not in saved
+    assert saved["pair_validation"]["image_content_hashes"] == {
+        side: sha256(side.encode()).hexdigest() for side in ("front", "back")}
+    assert created["payload"].card.season_start is None
+    assert (tmp_path / "stored-front").read_bytes() == b"front"
+    assert (tmp_path / "stored-back").read_bytes() == b"back"
 
 
 def job_files(tmp_path, validation=None):
@@ -82,7 +148,6 @@ def job_files(tmp_path, validation=None):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("validation,review", [
-    (None, None),
     ({"status": "conflict"}, {"confirmed": True}),
     ({"status": "unknown", "image_content_hashes": {"front": "a" * 64, "back": "b" * 64}}, None),
 ])

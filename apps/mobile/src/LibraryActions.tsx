@@ -5,6 +5,7 @@ import {fetchPurchaseCost, type CostSearchResult} from './purchaseCostApi';
 
 type BatchRow = {id:string; name:string; message:string; result?:CostSearchResult; failed?:boolean};
 const errorText = (error:unknown) => error instanceof Error ? error.message : '操作失败，请重试';
+const cardName = (card: Card) => card.player_name?.trim() || '信息待确认的卡片';
 export function BulkActions({api, ownerId, items, selected, onSelectionChange, onChanged, onOpenCost, active=true}: {
   api:MobileApi; ownerId:string; items:Card[]; selected:Set<string>; active?:boolean;
   onSelectionChange:(selection:Set<string>)=>void; onChanged:()=>void;
@@ -37,7 +38,7 @@ export function BulkActions({api, ownerId, items, selected, onSelectionChange, o
         await api.request(`/v1/portfolio/items/${id}`,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({owner_id:ownerId,reason:'手机批量删除'})});
         succeeded.add(id);
       }catch(error){
-        failures.push({id,name:items.find(card=>card.id===id)?.player_name??id,message:errorText(error),failed:true});
+        failures.push({id,name:items.find(card=>card.id===id)?.player_name?.trim() || '信息待确认的卡片',message:errorText(error),failed:true});
         if(error instanceof ApiError && error.status===401){current.stop=true;break;}
       }
     }
@@ -56,14 +57,14 @@ export function BulkActions({api, ownerId, items, selected, onSelectionChange, o
     const cards=items.filter(card=>selected.has(card.id)), results:BatchRow[]=[];
     for(const card of cards){
       if(current.stop)break;
-      if(card.purchase_price!=null){results.push({id:card.id,name:card.player_name,message:'保留已有成本'});}
+      if(card.purchase_price!=null){results.push({id:card.id,name:cardName(card),message:'保留已有成本'});}
       else {
         try {
           const result=await fetchPurchaseCost(api,card.id,undefined,{refresh:false});
-          results.push({id:card.id,name:card.player_name,message:result.reason||result.status,result});
+          results.push({id:card.id,name:cardName(card),message:result.reason||result.status,result});
           if(result.status==='recorded')callbacks.current.onChanged();
         }catch(error){
-          results.push({id:card.id,name:card.player_name,message:errorText(error),failed:true});
+          results.push({id:card.id,name:cardName(card),message:errorText(error),failed:true});
           // Pause at authentication challenges; binding is always a user action.
           if(error instanceof ApiError && (error.status===401 || ['LOGIN_REQUIRED','LOGIN_REJECTED','VERIFICATION_REQUIRED'].includes(error.code??'')))current.stop=true;
         }
@@ -100,7 +101,7 @@ export function TrashPage({api,ownerId,onBack,onChanged}: {api:MobileApi;ownerId
   },[api,ownerId,revision]);
   async function act(card:Card,permanent=false){
     if(lock.current)return;
-    if(permanent && (!window.confirm(`永久删除 ${card.player_name}？相关交易、估值和图片将清除。`) || !window.confirm('此操作不可恢复。请再次确认永久删除。')))return;
+    if(permanent && (!window.confirm(`永久删除 ${cardName(card)}？相关交易、估值和图片将清除。`) || !window.confirm('此操作不可恢复。请再次确认永久删除。')))return;
     lock.current=true;setBusy(true);setError('');
     try{
       if(permanent)await api.request(`/v1/portfolio/items/${card.id}/permanent`,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({owner_id:ownerId})});
@@ -114,6 +115,6 @@ export function TrashPage({api,ownerId,onBack,onChanged}: {api:MobileApi;ownerId
     <button onClick={onBack}>‹ 返回卡库</button><h1>回收站</h1><p className="muted">移入回收站的卡片可以恢复。永久删除不可撤销。</p>
     <button disabled={busy} onClick={()=>setRevision(v=>v+1)}>刷新回收站</button>
     {error && <p className="error" role="alert">{error} <button disabled={busy} onClick={()=>setRevision(v=>v+1)}>重新加载回收站</button></p>}
-    {!cards ? <p>正在读取回收站…</p> : cards.length===0 ? <p className="empty">回收站为空</p> : cards.map(card=><section className="panel" key={card.id}><h2>{card.player_name}</h2><p>{card.season_start} · {card.product_name}</p><div className="actions"><button disabled={busy} onClick={()=>void act(card)}>恢复卡片</button><button disabled={busy} className="danger" onClick={()=>void act(card,true)}>永久删除</button></div></section>)}
+    {!cards ? <p>正在读取回收站…</p> : cards.length===0 ? <p className="empty">回收站为空</p> : cards.map(card=><section className="panel" key={card.id}><h2>{cardName(card)}</h2><p>{card.season_start ?? '—'} · {card.product_name ?? '—'}</p><div className="actions"><button disabled={busy} onClick={()=>void act(card)}>恢复卡片</button><button disabled={busy} className="danger" onClick={()=>void act(card,true)}>永久删除</button></div></section>)}
   </>;
 }

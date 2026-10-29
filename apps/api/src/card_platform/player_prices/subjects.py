@@ -39,6 +39,8 @@ class SubjectIndex:
         groups = defaultdict(list)
         for row in players:
             key = name_key(row['full_name'])
+            if not key:
+                continue
             claimed, _ = names.get(key, (None, None))
             explicit = str(row['nba_person_id']) if row.get('nba_person_id') is not None else None
             if key in ambiguous or (claimed and explicit and claimed != explicit):
