@@ -134,7 +134,7 @@ class FakeVisionProvider:
         self, images: list[tuple[bytes, str]], prompt: str
     ) -> CardRecognitionResult:
         assert len(images) == 2
-        assert "正面和背面" in prompt
+        assert "pair_validation.front" in prompt and "不能预设同一卡" in prompt
         return CardRecognitionResult(
             player_name="Kobe Bryant",
             season_start=1996,

@@ -55,12 +55,12 @@ class ConfirmedIdentity(BaseModel):
     parallel_name: str | None = None
     serial_number: int | None = Field(default=None, gt=0)
     serial_total: int | None = Field(default=None, gt=0)
-    is_rookie: bool
+    is_rookie: bool | None
     is_redemption: bool = False
     redemption_status: str = "unknown"
-    is_autograph: bool
+    is_autograph: bool | None
     autograph_type: str = "none"
-    is_memorabilia: bool
+    is_memorabilia: bool | None
     memorabilia_types: list[str] = Field(default_factory=list)
     grade_company: str | None = None
     grade_value: float | None = Field(default=None, ge=0, le=10)
@@ -87,9 +87,9 @@ class ConfirmedIdentity(BaseModel):
             raise ValueError("a numbered card requires a specific parallel_name")
         if self.autograph_type not in {"on_card", "sticker", "cut", "unknown", "none"}:
             raise ValueError("invalid autograph_type")
-        if not self.is_autograph and self.autograph_type != "none":
+        if self.is_autograph is False and self.autograph_type != "none":
             raise ValueError("autograph_type must be none when is_autograph is false")
-        if not self.is_memorabilia and self.memorabilia_types:
+        if self.is_memorabilia is False and self.memorabilia_types:
             raise ValueError("memorabilia_types require is_memorabilia")
         return self
 

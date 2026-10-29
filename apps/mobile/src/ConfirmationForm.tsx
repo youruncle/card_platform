@@ -1,7 +1,11 @@
 import React, { useState } from "react";
 import type { Recognition } from "./types";
 import { confirmationPayload } from "./confirmation";
-import { pairReviewPayload, pairReviewState, type PairReview } from "../../../packages/card-core/src/recognition";
+import {
+  pairReviewPayload,
+  pairReviewState,
+  type PairReview,
+} from "../../../packages/card-core/src/recognition";
 const labels: Record<string, string> = {
   player_name: "球员",
   brand_name: "品牌",
@@ -46,7 +50,10 @@ export function ConfirmationForm({
         if (busy) return;
         setError("");
         try {
-          const payload = {...confirmationPayload(owner, result, fields), ...pairReviewPayload(result, paired, pairReview)};
+          const payload = {
+            ...confirmationPayload(owner, result, fields),
+            ...pairReviewPayload(result, paired, pairReview),
+          };
           setBusy(true);
           await onConfirm(payload);
         } catch (e) {
@@ -60,12 +67,40 @@ export function ConfirmationForm({
       <p className="muted">
         识别置信度 {Math.round(Number(result.confidence) * 100)}% · 请核对后入库
       </p>
-      {pairState.status === "conflict" && <p className="error" role="alert">正反面存在明确冲突，请返回录卡重新拍摄或选择照片。</p>}
-      {paired && pairState.reasons.map(reason => <p className="notice" key={reason}>{reason}</p>)}
-      {pairState.status === "unknown" && (pairState.imageHashes ? <label className="check">
-        <input type="checkbox" checked={pairState.reviewed} disabled={busy} onChange={event => setPairReview(event.target.checked ? {confirmed: true, image_content_hashes: pairState.imageHashes!} : null)} />
-        我已查看当前正反面，确认属于同一张卡
-      </label> : <p className="notice">请重新识别当前两面照片，再核对配对关系。</p>)}
+      {pairState.status === "conflict" && (
+        <p className="error" role="alert">
+          正反面存在明确冲突，请返回录卡重新拍摄或选择照片。
+        </p>
+      )}
+      {paired &&
+        pairState.reasons.map((reason) => (
+          <p className="notice" key={reason}>
+            {reason}
+          </p>
+        ))}
+      {pairState.status === "unknown" &&
+        (pairState.imageHashes ? (
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={pairState.reviewed}
+              disabled={busy}
+              onChange={(event) =>
+                setPairReview(
+                  event.target.checked
+                    ? {
+                        confirmed: true,
+                        image_content_hashes: pairState.imageHashes!,
+                      }
+                    : null,
+                )
+              }
+            />
+            我已查看当前正反面，确认属于同一张卡
+          </label>
+        ) : (
+          <p className="notice">请重新识别当前两面照片，再核对配对关系。</p>
+        ))}
       {[
         ...(result.caveats ?? []),
         ...(result.recognition_quality_issues ?? []),
@@ -102,17 +137,22 @@ export function ConfirmationForm({
             ["is_patch", "Patch"],
           ] as const
         ).map(([key, label]) => (
-          <label className="check" key={key}>
-            <input
-              type="checkbox"
-              checked={
-                key in fields ? fields[key] === "true" : Boolean(result[key])
-              }
-              onChange={(e) =>
-                setFields({ ...fields, [key]: String(e.target.checked) })
-              }
-            />
+          <label key={key}>
             {label}
+            <select
+              value={
+                key in fields
+                  ? fields[key]
+                  : result[key] == null
+                    ? ""
+                    : String(result[key])
+              }
+              onChange={(e) => setFields({ ...fields, [key]: e.target.value })}
+            >
+              <option value="">未知 / 未确认</option>
+              <option value="true">是</option>
+              <option value="false">否</option>
+            </select>
           </label>
         ))}
       </fieldset>

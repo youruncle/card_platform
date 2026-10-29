@@ -13,6 +13,7 @@ import { deferredPanel, DeferredPanelLoading } from "../components/deferred-pane
 import { PurchaseCostValues } from "../components/purchase-cost-values";
 import { usePurchaseCostLookup } from "../lib/use-purchase-cost-lookup";
 import { CollectionSearch } from "../components/collection-search";
+import { CaptureTasksCenter } from "../components/capture-tasks-panel";
 import { AutomaticCostNotice } from "../components/automatic-cost-notice";
 import {uploadItemImages} from "../lib/item-image-upload";
 import type { SearchFilters } from "../lib/portfolio-search";
@@ -404,6 +405,8 @@ export default function Dashboard() {
   const [showRecognition, setShowRecognition] = useState(false);
   const [captureTarget, setCaptureTarget] = useState<PortfolioItem | null>(null);
   const [showCapture, setShowCapture] = useState(false);
+  const [showCaptureTasks, setShowCaptureTasks] = useState(false);
+  const [captureTaskIds, setCaptureTaskIds] = useState<string[]>([]);
   const [recognitionResult, setRecognitionResult] =
     useState<CardRecognition | null>(null);
   const [recognitionFile, setRecognitionFile] = useState<File | null>(null);
@@ -935,9 +938,9 @@ export default function Dashboard() {
         parallel_name: String(form.get("parallelName") ?? ""),
         serial_number: String(form.get("serialNumber") ?? ""),
         serial_total: serialTotal,
-        is_rookie: String(form.get("isRookie") === "on"),
-        is_autograph: String(form.get("isAutograph") === "on"),
-        is_patch: String(form.get("isPatch") === "on"),
+        is_rookie: form.get("isRookie") === "unknown" ? "unknown" : String(["on", "true"].includes(String(form.get("isRookie")))),
+        is_autograph: form.get("isAutograph") === "unknown" ? "unknown" : String(["on", "true"].includes(String(form.get("isAutograph")))),
+        is_patch: form.get("isPatch") === "unknown" ? "unknown" : String(["on", "true"].includes(String(form.get("isPatch")))),
       });
       const payload = {
         ...identity,
@@ -1348,9 +1351,9 @@ export default function Dashboard() {
       card_number: String(form.get("cardNumber") || "").trim() || null,
       serial_number: optionalNumber("serialNumber"),
       serial_total: optionalNumber("serialTotal"),
-      is_rookie: form.get("isRookie") === "on",
-      is_autograph: form.get("isAutograph") === "on",
-      is_patch: form.get("isPatch") === "on",
+      is_rookie: form.get("isRookie") === "unknown" ? null : form.get("isRookie") === "true",
+      is_autograph: form.get("isAutograph") === "unknown" ? null : form.get("isAutograph") === "true",
+      is_patch: form.get("isPatch") === "unknown" ? null : form.get("isPatch") === "true",
     });
     setShowRecognition(false);
     setShowAddCard(true);
@@ -1891,6 +1894,10 @@ export default function Dashboard() {
             <Menu size={20} />
           </button>
           <div className="top-actions">
+            {ownerId && <CaptureTasksCenter key={ownerId} ownerId={ownerId} open={showCaptureTasks}
+              initialTaskIds={captureTaskIds} onOpen={() => { setCaptureTaskIds([]); setShowCaptureTasks(true); }}
+              onClose={() => setShowCaptureTasks(false)} onSaved={async () => { await refresh(ownerId); }}
+              onOpenItem={id => { setShowCaptureTasks(false); void openItemDetail(id); }} />}
             <button className="ghost-button" disabled={!ownerId} onClick={() => { setCaptureTarget(null); setShowCapture(true); }}>照片录卡 / 任务</button>
             <button
               className="ghost-button"
@@ -2709,8 +2716,10 @@ export default function Dashboard() {
           onOpenScannerJob={(job) => void openScannerJob(job)}
           onRetryScannerJob={(jobId) => void retryScannerJob(jobId)}
           onDeleteScannerJob={(jobId) => void deleteScannerJob(jobId)}
-          onFlatbedCompleted={async () => {
+          onFlatbedCompleted={async (jobIds) => {
             setShowRecognition(false);
+            setCaptureTaskIds(jobIds);
+            setShowCaptureTasks(true);
             setScannerJobs(await getScannerRecognitionJobs().catch(() => scannerJobs));
             if (ownerId) void refresh(ownerId);
           }}
@@ -3268,30 +3277,9 @@ function CardDialog({
             </label>
             <fieldset className="wide">
               <legend>卡片属性</legend>
-              <label className="check">
-                <input
-                  name="isRookie"
-                  type="checkbox"
-                  defaultChecked={initialValues?.is_rookie ?? false}
-                />{" "}
-                RC
-              </label>
-              <label className="check">
-                <input
-                  name="isAutograph"
-                  type="checkbox"
-                  defaultChecked={initialValues?.is_autograph ?? false}
-                />{" "}
-                Auto
-              </label>
-              <label className="check">
-                <input
-                  name="isPatch"
-                  type="checkbox"
-                  defaultChecked={initialValues?.is_patch ?? false}
-                />{" "}
-                Patch
-              </label>
+              {([['isRookie', 'is_rookie', 'RC'], ['isAutograph', 'is_autograph', 'Auto'], ['isPatch', 'is_patch', 'Patch']] as const).map(([name, key, label]) => <label key={name}>{label}
+                <select name={name} defaultValue={initialValues ? String(initialValues[key] ?? 'unknown') : 'false'}><option value="unknown">未知</option><option value="true">是</option><option value="false">否</option></select>
+              </label>)}
             </fieldset>
             <label>
               买入价格
@@ -6107,20 +6095,9 @@ function RecognitionDialog({
                 </label>
                 <fieldset className="wide">
                   <legend>卡片属性</legend>
-                  <label className="check">
-                    <input name="isRookie" type="checkbox" defaultChecked={result.is_rookie} /> RC
-                  </label>
-                  <label className="check">
-                    <input
-                      name="isAutograph"
-                      type="checkbox"
-                      defaultChecked={result.is_autograph}
-                    />{" "}
-                    Auto
-                  </label>
-                  <label className="check">
-                    <input name="isPatch" type="checkbox" defaultChecked={result.is_patch} /> Patch
-                  </label>
+                  {([['isRookie', 'is_rookie', 'RC'], ['isAutograph', 'is_autograph', 'Auto'], ['isPatch', 'is_patch', 'Patch']] as const).map(([name, key, label]) => <label key={name}>{label}
+                    <select name={name} defaultValue={String(result[key] ?? 'unknown')}><option value="unknown">未知</option><option value="true">是</option><option value="false">否</option></select>
+                  </label>)}
                 </fieldset>
               </div>
               <button type="submit" className="primary-button full" disabled={pairReviewState(result, !!frontFile && !!backFile, pairReview).blocked}>

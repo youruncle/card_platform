@@ -296,22 +296,23 @@ class PortfolioRepository:
                 (COALESCE(insert_name, '')),
                 (COALESCE(parallel_name, ''))
             ) DO UPDATE SET
-                is_rookie = card_definition.is_rookie OR EXCLUDED.is_rookie,
-                is_autograph = card_definition.is_autograph OR EXCLUDED.is_autograph,
+                is_rookie = CASE WHEN EXCLUDED.is_rookie IS NULL THEN card_definition.is_rookie ELSE COALESCE(card_definition.is_rookie, false) OR EXCLUDED.is_rookie END,
+                is_autograph = CASE WHEN EXCLUDED.is_autograph IS NULL THEN card_definition.is_autograph ELSE COALESCE(card_definition.is_autograph, false) OR EXCLUDED.is_autograph END,
                 autograph_type = CASE
+                    WHEN EXCLUDED.is_autograph IS NULL THEN card_definition.autograph_type
                     WHEN card_definition.autograph_type IN ('none', 'unknown')
                     THEN EXCLUDED.autograph_type
                     ELSE card_definition.autograph_type
                 END,
                 has_inscription = (
-                    card_definition.has_inscription OR EXCLUDED.has_inscription
+                    CASE WHEN EXCLUDED.has_inscription IS NULL THEN card_definition.has_inscription ELSE COALESCE(card_definition.has_inscription, false) OR EXCLUDED.has_inscription END
                 ),
                 inscription_text = COALESCE(
                     card_definition.inscription_text,
                     EXCLUDED.inscription_text
                 ),
                 is_memorabilia = (
-                    card_definition.is_memorabilia OR EXCLUDED.is_memorabilia
+                    CASE WHEN EXCLUDED.is_memorabilia IS NULL THEN card_definition.is_memorabilia ELSE COALESCE(card_definition.is_memorabilia, false) OR EXCLUDED.is_memorabilia END
                 ),
                 memorabilia_types = ARRAY(
                     SELECT DISTINCT unnest(
@@ -320,6 +321,7 @@ class PortfolioRepository:
                     )
                 ),
                 memorabilia_usage = CASE
+                    WHEN EXCLUDED.is_memorabilia IS NULL THEN card_definition.memorabilia_usage
                     WHEN card_definition.memorabilia_usage IN ('none', 'unknown')
                     THEN EXCLUDED.memorabilia_usage
                     ELSE card_definition.memorabilia_usage
@@ -328,7 +330,7 @@ class PortfolioRepository:
                     card_definition.memorabilia_player,
                     EXCLUDED.memorabilia_player
                 ),
-                is_patch = card_definition.is_patch OR EXCLUDED.is_patch,
+                is_patch = CASE WHEN EXCLUDED.is_patch IS NULL THEN card_definition.is_patch ELSE COALESCE(card_definition.is_patch, false) OR EXCLUDED.is_patch END,
                 is_case_hit = card_definition.is_case_hit OR EXCLUDED.is_case_hit,
                 print_run = COALESCE(card_definition.print_run, EXCLUDED.print_run)
             RETURNING id

@@ -18,7 +18,7 @@ from card_platform.image_service import (
 from card_platform.image_rectification import rectify_card_image, RectifiedImage
 from card_platform.scanner_queue import ScannerQueueService
 from card_platform.repository import PortfolioRepository
-from card_platform.pair_integrity import validate_pair_for_confirmation
+from card_platform.pair_integrity import validate_pair_for_confirmation, retained_recognition_result
 from card_platform.schemas import (
     CaptureJob,
     CollectionItemCreate,
@@ -409,7 +409,7 @@ class CaptureService:
                             raise HTTPException(409, "任务照片缺失，请重新上传")
                         processed_contents[side] = path.read_bytes()
                         image_hashes[side] = hashlib.sha256(processed_contents[side]).hexdigest()
-                validate_pair_for_confirmation(job.get("result") or {}, image_hashes, pair_review)
+                validate_pair_for_confirmation(retained_recognition_result(job) or {}, image_hashes, pair_review)
                 if job.get("target_item_id"):
                     await self.target(db, owner_id, job["target_item_id"], job["expected_revision"])
                     item_id = job["target_item_id"]

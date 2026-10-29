@@ -2,6 +2,11 @@ import React, { useEffect, useRef, useState } from "react";
 import type { MobileApi } from "./api";
 import type { Job } from "./types";
 import {
+  pairReviewPayload,
+  pairReviewState,
+  type PairReview,
+} from "../../../packages/card-core/src/recognition";
+import {
   identitySuggestions,
   acceptIdentitySuggestions,
   type Identity,
@@ -20,10 +25,12 @@ export function SupplementConfirmation({
   api,
   job,
   onSaved,
+  confirmPath,
 }: {
   api: MobileApi;
   job: Job;
   onSaved: (id: string) => void;
+  confirmPath?: string;
 }) {
   const [identity, setIdentity] = useState<Identity | null>(null),
     [chosen, setChosen] = useState<string[]>([]),
@@ -31,6 +38,9 @@ export function SupplementConfirmation({
     [busy, setBusy] = useState(false);
   const [canAccept, setCanAccept] = useState(false),
     [acceptanceReason, setAcceptanceReason] = useState("");
+  const [pairReview, setPairReview] = useState<PairReview | null>(null);
+  const paired = !!job.front_image_url && !!job.back_image_url;
+  const pairState = pairReviewState(job.result ?? {}, paired, pairReview);
   const active = useRef(true),
     locked = useRef(false);
   useEffect(() => {
@@ -64,7 +74,7 @@ export function SupplementConfirmation({
     ? identitySuggestions(identity, job.result ?? {})
     : [];
   async function confirm(accept: boolean) {
-    if (locked.current || (accept && !canAccept)) return;
+    if (locked.current || pairState.blocked || (accept && !canAccept)) return;
     locked.current = true;
     setBusy(true);
     setError("");
@@ -80,8 +90,8 @@ export function SupplementConfirmation({
             }
           : {};
       const saved = await api.post<{ id: string }>(
-        `/v1/capture/jobs/${job.id}/confirm`,
-        body,
+        confirmPath ?? `/v1/capture/jobs/${job.id}/confirm`,
+        { ...body, ...pairReviewPayload(job.result ?? {}, paired, pairReview) },
       );
       if (active.current) onSaved(saved.id);
     } catch (e) {
@@ -94,18 +104,53 @@ export function SupplementConfirmation({
   return (
     <section className="panel">
       <p>默认只补充照片，保留原来已确认的身份。</p>
+      {pairState.status === "conflict" && (
+        <p className="error" role="alert">
+          正反面存在明确冲突，请更换照片后重新识别。
+        </p>
+      )}
+      {pairState.reasons.map((reason) => (
+        <p className="notice" key={reason}>
+          {reason}
+        </p>
+      ))}
+      {pairState.status === "unknown" &&
+        (pairState.imageHashes ? (
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={pairState.reviewed}
+              disabled={busy}
+              onChange={(event) =>
+                setPairReview(
+                  event.target.checked
+                    ? {
+                        confirmed: true,
+                        image_content_hashes: pairState.imageHashes!,
+                      }
+                    : null,
+                )
+              }
+            />
+            我已查看当前正反面，确认属于同一张卡
+          </label>
+        ) : (
+          <p className="notice">请重新识别当前两面照片，再核对配对关系。</p>
+        ))}
       {error && (
         <p role="alert" className="error">
           {error}
         </p>
       )}
-      <button
-        className="primary"
-        disabled={busy}
-        onClick={() => void confirm(false)}
-      >
-        确认补充到原卡片
-      </button>
+      {pairState.status !== "conflict" && (
+        <button
+          className="primary"
+          disabled={busy || pairState.blocked}
+          onClick={() => void confirm(false)}
+        >
+          确认补充到原卡片
+        </button>
+      )}
       <details>
         <summary>查看识别差异（可选）</summary>
         <p>
@@ -125,7 +170,7 @@ export function SupplementConfirmation({
             <label className="check" key={s.key}>
               <input
                 type="checkbox"
-                disabled={busy || !canAccept}
+                disabled={busy || pairState.blocked || !canAccept}
                 checked={chosen.includes(s.key)}
                 onChange={(e) =>
                   setChosen((v) =>
@@ -142,7 +187,13 @@ export function SupplementConfirmation({
           ))
         )}
         <button
-          disabled={busy || !identity || !canAccept || chosen.length === 0}
+          disabled={
+            busy ||
+            pairState.blocked ||
+            !identity ||
+            !canAccept ||
+            chosen.length === 0
+          }
           onClick={() => void confirm(true)}
         >
           接受所选差异并补充照片

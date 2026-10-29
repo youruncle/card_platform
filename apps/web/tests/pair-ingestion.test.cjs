@@ -52,6 +52,7 @@ test('scanner draft is confirmed through its capture job without create-upload-d
  await waitFor(()=>assert.ok(writes.some(w=>w.path==='/v1/capture/jobs/pair-job/confirm')));
  const payload=JSON.parse(writes.find(w=>w.path.endsWith('/confirm')).options.body);
  assert.deepEqual(payload.pair_review,{confirmed:true,image_content_hashes:{front:'front-hash',back:'back-hash'}});
+ assert.equal(payload.card.is_rookie,null);assert.equal(payload.card.is_autograph,null);assert.equal(payload.card.is_patch,null);
  assert.equal(writes.some(w=>w.path==='/v1/portfolio/items'||w.options.method==='DELETE'),false);
 });
 test('raw two-photo recognition is persisted and a known conflict cannot enter the card form',async()=>{
@@ -65,4 +66,30 @@ test('raw two-photo recognition is persisted and a known conflict cannot enter t
  assert.equal(writes.some(w=>w.path==='/v1/cards/recognize-pair'),false);
  await waitFor(()=>assert.ok(screen.getByText(/正反面存在明确冲突/)));
  assert.equal(screen.getByRole('button',{name:'确认修改并带入录卡'}).disabled,true);
+});
+function failedTask(){return {...job('unknown'),id:'canon-task',status:'failed',display_status:'failed',require_confirmation:false,available_sides:['front','back'],images:{front:{url:'/front.jpg'},back:{url:'/back.jpg'}},can_retry:true,image_content_hashes:{front:'front-hash',back:'back-hash'},attention_reasons:['识别服务超时'],history:[],replacement_job_id:null,error_message:'自动识别失败，请核对照片'};}
+const taskPage=()=>({items:[failedTask()],total:1,page:1,page_size:20,total_pages:1,counts:{processing:0,needs_review:0,failed:1,imported:0,cancelled:0,total:1}});
+test('library header exposes failed automatic tasks before opening any recognition mode',async()=>{
+ fixture();const original=global.fetch;global.fetch=async(url,options)=>String(url).includes('/v1/capture/tasks')?response(String(url).includes('?')?taskPage():failedTask()):original(url,options);
+ await act(async()=>render(React.createElement(Dashboard)));
+ const entry=await screen.findByRole('button',{name:'录入任务 · 1 项待处理'});assert.equal(screen.queryByText('识别卡面信息'),null);fireEvent.click(entry);
+ assert.ok(await screen.findByRole('dialog',{name:'录入任务中心'}));fireEvent.click(await screen.findByRole('button',{name:'查看任务 canon-task'}));
+ assert.ok(await screen.findByAltText('任务正面'));assert.ok(screen.getByText('自动识别失败，请核对照片',{selector:'.capture-task-error'}));
+});
+test('Canon submission opens its new task and photos instead of leaving an empty card library',async()=>{
+ fixture();const original=global.fetch;let submitted=0;
+ global.fetch=async(url,options)=>{
+  const path=new URL(url,'http://localhost').pathname;
+  if(path==='/v1/capture/tasks')return response(taskPage());
+  if(path==='/v1/capture/tasks/canon-task')return response(failedTask());
+  if(path==='/v1/flatbed/sessions')return response([{id:'session',submitted_at:null}]);
+  if(path==='/v1/flatbed/sessions/session')return response({id:'session',dpi:300,sheets:[],regions:[{id:'f',side:'front',ordinal:0},{id:'b',side:'back',ordinal:0}],pairs:[{front_region_id:'f',back_region_id:'b',selected:true,score:.9,confidence_level:'high',identity_status:'consistent',signals:{},conflicts:[]}]});
+  if(path.endsWith('/pairs'))return response({status:'paired',count:1,confirmation_token:'reviewed-current-images',skipped:{front:0,back:0}});
+  if(path.endsWith('/submit')){submitted++;return response({status:'submitted',job_ids:['canon-task']});}
+  return original(url,options);
+ };
+ await act(async()=>render(React.createElement(Dashboard)));
+ fireEvent.click(await screen.findByRole('button',{name:'图片识别'}));fireEvent.click(screen.getByRole('button',{name:/Canon 扫描仪/}));
+ const submit=await screen.findByRole('button',{name:'确认配对并录入 1 张卡片'});await waitFor(()=>assert.equal(submit.disabled,false));fireEvent.click(submit);
+ assert.ok(await screen.findByRole('dialog',{name:'录入任务中心'}));assert.ok(await screen.findByAltText('任务正面'));assert.equal(submitted,1);assert.equal(screen.queryByText('识别卡面信息'),null);
 });

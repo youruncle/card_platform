@@ -3,7 +3,6 @@ import logging
 import hashlib
 import time
 from dataclasses import replace
-from datetime import datetime
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -24,7 +23,7 @@ from card_platform.repository import PortfolioRepository
 from card_platform.recognition_benchmark_predictor import canonicalize_identity
 from card_platform.vision_routing import finalize_recognition_status
 from card_platform.domain.recognition_evidence import bind_recognition_storage
-from card_platform.pair_integrity import derive_pair_validation
+from card_platform.pair_integrity import derive_pair_validation, retained_recognition_result
 from card_platform.schemas import (
     CardIdentityInput,
     CardRecognitionResult,
@@ -181,7 +180,9 @@ def scanner_job_view(row: dict) -> ScannerRecognitionJob:
 
 
 def _auto_import_payload(owner_id: UUID, result: CardRecognitionResult) -> CollectionItemCreate:
-    season_start = result.season_start or result.copyright_year or datetime.now().year
+    if not all((result.player_name, result.brand_name, result.product_name, result.season_start)):
+        raise ValueError("请补全主体、品牌、产品和发行赛季后确认入库")
+    season_start = result.season_start
     season_end = (
         result.season_end
         if result.season_end in {season_start, season_start + 1}
@@ -204,21 +205,21 @@ def _auto_import_payload(owner_id: UUID, result: CardRecognitionResult) -> Colle
             card_number=result.card_number,
             insert_name=result.insert_name,
             parallel_name=result.parallel_name,
-            is_rookie=bool(result.is_rookie),
-            is_autograph=bool(result.is_autograph),
-            autograph_type=result.autograph_type or "none",
-            has_inscription=bool(result.has_inscription),
+            is_rookie=result.is_rookie,
+            is_autograph=result.is_autograph,
+            autograph_type=result.autograph_type or ("none" if result.is_autograph is False else "unknown"),
+            has_inscription=result.has_inscription,
             inscription_text=result.inscription_text,
-            is_memorabilia=bool(result.is_memorabilia),
+            is_memorabilia=result.is_memorabilia,
             memorabilia_types=result.memorabilia_types,
-            memorabilia_usage=result.memorabilia_usage or "none",
+            memorabilia_usage=result.memorabilia_usage or ("none" if result.is_memorabilia is False else "unknown"),
             memorabilia_player=result.memorabilia_player,
-            is_patch=bool(result.is_patch),
+            is_patch=result.is_patch,
             print_run=result.serial_total,
         ),
         serial_number=result.serial_number,
         serial_total=result.serial_total,
-        is_numbered=bool(result.is_numbered),
+        is_numbered=result.is_numbered,
         grade_company=result.grade_company,
         grade_value=result.grade_value,
         notes=(
@@ -405,11 +406,16 @@ class ScannerRecognitionWorker:
         self.settings = settings
         self.queue = ScannerQueueService(settings)
         self._stop = asyncio.Event()
+        self._next_recovery_at = 0.0
 
     async def run(self) -> None:
-        await self._recover_stale()
         while not self._stop.is_set():
             try:
+                if time.monotonic() >= self._next_recovery_at:
+                    # Shared by the concurrent loops; reserve the next check
+                    # before awaiting so only one loop performs recovery.
+                    self._next_recovery_at = time.monotonic() + 60
+                    await self._recover_stale()
                 job_id = await self._claim()
                 if job_id is None:
                     await asyncio.wait_for(
@@ -433,10 +439,11 @@ class ScannerRecognitionWorker:
             await connection.execute(
                 """
                 UPDATE scanner_recognition_job
-                SET status = 'queued', error_message = 'worker restarted', updated_at = now()
+                SET status = 'queued', error_message = 'stale recognition recovered', updated_at = now()
                 WHERE status = 'running'
+                  AND collection_item_id IS NULL
                   AND updated_at < now() - interval '15 minutes'
-                  AND attempt_count < %s
+                  AND attempt_count < GREATEST(%s, manual_retry_limit)
                 """,
                 (self.settings.scanner_job_max_attempts,),
             )
@@ -445,7 +452,9 @@ class ScannerRecognitionWorker:
                 UPDATE scanner_recognition_job
                 SET status = 'failed', error_message = 'maximum attempts reached',
                     finished_at = now(), updated_at = now()
-                WHERE status = 'running' AND attempt_count >= %s
+                WHERE status = 'running' AND attempt_count >= GREATEST(%s, manual_retry_limit)
+                  AND collection_item_id IS NULL
+                  AND updated_at < now() - interval '15 minutes'
                 """,
                 (self.settings.scanner_job_max_attempts,),
             )
@@ -455,7 +464,7 @@ class ScannerRecognitionWorker:
             result = await connection.execute(
                 """
                 SELECT id FROM scanner_recognition_job
-                WHERE status = 'queued' AND attempt_count < %s
+                WHERE status = 'queued' AND attempt_count < GREATEST(%s, manual_retry_limit)
                 ORDER BY created_at
                 FOR UPDATE SKIP LOCKED LIMIT 1
                 """,
@@ -576,6 +585,7 @@ class ScannerRecognitionWorker:
                 ))
             recognition_ms = round((time.monotonic() - recognition_started) * 1000)
             result = finalize_recognition_status(canonicalize_identity(recognized))
+            result = CardRecognitionResult.model_validate(retained_recognition_result({**job, "result": result.model_dump(mode="json")}))
             pair_needs_review = False
             if len(contents) == 2:
                 pair_validation = derive_pair_validation(
@@ -606,7 +616,7 @@ class ScannerRecognitionWorker:
                 return result.model_copy(update={"recognition_route": [trace, *result.recognition_route]})
 
             # Phone captures remain drafts until explicit owner confirmation.
-            if job.get("require_confirmation", False) or pair_needs_review:
+            if job.get("require_confirmation", False) or pair_needs_review or not all((result.player_name, result.brand_name, result.product_name, result.season_start)):
                 async with self.database.connection() as connection:
                     if not await can_publish(connection):
                         return
@@ -647,11 +657,12 @@ class ScannerRecognitionWorker:
                 }
                 result = bind_recognition_storage(result, stored)
                 await connection.execute(
-                    """UPDATE scanner_recognition_job
+                    """WITH completed AS MATERIALIZED (SELECT clock_timestamp() AS at)
+                    UPDATE scanner_recognition_job
                     SET status = 'succeeded', result = %s, collection_item_id = %s,
-                        imported_at = clock_timestamp(), finished_at = clock_timestamp(),
-                        updated_at = clock_timestamp(), error_message = NULL
-                    WHERE id = %s""",
+                        imported_at = completed.at, finished_at = completed.at,
+                        updated_at = completed.at, error_message = NULL
+                    FROM completed WHERE id = %s""",
                     (Jsonb(traced_result().model_dump(mode="json")), item_id, job_id),
                 )
         except Exception as error:

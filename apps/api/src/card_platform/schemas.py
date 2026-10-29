@@ -42,12 +42,12 @@ class CardIdentityInput(ApiModel):
     card_number: str | None = Field(default=None, max_length=80)
     insert_name: str | None = Field(default=None, max_length=180)
     parallel_name: str | None = Field(default=None, max_length=180)
-    is_rookie: bool = False
-    is_autograph: bool = False
+    is_rookie: bool | None = False
+    is_autograph: bool | None = False
     autograph_type: Literal["on_card", "sticker", "cut", "unknown", "none"] = "none"
-    has_inscription: bool = False
+    has_inscription: bool | None = False
     inscription_text: str | None = Field(default=None, max_length=500)
-    is_memorabilia: bool = False
+    is_memorabilia: bool | None = False
     memorabilia_types: list[str] = Field(default_factory=list)
     memorabilia_usage: Literal[
         "game_used",
@@ -59,7 +59,7 @@ class CardIdentityInput(ApiModel):
         "none",
     ] = "none"
     memorabilia_player: str | None = Field(default=None, max_length=160)
-    is_patch: bool = False
+    is_patch: bool | None = False
     is_case_hit: bool = False
     print_run: int | None = Field(default=None, gt=0)
 
@@ -74,7 +74,7 @@ class CardIdentityInput(ApiModel):
             self.has_inscription = True
         if self.has_inscription:
             self.is_autograph = True
-        if not self.is_autograph:
+        if self.is_autograph is False:
             self.autograph_type = "none"
             self.has_inscription = False
             self.inscription_text = None
@@ -86,7 +86,7 @@ class CardIdentityInput(ApiModel):
             self.is_memorabilia = True
             if "patch" not in self.memorabilia_types:
                 self.memorabilia_types.append("patch")
-        if not self.is_memorabilia:
+        if self.is_memorabilia is False:
             self.memorabilia_types = []
             self.memorabilia_usage = "none"
             self.memorabilia_player = None
@@ -111,7 +111,7 @@ class CollectionItemCreate(ApiModel):
     card: CardIdentityInput
     serial_number: int | None = Field(default=None, gt=0)
     serial_total: int | None = Field(default=None, gt=0)
-    is_numbered: bool = False
+    is_numbered: bool | None = False
     grade_company: str | None = Field(default=None, max_length=40)
     grade_value: Decimal | None = Field(default=None, ge=0, le=10)
     grade_cert_number: str | None = Field(default=None, max_length=80)
@@ -295,17 +295,17 @@ class PortfolioItem(ApiModel):
     card_number: str | None
     insert_name: str | None
     parallel_name: str | None
-    is_rookie: bool
-    is_autograph: bool
+    is_rookie: bool | None
+    is_autograph: bool | None
     autograph_type: str
-    has_inscription: bool
+    has_inscription: bool | None
     inscription_text: str | None
-    is_memorabilia: bool
+    is_memorabilia: bool | None
     memorabilia_types: list[str]
     memorabilia_usage: str
     memorabilia_player: str | None
-    is_patch: bool
-    is_numbered: bool
+    is_patch: bool | None
+    is_numbered: bool | None
     serial_number: int | None
     serial_total: int | None
     grade_company: str | None
@@ -907,6 +907,8 @@ class CardRecognitionResult(ApiModel):
         # uncertainty instead of rejecting the entire card recognition.
         if normalized.get("redemption_status") is None:
             normalized["redemption_status"] = "unknown"
+        if normalized.get("memorabilia_types") is None:
+            normalized["memorabilia_types"] = []
 
         evidence = normalized.get("field_evidence")
         if isinstance(evidence, dict):

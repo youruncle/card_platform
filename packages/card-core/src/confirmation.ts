@@ -41,7 +41,7 @@ export function confirmationPayload(
     throw new Error("赛季结束年应为起始年或下一年");
   const flag = (
     key: "is_rookie" | "is_autograph" | "is_memorabilia" | "is_patch",
-  ) => (key in fields ? fields[key] === "true" : (result[key] ?? false));
+  ) => (key in fields ? (fields[key] === "true" ? true : fields[key] === "false" ? false : null) : (result[key] ?? null));
   return {
     owner_id: owner,
     card: {
@@ -67,7 +67,7 @@ export function confirmationPayload(
       memorabilia_player: result.memorabilia_player ?? null,
       is_patch: flag("is_patch"),
       has_inscription:
-        flag("is_autograph") && (result.has_inscription ?? false),
+        flag("is_autograph") === false ? false : (result.has_inscription ?? null),
       inscription_text: flag("is_autograph")
         ? (result.inscription_text ?? null)
         : null,
@@ -75,6 +75,7 @@ export function confirmationPayload(
     },
     serial_number,
     serial_total,
+    is_numbered: serial_number || serial_total ? true : (result.is_numbered ?? null),
     grade_company: nullable("grade_company", result.grade_company),
     grade_value: grade,
     notes: "身份字段经人工确认；识别证据保留在原任务中。",

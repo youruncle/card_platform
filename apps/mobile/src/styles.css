@@ -335,6 +335,20 @@ small {
   padding: 18px;
   border-radius: 16px;
 }
+.task-attention { margin-left: 10px; background: #fff0d3; color: #77531b; }
+.task-counts { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 12px 0; font-size: 13px; }
+.task-filter { display: block; margin: 16px 0; }
+.task-filter select { display: block; width: 100%; margin-top: 6px; }
+.task-list-item { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.task-list-item .job-row { flex: 1; min-width: 0; }
+.task-thumbnail { width: 64px; flex: 0 0 64px; }
+.task-thumbnail .card-image, .task-thumbnail .image-placeholder { height: 88px; min-height: 0; object-fit: contain; }
+.task-reason { color: #8a5420; white-space: normal; overflow-wrap: anywhere; }
+.task-history { padding-left: 22px; }
+.task-history li { margin: 18px 0; overflow-wrap: anywhere; }
+.task-history p { margin: 6px 0; }
+.task-pagination { justify-content: space-between; flex-wrap: wrap; margin: 20px 0; }
+.task-pagination span { font-size: 13px; }
 .badge {
   align-self: center;
   font-size: 12px;

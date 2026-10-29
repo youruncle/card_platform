@@ -308,12 +308,12 @@ export type PortfolioItem = {
   card_number: string | null;
   insert_name: string | null;
   parallel_name: string | null;
-  is_rookie: boolean;
-  is_autograph: boolean;
+  is_rookie: boolean | null;
+  is_autograph: boolean | null;
   autograph_type: "on_card" | "sticker" | "cut" | "unknown" | "none";
-  has_inscription: boolean;
+  has_inscription: boolean | null;
   inscription_text: string | null;
-  is_memorabilia: boolean;
+  is_memorabilia: boolean | null;
   memorabilia_types: string[];
   memorabilia_usage:
     | "game_used"
@@ -324,8 +324,8 @@ export type PortfolioItem = {
     | "unknown"
     | "none";
   memorabilia_player: string | null;
-  is_patch: boolean;
-  is_numbered: boolean;
+  is_patch: boolean | null;
+  is_numbered: boolean | null;
   serial_number: number | null;
   serial_total: number | null;
   grade_company: string | null;
@@ -610,8 +610,8 @@ export type ConfirmedCardIdentity = {
   brand_name: string; product_name: string; set_name: string | null;
   card_number: string | null; insert_name: string | null; parallel_name: string | null;
   serial_number: number | null; serial_total: number | null;
-  is_rookie: boolean; is_autograph: boolean; autograph_type: string;
-  is_memorabilia: boolean; memorabilia_types: string[];
+  is_rookie: boolean | null; is_autograph: boolean | null; autograph_type: string;
+  is_memorabilia: boolean | null; memorabilia_types: string[];
   grade_company: string | null; grade_value: number | null;
 };
 
@@ -684,13 +684,14 @@ export type CardRecognition = {
   card_number: string | null;
   serial_number: number | null;
   serial_total: number | null;
-  is_rookie: boolean;
-  is_autograph: boolean;
-  is_patch: boolean;
+  is_numbered?: boolean | null;
+  is_rookie: boolean | null;
+  is_autograph: boolean | null;
+  is_patch: boolean | null;
   autograph_type?: "on_card" | "sticker" | "cut" | "unknown" | "none" | null;
-  has_inscription?: boolean;
+  has_inscription?: boolean | null;
   inscription_text?: string | null;
-  is_memorabilia?: boolean;
+  is_memorabilia?: boolean | null;
   memorabilia_types?: string[];
   memorabilia_usage?: string | null;
   memorabilia_player?: string | null;

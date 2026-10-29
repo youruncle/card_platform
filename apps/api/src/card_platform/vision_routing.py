@@ -305,6 +305,6 @@ class TieredVisionRouter:
         successful_trace = [item for item in trace if item.get("status") == "succeeded"]
         return finalize_recognition_status(best.model_copy(update={
             "recognition_model": successful_trace[candidates.index(best)]["model"],
-            "recognition_route": trace,
+            "recognition_route": [*trace, *best.recognition_route],
             "recognition_estimated_cost_cny": total_cost,
         }))

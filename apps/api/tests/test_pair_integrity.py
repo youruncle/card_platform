@@ -210,3 +210,93 @@ def test_generations_design_does_not_override_independent_contradictions(field, 
     raw = generations_without_printed_number()
     raw['back'][field] = value
     assert derive(raw)['status'] == 'conflict'
+
+
+@pytest.mark.parametrize("front_number,back_number", [
+    ("No.4", "4"), ("No. 004", "004"), ("Nº4", "#4"),
+    ("#G11", "G11"), ("No. A04", "A04"),
+])
+def test_printed_number_labels_do_not_create_a_pair_conflict(front_number, back_number):
+    raw = pair()
+    raw["front"]["card_number"] = front_number
+    raw["back"]["card_number"] = back_number
+    decision = derive(raw)
+    assert decision["status"] == "consistent"
+    gate({"pair_validation": decision})
+
+
+@pytest.mark.parametrize("front_number,back_number", [
+    ("No.04", "4"), ("#A4", "4"), ("NºG11", "G12"), ("NO4", "4"),
+])
+def test_printed_number_normalization_preserves_catalog_meaning(front_number, back_number):
+    raw = pair()
+    raw["front"]["card_number"] = front_number
+    raw["back"]["card_number"] = back_number
+    decision = derive(raw)
+    assert decision["status"] == "conflict"
+    assert "card_number_conflict" in decision["reason_codes"]
+
+
+def test_subject_diacritics_do_not_create_a_pair_conflict():
+    raw = pair()
+    raw["front"]["player_names"] = ["Nikola Jokic"]
+    raw["back"]["player_names"] = ["Nikola Jokić"]
+    assert derive(raw)["status"] == "consistent"
+
+
+@pytest.mark.parametrize("front_name,back_name", [
+    ("Gary Payton Jr.", "Gary Payton Sr."),
+    ("Gary Payton II", "Gary Payton III"),
+    ("John Robert Smith", "John Edward Smith"),
+    ("James Brown", "John Brown"),
+])
+def test_distinct_full_names_or_explicit_suffixes_cannot_certify_a_pair(front_name, back_name):
+    raw = pair()
+    raw["front"]["player_names"] = [front_name]
+    raw["back"]["player_names"] = [back_name]
+    decision = derive(raw)
+    assert decision["status"] == "conflict"
+    assert "subject_conflict" in decision["reason_codes"]
+    with pytest.raises(HTTPException):
+        gate({"pair_validation": decision}, review={"confirmed": True, "image_content_hashes": HASHES})
+
+
+@pytest.mark.parametrize("front_name,back_name", [
+    ("LeBron James", "LeBron Raymone James"),
+    ("Gary Payton", "Gary Payton Jr."),
+    ("A. Thompson", "Ausar Thompson"),
+])
+def test_incomplete_full_name_needs_review_without_a_second_identity_anchor(front_name, back_name):
+    raw = pair()
+    raw["front"]["player_names"] = [front_name]
+    raw["back"]["player_names"] = [back_name]
+    assert derive(raw)["status"] == "unknown"
+
+
+def test_back_only_product_can_pair_with_independent_subject_and_printed_number():
+    raw = pair()
+    raw["front"].update(product_name=None, player_names=["Nikola Jokic"], card_number="No.4")
+    raw["back"].update(player_names=["Nikola Jokić"], card_number="4")
+    decision = derive(raw)
+    assert decision["status"] == "consistent"
+    assert decision["front"]["product_name"] is None
+    assert decision["front"]["card_number"] == "No.4"
+    gate({"pair_validation": decision})
+
+
+@pytest.mark.parametrize("missing", ["number", "subject", "evidence"])
+def test_back_only_product_without_independent_anchors_needs_explicit_current_image_review(missing):
+    raw = pair()
+    raw["front"].update(product_name=None, card_number="4")
+    raw["back"]["card_number"] = "4"
+    if missing == "number":
+        raw["front"]["card_number"] = None
+    elif missing == "subject":
+        raw["front"]["player_names"] = []
+    else:
+        raw["front"]["evidence"] = []
+    decision = derive(raw, confidence=.999)
+    assert decision["status"] == "unknown"
+    with pytest.raises(HTTPException):
+        gate({"pair_validation": decision})
+    gate({"pair_validation": decision}, review={"confirmed": True, "image_content_hashes": HASHES})

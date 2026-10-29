@@ -33,6 +33,7 @@ from card_platform import serial_ocr
 from card_platform.pair_integrity import derive_pair_validation
 from card_platform.repository import NotFoundError
 from card_platform.schemas import (
+    CardPairValidation,
     CardRecognitionResult,
     ImageUploadResult,
     SheetCardRecognitionResult,
@@ -763,15 +764,92 @@ class QwenVisionProvider:
         result = response.choices[0].message.content
         if not result:
             raise RuntimeError("vision response did not contain structured card data")
-        parsed = sanitize_identity_field_roles(CardRecognitionResult.model_validate_json(result).model_copy(update={
+        payload = json.loads(result)
+        parsed = sanitize_identity_field_roles(CardRecognitionResult.model_validate(payload).model_copy(update={
             'catalog_verified_fields': {}, 'field_assessments': {}, 'identity_storage_binding': {},
             'local_ocr_observed_fields': {},
         }))
         usage = response.usage
-        return parsed, {
+        usage_counts = {
             "prompt_tokens": getattr(usage, "prompt_tokens", None),
             "completion_tokens": getattr(usage, "completion_tokens", None),
         }
+        pair = payload.get("pair_validation")
+        if (len(images) == 2
+                and derive_pair_validation(parsed.model_dump(mode="json"), {})["status"] != "conflict"
+                and not self._has_face_observations(pair)):
+            # A prose verdict is not independently observed evidence. Ask once
+            # for the omitted structure, keeping identity and the server gate.
+            started = time.monotonic()
+            trace = {"tier": "pair_observation_repair", "model": self.model}
+            try:
+                repaired = await traced_completion(
+                    self.client.chat.completions.create, stage='image_recognition',
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": (
+                            "独立核对候选正反面，只输出配对观察 JSON，不输出联合身份。"
+                            "front和back两个对象及各自role、player_names、evidence必须存在；"
+                            "不清楚则role=unknown、姓名/证据为空数组，禁止跨面复制。"
+                            + PAIR_RECOGNITION_PROMPT
+                            + "输出的是pair_validation对象本身，JSON结构："
+                            + json.dumps(CardPairValidation().model_dump(
+                                exclude={"image_content_hashes", "version"}), ensure_ascii=False)
+                        )},
+                        {"role": "user", "content": [
+                            {"type": "text", "text": "逐面重读以下两张当前图片，补齐全部观察结构。"},
+                            *[part for part in user_content if part["type"] == "image_url"],
+                        ]},
+                    ],
+                    response_format={"type": "json_object"}, max_tokens=1600,
+                    extra_body=nonthinking_extra_body(self.model),
+                )
+                for key in usage_counts:
+                    value = getattr(repaired.usage, key, None)
+                    usage_counts[key] = (usage_counts[key] + value
+                                         if usage_counts[key] is not None and value is not None else None)
+                pair_payload = json.loads(repaired.choices[0].message.content or "null")
+                if not self._has_face_observations(pair_payload):
+                    raise ValueError("pair observations still incomplete")
+                completed_pair = CardPairValidation.model_validate(pair_payload)
+                # This call only supplements observations. It must not certify
+                # a different identity while retaining the original draft.
+                joint = {
+                    "role": "back", "player_names": [name.strip() for name in
+                        (parsed.player_name or "").split("/") if name.strip()],
+                    "brand_name": parsed.brand_name, "product_name": parsed.product_name,
+                    "card_number": parsed.card_number, "evidence": ["original identity draft"],
+                }
+                if any(derive_pair_validation({"pair_validation": {
+                    "status": "consistent", "front": {**face.model_dump(), "role": "front"},
+                    "back": joint,
+                }}, {})["status"] == "conflict"
+                       for face in (completed_pair.front, completed_pair.back)):
+                    completed_pair = completed_pair.model_copy(update={
+                        "status": "conflict",
+                        "reason_codes": [*completed_pair.reason_codes, "draft_identity_conflict"],
+                    })
+                parsed = parsed.model_copy(update={
+                    "pair_validation": completed_pair,
+                })
+                trace["status"] = "succeeded"
+            except Exception as error:
+                # Keep the original draft and uncertainty if this bounded
+                # supplement fails; never fabricate observations to unblock it.
+                trace.update(status="failed", error_type=type(error).__name__)
+            trace["latency_ms"] = round((time.monotonic() - started) * 1000)
+            parsed = parsed.model_copy(update={
+                "recognition_route": [*parsed.recognition_route, trace],
+            })
+        return parsed, usage_counts
+
+    @staticmethod
+    def _has_face_observations(pair) -> bool:
+        return isinstance(pair, dict) and all(
+            isinstance(pair.get(side), dict)
+            and {"role", "player_names", "evidence"}.issubset(pair[side])
+            for side in ("front", "back")
+        )
 
     async def recognize_sheet(
         self, content: bytes, content_type: str

@@ -1,5 +1,6 @@
 """Server-owned, source-bound semantic gate for paired card ingestion."""
 import re
+import unicodedata
 
 from fastapi import HTTPException
 
@@ -24,6 +25,18 @@ def _brand(value):
     return {"bowman": "topps", "toppsbowman": "topps", "paniniamerica": "panini"}.get(value, value)
 
 
+def _card_number(value):
+    value = str(value or "").strip()
+    # Strip printed labels only; catalog letter prefixes and zeroes are identity.
+    value = re.sub(r"^(?:no(?:\.\s*|\s+)|n[º°]\s*|#\s*)", "", value, flags=re.I)
+    return _text(value).replace(" ", "")
+
+
+def _subject(value):
+    value = unicodedata.normalize("NFKD", str(value or ""))
+    return _text("".join(char for char in value if not unicodedata.combining(char)))
+
+
 def _credible_product(value):
     return bool(re.search(
         r"\b(prizm|select|instant|mosaic|optic|chrome|finest|inception|status|impulse|"
@@ -32,11 +45,36 @@ def _credible_product(value):
 
 
 def _subject_match(front, back):
+    # Missing middle names, suffixes or initials are compatible but not a full match.
+    return any(len(name.split()) >= 2 and all(len(part) > 1 for part in name.split())
+               for name in front & back)
+
+
+def _partial_subject_match(front, back):
+    suffixes = {"jr", "sr", "ii", "iii", "iv", "v"}
+
+    def compatible(left, right):
+        return left == right or (min(len(left), len(right)) == 1 and left[0] == right[0])
+
     for left in front:
         for right in back:
             a, b = left.split(), right.split()
-            if left == right or (len(a) >= 2 and len(b) >= 2 and a[0] == b[0] and a[-1] == b[-1]):
+            suffix_a = a.pop() if a[-1] in suffixes else None
+            suffix_b = b.pop() if b[-1] in suffixes else None
+            if not a or not b or (suffix_a and suffix_b and suffix_a != suffix_b):
+                continue
+            if a[-1] != b[-1]:
+                continue
+            if len(a) == 1 or len(b) == 1:
                 return True
+            if not compatible(a[0], b[0]):
+                continue
+            middle_a, middle_b = a[1:-1], b[1:-1]
+            if (middle_a and middle_b and
+                    (len(middle_a) != len(middle_b) or
+                     not all(compatible(x, y) for x, y in zip(middle_a, middle_b)))):
+                continue
+            return True
     return False
 
 
@@ -107,13 +145,13 @@ def derive_pair_validation(job_result: dict, image_hashes: dict) -> dict:
     known_brands = {"panini", "topps", "upperdeck", "collectorsedge", "fleer", "skybox", "leaf", "daka", "onyx", "sage"}
     if all(brand in known_brands for brand in brands) and brands[0] != brands[1]:
         reasons.append("brand_conflict")
-    numbers = [_text(face["card_number"]).replace(" ", "") for face in (front, back)]
+    numbers = [_card_number(face["card_number"]) for face in (front, back)]
     if all(numbers) and numbers[0] != numbers[1]:
         reasons.append("card_number_conflict")
     inserts = [_text(face["insert_name"]) for face in (front, back)]
     if all(inserts) and inserts[0] != inserts[1]:
         reasons.append("insert_conflict")
-    subjects = [{_text(name) for name in face["player_names"] if _text(name)} for face in (front, back)]
+    subjects = [{_subject(name) for name in face["player_names"] if _subject(name)} for face in (front, back)]
     verified_dual = _verified_dual_design(products, numbers, subjects, inserts)
     if verified_dual:
         reasons = [reason for reason in reasons if reason not in {"duplicate_front", "duplicate_back"}]
@@ -125,10 +163,7 @@ def derive_pair_validation(job_result: dict, image_hashes: dict) -> dict:
                      or "impulse" in products[0].split()
                      or front["multi_subject"] or back["multi_subject"]))
     shared_subject = _subject_match(*subjects)
-    partial_subject = any(a.split()[-1:] == b.split()[-1:] and
-                          (len(a.split()) == 1 or len(b.split()) == 1 or
-                           a.split()[0][:1] == b.split()[0][:1])
-                          for a in subjects[0] for b in subjects[1])
+    partial_subject = _partial_subject_match(*subjects)
     if all(subjects) and not shared_subject and not partial_subject and not multi_design and not verified_dual:
         reasons.append("subject_conflict")
     caveats = _caveat_conflicts(job_result.get("caveats"))
@@ -146,7 +181,8 @@ def derive_pair_validation(job_result: dict, image_hashes: dict) -> dict:
     elif (raw and pair["status"] == "consistent"
           and front["role"] == "front" and back["role"] == "back"
           and front["evidence"] and back["evidence"]
-          and shared_product and (shared_subject or shared_number)):
+          and ((shared_product and (shared_subject or shared_number))
+               or (any(products) and not all(products) and shared_subject and shared_number))):
         status = "consistent"
     else:
         status = "unknown"
@@ -175,3 +211,18 @@ def validate_pair_for_confirmation(job_result: dict, image_hashes: dict, review:
             and review.get("image_content_hashes") == image_hashes):
         return
     raise HTTPException(409, "正反面尚未核验；请查看当前两张图片并提交 pair_review 确认")
+
+
+def retained_recognition_result(row: dict) -> dict | None:
+    """Inconclusive retries cannot erase earlier source-bound hard conflicts."""
+    current = row.get('result')
+    previous = (row.get('capture_metadata') or {}).get('last_recognition_result')
+    if not previous:
+        return current
+    if not current:
+        return previous
+    old_pair = derive_pair_validation(previous, (previous.get('pair_validation') or {}).get('image_content_hashes', {}))
+    new_pair = derive_pair_validation(current, (current.get('pair_validation') or {}).get('image_content_hashes', {}))
+    if old_pair['status'] == 'conflict' and new_pair['status'] != 'consistent':
+        return {**current, 'pair_validation': old_pair}
+    return current

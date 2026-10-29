@@ -26,6 +26,7 @@ from card_platform.image_service import (
     detect_image_content_type,
 )
 from card_platform.schemas import CaptureJob, CreatedResource, CardIdentityInput
+from card_platform.capture_tasks import router as task_router
 
 router = APIRouter(prefix="/v1/capture", tags=["capture"])
 
@@ -112,7 +113,7 @@ async def list_jobs(
 ):
     rows = await (
         await db.execute(
-            "SELECT * FROM scanner_recognition_job WHERE owner_id=%s AND require_confirmation ORDER BY created_at DESC LIMIT 100",
+            "SELECT * FROM scanner_recognition_job WHERE owner_id=%s ORDER BY created_at DESC,id DESC LIMIT 100",
             (user.id,),
         )
     ).fetchall()
@@ -233,3 +234,7 @@ async def capture_target(
         else IDENTITY_ACCEPTANCE_REASON,
         "available_sides": [s for s in ("front", "back") if row[f"image_{s}_url"]],
     }
+
+
+# Additive task center shared by scanner, browser and mobile capture clients.
+router.include_router(task_router, prefix='/tasks')
