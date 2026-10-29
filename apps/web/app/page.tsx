@@ -15,6 +15,7 @@ import { usePurchaseCostLookup } from "../lib/use-purchase-cost-lookup";
 import { CollectionSearch } from "../components/collection-search";
 import { CaptureTasksCenter } from "../components/capture-tasks-panel";
 import { AutomaticCostNotice } from "../components/automatic-cost-notice";
+import { AuctionDraftPanel } from "../components/auction-draft-panel";
 import {uploadItemImages} from "../lib/item-image-upload";
 import type { SearchFilters } from "../lib/portfolio-search";
 
@@ -347,6 +348,8 @@ export default function Dashboard() {
   const [showAddCard, setShowAddCard] = useState(false);
   const [costPanel, setCostPanel] = useState<{itemId?: string} | null>(null);
   const [costEvidenceItemId, setCostEvidenceItemId] = useState<string | null>(null);
+  const [auctionItemId, setAuctionItemId] = useState<string | null>(null);
+  useEffect(() => setAuctionItemId(null), [ownerId]);
   useEffect(()=>setCostEvidenceItemId(null),[ownerId]);
   const [costRefreshVersion, setCostRefreshVersion] = useState(0);
   const { lookups: costLookups, start: startCostLookup, clear: clearCostLookup } = usePurchaseCostLookup(
@@ -2447,13 +2450,14 @@ export default function Dashboard() {
                         </td>
                         <td><NewsRiskAlerts alerts={item.news_alerts} /></td>
                         <td>
-                          <div className="action-row">
+                          <div className="action-row" style={{ flexWrap: "wrap" }}>
                             <button
                               className="analysis-button"
                               onClick={() => void openExpertAnalysis(item)}
                             >
                               <Sparkles size={13} /> 分析
                             </button>
+                            <button type="button" className="analysis-button" style={{ whiteSpace: "nowrap", flexShrink: 0 }} onClick={() => setAuctionItemId(item.id)}>拍卖</button>
                             <details className="row-more-menu">
                               <summary className="manage-button">更多</summary>
                               <div>
@@ -2725,6 +2729,7 @@ export default function Dashboard() {
           }}
         />
       )}
+      {auctionItemId && <AuctionDraftPanel key={`${ownerId}:${auctionItemId}`} itemId={auctionItemId} onClose={() => setAuctionItemId(null)} />}
       {costEvidenceItemId && <PurchaseCostEvidenceModal key={costEvidenceItemId} itemId={costEvidenceItemId} onClose={()=>setCostEvidenceItemId(null)}/>}
       {costPanel && <PurchaseCostPanel
         key={costPanel.itemId ?? "batch"}

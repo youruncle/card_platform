@@ -1,0 +1,31 @@
+import React from 'react';
+import { afterEach, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { AuctionDraft } from '../src/AuctionDraft';
+import type { MobileApi } from '../src/api';
+afterEach(cleanup);
+const draft = { id: 'draft', item_id: 'one', revision: 1, status:'draft', title:'保存过的标题', description:'描述', condition_notes:'', selected_photo_ids:['front'],photos:[{id:'front',side:'front',source:'existing',url:'/v1/auction/drafts/draft/images/front',sha256:'one'}], identity:{},generation_basis:{},external:{supported:false,status:'unavailable',reason:'接口未核实'},updated_at:'2026-10-30' };
+it('restores mobile draft and saves editable content without exposing USB or publishing', async()=>{
+ const request=vi.fn(async (path:string, options:RequestInit={})=> options.method==='PATCH' ? {...draft,...JSON.parse(options.body as string),revision:2} : draft);
+ const api={request,image:vi.fn(async()=>new Blob(['image']))} as unknown as MobileApi;
+ render(<AuctionDraft api={api} itemId="one" onClose={()=>{}}/>);
+ await waitFor(()=>expect((screen.getByLabelText('标题') as HTMLInputElement).value).toBe('保存过的标题'));
+ expect(screen.queryByRole('button',{name:/USB|Redmi|发布/})).toBeNull();
+ expect(screen.getByText(/卡淘草稿未接入/)).toBeTruthy();
+ fireEvent.change(screen.getByLabelText('标题'),{target:{value:'手机编辑'}});
+ fireEvent.click(screen.getByRole('button',{name:'保存平台草稿'}));
+ await screen.findByText('平台草稿已保存');
+ expect(request).toHaveBeenLastCalledWith('/v1/auction/drafts/draft',expect.objectContaining({method:'PATCH',body:JSON.stringify({revision:1,title:'手机编辑',description:'描述',condition_notes:'',selected_photo_ids:['front']})}),false,90000);
+});
+it('mobile camera input uploads multipart then generates using returned revision', async()=>{
+ let generated:any;
+ const request=vi.fn(async (path:string, options:RequestInit={})=>{if(path.endsWith('/images')) { expect((options.body as FormData).get('source')).toBe('camera');return {...draft,revision:2}; } if(path.endsWith('/generate')) {generated=JSON.parse(options.body as string);return {...draft,revision:3,title:'实拍生成'};}return draft;});
+ const api={request,image:vi.fn(async()=>new Blob(['image']))} as unknown as MobileApi;
+ render(<AuctionDraft api={api} itemId="one" onClose={()=>{}}/>);
+ await screen.findByLabelText('手机拍照');
+ fireEvent.change(screen.getByLabelText('手机拍照'),{target:{files:[new File(['image'],'camera.jpg',{type:'image/jpeg'})]}});
+ await waitFor(()=>expect((screen.getByLabelText('标题') as HTMLInputElement).value).toBe('实拍生成'));
+ expect(generated).toEqual({revision:2,selected_photo_ids:['front'],condition_notes:'',use_order_examples:true,automatic:true});
+ expect(request).toHaveBeenCalledWith('/v1/auction/drafts/draft/images',expect.anything(),false,180000);
+ expect(request).toHaveBeenCalledWith('/v1/auction/drafts/draft/generate',expect.anything(),false,90000);
+});

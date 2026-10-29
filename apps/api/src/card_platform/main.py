@@ -17,6 +17,7 @@ from card_platform.auth_api import router as auth_router
 from card_platform.mobile_api import router as mobile_router
 from card_platform.capture_api import router as capture_router
 from card_platform.capture_media_api import router as capture_media_router
+from card_platform.auction_api import router as auction_router
 from card_platform.private_uploads import router as private_uploads_router
 from card_platform.config import get_settings
 from card_platform.codex_valuation_fallback import run_codex_fallback_worker
@@ -99,7 +100,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await database.close()
 
 
-app = FastAPI(title="Card Platform API", version="0.6.6", lifespan=lifespan)
+app = FastAPI(title="Card Platform API", version="0.6.7", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().cors_origins,
@@ -139,6 +140,7 @@ app.include_router(auth_router)
 app.include_router(mobile_router)
 app.include_router(capture_router)
 app.include_router(capture_media_router)
+app.include_router(auction_router)
 app.include_router(scanner_router)
 app.include_router(flatbed_router)
 app.include_router(identity_correction_router)

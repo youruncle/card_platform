@@ -19,6 +19,7 @@ import { BulkActions, TrashPage } from "./LibraryActions";
 import { PurchaseCostPanel } from "./PurchaseCost";
 import type { CostSearchResult } from "./purchaseCostApi";
 import { CardManagement } from "./CardManagement";
+import { AuctionDraft } from "./AuctionDraft";
 export const statusName = (status?: string | null) =>
   ({
     queued: "排队中",
@@ -56,6 +57,8 @@ export function LibraryPage({
     [revision, setRevision] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [trash, setTrash] = useState(false);
+  const [auctionItemId, setAuctionItemId] = useState<string | null>(null);
+  useEffect(() => setAuctionItemId(null), [api, ownerId]);
   const [costItem, setCostItem] = useState<{id:string; result?:CostSearchResult}|null>(null);
   const [sort, setSort] = useState<PortfolioSort>(DEFAULT_PORTFOLIO_SORT);
   const snapshot = useRef<string | undefined>(undefined);
@@ -95,6 +98,7 @@ export function LibraryPage({
   function resetPage() {
     setSelected(new Set());
     setCostItem(null);
+    setAuctionItemId(null);
     loadedPages.current = 1;
     refreshPages.current = 1;
     setData(null);
@@ -166,18 +170,19 @@ export function LibraryPage({
     }
   }
   useEffect(() => {
-    if (!active || trash || costItem || loading || error || !sentinel.current || typeof IntersectionObserver === "undefined") return;
+    if (!active || trash || costItem || auctionItemId || loading || error || !sentinel.current || typeof IntersectionObserver === "undefined") return;
     const observer = new IntersectionObserver(entries => {
       if (entries.some(entry => entry.isIntersecting)) more();
     }, { rootMargin: "500px" });
     observer.observe(sentinel.current);
     return () => observer.disconnect();
-  }, [active, trash, costItem, loading, error, data]);
+  }, [active, trash, costItem, auctionItemId, loading, error, data]);
   return (
     <>
       {trash && ownerId && <TrashPage api={api} ownerId={ownerId} onBack={() => setTrash(false)} onChanged={refresh} />}
       {costItem && <section className="cost-focus" aria-label="所选卡片成本"><button onClick={() => setCostItem(null)}>‹ 返回卡库</button><h1>购入成本</h1><PurchaseCostPanel key={costItem.id} api={api} itemId={costItem.id} initialResult={costItem.result} onChanged={refresh} /></section>}
-      <div hidden={trash || !!costItem}>
+      {auctionItemId && <AuctionDraft key={`${ownerId}:${auctionItemId}`} api={api} itemId={auctionItemId} onClose={() => setAuctionItemId(null)} />}
+      <div hidden={trash || !!costItem || !!auctionItemId}>
       <div className="heading">
         <div>
           <p className="eyebrow">MY COLLECTION</p>
@@ -271,7 +276,7 @@ export function LibraryPage({
       ) : (
         <>
           <p className="muted">共 {data.total} 张卡片</p>
-          {ownerId && <BulkActions api={api} ownerId={ownerId} items={data.items} selected={selected} onSelectionChange={setSelected} onChanged={refresh} active={active && !trash && !costItem} onOpenCost={(id,result) => setCostItem({id,result})} />}
+          {ownerId && <BulkActions api={api} ownerId={ownerId} items={data.items} selected={selected} onSelectionChange={setSelected} onChanged={refresh} active={active && !trash && !costItem && !auctionItemId} onOpenCost={(id,result) => setCostItem({id,result})} />}
           {data.snapshot_at && (
             <p className="small muted">
               列表更新于{" "}
@@ -336,7 +341,7 @@ export function LibraryPage({
                       </span>
                     </span>
                   </button>
-                  {ownerId && <div className="actions tile-actions"><button onClick={() => setCostItem({id:card.id})}>获取成本</button><button onClick={() => onOpen(card.id)}>估值与管理</button></div>}
+                  {ownerId && <div className="actions tile-actions"><button onClick={() => setCostItem({id:card.id})}>获取成本</button><button onClick={() => setAuctionItemId(card.id)}>拍卖</button><button onClick={() => onOpen(card.id)}>估值与管理</button></div>}
                 </article>
               ))}
             </div>
