@@ -5,10 +5,11 @@ const dom=new JSDOM('<html><body></body></html>');
 global.window=dom.window;global.document=dom.window.document;
 Object.defineProperty(global,'navigator',{value:dom.window.navigator,configurable:true});
 global.HTMLElement=dom.window.HTMLElement;global.React=require('react');
-const {render,screen,fireEvent,cleanup,waitFor}=require('@testing-library/react');
+const {render,screen,fireEvent,cleanup,waitFor,within}=require('@testing-library/react');
 const {AuctionEditor}=require('../../../packages/card-core/src/auction.ts');
 const {AuctionDraftPanel}=require('../components/auction-draft-panel.tsx');
-afterEach(cleanup);
+const originalFetch=global.fetch;
+afterEach(()=>{cleanup();global.fetch=originalFetch;});
 function draft(overrides={}) {return {id:'draft-a',item_id:'card-a',revision:1,status:'draft',title:'原草稿',description:'原描述',condition_notes:'',selected_photo_ids:['front'],photos:[{id:'front',side:'front',source:'existing',url:'/v1/auction/drafts/draft-a/images/front',sha256:'abc'},{id:'back',side:'back',source:'existing',url:'/v1/auction/drafts/draft-a/images/back',sha256:'def'}],identity:{},generation_basis:{},external:{supported:false,status:'unavailable',reason:'未核实独立草稿接口'},updated_at:'2026-10-30',...overrides};}
 test('open restores text; selected photos and condition are sent for generation and platform save',async()=>{
  let server=draft(),calls=[];
@@ -100,4 +101,39 @@ test('conflict refresh removes unavailable local photo ids and merges newly sele
 test('the editor visibly shows the latest conflicting server title for comparison before save',async()=>{
  let server=draft();const request=async(path,init={})=>{if(init.method==='PATCH'){server=draft({revision:2,title:'其他窗口标题',description:'其他窗口描述'});throw Object.assign(new Error('conflict'),{status:409});}return server;};
  render(React.createElement(AuctionDraftPanel,{itemId:'card-a',onClose:()=>{},request}));await waitFor(()=>assert.equal(screen.getByLabelText('标题').value,'原草稿'));fireEvent.change(screen.getByLabelText('标题'),{target:{value:'本页标题'}});fireEvent.click(screen.getByRole('button',{name:'保存平台草稿'}));await screen.findByRole('button',{name:'读取最新版本并保留本页输入'});fireEvent.click(screen.getByRole('button',{name:'读取最新版本并保留本页输入'}));await screen.findByText('其他窗口标题');assert.equal(screen.getByLabelText('标题').value,'本页标题');assert.equal(screen.getByLabelText('描述').value,'其他窗口描述');
+});
+test('USB connect immediately shows pending feedback and an empty-device error beside its controls',async()=>{
+ let finish;
+ global.fetch=async(url)=>{if(String(url)==='http://127.0.0.1:8767/v1/devices')return new Promise(resolve=>{finish=resolve;});throw new Error('fixture image unavailable');};
+ render(React.createElement(AuctionDraftPanel,{itemId:'card-a',onClose:()=>{},request:async()=>draft()}));
+ await screen.findByRole('button',{name:'连接 USB 手机'});
+ const region=screen.getByRole('region',{name:'USB 手机拍照'}),usb=within(region);
+ fireEvent.click(usb.getByRole('button',{name:'连接 USB 手机'}));
+ assert.equal(usb.getByRole('button',{name:'正在查找手机…'}).disabled,true);
+ assert.match(usb.getByRole('status').textContent,/正在查找手机/);
+ finish(Response.json({devices:[],token:'local-token'}));
+ const error=await usb.findByRole('alert');assert.match(error.textContent,/没有已授权的手机/);assert.match(error.textContent,/USB.*调试/);
+ assert.equal(usb.getByRole('button',{name:'连接 USB 手机'}).disabled,false);assert.equal(usb.queryByRole('button',{name:'触发 Redmi 快门'}),null);
+});
+test('USB success explains the shutter step, capture reports local progress, and failed reconnect clears the old device',async()=>{
+ let devices=0,finishCapture;
+ global.fetch=async(url)=>{
+   if(String(url)==='http://127.0.0.1:8767/v1/devices')return Response.json(++devices===1?{devices:[{serial:'redmi-a',name:'Redmi Note'}],token:'local-token'}:{devices:[],token:'local-token'});
+   if(String(url)==='http://127.0.0.1:8767/v1/capture')return new Promise(resolve=>{finishCapture=resolve;});
+   throw new Error('fixture image unavailable');
+ };
+ render(React.createElement(AuctionDraftPanel,{itemId:'card-a',onClose:()=>{},request:async()=>draft()}));
+ await screen.findByRole('button',{name:'连接 USB 手机'});
+ const usb=within(screen.getByRole('region',{name:'USB 手机拍照'}));
+ fireEvent.click(usb.getByRole('button',{name:'连接 USB 手机'}));
+ await usb.findByRole('button',{name:'触发 Redmi 快门'});
+ assert.match(usb.getByRole('status').textContent,/已连接.*Redmi Note/);assert.match(usb.getByRole('status').textContent,/点击.*触发 Redmi 快门/);
+ fireEvent.click(usb.getByRole('button',{name:'触发 Redmi 快门'}));
+ assert.equal(usb.getByRole('button',{name:'正在拍照…'}).disabled,true);assert.match(usb.getByRole('status').textContent,/正在拍照/);
+ finishCapture(Response.json({detail:'手机锁屏，请解锁后重试'},{status:409}));
+ await usb.findByRole('alert');assert.match(usb.getByRole('alert').textContent,/手机锁屏/);
+ assert.equal(usb.getByRole('button',{name:'触发 Redmi 快门'}).disabled,false);
+ fireEvent.click(usb.getByRole('button',{name:'连接 USB 手机'}));
+ await waitFor(()=>assert.match(usb.getByRole('alert').textContent,/没有已授权的手机/));
+ assert.equal(usb.queryByRole('button',{name:'触发 Redmi 快门'}),null);assert.equal(usb.queryByLabelText('拍照手机'),null);assert.equal(usb.queryByText(/已连接.*Redmi Note/),null);
 });
