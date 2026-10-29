@@ -66,3 +66,9 @@ test('finishing an older retry cannot replace the task currently being reviewed'
  fireEvent.click(screen.getByRole('button',{name:'查看任务 other-task'}));await waitFor(()=>assert.match(screen.getByLabelText('任务详情').textContent,/任务 other-task/));
  await act(async()=>finish());assert.match(screen.getByLabelText('任务详情').textContent,/任务 other-task/);
 });
+test('opening a task brings its detail into view on narrow screens',async()=>{
+ let scrolled=0;const previous=window.matchMedia;
+ window.matchMedia=()=>({matches:true});HTMLElement.prototype.scrollIntoView=function(){if(this.getAttribute('aria-label')==='任务详情')scrolled++;};
+ try {global.fetch=async url=>response(url.includes('?')?page():task());mount();fireEvent.click(await screen.findByRole('button',{name:'查看任务 failed-task'}));await screen.findByText('第四次识别超时');await waitFor(()=>assert.equal(scrolled,1));}
+ finally {window.matchMedia=previous;delete HTMLElement.prototype.scrollIntoView;}
+});

@@ -75,6 +75,12 @@ function CaptureTasksPanel({ ownerId, onClose, onSaved, onOpenItem, initialTaskI
   const [revision, setRevision] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(initialTaskIds?.[0] ?? null);
   const [selected, setSelected] = useState<CaptureTask | null>(null);
+  const detailRegion = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (selected && window.matchMedia?.("(max-width: 760px)").matches) {
+      detailRegion.current?.scrollIntoView?.({ block: "start" });
+    }
+  }, [selected?.id]);
   const [detailError, setDetailError] = useState("");
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailRevision, setDetailRevision] = useState(0);
@@ -143,7 +149,7 @@ function CaptureTasksPanel({ ownerId, onClose, onSaved, onOpenItem, initialTaskI
           <button type="button" className="ghost-button" aria-label={`查看任务 ${task.id}`} onClick={() => setSelectedId(task.id)}>查看任务</button>
         </li>)}</ul>
         {data && <nav className="capture-task-pagination" aria-label="任务分页"><button type="button" disabled={loading || page <= 1} onClick={() => { setPage(value => value - 1); setData(null); }} aria-label="任务上一页">上一页</button><span>第 {data.page} / {Math.max(1, data.total_pages)} 页 · 共 {data.total} 项</span><button type="button" disabled={loading || page >= data.total_pages} onClick={() => { setPage(value => value + 1); setData(null); }} aria-label="任务下一页">下一页</button></nav>}
-      </div><aside className="capture-task-detail" aria-label="任务详情">
+      </div><aside ref={detailRegion} className="capture-task-detail" aria-label="任务详情">
         {detailLoading && <p role="status">正在读取任务详情…</p>}
         {detailError && <p role="alert">详情读取失败：{detailError} <button type="button" onClick={() => setDetailRevision(value => value + 1)}>重读详情</button></p>}
         {!selectedId && <p>选择任务查看照片、处理结果和尝试历史。</p>}

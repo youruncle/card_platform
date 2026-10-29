@@ -3647,7 +3647,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .capture-task-state.failed { background: #fff0ec; color: #a43720; }
 .capture-task-state.needs_review { background: #fff5d8; color: #805c00; }
 .capture-task-state.imported { background: #e9f5ed; color: #226744; }
-.capture-task-detail { min-width: 0; overflow-wrap: anywhere; }
+.capture-task-detail { min-width: 0; overflow-wrap: anywhere; position: sticky; top: 0; align-self: start; max-height: 84vh; overflow-y: auto; }
 .capture-task-detail h3 { margin-top: 0; }
 .capture-task-photos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 18px 0; }
 .capture-task-photos figure { margin: 0; text-align: center; }
@@ -3665,6 +3665,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .capture-task-error { color: #a43720; }
 @media (max-width: 760px) {
   .capture-task-layout { grid-template-columns: 1fr; }
+  .capture-task-detail { position: static; max-height: none; overflow-y: visible; }
   .capture-tasks-modal { padding: 18px; }
   .capture-task-photos img { height: 190px; }
   .capture-task-fields { grid-template-columns: 1fr; }
