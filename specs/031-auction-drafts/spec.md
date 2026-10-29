@@ -20,7 +20,7 @@
 - FR06: 样例来自本人订单，保留商品来源和读取状态；订单样例是格式参考，不可作为当前卡身份或品相的证据。失败不阻止本站草稿生成。
 - FR07: Redmi 桥接仅监听电脑回环地址，网页来源白名单、连接令牌、设备串号绑定、单次快门和新文件验证；不接收云端账户密码或登录凭据。
 - FR08: 无任何真实发布接口或自动发布路径。界面清楚区分“保存平台草稿”与“卡淘草稿未接入”。
-- FR09: 保留生产 purchase-cost worker=true、deepseek-flash/thinking disabled 和独立 qwen-plus 搜索配置；本任务没有发布生产环境或同步知识库的授权需求。
+- FR09: 保留生产 purchase-cost worker=true、deepseek-flash/thinking disabled 和独立 qwen-plus 搜索配置；用户后续明确授权上线，发布网页、API及当前个人签名iPhone版，并更新本机手机助手。仍不涉及同步知识库或发布真实拍卖。
 
 ## Approaches & Assumptions
 
