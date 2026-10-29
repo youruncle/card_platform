@@ -11,6 +11,6 @@
 
 Implementation evidence: owner-scoped disposable PostgreSQL integration, 135 final focused backend regressions, mobile 147 tests, web 222 final tests; repeated web tests against isolated task-only page recorded in verification. Independent pair-gate review found no remaining blocker. Cloud, real browser and device readback completed; see verification.md.
 
-- [ ] T009 Nullable core identity storage, pending marker, unknown-pair nonblocking intake and pipeline regressions.
-- [ ] T010 Web/mobile blank-save UX and pending flags, safe downstream enrichment and correction recovery.
-- [ ] T011 Review/regression/build, task-only master commits and cloud/web/iPhone followup release/readback.
+- [x] T009 Nullable core identity storage, pending marker, unknown-pair nonblocking intake and pipeline regressions.
+- [x] T010 Web/mobile blank-save UX and pending flags, safe downstream enrichment and correction recovery.
+- [x] T011 Review/regression/build, task-only master commits and cloud/web/iPhone followup release/readback.
