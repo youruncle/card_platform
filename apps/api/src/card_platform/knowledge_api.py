@@ -1298,3 +1298,7 @@ async def official_checklist_progress() -> dict[str, Any]:
 
 # Keep read-only catalogue access under the existing knowledge permission boundary.
 router.include_router(browser_router)
+
+# Atlas actions use the authenticated session identity; legacy actor headers do not apply.
+from card_platform.knowledge_atlas_api import router as atlas_router
+router.include_router(atlas_router)

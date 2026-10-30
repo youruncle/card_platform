@@ -23,7 +23,12 @@ import unicodedata
 import zlib
 from urllib.parse import quote, urlencode, urlsplit
 
-_SCHEMA = 4
+from card_platform.knowledge_atlas import (
+    atlas_metadata, build_projection, combine_source_mappings, reviewed_external_mapping,
+    READ_ADAPTER_FINGERPRINT as ATLAS_READ_FINGERPRINT,
+)
+
+_SCHEMA = 8
 _ROOT = Path(__file__).resolve().parents[4]
 _MAKER_BRANDS = {
     "topps": "Topps",
@@ -169,8 +174,10 @@ class KnowledgeBrowser:
         ):
             digest.update(piece.encode())
         digest.update(
-            _json([_SCHEMA, self.version_id, str(self.data_root), str(self.artifact_root)]).encode()
+            _json([_SCHEMA, ATLAS_READ_FINGERPRINT, self.version_id, str(self.data_root), str(self.artifact_root)]).encode()
         )
+        digest.update(Path(__file__).read_bytes())
+        digest.update(Path(__file__).with_name("knowledge_atlas_corrections.py").read_bytes())
         self._snapshot_key = digest.hexdigest()
         self._state = None
         self._ensure_index()
@@ -232,6 +239,7 @@ class KnowledgeBrowser:
     def _build(self, path):
         issues = []
         with closing(sqlite3.connect(path)) as db:
+            db.row_factory = sqlite3.Row
             db.executescript("""
                 PRAGMA journal_mode=OFF; PRAGMA synchronous=OFF; PRAGMA temp_store=FILE;
                 CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT);
@@ -246,6 +254,9 @@ class KnowledgeBrowser:
                 CREATE TABLE card_media(card_id TEXT PRIMARY KEY, data TEXT);
                 CREATE TABLE entities(id TEXT PRIMARY KEY, entity_type TEXT, search TEXT, data TEXT);
                 CREATE TABLE manufacturers(name TEXT PRIMARY KEY);
+                CREATE TABLE atlas_state(card_id TEXT PRIMARY KEY,identity TEXT,image TEXT);
+                CREATE INDEX atlas_identity ON atlas_state(identity,card_id);
+                CREATE INDEX atlas_image ON atlas_state(image,card_id);
             """)
             # Only product/brand/manufacturer metadata is held beside the supplied
             # snapshot; the hundreds of thousands of cards stay in SQLite.
@@ -418,7 +429,7 @@ class KnowledgeBrowser:
                                 matched = scoped
                 return matched[0] if len(matched) == 1 else None
 
-            def add_card(entity, inherited=None):
+            def add_card(entity, inherited=None, atlas_entry=None, atlas_pending=False):
                 attrs = _attrs(entity)
                 pid = bind(attrs)
                 if inherited and pid is None:
@@ -499,6 +510,12 @@ class KnowledgeBrowser:
                     "front_image_url": None,
                     "back_image_url": None,
                     "sources": sources,
+                    "source_key": _text(attrs.get("source_key")),
+                    "source_product": _text(attrs.get("product")),
+                    "source_checksum": _text(attrs.get("source_checksum")),
+                    "source_variant_label": _text(attrs.get("source_variant_label")),
+                    "official_artifact_sha256": (inherited or {}).get("checksum"),
+                    "atlas": atlas_metadata(entity, atlas_entry, pending=atlas_pending),
                 }
                 search = " ".join(
                     _key(v)
@@ -607,8 +624,14 @@ class KnowledgeBrowser:
                         for field in ("product", "season_start", "season_end"):
                             if ref.get(field) is not None and attrs.get(field) is None:
                                 raise ValueError(f"attachment missing {field} scope")
+                    scope = {k: ref[k] for k in ("source_key", "season_start", "season_end", "product")
+                             if ref.get(k) is not None}
+                    scope.setdefault("source_key", source_key)
+                    projected = build_projection(cards, scope)
                     for card in cards:
-                        add_card(card, ref)
+                        entry = projected["atlases"].get(card["id"])
+                        add_card(card, ref, entry, atlas_pending=entry is None)
+                    del projected
                     del cards
                 except (OSError, ValueError, TypeError, EOFError, zlib.error):
                     issues.append(
@@ -624,6 +647,8 @@ class KnowledgeBrowser:
                 CREATE INDEX entities_type ON entities(entity_type);
             """)
             self._add_media(db, products, entity_map, issues)
+            from card_platform.knowledge_atlas_corrections import apply_corrections
+            apply_corrections(db, self.snapshot)
             for pid, product in products.items():
                 product["card_count"] = db.execute(
                     "SELECT count(*) FROM cards WHERE product_id=?", (pid,)
@@ -632,6 +657,35 @@ class KnowledgeBrowser:
                     "SELECT count(*) FROM media WHERE product_id=?", (pid,)
                 ).fetchone()[0]
                 product["paired_card_count"] = self._paired_count(db, "m.product_id=?", [pid])
+                identity_counts = defaultdict(int)
+                cross_source_ids = set()
+                image_counts = defaultdict(int)
+                for indexed in db.execute("SELECT * FROM cards WHERE product_id=?", (pid,)):
+                    card = self._card_row(indexed)
+                    identity = card["atlas"]["identity_status"]
+                    managed_identity = ("confirmed" if identity in {"confirmed_within_official_source", "confirmed_by_review"} else "conflict" if identity == "conflict" else "pending")
+                    managed_image = ("both" if card.get("front_image_url") and card.get("back_image_url") else "single" if card.get("front_image_url") or card.get("back_image_url") else "none")
+                    db.execute("INSERT INTO atlas_state VALUES(?,?,?)", (card["id"], managed_identity, managed_image))
+                    identity_counts[card["atlas"]["identity_status"]] += 1
+                    image_counts[card["atlas"]["image_status"]] += 1
+                source_images = defaultdict(list)
+                for indexed in db.execute("SELECT data FROM media WHERE product_id=?", (pid,)):
+                    image = json.loads(indexed[0])
+                    if image.get("card_id"):
+                        source_images[image["card_id"]].append(image)
+                for card_id, images in source_images.items():
+                    stored = db.execute("SELECT data FROM cards WHERE id=?", (card_id,)).fetchone()
+                    for mapping in combine_source_mappings(json.loads(zlib.decompress(stored[0])), images):
+                        if mapping.get("mapping_status") == "confirmed_by_existing_review":
+                            cross_source_ids.add(mapping["atlas_id"])
+                product["atlas_counts"] = {
+                    "backbone_records": product["card_count"],
+                    "source_identity_confirmed": identity_counts["confirmed_within_official_source"],
+                    "identity_pending": identity_counts["needs_review"],
+                    "cross_source_confirmed_identities": len(cross_source_ids),
+                    "global_unique_atlases": None,
+                    "image_states": dict(image_counts),
+                }
                 cover = db.execute(
                     "SELECT data FROM media WHERE product_id=? ORDER BY CASE side WHEN 'front' THEN 0 ELSE 1 END,id LIMIT 1",
                     (pid,),
@@ -659,6 +713,12 @@ class KnowledgeBrowser:
                         _json(product),
                     ),
                 )
+            for indexed in db.execute("SELECT * FROM cards WHERE id NOT IN (SELECT card_id FROM atlas_state)"):
+                card = self._card_row(indexed)
+                identity = card["atlas"]["identity_status"]
+                managed_identity = "confirmed" if identity in {"confirmed_within_official_source", "confirmed_by_review"} else "conflict" if identity == "conflict" else "pending"
+                managed_image = "both" if card["front_image_url"] and card["back_image_url"] else "single" if card["front_image_url"] or card["back_image_url"] else "none"
+                db.execute("INSERT INTO atlas_state VALUES(?,?,?)", (card["id"], managed_identity, managed_image))
             db.execute("INSERT INTO meta VALUES('issues',?)", (_json(issues),))
             db.execute("INSERT INTO meta VALUES('complete',?)", (str(_SCHEMA),))
             db.commit()
@@ -774,6 +834,11 @@ class KnowledgeBrowser:
                     else None,
                     "pair_id": _text(ref.get("pair_id")) if card_id and side != "unknown" else None,
                 }
+                if card_id:
+                    target = db.execute("SELECT data FROM cards WHERE id=?", (card_id,)).fetchone()
+                    row["source_mapping"] = reviewed_external_mapping(
+                        json.loads(zlib.decompress(target[0])), ref,
+                    )
                 db.execute(
                     "INSERT OR IGNORE INTO media VALUES(?,?,?,?,?,?,?,?,?)",
                     (
@@ -799,6 +864,15 @@ class KnowledgeBrowser:
                 "SELECT card_id,pair_id FROM media WHERE card_id IS NOT NULL AND pair_id IS NOT NULL GROUP BY card_id,pair_id HAVING count(*)=2 AND count(DISTINCT side)=2 AND count(DISTINCT sha256)=2 AND min(side)='back' AND max(side)='front'"
             )
         }
+        for card_id, pair_id in list(valid_pairs):
+            faces = [json.loads(r[0]) for r in db.execute(
+                "SELECT data FROM media WHERE card_id=? AND pair_id=?", (card_id, pair_id),
+            )]
+            if (not all(face.get("source_url") for face in faces)
+                    or len({face.get("source_url") for face in faces}) != 1
+                    or any(len({(face.get("source_mapping") or {}).get(field) for face in faces}) != 1
+                           for field in ("source_sha256", "review_sha256", "source_record_id"))):
+                valid_pairs.remove((card_id, pair_id))
         for item in db.execute(
             "SELECT id,card_id,pair_id,data FROM media WHERE pair_id IS NOT NULL"
         ).fetchall():
@@ -827,6 +901,10 @@ class KnowledgeBrowser:
                     card_id,
                 ),
             )
+            stored = db.execute("SELECT data FROM cards WHERE id=?", (card_id,)).fetchone()
+            card = json.loads(zlib.decompress(stored[0]))
+            card["atlas"]["registered_pair"] = any(key[0] == card_id for key in valid_pairs)
+            db.execute("UPDATE cards SET data=? WHERE id=?", (zlib.compress(_json(card).encode(), level=1), card_id))
 
     @staticmethod
     def _paired_count(db, where="1=1", params=()):
@@ -845,6 +923,12 @@ class KnowledgeBrowser:
         data.update(
             image_count=row["image_count"], front_image_url=row["front"], back_image_url=row["back"]
         )
+        state = ("paired" if data["atlas"].get("registered_pair") else
+                 "front_and_back_unpaired" if row["front"] and row["back"] else
+                 "front_only" if row["front"] else "back_only" if row["back"] else
+                 "unknown_side" if row["image_count"] else "missing")
+        data["atlas"]["image_status"] = state
+        data["atlas"].pop("registered_pair", None)
         return data
 
     @staticmethod
@@ -967,6 +1051,7 @@ class KnowledgeBrowser:
                 raise KeyError(id)
             return {
                 "product": json.loads(row[0]),
+                "atlas_counts": json.loads(row[0]).get("atlas_counts", {}),
                 "version": self.version,
                 "sections": [
                     {"name": r[0], "card_count": r[1]}
@@ -995,16 +1080,30 @@ class KnowledgeBrowser:
         image_state="any",
         offset=0,
         limit=40,
+        player=None,
+        card_number=None,
+        identity_state="any",
+        brand=None,
     ):
-        if image_state not in {"any", "has_image", "missing_front", "missing_back"}:
+        if image_state not in {"any", "has_image", "missing_front", "missing_back", "none", "single", "both"}:
             raise ValueError("unknown image state")
         where, params = [], []
+        if identity_state not in {"any", "confirmed", "pending", "conflict"}:
+            raise ValueError("unknown identity state")
+        if brand is not None:
+            where.append("product_id IN (SELECT id FROM products WHERE json_extract(data,'$.brand')=?)")
+            params.append(brand)
+        if identity_state != "any":
+            where.append("id IN (SELECT card_id FROM atlas_state WHERE identity=?)")
+            params.append(identity_state)
         for column, value in [
             ("product_id", product_id),
             ("manufacturer", manufacturer),
             ("season", season),
             ("section", section),
             ("parallel", parallel),
+            ("player", _key(player) if player is not None else None),
+            ("card_number", _key(card_number) if card_number is not None else None),
         ]:
             if value is not None:
                 where.append(
@@ -1022,6 +1121,9 @@ class KnowledgeBrowser:
                     "has_image": "image_count>0",
                     "missing_front": "front IS NULL",
                     "missing_back": "back IS NULL",
+                    "none": "front IS NULL AND back IS NULL",
+                    "single": "(front IS NULL)<>(back IS NULL)",
+                    "both": "front IS NOT NULL AND back IS NOT NULL",
                 }[image_state]
             )
         with closing(self._connect()) as db:
@@ -1030,6 +1132,7 @@ class KnowledgeBrowser:
                     covering = (
                         "cards_manufacturer_season"
                         if section is None and parallel is None and image_state == "any"
+                        and player is None and card_number is None and identity_state == "any" and brand is None
                         else None
                     )
                     return self._search_cards(db, _key(q), offset, limit, where, params, covering)
@@ -1123,14 +1226,23 @@ class KnowledgeBrowser:
                         ),
                     )
                 ]
-            return {
-                "card": self._card_row(row),
-                "images": [
+            card = self._card_row(row)
+            images = [
                     self._media_row(db, r[0])
                     for r in db.execute(
                         "SELECT data FROM media WHERE card_id=? ORDER BY side,id", (id,)
                     )
-                ],
+                ]
+            mappings = combine_source_mappings(card, images)
+            card["atlas"]["pair_binding_status"] = (
+                "needs_review" if any(mapping.get("mapping_status") == "needs_review" for mapping in mappings)
+                else "reviewed" if card["atlas"]["image_status"] == "paired"
+                else "unpaired"
+            )
+            return {
+                "card": card,
+                "images": images,
+                "source_mappings": mappings,
                 "related_versions": related,
                 "version": self.version,
             }

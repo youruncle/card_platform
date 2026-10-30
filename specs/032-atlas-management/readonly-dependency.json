@@ -1,0 +1,6 @@
+{
+  "apps/api/src/card_platform/knowledge_atlas.py": "19dde10c9f8697d0925b0491a0df67124bd5785f8f305a8c1375109bc4e061f2",
+  "apps/api/src/card_platform/knowledge_browser.py": "09d0bcdffbc7f19cc0ecfce79d7fafb06c7382dfa0a3be62eba28afa640feb58",
+  "apps/api/src/card_platform/knowledge_browser_api.py": "79273920be341f78afc66ef17e53dc74c4a3560c6537a7694deb0f5e2b5b8b99",
+  "apps/api/tests/test_knowledge_atlas_browser.py": "9f0fd00468274ea175106c98da3ef94d67dd840e343024c4281e82acfc3b5aeb"
+}

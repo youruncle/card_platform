@@ -1,0 +1,26 @@
+const {chromium}=require('/Users/song/Documents/Codex/2026-07-19/w/card_platform/apps/mobile/node_modules/@playwright/test');
+const fs=require('node:fs');const path=require('node:path');const assert=require('node:assert/strict');
+const root=__dirname;const url='http://127.0.0.1:18780/knowledge/manage';
+(async()=>{const browser=await chromium.launch({headless:true,channel:'chrome'});const results=[];try{
+ const page=await browser.newPage({viewport:{width:1600,height:1080}});page.on('pageerror',e=>results.push({pageerror:e.message}));
+ await page.goto(url+'?season=2025&player=Hansen+Yang&card_number=14');
+ await page.getByRole('button',{name:'查看 Hansen Yang #14 Base Prizms Mojo',exact:true}).waitFor({timeout:90000});
+ assert.equal(await page.getByRole('heading',{name:'图鉴管理',exact:true}).count(),1);
+ await page.getByRole('button',{name:'查看 Hansen Yang #14 Base Prizms Mojo',exact:true}).click();
+ await page.getByRole('heading',{name:'图鉴详情',exact:true}).waitFor();
+ await page.getByAltText('图鉴正面').evaluate(img=>img.decode());await page.getByAltText('图鉴背面').evaluate(img=>img.decode());
+ await page.screenshot({path:path.join(root,'desktop-real-v26.png'),fullPage:true});
+ results.push({case:'real historical v26 2025 Prizm, Hansen Yang #14 exact versions and verified image pair',passed:true});
+ await page.getByRole('button',{name:'关闭详情',exact:true}).click();assert.equal(new URL(page.url()).searchParams.get('player'),'Hansen Yang');
+ await page.goBack();await page.getByRole('heading',{name:'图鉴详情',exact:true}).waitFor();results.push({case:'close and browser back retain exact filters',passed:true});
+ await page.getByRole('button',{name:'提出纠错',exact:true}).click();await page.getByLabel('纠错字段').selectOption('serial_total');await page.getByLabel('建议值',{exact:true}).fill('26');await page.getByLabel('纠错理由',{exact:true}).fill('仅本地QA验证，不是实际事实纠错');await page.getByLabel('证据链接，每行一条',{exact:true}).fill('https://example.org/local-qa-only');
+ await page.getByRole('button',{name:'预览纠错',exact:true}).click();await page.screenshot({path:path.join(root,'desktop-proposal-preview.png'),fullPage:true});
+ await page.getByRole('button',{name:'取消纠错',exact:true}).click();assert.equal(await page.getByText('仅本地QA验证，不是实际事实纠错',{exact:true}).count(),0);results.push({case:'cancelled preview writes no proposal',passed:true});
+ await page.getByRole('button',{name:'提出纠错',exact:true}).click();await page.getByLabel('纠错字段').selectOption('serial_total');await page.getByLabel('建议值',{exact:true}).fill('26');await page.getByLabel('纠错理由',{exact:true}).fill('仅本地QA验证，不是实际事实纠错');await page.getByLabel('证据链接，每行一条',{exact:true}).fill('https://example.org/local-qa-only');await page.getByRole('button',{name:'预览纠错',exact:true}).click();await page.getByRole('button',{name:'提交审核',exact:true}).click();await page.getByText('提案已提交，等待审核',{exact:true}).waitFor();
+ await page.getByLabel('审核理由',{exact:true}).fill('本地测试审批，未发布');await page.getByRole('button',{name:'批准提案',exact:true}).click();await page.getByText('已批准 · 等待发布或已发布',{exact:true}).waitFor();assert.equal(await page.getByRole('heading',{name:'图鉴详情',exact:true}).count(),1);results.push({case:'submit and approve stay as draft, original published total remains25',passed:true});
+ const total=await page.locator('.am-fields>div').filter({has:page.locator('dt',{hasText:'总编'})}).innerText();assert.match(total,/25/);
+ await page.screenshot({path:path.join(root,'desktop-approved-draft.png'),fullPage:true});
+ const mobile=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});await mobile.goto(url+'?season=2025&player=Hansen+Yang&card_number=14');await mobile.getByRole('button',{name:'查看 Hansen Yang #14 Base Prizms Mojo',exact:true}).waitFor();assert.ok(await mobile.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await mobile.screenshot({path:path.join(root,'mobile-list.png'),fullPage:true});await mobile.getByRole('button',{name:'查看 Hansen Yang #14 Base Prizms Mojo',exact:true}).click();await mobile.getByAltText('图鉴正面').evaluate(img=>img.decode());await mobile.screenshot({path:path.join(root,'mobile-detail.png'),fullPage:true});await mobile.getByRole('button',{name:'关闭详情',exact:true}).click();assert.equal(new URL(mobile.url()).searchParams.get('player'),'Hansen Yang');results.push({case:'390px list/detail no document overflow, images and close work',passed:true});
+ const empty=await browser.newPage({viewport:{width:1440,height:900}});await empty.goto(url+'?player=NoSuchPlayer_Atlas_QA');await empty.getByText('没有符合当前筛选的图鉴。可清除筛选或切换产品。',{exact:true}).waitFor();await empty.screenshot({path:path.join(root,'empty-state.png'),fullPage:true});results.push({case:'empty results are explicit',passed:true});
+ assert.equal(results.filter(r=>r.pageerror).length,0);fs.writeFileSync(path.join(root,'browser-results.json'),JSON.stringify(results,null,2));console.log(JSON.stringify(results,null,2));
+ }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

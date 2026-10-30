@@ -441,6 +441,13 @@ class KnowledgeRepository:
                 (locked["published_version_id"],),
             )
             snapshot["official_artifacts"] = (await previous_artifacts.fetchone())["artifacts"] or []
+        from card_platform.knowledge_atlas_corrections import snapshot_corrections
+        overlays, atlas_drafts = await snapshot_corrections(
+            connection, workspace["id"], locked["published_version_id"],
+            include_drafts=not bool(official_source_keys),
+        )
+        if overlays:
+            snapshot["atlas_corrections"] = overlays
         snapshot = _json_safe(snapshot)
         checksum = snapshot_checksum(snapshot)
         inserted = await connection.execute(
@@ -471,6 +478,10 @@ class KnowledgeRepository:
             """,
             (version["id"], workspace["id"]),
         )
+        for proposal in atlas_drafts:
+            await self.audit(connection, workspace["id"], actor_id, "atlas_applied",
+                             "atlas_proposal", UUID(proposal["id"]), None,
+                             {"version_id": str(version["id"])}, None)
         await self._record_impact(connection, version["id"], snapshot)
         await self.audit(
             connection, workspace["id"], actor_id, "publish", "version", version["id"], None, version, request_id

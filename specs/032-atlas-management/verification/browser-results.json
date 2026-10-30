@@ -1,0 +1,43 @@
+{
+  "browser": "IAB via cua_repl; real Chromium engine",
+  "source": "historical frozen v26, one product only",
+  "counts": {
+    "source_records": 16489,
+    "exact_Hansen_Yang_14_records": 71,
+    "paired_image_records": 1
+  },
+  "passed": [
+    "exact player and card number",
+    "both-image filter returns one real source record",
+    "source links and field-level unverified labels",
+    "preview before write",
+    "cancelled preview leaves no record",
+    "submit and approve in isolated PostgreSQL; published total remains25",
+    "close retains filters; browser Back reopens selection",
+    "390x844 mobile viewport, document scrollWidth390",
+    "readonly member notice",
+    "empty list",
+    "422 error with retry control; clear filters recovers",
+    "After independent fixes: visible real external-record provenance and source claims",
+    "Approved unpublished proposal can be rejected through real browser and becomes rejected; published identity still25"
+  ],
+  "images": [
+    "mobile-final.jpg",
+    "approved-draft.jpg",
+    "mobile-readonly.jpg",
+    "mobile-detail.jpg",
+    "desktop-final.jpg",
+    "empty-state.jpg",
+    "proposal-preview.jpg",
+    "withdrawn-final.jpg",
+    "recovered-list.jpg",
+    "desktop-real-v26.jpg",
+    "error-state.jpg",
+    "mobile-list.jpg"
+  ],
+  "limitations": [
+    "No production authentication/device test",
+    "Synthetic QA proposal26 is explicitly local-only and never published",
+    "Standalone Playwright bundled Chromium was missing; Chrome attempt used a nonmatching fixture label and timed out. All reported browser cases were completed via IAB on actual visible records."
+  ]
+}

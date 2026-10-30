@@ -1182,3 +1182,8 @@ export type OfficialChecklistProgress = {
 export async function getOfficialChecklistProgress(): Promise<OfficialChecklistProgress> {
   return request<OfficialChecklistProgress>("/v1/knowledge/official-checklists/progress");
 }
+
+/** Atlas management uses the logged-in session; no caller-supplied actor identity. */
+export function requestKnowledgeAtlas<T>(path: string, init?: RequestInit): Promise<T> {
+  return request<T>(`/v1/knowledge/atlas${path}`, init);
+}
