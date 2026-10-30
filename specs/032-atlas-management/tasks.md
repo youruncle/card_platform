@@ -28,3 +28,8 @@
 - [x] F4: Align to actual deployed readonly schema7/indexes, run retained SQL plan guards and full-snapshot35-response contract/resource replay.
 
 - Final alignment:168 backend /28 web; cold and warm35 recorded deployed contract cases each zero differences, complete565 products/2,169,016 facts/831 media/14 pairs, issues0. Resource receipts and release gates in deployed-alignment-verification.md.
+
+- [x] 安全收尾：真实会话绑定旧管理actor/发布/回滚/bootstrap/revalue审计，保持数据库程序发布流程。
+- [x] 准备兼容API源覆盖和实际web冻结源最小diff；新解释器验证发布/再次发布及未发布提案保留。
+- [x] 大历史负载、相关回归、真实密码登录浏览器流程和独立安全复核；证据见security-rollback-verification.md。
+- [ ] 后续获准后才执行候选镜像构建、目标环境隔离验收、兼容恢复演练和实际镜像切换；本任务未开始。

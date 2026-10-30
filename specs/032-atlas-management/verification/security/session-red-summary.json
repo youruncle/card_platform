@@ -1,0 +1,12 @@
+{
+  "tests": 4,
+  "failed": 3,
+  "passed": 1,
+  "observed": {
+    "viewer_claiming_publisher_publish": 200,
+    "admin_bootstrap_claiming_viewer": 200,
+    "valid_session_without_actor_header": 401
+  },
+  "full_log_local_runtime": ".runtime/security-baseline/session-red.txt",
+  "isolated_test_sessions_only": true
+}

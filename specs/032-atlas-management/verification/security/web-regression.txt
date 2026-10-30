@@ -1,0 +1,846 @@
+TAP version 13
+# Subtest: filters and panel closing retain URL and never write
+ok 1 - filters and panel closing retain URL and never write
+  ---
+  duration_ms: 212.680833
+  type: 'test'
+  ...
+# Subtest: preview and cancel are inert; network retry keeps the request key
+ok 2 - preview and cancel are inert; network retry keeps the request key
+  ---
+  duration_ms: 207.352042
+  type: 'test'
+  ...
+# Subtest: readonly user can inspect without mutation controls
+ok 3 - readonly user can inspect without mutation controls
+  ---
+  duration_ms: 35.947583
+  type: 'test'
+  ...
+# Subtest: search resets offset and sends exact player/card and status filters
+ok 4 - search resets offset and sends exact player/card and status filters
+  ---
+  duration_ms: 49.158459
+  type: 'test'
+  ...
+# Subtest: URL season remains selected after asynchronous options arrive
+ok 5 - URL season remains selected after asynchronous options arrive
+  ---
+  duration_ms: 33.217458
+  type: 'test'
+  ...
+# Subtest: source mapping conflict is visible and cannot be called audited pairing
+ok 6 - source mapping conflict is visible and cannot be called audited pairing
+  ---
+  duration_ms: 26.550834
+  type: 'test'
+  ...
+# Subtest: an approved unpublished draft can be rejected, but published history cannot
+ok 7 - an approved unpublished draft can be rejected, but published history cannot
+  ---
+  duration_ms: 86.83575
+  type: 'test'
+  ...
+# Subtest: corrected effective metadata separates unknown fields from original source and pricing state
+ok 8 - corrected effective metadata separates unknown fields from original source and pricing state
+  ---
+  duration_ms: 43.059166
+  type: 'test'
+  ...
+# Subtest: publication timeline displays exact applied and rollback versions without calling rolled back current
+ok 9 - publication timeline displays exact applied and rollback versions without calling rolled back current
+  ---
+  duration_ms: 43.452833
+  type: 'test'
+  ...
+# Subtest: incomplete reviewed identity does not label unreviewed backbone as a proven image conflict
+ok 10 - incomplete reviewed identity does not label unreviewed backbone as a proven image conflict
+  ---
+  duration_ms: 28.838917
+  type: 'test'
+  ...
+# Subtest: overview includes zero-product manufacturers, immutable version and source gaps
+ok 11 - overview includes zero-product manufacturers, immutable version and source gaps
+  ---
+  duration_ms: 136.78225
+  type: 'test'
+  ...
+# Subtest: product search resets pagination and preserves filters when leaving detail
+ok 12 - product search resets pagination and preserves filters when leaving detail
+  ---
+  duration_ms: 97.958541
+  type: 'test'
+  ...
+# Subtest: card filters use the contract and ignore delayed previous responses
+ok 13 - card filters use the contract and ignore delayed previous responses
+  ---
+  duration_ms: 66.373084
+  type: 'test'
+  ...
+# Subtest: product facets and related card versions retain catalogue return context
+ok 14 - product facets and related card versions retain catalogue return context
+  ---
+  duration_ms: 124.885875
+  type: 'test'
+  ...
+# Subtest: gallery labels design images and viewer supports comparison transforms and focus return
+not ok 15 - gallery labels design images and viewer supports comparison transforms and focus return
+  ---
+  duration_ms: 1043.308167
+  type: 'test'
+  location: '/Users/song/Documents/Codex/2026-10-30/task/card-platform-atlas/apps/web/tests/knowledge-browser.test.cjs:15:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Unable to find role="dialog" and name "知识图片查看器"
+
+    Ignored nodes: comments, script, style
+    [36m<body>[39m
+      [36m<div>[39m
+        [36m<main[39m
+          [33mclass[39m=[32m"kb-shell"[39m
+        [36m>[39m
+          [36m<header[39m
+            [33mclass[39m=[32m"kb-header"[39m
+          [36m>[39m
+            [36m<div>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"kb-back"[39m
+                [33mhref[39m=[32m"/"[39m
+              [36m>[39m
+                [0m← 返回资产台[0m
+              [36m</a>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"kb-eyebrow"[39m
+              [36m>[39m
+                [0mPUBLISHED KNOWLEDGE[0m
+              [36m</p>[39m
+              [36m<h1>[39m
+                [0m卡牌知识库[0m
+              [36m</h1>[39m
+              [36m<p>[39m
+                [0m从制造商和赛季探索产品、卡片、图片与已审核知识。[0m
+              [36m</p>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"kb-header-meta"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"kb-version"[39m
+              [36m>[39m
+                [0m已发布 [0m
+                [0mv19[0m
+              [36m</span>[39m
+              [36m<a[39m
+                [33mhref[39m=[32m"/knowledge/manage"[39m
+              [36m>[39m
+                [0m知识管理 ↗[0m
+              [36m</a>[39m
+            [36m</div>[39m
+          [36m</header>[39m
+          [36m<nav[39m
+            [33maria-label[39m=[32m"知识库导航"[39m
+            [33mclass[39m=[32m"kb-nav"[39m
+          [36m>[39m
+            [36m<button>[39m
+              [0m总览[0m
+            [36m</button>[39m
+            [36m<button>[39m
+              [0m产品目录[0m
+            [36m</button>[39m
+            [36m<button>[39m
+              [0m卡片检索[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-current[39m=[32m"page"[39m
+            [36m>[39m
+              [0m图片库[0m
+            [36m</button>[39m
+            [36m<button>[39m
+              [0m知识词典[0m
+            [36m</button>[39m
+          [36m</nav>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"kb-version-note"[39m
+          [36m>[39m
+            [0m当前浏览固定于 v[0m
+            [0m19[0m
+            [0m · 已知发布内容，[0m
+            [36m<strong>[39m
+              [0m全量覆盖率未知[0m
+            [36m</strong>[39m
+            [0m。设计样张不计作具体卡片正反面。[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"kb-source-notice"[39m
+          [36m>[39m
+            [0m当前版本有 [0m
+            [0m1[0m
+            [0m 项来源问题。[0m
+            [36m<button>[39m
+              [0m查看来源缺口[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"kb-stack"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"kb-section-heading"[39m
+            [36m>[39m
+              [36m<div>[39m
+                [36m<h2>[39m
+                  [0m图片库[0m
+                [36m</h2>[39m
+                [36m<p>[39m
+                  [0m仅展示已审核且实际捕获的参考图片，保留未知侧别。[0m
+                [36m</p>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<form[39m
+              [33mclass[39m=[32m"kb-filters"[39m
+              [33mrole[39m=[32m"search"[39m
+            [36m>[39m
+              [36m<label>[39m
+                [0m图片类型[0m
+                [36m<select[39m
+                  [33mname[39m=[32m"kind"[39m
+                [36m>[39m
+                  [36m<option[39m
+                    [33mselected[39m=[32m""[39m
+                    [33mvalue[39m=[32m"all"[39m
+                  [36m>[39m
+                    [0m全部参考图[0m
+                  [36m</option>[39m
+                  [36m<option[39m
+                    [33mvalue[39m=[32m"design"[39m
+                  [36m>[39m
+                    [0m设计样张[0m
+                  [36m</option>[39m
+                  [36m<option[39m
+                    [33mvalue[39m=[32m"specimen"[39m
+                  [36m>[39m
+                    [0m实卡参考图[0m
+                  [36m</option>[39m
+                [36m</select>[39m
+              [36m</label>[39m
+              [36m<button[39m
+                [33mtype[39m=[32m"submit"[39m
+              [36m>[39m
+                [0m筛选[0m
+              [36m</button>[39m
+            [36m</form>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"kb-stack"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"kb-gallery-toolbar"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"kb-muted"[39m
+                [36m>[39m
+                  [0m选择两张实际图片进行对照；对照不代表正反面配对。[0m
+                [36m</span>[39m
+                [36m<button[39m
+                  [33mdisabled[39m=[32m""[39m
+                [36m>[39m
+                  [0m对照所选图片[0m
+                [36m</button>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"kb-media-grid"[39m
+              [36m>[39m
+                [36m<article[39m
+                  [33mclass[39m=[32m"kb-media"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33maria-label[39m=[32m"查看图片 Chrome 设计示例"[39m
+                    [33mclass[39m=[32m"kb-media-open"[39m
+                  [36m>[39m
+                    [36m<img[39m
+                      [33malt[39m=[32m"Chrome 设计示例"[39m
+                      [33mdecoding[39m=[32m"async"[39m
+                      [33mloading[39m=[32m"lazy"[39m
+                      [33msrc[39m=[32m"/v1/knowledge/browse/media/media%2Fa/image?thumbnail=true&version_id=release%2F19"[39m
+                    [36m/>[39m
+                  [36m</button>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"kb-media-copy"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"kb-chips"[39m
+                    [36m>[39m
+                      [36m<span>[39m
+                        [0m设计样张[0m
+                      [36m</span>[39m
+                      [36m<span>[39m
+                        [0m侧别未知[0m
+                      [36m</span>[39m
+                    [36m</div>[39m
+                    [36m<h3>[39m
+                      [0mChrome 设计示例[0m
+                    [36m</h3>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"kb-media-product"[39m
+                    [36m>[39m
+                      [36m<strong>[39m
+                        [0m系列名称待补充[0m
+                      [36m</strong>[39m
+                      [36m<span>[39m
+                        [0m制造商未知[0m
+                        [0m · [0m
+                        [0m赛季未知[0m
+                      [36m</span>[39m
+                      [36m<button[39m
+                        [33mclass[39m=[32m"kb-text-button"[39m
+                      [36m>[39m
+                        [0m查看所属系列 →[0m
+                      [36m</button>[39m
+                    [36m</div>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"kb-source"[39m
+                    [36m>[39m
+                      [36m<a[39m
+                        [33mhref[39m=[32m"https://example.com/design"[39m
+                        [33mrel[39m=[32m"noreferrer"[39m
+                        [33mtarget[39m=[32m"_blank"[39m
+                      [36m>[39m
+                        [0m查看来源 ↗[0m
+                      [36m</a>[39m
+                      [36m<span>[39m
+                        [0m官方来源[0m
+                      [36m</span>[39m
+                    [36m</div>[39m
+                    [36m<label[39m
+                      [33mclass[39m=[32m"kb-compare-check"[39m
+                    [36m>[39m
+                      [36m<input[39m
+                        [33maria-label[39m=[32m"对照 Chrome 设计示例"[39m
+                        [33mtype[39m=[32m"checkbox"[39m
+                      [36m/>[39m
+                      [0m选择对照[0m
+                    [36m</label>[39m
+                  [36m</div>[39m
+                [36m</article>[39m
+                [36m<article[39m
+                  [33mclass[39m=[32m"kb-media"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33maria-label[39m=[32m"查看图片 另一个设计示例"[39m
+                    [33mclass[39m=[32m"kb-media-open"[39m
+                  [36m>[39m
+                    [36m<img[39m
+                      [33malt[39m=[32m"另一个设计示例"[39m
+                      [33mdecoding[39m=[32m"async"[39m
+                      [33mloading[39m=[32m"lazy"[39m
+                      [33msrc[39m=[32m"/v1/knowledge/browse/media/media%2Fa/image?thumbnail=true&version_id=release%2F19"[39m
+                    [36m/>[39m
+                  [36m</button>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"kb-media-copy"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"kb-chips"[39m
+                    [36m>[39m
+                      [36m<span>[39m
+                        [0m设计样张[0m
+                      [36m</span>[39m
+                      [36m<span>[39m
+                        [0m侧别未知[0m
+                      [36m</span>[39m
+                    [36m</div>[39m
+                    [36m<h3>[39m
+                      [0m另一个设计示例[0m
+                    [36m</h3>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"kb-media-product"[39m
+                    [36m>[39m
+                      [36m<strong>[39m
+                        [0m系列名称待补充[0m
+                      [36m</strong>[39m
+                      [36m<span>[39m
+                        [0m制造商未知[0m
+                        [0m · [0m
+                        [0m赛季未知[0m
+                      [36m</span>[39m
+                      [36m<button[39m
+                        [33mclass[39m=[32m"kb-text-button"[39m
+                      [36m>[39m
+                        [0m查看所属系列 →[0m
+                      [36m</button>[39m
+                    [36m</div>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"kb-source"[39m
+                    [36m>[39m
+                      [36m<a[39m
+                        [33mhref[39m=[32m"https://example.com/design"[39m
+                        [33mrel[39m=[32m"noreferrer"[39m
+                        [33mtarget[39m=[32m"_blank"[39m
+                      [36m>[39m
+                        [0m查看来源 ↗[0m
+                      [36m</a>[39m
+                      [36m<span>[39m
+                        [0m官方来源[0m
+                      [36m</span>[39m
+                    [36m</div>[39m
+                    [36m<label[39m
+                      [33mclass[39m=[32m"kb-compare-check"[39m
+                    [36m>[39m
+                      [36m<input[39m
+                        [33maria-label[39m=[32m"对照 另一个设计示例"[39m
+                        [33mtype[39m=[32m"checkbox"[39m
+                      [36m/>[39m
+                      [0m选择对照[0m
+                    [36m</label>[39m
+                  [36m</div>[39m
+                [36m</article>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"kb-pagination"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0m共 [0m
+                [0m2[0m
+                [0m 条[0m
+                [0m · 1–2[0m
+              [36m</span>[39m
+              [36m<div>[39m
+                [36m<button[39m
+                  [33mdisabled[39m=[32m""[39m
+                [36m>[39m
+                  [0m上一页[0m
+                [36m</button>[39m
+                [36m<button[39m
+                  [33mdisabled[39m=[32m""[39m
+                [36m>[39m
+                  [0m下一页[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</section>[39m
+        [36m</main>[39m
+      [36m</div>[39m
+    [36m</body>[39m
+
+    Ignored nodes: comments, script, style
+    [36m<body>[39m
+      [36m<div>[39m
+        [36m<main[39m
+          [33mclass[39m=[32m"kb-shell"[39m
+        [36m>[39m
+          [36m<header[39m
+            [33mclass[39m=[32m"kb-header"[39m
+          [36m>[39m
+            [36m<div>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"kb-back"[39m
+                [33mhref[39m=[32m"/"[39m
+              [36m>[39m
+                [0m← 返回资产台[0m
+              [36m</a>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"kb-eyebrow"[39m
+              [36m>[39m
+                [0mPUBLISHED KNOWLEDGE[0m
+              [36m</p>[39m
+              [36m<h1>[39m
+                [0m卡牌知识库[0m
+              [36m</h1>[39m
+              [36m<p>[39m
+                [0m从制造商和赛季探索产品、卡片、图片与已审核知识。[0m
+              [36m</p>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"kb-header-meta"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"kb-version"[39m
+              [36m>[39m
+                [0m已发布 [0m
+                [0mv19[0m
+              [36m</span>[39m
+              [36m<a[39m
+                [33mhref[39m=[32m"/knowledge/manage"[39m
+              [36m>[39m
+                [0m知识管理 ↗[0m
+              [36m</a>[39m
+            [36m</div>[39m
+          [36m</header>[39m
+          [36m<nav[39m
+            [33maria-label[39m=[32m"知识库导航"[39m
+            [33mclass[39m=[32m"kb-nav"[39m
+          [36m>[39m
+            [36m<button>[39m
+              [0m总览[0m
+            [36m</button>[39m
+            [36m<button>[39m
+              [0m产品目录[0m
+            [36m</button>[39m
+            [36m<button>[39m
+              [0m卡片检索[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-current[39m=[32m"page"[39m
+            [36m>[39m
+              [0m图片库[0m
+            [36m</button>[39m
+            [36m<button>[39m
+              [0m知识词典[0m
+            [36m</button>[39m
+          [36m</nav>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"kb-version-note"[39m
+          [36m>[39m
+            [0m当前浏览固定于 v[0m
+            [0m19[0m
+            [0m · 已知发布内容，[0m
+            [36m<strong>[39m
+              [0m全量覆盖率未知[0m
+            [36m</strong>[39m
+            [0m。设计样张不计作具体卡片正反面。[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"kb-source-notice"[39m
+          [36m>[39m
+            [0m当前版本有 [0m
+            [0m1[0m
+            [0m 项来源问题。[0m
+            [36m<button>[39m
+              [0m查看来源缺口[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"kb-stack"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"kb-section-heading"[39m
+            [36m>[39m
+              [36m<div>[39m
+                [36m<h2>[39m
+                  [0m图片库[0m
+                [36m</h2>[39m
+                [36m<p>[39m
+                  [0m仅展示已审核且实际捕获的参考图片，保留未知侧别。[0m
+                [36m</p>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<form[39m
+              [33mclass[39m=[32m"kb-filters"[39m
+              [33mrole[39m=[32m"search"[39m
+            [36m>[39m
+              [36m<label>[39m
+                [0m图片类型[0m
+                [36m<select[39m
+                  [33mname[39m=[32m"kind"[39m
+                [36m>[39m
+                  [36m<option[39m
+                    [33mselected[39m=[32m""[39m
+                    [33mvalue[39m=[32m"all"[39m
+                  [36m>[39m
+                    [0m全部参考图[0m
+                  [36m</option>[39m
+                  [36m<option[39m
+                    [33mvalue[39m=[32m"design"[39m
+                  [36m>[39m
+                    [0m设计样张[0m
+                  [36m</option>[39m
+                  [36m<option[39m
+                    [33mvalue[39m=[32m"specimen"[39m
+                  [36m>[39m
+                    [0m实卡参考图[0m
+                  [36m</option>[39m
+                [36m</select>[39m
+              [36m</label>[39m
+              [36m<button[39m
+                [33mtype[39m=[32m"submit"[39m
+              [36m>[39m
+                [0m筛选[0m
+              [36m</button>[39m
+            [36m</form>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"kb-stack"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"kb-gallery-toolbar"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"kb-muted"[39m
+                [36m>[39m
+                  [0m选择两张实际图片进行对照；对照不代表正反面配对。[0m
+                [36m</span>[39m
+                [36m<button[39m
+                  [33mdisabled[39m=[32m""[39m
+                [36m>[39m
+                  [0m对照所选图片[0m
+                [36m</button>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"kb-media-grid"[39m
+              [36m>[39m
+                [36m<article[39m
+                  [33mclass[39m=[32m"kb-media"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33maria-label[39m=[32m"查看图片 Chrome 设计示例"[39m
+                    [33mclass[39m=[32m"kb-media-open"[39m
+                  [36m>[39m
+                    [36m<img[39m
+                      [33malt[39m=[32m"Chrome 设计示例"[39m
+                      [33mdecoding[39m=[32m"async"[39m
+                      [33mloading[39m=[32m"lazy"[39m
+                      [33msrc[39m=[32m"/v1/knowledge/browse/media/media%2Fa/image?thumbnail=true&version_id=release%2F19"[39m
+                    [36m/>[39m
+                  [36m</button>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"kb-media-copy"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"kb-chips"[39m
+                    [36m>[39m
+                      [36m<span>[39m
+                        [0m设计样张[0m
+                      [36m</span>[39m
+                      [36m<span>[39m
+                        [0m侧别未知[0m
+                      [36m</span>[39m
+                    [36m</div>[39m
+                    [36m<h3>[39m
+                      [0mChrome 设计示例[0m
+                    [36m</h3>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"kb-media-product"[39m
+                    [36m>[39m
+                      [36m<strong>[39m
+                        [0m系列名称待补充[0m
+                      [36m</strong>[39m
+                      [36m<span>[39m
+                        [0m制造商未知[0m
+                        [0m · [0m
+                        [0m赛季未知[0m
+                      [36m</span>[39m
+                      [36m<button[39m
+                        [33mclass[39m=[32m"kb-text-button"[39m
+                      [36m>[39m
+                        [0m查看所属系列 →[0m
+                      [36m</button>[39m
+                    [36m</div>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"kb-source"[39m
+                    [36m>[39m
+                      [36m<a[39m
+                        [33mhref[39m=[32m"https://example.com/design"[39m
+                        [33mrel[39m=[32m"noreferrer"[39m
+                        [33mtarget[39m=[32m"_blank"[39m
+                      [36m>[39m
+                        [0m查看来源 ↗[0m
+                      [36m</a>[39m
+                      [36m<span>[39m
+                        [0m官方来源[0m
+                      [36m</span>[39m
+                    [36m</div>[39m
+                    [36m<label[39m
+                      [33mclass[39m=[32m"kb-compare-check"[39m
+                    [36m>[39m
+                      [36m<input[39m
+                        [33maria-label[39m=[32m"对照 Chrome 设计示例"[39m
+                        [33mtype[39m=[32m"checkbox"[39m
+                      [36m/>[39m
+                      [0m选择对照[0m
+                    [36m</label>[39m
+                  [36m</div>[39m
+                [36m</article>[39m
+                [36m<article[39m
+                  [33mclass[39m=[32m"kb-media"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33maria-label[39m=[32m"查看图片 另一个设计示例"[39m
+                    [33mclass[39m=[32m"kb-media-open"[39m
+                  [36m>[39m
+                    [36m<img[39m
+                      [33malt[39m=[32m"另一个设计示例"[39m
+                      [33mdecoding[39m=[32m"async"[39m
+                      [33mloading[39m=[32m"lazy"[39m
+                      [33msrc[39m=[32m"/v1/knowledge/browse/media/media%2Fa/image?thumbnail=true&version_id=release%2F19"[39m
+                    [36m/>[39m
+                  [36m</button>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"kb-media-copy"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"kb-chips"[39m
+                    [36m>[39m
+                      [36m<span>[39m
+                        [0m设计样张[0m
+                      [36m</span>[39m
+                      [36m<span>[39m
+                        [0m侧别未知[0m
+                      [36m</span>[39m
+                    [36m</div>[39m
+                    [36m<h3>[39m
+                      [0m另一个设计示例[0m
+                    [36m</h3>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"kb-media-product"[39m
+                    [36m>[39m
+                      [36m<strong>[39m
+                        [0m系列名称待补充[0m
+                      [36m</strong>[39m
+                      [36m<span>[39m
+                        [0m制造商未知[0m
+                        [0m · [0m
+                        [0m赛季未知[0m
+                      [36m</span>[39m
+                      [36m<button[39m
+                        [33mclass[39m=[32m"kb-text-button"[39m
+                      [36m>[39m
+                        [0m查看所属系列 →[0m
+                      [36m</button>[39m
+                    [36m</div>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"kb-source"[39m
+                    [36m>[39m
+                      [36m<a[39m
+                        [33mhref[39m=[32m"https://example.com/design"[39m
+                        [33mrel[39m=[32m"noreferrer"[39m
+                        [33mtarget[39m=[32m"_blank"[39m
+                      [36m>[39m
+                        [0m查看来源 ↗[0m
+                      [36m</a>[39m
+                      [36m<span>[39m
+                        [0m官方来源[0m
+                      [36m</span>[39m
+                    [36m</div>[39m
+                    [36m<label[39m
+                      [33mclass[39m=[32m"kb-compare-check"[39m
+                    [36m>[39m
+                      [36m<input[39m
+                        [33maria-label[39m=[32m"对照 另一个设计示例"[39m
+                        [33mtype[39m=[32m"checkbox"[39m
+                      [36m/>[39m
+                      [0m选择对照[0m
+                    [36m</label>[39m
+                  [36m</div>[39m
+                [36m</article>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"kb-pagination"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0m共 [0m
+                [0m2[0m
+                [0m 条[0m
+                [0m · 1–2[0m
+              [36m</span>[39m
+              [36m<div>[39m
+                [36m<button[39m
+                  [33mdisabled[39m=[32m""[39m
+                [36m>[39m
+                  [0m上一页[0m
+                [36m</button>[39m
+                [36m<button[39m
+                  [33mdisabled[39m=[32m""[39m
+                [36m>[39m
+                  [0m下一页[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</section>[39m
+        [36m</main>[39m
+      [36m</div>[39m
+    [36m</body>[39m
+  code: 'ERR_TEST_FAILURE'
+  name: 'TestingLibraryElementError'
+  stack: |-
+    waitForWrapper (/Users/song/Documents/Codex/2026-07-19/w/card_platform/apps/web/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27)
+    /Users/song/Documents/Codex/2026-07-19/w/card_platform/apps/web/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+    TestContext.<anonymous> (/Users/song/Documents/Codex/2026-10-30/task/card-platform-atlas/apps/web/tests/knowledge-browser.test.cjs:15:535)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: glossary filters types and presents known aliases and sources
+ok 16 - glossary filters types and presents known aliases and sources
+  ---
+  duration_ms: 20.8505
+  type: 'test'
+  ...
+# Subtest: index preparing is separate from empty content and supports manual retry
+ok 17 - index preparing is separate from empty content and supports manual retry
+  ---
+  duration_ms: 17.938959
+  type: 'test'
+  ...
+# Subtest: preparing retries stop after a bounded interval and explain manual recovery
+ok 18 - preparing retries stop after a bounded interval and explain manual recovery
+  ---
+  duration_ms: 11.720291
+  type: 'test'
+  ...
+# Subtest: a failed thumbnail keeps accessible media controls and an original-image retry
+ok 19 - a failed thumbnail keeps accessible media controls and an original-image retry
+  ---
+  duration_ms: 65.926417
+  type: 'test'
+  ...
+# Subtest: card-bound front/back switching retains exact identity and only explicit pairs are marked
+ok 20 - card-bound front/back switching retains exact identity and only explicit pairs are marked
+  ---
+  duration_ms: 54.161333
+  type: 'test'
+  ...
+# Subtest: an empty published list differs from an API error and pagination preserves URL filters
+ok 21 - an empty published list differs from an API error and pagination preserves URL filters
+  ---
+  duration_ms: 57.25875
+  type: 'test'
+  ...
+# Subtest: browser popstate restores a shareable search and filter state
+ok 22 - browser popstate restores a shareable search and filter state
+  ---
+  duration_ms: 34.871125
+  type: 'test'
+  ...
+# Subtest: comparison keeps two distinct images when the primary selection changes
+ok 23 - comparison keeps two distinct images when the primary selection changes
+  ---
+  duration_ms: 38.776
+  type: 'test'
+  ...
+# Subtest: captured sell-sheet evidence has readable titles and source labels without losing original captions
+ok 24 - captured sell-sheet evidence has readable titles and source labels without losing original captions
+  ---
+  duration_ms: 28.115667
+  type: 'test'
+  ...
+# Subtest: global media shows its series and returns to the same gallery filters after visiting it
+ok 25 - global media shows its series and returns to the same gallery filters after visiting it
+  ---
+  duration_ms: 49.371166
+  type: 'test'
+  ...
+# Subtest: missing optional series labels still allow navigation through a known product binding
+ok 26 - missing optional series labels still allow navigation through a known product binding
+  ---
+  duration_ms: 42.561416
+  type: 'test'
+  ...
+# Subtest: media type is independent of card binding and preserves unknown or unbound specimen states
+ok 27 - media type is independent of card binding and preserves unknown or unbound specimen states
+  ---
+  duration_ms: 69.607792
+  type: 'test'
+  ...
+# Subtest: shows engineering progress without inventing full directory coverage
+ok 28 - shows engineering progress without inventing full directory coverage
+  ---
+  duration_ms: 31.773042
+  type: 'test'
+  ...
+1..28
+# tests 28
+# suites 0
+# pass 27
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2926.744417

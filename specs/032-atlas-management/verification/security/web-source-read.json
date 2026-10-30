@@ -1,0 +1,25 @@
+{
+  "source": {
+    "apps/web/lib/api.ts": {
+      "sha256": "ebd8fa1f26364a7ca30d03a31de9b7c2230c2ce83795705b4d1712c49be7a338"
+    },
+    "apps/web/package.json": {
+      "sha256": "552c1c74499fe0378f480e0a08b1243d723fdb68a4abc290e275e889eef04106"
+    },
+    "apps/web/app/layout.tsx": {
+      "sha256": "456bb888a1fb669dbe9ddc6bce4b831c0c02ef1aaf30eb27fdc25f9e667538ff"
+    },
+    "apps/web/next.config.ts": {
+      "sha256": "1f7228ff3d5e3d263daf631efa6e3a8dbbc52bde30d791c0dd04146eb05c586b"
+    }
+  },
+  "release_dirs": [
+    "20261030-auction1",
+    "20261030-023839-atlas-readonly",
+    "20261030-015709-atlas-readonly",
+    "20261030-auctionzoom1",
+    "20261030-scanfix1",
+    "20261030-capturetasks1",
+    "20261030-partialintake1"
+  ]
+}

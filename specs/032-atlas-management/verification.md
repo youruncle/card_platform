@@ -65,3 +65,7 @@ ATLAS_TEST_DATABASE_URL='postgresql://atlas_test@/postgres?host=/tmp/card-atlas-
 
 ## 最终实际读取基线已对齐
 上述“尚未定版”仅为前次交付时状态，现已关闭。已核对实际上线镜像atlas-readonly-20261030-023839的完整digest/三文件SHA，保留线上两个SQLite索引和三处计数语句。最终168后端/28网页、类型/Ruff/构建通过；完整v26冷/热各35例旧契约零差异。资源与整合结果见 [最终对齐报告](deployed-alignment-verification.md)，两项残余收尾见 [收尾报告](metadata-lifecycle-verification.md)。无读取权限阻塞，不再等待该读取版本；目标环境UI预热/真实角色验收仍属未获部署许可的独立上线评审。
+
+## 安全收尾最终补充
+
+旧管理发布/回滚actor冒充已用真实会话失败测试修复，兼容API源码候选/网页独立回退路径及pending/approved提案保留已验证，独立安全复核无遗留Critical/Important。最终179项相关后端、兼容候选32项、实际网页冻结源整合242项、原相关网页28项、tsc/Ruff/构建均通过。详细范围/源码清单/持久化/恢复影响/仍需获准的目标环境验证见 `security-rollback-verification.md`。现行生产只读核对v27/rev1861，代码上线不得回退到本机历史v26。没有构建镜像、部署、push/merge或生产写入。可进入单独候选构建/上线评审，目标环境角色/全量资源/兼容恢复镜像验证尚未执行。

@@ -10,7 +10,7 @@ from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field
 
 from card_platform.knowledge import ENTITY_TYPES, KnowledgeResolver, normalize_knowledge_text
-from card_platform.auth import require_admin
+from card_platform.auth import AuthenticatedUser, require_admin
 from card_platform.knowledge_batch import apply_manifest
 from card_platform.knowledge_batch_catalog import catalog_manifest, catalog_metadata
 from card_platform.knowledge_manifest import load_manifest, validate_manifest
@@ -23,6 +23,7 @@ from card_platform.knowledge_seed import CURATED_RELATIONS, builtin_seed
 from card_platform.marketplace_aliases import INITIAL_MARKETPLACE_ALIAS_CATALOG
 from card_platform.marketplace_alias_discovery import AliasDiscoveryError, build_alias_proposal
 from card_platform.knowledge_browser_api import router as browser_router
+from card_platform.knowledge_atlas_api import router as atlas_router
 
 async def _knowledge_connection(request: Request):
     async with request.app.state.database.connection() as connection:
@@ -30,10 +31,17 @@ async def _knowledge_connection(request: Request):
         yield
 
 
+async def _knowledge_session(
+    request: Request, user: AuthenticatedUser = Depends(require_admin),
+) -> AuthenticatedUser:
+    request.state.knowledge_user = user
+    return user
+
+
 router = APIRouter(
     prefix="/v1/knowledge",
     tags=["knowledge"],
-    dependencies=[Depends(require_admin), Depends(_knowledge_connection)],
+    dependencies=[Depends(_knowledge_session), Depends(_knowledge_connection)],
 )
 repository = KnowledgeRepository()
 
@@ -128,14 +136,22 @@ async def _actor(
     allowed: set[str],
     actor_id: UUID | None,
 ) -> tuple[dict[str, Any], UUID]:
-    if actor_id is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="缺少 X-Knowledge-Actor")
+    actor_id = _session_actor(request, actor_id)
     workspace = await repository.workspace(request.state.connection)
     try:
         await repository.require_role(request.state.connection, workspace["id"], actor_id, allowed)
     except KnowledgePermissionError as error:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(error)) from error
     return workspace, actor_id
+
+
+def _session_actor(request: Request, claimed_actor: UUID | None) -> UUID:
+    user = getattr(request.state, "knowledge_user", None)
+    if user is None:
+        raise HTTPException(status_code=401, detail="请先登录")
+    if claimed_actor is not None and claimed_actor != user.id:
+        raise HTTPException(status_code=403, detail="操作用户必须与当前登录用户一致")
+    return user.id
 
 
 @router.get("/batches/catalog")
@@ -188,8 +204,7 @@ async def bootstrap(
     request: Request,
     x_knowledge_actor: UUID | None = Header(default=None),
 ) -> dict[str, str]:
-    if x_knowledge_actor is None:
-        raise HTTPException(status_code=401, detail="缺少 X-Knowledge-Actor")
+    x_knowledge_actor = _session_actor(request, x_knowledge_actor)
     async with request.state.connection.transaction():
         workspace = await repository.workspace(request.state.connection)
         await request.state.connection.execute(
@@ -1248,7 +1263,7 @@ async def revalue(
     x_knowledge_actor: UUID | None = Header(default=None),
 ) -> dict[str, int]:
     async with request.state.connection.transaction():
-        workspace, _ = await _actor(request, {"publisher"}, x_knowledge_actor)
+        workspace, actor_id = await _actor(request, {"publisher"}, x_knowledge_actor)
         result = await request.state.connection.execute(
             """
             INSERT INTO valuation_job (collection_item_id, status)
@@ -1273,7 +1288,7 @@ async def revalue(
         await repository.audit(
             request.state.connection,
             workspace["id"],
-            x_knowledge_actor,
+            actor_id,
             "bulk_revalue",
             "version",
             version_id,
@@ -1300,5 +1315,4 @@ async def official_checklist_progress() -> dict[str, Any]:
 router.include_router(browser_router)
 
 # Atlas actions use the authenticated session identity; legacy actor headers do not apply.
-from card_platform.knowledge_atlas_api import router as atlas_router
 router.include_router(atlas_router)

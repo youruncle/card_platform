@@ -1,0 +1,9 @@
+{
+  "local_only": true,
+  "unrelated_audits": 20000,
+  "other_proposals": 2000,
+  "later_versions": 500,
+  "page_size": 100,
+  "page_ms": 1129.936,
+  "single_card_history_ms": 859.264
+}

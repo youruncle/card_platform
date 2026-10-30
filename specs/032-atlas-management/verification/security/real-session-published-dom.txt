@@ -1,0 +1,822 @@
+- main:
+  - link "知识库 / KNOWLEDGE":
+    - /url: /knowledge
+  - heading "图鉴管理" [level=1]
+  - paragraph: 查找明确版本，查看证据，让每次纠错可审核、可追溯。
+  - generic: 已发布 v27
+  - link "词典、批次与发布 ↗":
+    - /url: /knowledge/manage/legacy
+  - generic: 来源条目
+  - strong: 16,489
+  - generic: 来源内 / 审核确认
+  - strong: 16,488
+  - generic: 待确认身份
+  - strong: "1"
+  - generic: 身份冲突
+  - strong: "0"
+  - generic: 双面图
+  - strong: "1"
+  - paragraph: 各项为当前已发布来源目录的独立指标。全市场唯一图鉴总数未知；双面不等于已核实配对。
+  - navigation "管理视图":
+    - button "图鉴列表" [pressed]
+    - button "纠错提案与审核"
+  - region "图鉴列表区域":
+    - search:
+      - text: 年份
+      - combobox "年份":
+        - option "全部年份" [selected]
+        - option "2025 起始年"
+      - text: 制造商
+      - combobox "制造商":
+        - option "全部制造商" [selected]
+        - option "Panini"
+      - text: 品牌
+      - combobox "品牌":
+        - option "全部品牌" [selected]
+      - text: 产品名称检索
+      - textbox "产品名称检索":
+        - /placeholder: 查找产品 / 厂牌
+      - text: 产品
+      - combobox "产品":
+        - option "全部产品" [selected]
+        - option "2025-26 Panini Prizm Basketball"
+      - text: 子集
+      - combobox "子集":
+        - option "全部子集" [selected]
+      - text: 球员（精确）
+      - textbox "球员（精确）":
+        - /placeholder: 如 Hansen Yang
+        - text: Hansen Yang
+      - text: 卡号（精确）
+      - textbox "卡号（精确）":
+        - /placeholder: 如 14
+        - text: "14"
+      - text: 身份状态
+      - combobox "身份状态":
+        - option "全部身份" [selected]
+        - option "已确认"
+        - option "待确认"
+        - option "冲突"
+      - text: 图片完整度
+      - combobox "图片完整度":
+        - option "全部图片状态" [selected]
+        - option "无图"
+        - option "单面"
+        - option "双面"
+      - button "查找图鉴"
+      - button "清除筛选"
+    - heading "精确版本" [level=2]
+    - generic: 71 条来源记录
+    - table:
+      - rowgroup:
+        - row "球员 / 卡号 年份 / 产品 / 子集 版本 / 总编 签字 身份 图片":
+          - columnheader "球员 / 卡号"
+          - columnheader "年份 / 产品 / 子集"
+          - columnheader "版本 / 总编"
+          - columnheader "签字"
+          - columnheader "身份"
+          - columnheader "图片"
+      - rowgroup:
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Black Shimmer FOTL 平行未知 总编 未知 未知 待确认 无图" [selected]':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Black Shimmer FOTL":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Black Shimmer FOTL
+          - cell "平行未知 总编 未知":
+            - strong: 平行未知
+            - generic: 总编 未知
+          - cell "未知"
+          - cell "待确认":
+            - generic: 待确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Purple Pulsar 平行未知 总编 175 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Purple Pulsar":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Purple Pulsar
+          - cell "平行未知 总编 175":
+            - strong: 平行未知
+            - generic: 总编 175
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Prizm Autographs Blue Ice 平行未知 总编 49 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Prizm Autographs Blue Ice":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Prizm Autographs Blue Ice
+          - cell "平行未知 总编 49":
+            - strong: 平行未知
+            - generic: 总编 49
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Green Mojo 平行未知 总编 5 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Green Mojo":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Green Mojo
+          - cell "平行未知 总编 5":
+            - strong: 平行未知
+            - generic: 总编 5
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Autographs Gold Vinyl FOTL 平行未知 总编 5 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Autographs Gold Vinyl FOTL":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Autographs Gold Vinyl FOTL
+          - cell "平行未知 总编 5":
+            - strong: 平行未知
+            - generic: 总编 5
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Pink Pulsar 平行未知 总编 199 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Pink Pulsar":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Pink Pulsar
+          - cell "平行未知 总编 199":
+            - strong: 平行未知
+            - generic: 总编 199
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Red Power 平行未知 总编 75 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Red Power":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Red Power
+          - cell "平行未知 总编 75":
+            - strong: 平行未知
+            - generic: 总编 75
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 Blue 2025–26 2025-26 Panini Prizm Basketball Base Prizms Raywave Blue Blue 总编 15 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 Blue"':
+            - 'button "查看 Hansen Yang #14 Blue"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Raywave Blue":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Raywave Blue
+          - cell "Blue 总编 15":
+            - strong: Blue
+            - generic: 总编 15
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Autographs Black Shimmer FOTL 平行未知 总编 1 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Autographs Black Shimmer FOTL":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Autographs Black Shimmer FOTL
+          - cell "平行未知 总编 1":
+            - strong: 平行未知
+            - generic: 总编 1
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Green Scope 平行未知 总编 8 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Green Scope":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Green Scope
+          - cell "平行未知 总编 8":
+            - strong: 平行未知
+            - generic: 总编 8
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Hyper 平行未知 总编 未知 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Hyper":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Hyper
+          - cell "平行未知 总编 未知":
+            - strong: 平行未知
+            - generic: 总编 未知
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Gold Glitter 平行未知 总编 10 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Gold Glitter":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Gold Glitter
+          - cell "平行未知 总编 10":
+            - strong: 平行未知
+            - generic: 总编 10
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 Gold 2025–26 2025-26 Panini Prizm Basketball Prizm Autographs Gold Gold 总编 10 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 Gold"':
+            - 'button "查看 Hansen Yang #14 Gold"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Prizm Autographs Gold":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Prizm Autographs Gold
+          - cell "Gold 总编 10":
+            - strong: Gold
+            - generic: 总编 10
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Blue Seismic 平行未知 总编 199 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Blue Seismic":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Blue Seismic
+          - cell "平行未知 总编 199":
+            - strong: 平行未知
+            - generic: 总编 199
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Red Seismic 平行未知 总编 275 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Red Seismic":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Red Seismic
+          - cell "平行未知 总编 275":
+            - strong: 平行未知
+            - generic: 总编 275
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Plum Blossom 平行未知 总编 8 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Plum Blossom":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Plum Blossom
+          - cell "平行未知 总编 8":
+            - strong: 平行未知
+            - generic: 总编 8
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 Gold 2025–26 2025-26 Panini Prizm Basketball Base Prizms Black Gold Gold 总编 5 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 Gold"':
+            - 'button "查看 Hansen Yang #14 Gold"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Black Gold":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Black Gold
+          - cell "Gold 总编 5":
+            - strong: Gold
+            - generic: 总编 5
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Black 平行未知 总编 1 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Black":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Black
+          - cell "平行未知 总编 1":
+            - strong: 平行未知
+            - generic: 总编 1
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Autographs Mojo 平行未知 总编 25 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Autographs Mojo":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Autographs Mojo
+          - cell "平行未知 总编 25":
+            - strong: 平行未知
+            - generic: 总编 25
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Purple Ice 平行未知 总编 199 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Purple Ice":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Purple Ice
+          - cell "平行未知 总编 199":
+            - strong: 平行未知
+            - generic: 总编 199
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Prizm Autographs Gold Vinyl FOTL 平行未知 总编 5 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Prizm Autographs Gold Vinyl FOTL":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Prizm Autographs Gold Vinyl FOTL
+          - cell "平行未知 总编 5":
+            - strong: 平行未知
+            - generic: 总编 5
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Pink Scope 平行未知 总编 125 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Pink Scope":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Pink Scope
+          - cell "平行未知 总编 125":
+            - strong: 平行未知
+            - generic: 总编 125
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Green Seismic 平行未知 总编 49 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Green Seismic":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Green Seismic
+          - cell "平行未知 总编 49":
+            - strong: 平行未知
+            - generic: 总编 49
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Uptown 平行未知 总编 未知 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Uptown":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Uptown
+          - cell "平行未知 总编 未知":
+            - strong: 平行未知
+            - generic: 总编 未知
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Pulsar 平行未知 总编 未知 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Pulsar":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Pulsar
+          - cell "平行未知 总编 未知":
+            - strong: 平行未知
+            - generic: 总编 未知
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Tiger Stripe 平行未知 总编 未知 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Tiger Stripe":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Tiger Stripe
+          - cell "平行未知 总编 未知":
+            - strong: 平行未知
+            - generic: 总编 未知
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Green 平行未知 总编 未知 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Green":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Green
+          - cell "平行未知 总编 未知":
+            - strong: 平行未知
+            - generic: 总编 未知
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 Black 2025–26 2025-26 Panini Prizm Basketball Prizm Autographs Black Black 总编 1 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 Black"':
+            - 'button "查看 Hansen Yang #14 Black"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Prizm Autographs Black":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Prizm Autographs Black
+          - cell "Black 总编 1":
+            - strong: Black
+            - generic: 总编 1
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Prizm Autographs 平行未知 总编 未知 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Prizm Autographs":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Prizm Autographs
+          - cell "平行未知 总编 未知":
+            - strong: 平行未知
+            - generic: 总编 未知
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Raywave Black Gold 平行未知 总编 5 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Raywave Black Gold":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Raywave Black Gold
+          - cell "平行未知 总编 5":
+            - strong: 平行未知
+            - generic: 总编 5
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Green Pulsar 平行未知 总编 25 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Green Pulsar":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Green Pulsar
+          - cell "平行未知 总编 25":
+            - strong: 平行未知
+            - generic: 总编 25
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 Gold 2025–26 2025-26 Panini Prizm Basketball Prizm Autographs Black Gold Gold 总编 5 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 Gold"':
+            - 'button "查看 Hansen Yang #14 Gold"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Prizm Autographs Black Gold":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Prizm Autographs Black Gold
+          - cell "Gold 总编 5":
+            - strong: Gold
+            - generic: 总编 5
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Blue Shimmer FOTL 平行未知 总编 15 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Blue Shimmer FOTL":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Blue Shimmer FOTL
+          - cell "平行未知 总编 15":
+            - strong: 平行未知
+            - generic: 总编 15
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Pink Seismic 平行未知 总编 99 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Pink Seismic":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Pink Seismic
+          - cell "平行未知 总编 99":
+            - strong: 平行未知
+            - generic: 总编 99
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 Red 2025–26 2025-26 Panini Prizm Basketball Base Prizms Raywave Red Red 总编 125 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 Red"':
+            - 'button "查看 Hansen Yang #14 Red"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Raywave Red":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Raywave Red
+          - cell "Red 总编 125":
+            - strong: Red
+            - generic: 总编 125
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Orange Pulsar 平行未知 总编 175 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Orange Pulsar":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Orange Pulsar
+          - cell "平行未知 总编 175":
+            - strong: 平行未知
+            - generic: 总编 175
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Purple Wave 平行未知 总编 未知 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Purple Wave":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Purple Wave
+          - cell "平行未知 总编 未知":
+            - strong: 平行未知
+            - generic: 总编 未知
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Gold 平行未知 总编 10 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Gold":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Gold
+          - cell "平行未知 总编 10":
+            - strong: 平行未知
+            - generic: 总编 10
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Prizm Autographs Blue Shimmer FOTL 平行未知 总编 15 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Prizm Autographs Blue Shimmer FOTL":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Prizm Autographs Blue Shimmer FOTL
+          - cell "平行未知 总编 15":
+            - strong: 平行未知
+            - generic: 总编 15
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+        - 'row "查看 Hansen Yang #14 未知版本 2025–26 2025-26 Panini Prizm Basketball Base Prizms Red Scope 平行未知 总编 88 未知 来源内确认 无图"':
+          - 'cell "查看 Hansen Yang #14 未知版本"':
+            - 'button "查看 Hansen Yang #14 未知版本"':
+              - strong: Hansen Yang
+              - generic: "#14"
+          - cell "2025–26 2025-26 Panini Prizm Basketball Base Prizms Red Scope":
+            - text: 2025–26
+            - strong: 2025-26 Panini Prizm Basketball
+            - text: Base Prizms Red Scope
+          - cell "平行未知 总编 88":
+            - strong: 平行未知
+            - generic: 总编 88
+          - cell "未知"
+          - cell "来源内确认":
+            - generic: 来源内确认
+          - cell "无图"
+    - generic: 1–40 / 71
+    - button "上一页" [disabled]
+    - button "下一页"
+  - complementary "图鉴详情面板":
+    - text: ATLAS DETAIL
+    - heading "图鉴详情" [active] [level=2]
+    - button "关闭详情": 关闭 ✕
+    - generic: 待确认
+    - 'heading "Hansen Yang #14" [level=3]':
+      - text: Hansen Yang
+      - generic: "#14"
+    - paragraph: 2025-26 Panini Prizm Basketball · Base Prizms Black Shimmer FOTL · 平行未知
+    - code: official:panini-api-2025-1533:045e3371baae5fa0ce4801c6
+    - text: 暂无正面图
+    - generic: 身份骨干仍保留
+    - generic: 正面
+    - text: 暂无背面图
+    - generic: 身份骨干仍保留
+    - generic: 背面
+    - paragraph: 图片来源绑定待核对 · 图片纠错请附已有来源链接，暂不支持上传。
+    - region "当前有效身份的派生状态":
+      - heading "当前有效身份的派生状态" [level=3]
+      - paragraph: 总编状态：未知 · 签字属性：未知
+      - paragraph: 图鉴签字属性不代表实卡鉴真。原图片绑定需重新核对，实卡与价格分组未自动重算。
+      - generic "原始来源断言（纠错前，非当前身份）"
+    - heading "身份字段与来源" [level=3]
+    - term: 球员
+    - definition:
+      - strong: Hansen Yang
+      - generic: 来源级别依据；尚未逐字段独立核验
+    - term: 卡号
+    - definition:
+      - strong: "14"
+      - generic: 来源级别依据；尚未逐字段独立核验
+    - term: 子集
+    - definition:
+      - strong: Base Prizms Black Shimmer FOTL
+      - generic: 来源级别依据；尚未逐字段独立核验
+    - term: 平行版本
+    - definition:
+      - strong: 未知
+      - generic: 来源级别依据；尚未逐字段独立核验
+    - term: 总编
+    - definition:
+      - strong: 未知
+      - text: 人工纠错审核依据 · 仅本机隔离库真实会话验收，核对未知字段及发布流程，不用于生产。
+      - link "审核证据 ↗":
+        - /url: https://support.paniniamerica.net/get-product-checklist?sport=Basketball&year=2025&brand=Panini&program=Prizm+%2825-26%29
+    - term: 起始年
+    - definition:
+      - strong: "2025"
+      - generic: 来源级别依据；尚未逐字段独立核验
+    - term: 结束年
+    - definition:
+      - strong: "2026"
+      - generic: 来源级别依据；尚未逐字段独立核验
+    - term: 签字属性
+    - definition:
+      - strong: 未知
+      - generic: 来源级别依据；尚未逐字段独立核验
+    - link "查看原始来源 ↗":
+      - /url: https://support.paniniamerica.net/get-product-checklist?sport=Basketball&year=2025&brand=Panini&program=Prizm+%2825-26%29
+    - generic: page 1 line 1993 · official_checklist
+    - heading "来源记录与图片依据" [level=3]
+    - article:
+      - strong: 官方骨干来源
+      - code: official:panini-api-2025-1533:045e3371baae5fa0ce4801c6
+      - generic: 绑定待审 / 冲突
+    - heading "相关版本" [level=3]
+    - paragraph: 暂无可确认的相关版本
+    - heading "纠错提案" [level=3]
+    - button "提出纠错"
+    - paragraph: 审核批准后进入草稿，发布后生效。收藏与账本不会自动修改。
+    - article:
+      - generic: 已发布 · 当前版本包含
+      - generic: 基于版本 28346a44-4202-4d50-b0a9-edd88f6e30ba
+      - paragraph:
+        - text: 总编：1 →
+        - strong: 未知
+      - paragraph: 仅本机隔离库真实会话验收，核对未知字段及发布流程，不用于生产。
+      - link "提案证据 ↗":
+        - /url: https://support.paniniamerica.net/get-product-checklist?sport=Basketball&year=2025&brand=Panini&program=Prizm+%2825-26%29
+      - generic: 提交 2026-10-30 11:58:46.345238+08:00 · 5a6f7c94-7817-45cb-ad6d-e93213ef1b0b
+      - paragraph: 审核记录：本机隔离测试审核，确认会话身份与审计一致 · 2026-10-30 11:58:54.326025+08:00
+      - heading "审核、发布与回滚记录" [level=4]
+      - paragraph: 当前发布：v27。这里表示快照包含关系；有效字段及来源冲突以图鉴详情为准。
+      - paragraph: 包含此提案的发布版本：v27
+      - list:
+        - strong: 提交提案
+        - time: 2026-10-30T11:58:46.345238+08:00
+        - generic: 操作者：5a6f7c94-7817-45cb-ad6d-e93213ef1b0b
+        - paragraph: 仅本机隔离库真实会话验收，核对未知字段及发布流程，不用于生产。
+        - strong: 审核批准
+        - time: 2026-10-30T11:58:54.326025+08:00
+        - generic: 操作者：5a6f7c94-7817-45cb-ad6d-e93213ef1b0b
+        - paragraph: 本机隔离测试审核，确认会话身份与审计一致
+        - strong: 首次发布
+        - generic: v27
+        - time: 2026-10-30T12:00:27.859299+08:00
+        - generic: 操作者：5a6f7c94-7817-45cb-ad6d-e93213ef1b0b
+        - generic: 目标版本：69c1090b-872a-4732-9098-900cd44c3d92
+        - paragraph: 仅本机隔离库：真实会话纠错发布验收
+- alert

@@ -1,0 +1,26 @@
+{
+  "knowledge_api.py": {
+    "loaded_from_prepared_overlay": true,
+    "sha256": "c665132278cc6d45ceb4c1a81bde1ab5f84fc85420b7a2efc2d42fa2ace523cc"
+  },
+  "knowledge_repository.py": {
+    "loaded_from_prepared_overlay": true,
+    "sha256": "d202014ef8f2b8a30f5bc4cd6cddc1bd1761b80e4847ee4200834ee27fd49e73"
+  },
+  "knowledge_browser.py": {
+    "loaded_from_prepared_overlay": true,
+    "sha256": "97edc2a5adac3e687a7e54d06db7fc6519ec213510be3930de0ab333e9e61afb"
+  },
+  "knowledge_atlas_api.py": {
+    "loaded_from_prepared_overlay": true,
+    "sha256": "fc46f8bebb03f5811cc8a35892e62d186d3f8251d4de820a12f1b4b7e8c863d8"
+  },
+  "knowledge_atlas_corrections.py": {
+    "loaded_from_prepared_overlay": true,
+    "sha256": "0e62fc0739cc16635d5ec0dbd9ced5dd1bf50143a24e0c2b119663903e322bd5"
+  },
+  "knowledge_atlas_lifecycle.py": {
+    "loaded_from_prepared_overlay": true,
+    "sha256": "545470cdbaaa24945019758c8299c6bcd58a37c0da7a7d841c8e6a2cee3c39e7"
+  }
+}

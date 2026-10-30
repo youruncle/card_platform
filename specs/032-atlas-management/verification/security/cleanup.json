@@ -1,0 +1,6 @@
+{
+  "qa_api_stopped": true,
+  "qa_web_stopped": true,
+  "temporary_qa_schemas_remaining": 0,
+  "test_credentials_removed_with_schema": true
+}

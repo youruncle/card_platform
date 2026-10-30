@@ -1,0 +1,14 @@
+{
+  "revision": 1861,
+  "published_version_id": "0710ef3f-c147-45bc-9619-9d8c83a6887f",
+  "version_number": 27,
+  "checksum": "87a77700583d48bad400a9236cdfa57637c7bdfb345b34acadf1bf698622690e",
+  "audit_rows": 795,
+  "version_rows": 27,
+  "knowledge_role_counts": [
+    {
+      "role": "admin",
+      "n": 2
+    }
+  ]
+}

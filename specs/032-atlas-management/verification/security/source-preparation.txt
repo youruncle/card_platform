@@ -1,0 +1,32 @@
+{
+  "source_candidate_root": "/Users/song/Documents/Codex/2026-10-30/task/card-platform-atlas/.runtime/atlas-compatible-source-final",
+  "status": "source_prepared_not_image_built_or_deployed",
+  "api_parent_image": "sha256:119b9ba3827c6db5ff544085374f12343174cae9df817d09251db413f9bddc65",
+  "web_rollback_image": "sha256:430c1ecee885561b3b847aa23a3e5cd63d804f4c91ecc4e4d5ff04cc6ca28651",
+  "web_source_build_id": "Ok9uElxPl77_Ai_PSowOb",
+  "api_overlay": {
+    "knowledge_api.py": "c665132278cc6d45ceb4c1a81bde1ab5f84fc85420b7a2efc2d42fa2ace523cc",
+    "knowledge_repository.py": "d202014ef8f2b8a30f5bc4cd6cddc1bd1761b80e4847ee4200834ee27fd49e73",
+    "knowledge_browser.py": "97edc2a5adac3e687a7e54d06db7fc6519ec213510be3930de0ab333e9e61afb",
+    "knowledge_atlas_api.py": "fc46f8bebb03f5811cc8a35892e62d186d3f8251d4de820a12f1b4b7e8c863d8",
+    "knowledge_atlas_corrections.py": "0e62fc0739cc16635d5ec0dbd9ced5dd1bf50143a24e0c2b119663903e322bd5",
+    "knowledge_atlas_lifecycle.py": "545470cdbaaa24945019758c8299c6bcd58a37c0da7a7d841c8e6a2cee3c39e7"
+  },
+  "excluded_test_shim": "api-overlay/card_platform/__init__.py",
+  "web_source_changed": [
+    "apps/web/app/knowledge/manage/atlas-manager.css",
+    "apps/web/app/knowledge/manage/legacy/page.tsx",
+    "apps/web/app/knowledge/manage/page.tsx",
+    "apps/web/components/knowledge-atlas-manager.tsx",
+    "apps/web/lib/api.ts",
+    "apps/web/lib/knowledge-atlas.ts",
+    "apps/web/tests/knowledge-atlas-manager.test.cjs"
+  ],
+  "web_unchanged_file_count": 104,
+  "rollback_policy": {
+    "web": "revert web independently; retain compatible API",
+    "api": "forward recover/rebuild this immutable overlay on its parent image; do not revert to old reader-only API",
+    "database": "no schema/data rollback; audit proposals and immutable version snapshots retained",
+    "automatic_publish": "continues carrying published overlays; manual unpublished drafts remain drafts"
+  }
+}

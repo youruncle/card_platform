@@ -1,0 +1,38 @@
+{
+  "image_id": "sha256:430c1ecee885561b3b847aa23a3e5cd63d804f4c91ecc4e4d5ff04cc6ca28651",
+  "image_reference": "card-platform-web:0.6.8-20261030-partialintake2",
+  "created": "2026-10-29T18:41:49.959729989Z",
+  "health": null,
+  "workdir": "/app",
+  "compose_dir": "/home/ubuntu/card-platform/infra",
+  "runtime": {
+    "/app/package.json": {
+      "sha256": "332d8a40f39e5696aba28ea9ba8b34e7c32d706b566cc5d9246f18b27d558d9f",
+      "text": null
+    },
+    "/app/.next/BUILD_ID": {
+      "sha256": "0c56f1bc58c9eb2181f297f83b755a75965c8600c3c79ebb26d858a13706cfbd",
+      "text": "Ok9uElxPl77_Ai_PSowOb"
+    },
+    "roots": [
+      {
+        "path": "/app",
+        "files": [
+          "._.next",
+          "._package.json",
+          "._public",
+          "._server.js",
+          ".next",
+          "node_modules",
+          "package.json",
+          "public",
+          "server.js"
+        ]
+      },
+      {
+        "path": "/app/apps/web",
+        "files": []
+      }
+    ]
+  }
+}

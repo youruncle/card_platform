@@ -1,0 +1,48 @@
+{
+  "container": "card-platform-cloud-api-1",
+  "image_id": "sha256:119b9ba3827c6db5ff544085374f12343174cae9df817d09251db413f9bddc65",
+  "image_reference": "card-platform-api:atlas-readonly-20261030-023839",
+  "created": "2026-10-30T02:53:14.994196006Z",
+  "health": "healthy",
+  "memory_limit_bytes": 0,
+  "compose": {
+    "com.docker.compose.project.working_dir": "/home/ubuntu/card-platform/infra",
+    "com.docker.compose.project.config_files": "/home/ubuntu/card-platform/infra/compose.tunnel.yaml,/home/ubuntu/card-platform/releases/20261028-chatgpt-manager1/compose.chatgpt.yaml,/home/ubuntu/card-platform/releases/20261029-purchase-skill1/compose.purchase.yaml,/home/ubuntu/card-platform/releases/20261030-scanfix1/compose.scanfix.yaml,/home/ubuntu/card-platform/releases/20261030-capturetasks1/compose.capturetasks.yaml,/home/ubuntu/card-platform/releases/20261030-auction1/compose.auction.yaml,/home/ubuntu/card-platform/releases/20261030-partialintake1/compose.partialintake.yaml,/home/ubuntu/card-platform/releases/20261030-015709-atlas-readonly/compose.rollback.yaml,/home/ubuntu/card-platform/releases/20261030-023839-atlas-readonly/compose.atlas.yaml",
+    "com.docker.compose.service": "api"
+  },
+  "image_revision_labels": {
+    "org.opencontainers.image.revision": "4ad79099",
+    "org.opencontainers.image.version": "0.6.7-20261030-auction1"
+  },
+  "running_containers": "card-platform-cloud-api-1 card-platform-api:atlas-readonly-20261030-023839\ncard-platform-cloud-web-1 card-platform-web:0.6.8-20261030-partialintake2\ncard-platform-cloud-postgres-1 postgres:16-alpine\n",
+  "runtime": {
+    "package_root": "/app/.venv/lib/python3.12/site-packages/card_platform",
+    "files": {
+      "knowledge_browser.py": {
+        "sha256": "c2d71ac814f9046a7622f01ad96359aba68952f4e30753b8a94199c2c99ba540"
+      },
+      "knowledge_browser_api.py": {
+        "sha256": "79273920be341f78afc66ef17e53dc74c4a3560c6537a7694deb0f5e2b5b8b99"
+      },
+      "knowledge_atlas.py": {
+        "sha256": "19dde10c9f8697d0925b0491a0df67124bd5785f8f305a8c1375109bc4e061f2"
+      },
+      "knowledge_api.py": {
+        "sha256": "adb8886f4382ccdaba1284418a6b170e51eea54b1d0ffc66a4d1ab55d295fd06"
+      },
+      "knowledge_repository.py": {
+        "sha256": "7f3061baccc013aa67497862d54f75f25f028d5d067cc3fec3e28cd302d47bf3"
+      },
+      "auth.py": {
+        "sha256": "d8025f4b4f36dd14960134b81486609acc06fce99556c36f44998530e1e9bc96"
+      },
+      "auth_api.py": {
+        "sha256": "15e6266114e1fee837a14aaa5056ab77a47e0f041aa63501b667b702a4e9889d"
+      }
+    },
+    "purchase_cost_worker_enabled": true
+  },
+  "host_git_commit": null,
+  "host_git_available": false,
+  "read_at": "2026-10-30T03:45:20.239895+00:00"
+}

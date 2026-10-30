@@ -43,3 +43,11 @@ Files: verification.md and verification artifacts.
 - [x] Browser QA desktop/mobile with isolated test server, screenshots; real frozen card read QA separately.
 - [x] One independent whole-change review; fix important issues with regression tests.
 - [x] Record exact tested scope, dependencies, remaining release requirements; do not deploy.
+
+### Task 5: Session authorization and compatible rollback safety
+See security-rollback-plan.md. Parent explicitly authorized local fixes and independent safety review; no deployment or production writes.
+- [x] Reproduce viewer publisher-impersonation and bootstrap impersonation with real auth sessions.
+- [x] Bind all legacy mutation actors to the authenticated session; preserve direct DB automation.
+- [x] Prepare exact-source compatible API overlay and retain current web source; no image build.
+- [x] Test replay across compatible API / frontend-only rollback and history load.
+- [x] Related regressions plus independent safety review; record release conditions.

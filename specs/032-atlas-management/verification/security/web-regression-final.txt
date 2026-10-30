@@ -1,0 +1,178 @@
+TAP version 13
+# Subtest: filters and panel closing retain URL and never write
+ok 1 - filters and panel closing retain URL and never write
+  ---
+  duration_ms: 225.496709
+  type: 'test'
+  ...
+# Subtest: preview and cancel are inert; network retry keeps the request key
+ok 2 - preview and cancel are inert; network retry keeps the request key
+  ---
+  duration_ms: 196.781
+  type: 'test'
+  ...
+# Subtest: readonly user can inspect without mutation controls
+ok 3 - readonly user can inspect without mutation controls
+  ---
+  duration_ms: 37.843208
+  type: 'test'
+  ...
+# Subtest: search resets offset and sends exact player/card and status filters
+ok 4 - search resets offset and sends exact player/card and status filters
+  ---
+  duration_ms: 69.627708
+  type: 'test'
+  ...
+# Subtest: URL season remains selected after asynchronous options arrive
+ok 5 - URL season remains selected after asynchronous options arrive
+  ---
+  duration_ms: 36.482333
+  type: 'test'
+  ...
+# Subtest: source mapping conflict is visible and cannot be called audited pairing
+ok 6 - source mapping conflict is visible and cannot be called audited pairing
+  ---
+  duration_ms: 26.551458
+  type: 'test'
+  ...
+# Subtest: an approved unpublished draft can be rejected, but published history cannot
+ok 7 - an approved unpublished draft can be rejected, but published history cannot
+  ---
+  duration_ms: 82.300875
+  type: 'test'
+  ...
+# Subtest: corrected effective metadata separates unknown fields from original source and pricing state
+ok 8 - corrected effective metadata separates unknown fields from original source and pricing state
+  ---
+  duration_ms: 39.379667
+  type: 'test'
+  ...
+# Subtest: publication timeline displays exact applied and rollback versions without calling rolled back current
+ok 9 - publication timeline displays exact applied and rollback versions without calling rolled back current
+  ---
+  duration_ms: 38.794375
+  type: 'test'
+  ...
+# Subtest: incomplete reviewed identity does not label unreviewed backbone as a proven image conflict
+ok 10 - incomplete reviewed identity does not label unreviewed backbone as a proven image conflict
+  ---
+  duration_ms: 30.053417
+  type: 'test'
+  ...
+# Subtest: overview includes zero-product manufacturers, immutable version and source gaps
+ok 11 - overview includes zero-product manufacturers, immutable version and source gaps
+  ---
+  duration_ms: 122.123417
+  type: 'test'
+  ...
+# Subtest: product search resets pagination and preserves filters when leaving detail
+ok 12 - product search resets pagination and preserves filters when leaving detail
+  ---
+  duration_ms: 111.892583
+  type: 'test'
+  ...
+# Subtest: card filters use the contract and ignore delayed previous responses
+ok 13 - card filters use the contract and ignore delayed previous responses
+  ---
+  duration_ms: 65.7525
+  type: 'test'
+  ...
+# Subtest: product facets and related card versions retain catalogue return context
+ok 14 - product facets and related card versions retain catalogue return context
+  ---
+  duration_ms: 105.184166
+  type: 'test'
+  ...
+# Subtest: gallery labels design images and viewer supports comparison transforms and focus return
+ok 15 - gallery labels design images and viewer supports comparison transforms and focus return
+  ---
+  duration_ms: 115.981709
+  type: 'test'
+  ...
+# Subtest: glossary filters types and presents known aliases and sources
+ok 16 - glossary filters types and presents known aliases and sources
+  ---
+  duration_ms: 26.247916
+  type: 'test'
+  ...
+# Subtest: index preparing is separate from empty content and supports manual retry
+ok 17 - index preparing is separate from empty content and supports manual retry
+  ---
+  duration_ms: 17.159791
+  type: 'test'
+  ...
+# Subtest: preparing retries stop after a bounded interval and explain manual recovery
+ok 18 - preparing retries stop after a bounded interval and explain manual recovery
+  ---
+  duration_ms: 14.000625
+  type: 'test'
+  ...
+# Subtest: a failed thumbnail keeps accessible media controls and an original-image retry
+ok 19 - a failed thumbnail keeps accessible media controls and an original-image retry
+  ---
+  duration_ms: 47.722625
+  type: 'test'
+  ...
+# Subtest: card-bound front/back switching retains exact identity and only explicit pairs are marked
+ok 20 - card-bound front/back switching retains exact identity and only explicit pairs are marked
+  ---
+  duration_ms: 45.689167
+  type: 'test'
+  ...
+# Subtest: an empty published list differs from an API error and pagination preserves URL filters
+ok 21 - an empty published list differs from an API error and pagination preserves URL filters
+  ---
+  duration_ms: 58.077375
+  type: 'test'
+  ...
+# Subtest: browser popstate restores a shareable search and filter state
+ok 22 - browser popstate restores a shareable search and filter state
+  ---
+  duration_ms: 35.99525
+  type: 'test'
+  ...
+# Subtest: comparison keeps two distinct images when the primary selection changes
+ok 23 - comparison keeps two distinct images when the primary selection changes
+  ---
+  duration_ms: 54.700041
+  type: 'test'
+  ...
+# Subtest: captured sell-sheet evidence has readable titles and source labels without losing original captions
+ok 24 - captured sell-sheet evidence has readable titles and source labels without losing original captions
+  ---
+  duration_ms: 30.597208
+  type: 'test'
+  ...
+# Subtest: global media shows its series and returns to the same gallery filters after visiting it
+ok 25 - global media shows its series and returns to the same gallery filters after visiting it
+  ---
+  duration_ms: 40.419542
+  type: 'test'
+  ...
+# Subtest: missing optional series labels still allow navigation through a known product binding
+ok 26 - missing optional series labels still allow navigation through a known product binding
+  ---
+  duration_ms: 42.83025
+  type: 'test'
+  ...
+# Subtest: media type is independent of card binding and preserves unknown or unbound specimen states
+ok 27 - media type is independent of card binding and preserves unknown or unbound specimen states
+  ---
+  duration_ms: 38.044625
+  type: 'test'
+  ...
+# Subtest: shows engineering progress without inventing full directory coverage
+ok 28 - shows engineering progress without inventing full directory coverage
+  ---
+  duration_ms: 28.693459
+  type: 'test'
+  ...
+1..28
+# tests 28
+# suites 0
+# pass 28
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1979.44075

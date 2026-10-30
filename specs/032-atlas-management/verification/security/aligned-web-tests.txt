@@ -1,0 +1,1462 @@
+TAP version 13
+# Subtest: open restores text; selected photos and condition are sent for generation and platform save
+ok 1 - open restores text; selected photos and condition are sent for generation and platform save
+  ---
+  duration_ms: 308.823583
+  type: 'test'
+  ...
+# Subtest: upload uses returned revision for automatic generation and keeps uploaded photo on generation failure
+ok 2 - upload uses returned revision for automatic generation and keeps uploaded photo on generation failure
+  ---
+  duration_ms: 0.93975
+  type: 'test'
+  ...
+# Subtest: save conflict preserves user edits and explicit refresh keeps local text
+ok 3 - save conflict preserves user edits and explicit refresh keeps local text
+  ---
+  duration_ms: 0.343708
+  type: 'test'
+  ...
+# Subtest: failed upload keeps file and text; duplicate clicks cannot upload concurrently
+ok 4 - failed upload keeps file and text; duplicate clicks cannot upload concurrently
+  ---
+  duration_ms: 0.352208
+  type: 'test'
+  ...
+# Subtest: no selection blocks generation without a network request
+ok 5 - no selection blocks generation without a network request
+  ---
+  duration_ms: 0.380542
+  type: 'test'
+  ...
+# Subtest: retry after automatic generation failure preserves manual text instead of replacing edits
+ok 6 - retry after automatic generation failure preserves manual text instead of replacing edits
+  ---
+  duration_ms: 0.3505
+  type: 'test'
+  ...
+# Subtest: disposing an editor prevents a delayed server response from replacing current state
+ok 7 - disposing an editor prevents a delayed server response from replacing current state
+  ---
+  duration_ms: 0.232667
+  type: 'test'
+  ...
+# Subtest: automatic photo generation preserves saved manual copy after reopening and persists unsaved overrides
+ok 8 - automatic photo generation preserves saved manual copy after reopening and persists unsaved overrides
+  ---
+  duration_ms: 0.632375
+  type: 'test'
+  ...
+# Subtest: an upload retry reuses its request UUID after a lost committed response and generates once from replay revision
+ok 9 - an upload retry reuses its request UUID after a lost committed response and generates once from replay revision
+  ---
+  duration_ms: 2.608667
+  type: 'test'
+  ...
+# Subtest: conflict refresh merges untouched remote fields while exposing concurrent edits to the same field
+ok 10 - conflict refresh merges untouched remote fields while exposing concurrent edits to the same field
+  ---
+  duration_ms: 0.999
+  type: 'test'
+  ...
+# Subtest: conflict refresh removes unavailable local photo ids and merges newly selected remote uploads
+ok 11 - conflict refresh removes unavailable local photo ids and merges newly selected remote uploads
+  ---
+  duration_ms: 0.310458
+  type: 'test'
+  ...
+# Subtest: the editor visibly shows the latest conflicting server title for comparison before save
+ok 12 - the editor visibly shows the latest conflicting server title for comparison before save
+  ---
+  duration_ms: 198.1495
+  type: 'test'
+  ...
+# Subtest: USB connect immediately shows pending feedback and an empty-device error beside its controls
+ok 13 - USB connect immediately shows pending feedback and an empty-device error beside its controls
+  ---
+  duration_ms: 92.14725
+  type: 'test'
+  ...
+# Subtest: USB success explains the shutter step, capture reports local progress, and failed reconnect clears the old device
+ok 14 - USB success explains the shutter step, capture reports local progress, and failed reconnect clears the old device
+  ---
+  duration_ms: 201.790584
+  type: 'test'
+  ...
+# Subtest: background account blocks open login without manually fetching a card; closing keeps a reminder
+ok 15 - background account blocks open login without manually fetching a card; closing keeps a reminder
+  ---
+  duration_ms: 189.893166
+  type: 'test'
+  ...
+# Subtest: late background failure and a new batch prompt; verification never sends SMS automatically
+ok 16 - late background failure and a new batch prompt; verification never sends SMS automatically
+  ---
+  duration_ms: 109.034125
+  type: 'test'
+  ...
+# Subtest: login success clears the block and never starts a second per-card lookup
+ok 17 - login success clears the block and never starts a second per-card lookup
+  ---
+  duration_ms: 33.666459
+  type: 'test'
+  ...
+# Subtest: a late response from the previous owner cannot display its block after an account switch
+ok 18 - a late response from the previous owner cannot display its block after an account switch
+  ---
+  duration_ms: 8.421042
+  type: 'test'
+  ...
+# Subtest: removing the latest blocked card updates the reminder without reopening the dismissed batch
+ok 19 - removing the latest blocked card updates the reminder without reopening the dismissed batch
+  ---
+  duration_ms: 49.629125
+  type: 'test'
+  ...
+# Subtest: capability network failures remain retryable and never declare legacy support
+ok 20 - capability network failures remain retryable and never declare legacy support
+  ---
+  duration_ms: 1.594875
+  type: 'test'
+  ...
+# Subtest: unknown paired capture allows optional image review and sends reviewed hashes only when checked
+ok 21 - unknown paired capture allows optional image review and sends reviewed hashes only when checked
+  ---
+  duration_ms: 165.794792
+  type: 'test'
+  ...
+# Subtest: known paired capture conflicts cannot be overridden by a generic confirmation
+ok 22 - known paired capture conflicts cannot be overridden by a generic confirmation
+  ---
+  duration_ms: 95.14625
+  type: 'test'
+  ...
+# Subtest: only-back capture sends a real back file and keeps the same request id after network failure
+ok 23 - only-back capture sends a real back file and keeps the same request id after network failure
+  ---
+  duration_ms: 100.59275
+  type: 'test'
+  ...
+# Subtest: supplement confirms images only and retains human identity
+ok 24 - supplement confirms images only and retains human identity
+  ---
+  duration_ms: 63.50575
+  type: 'test'
+  ...
+# Subtest: supplement requires explicit field checkboxes and merges complete current identity
+ok 25 - supplement requires explicit field checkboxes and merges complete current identity
+  ---
+  duration_ms: 85.565084
+  type: 'test'
+  ...
+# Subtest: formally bound identity explains read-only suggestions and still permits pictures only
+ok 26 - formally bound identity explains read-only suggestions and still permits pictures only
+  ---
+  duration_ms: 38.919958
+  type: 'test'
+  ...
+# Subtest: generic capture keeps assessment-unknown model identity blank before confirmation
+ok 27 - generic capture keeps assessment-unknown model identity blank before confirmation
+  ---
+  duration_ms: 117.642875
+  type: 'test'
+  ...
+# Subtest: persistent task entry reports failed automatic captures without opening scanner or modal
+ok 28 - persistent task entry reports failed automatic captures without opening scanner or modal
+  ---
+  duration_ms: 129.942833
+  type: 'test'
+  ...
+# Subtest: task request errors stay visible and are never rendered as an empty task list
+ok 29 - task request errors stay visible and are never rendered as an empty task list
+  ---
+  duration_ms: 44.0365
+  type: 'test'
+  ...
+# Subtest: task pages retain filters and reach historical records after the first 100
+ok 30 - task pages retain filters and reach historical records after the first 100
+  ---
+  duration_ms: 239.248125
+  type: 'test'
+  ...
+# Subtest: failed task opens both images, attempt history, manual fields and bound-image confirmation
+ok 31 - failed task opens both images, attempt history, manual fields and bound-image confirmation
+  ---
+  duration_ms: 285.757709
+  type: 'test'
+  ...
+# Subtest: true face conflict cannot be manually confirmed and replacement preserves one idempotency key after failure
+ok 32 - true face conflict cannot be manually confirmed and replacement preserves one idempotency key after failure
+  ---
+  duration_ms: 291.414042
+  type: 'test'
+  ...
+# Subtest: manual retry refreshes detail without removing earlier failure history or switching filters
+ok 33 - manual retry refreshes detail without removing earlier failure history or switching filters
+  ---
+  duration_ms: 60.199
+  type: 'test'
+  ...
+# Subtest: Canon submitted ids are opened directly in task center even when task is imported
+ok 34 - Canon submitted ids are opened directly in task center even when task is imported
+  ---
+  duration_ms: 27.256083
+  type: 'test'
+  ...
+# Subtest: unknown flags stay unknown when untouched and explicit tri-state corrections are included
+ok 35 - unknown flags stay unknown when untouched and explicit tri-state corrections are included
+  ---
+  duration_ms: 132.015042
+  type: 'test'
+  ...
+# Subtest: finishing an older retry cannot replace the task currently being reviewed
+ok 36 - finishing an older retry cannot replace the task currently being reviewed
+  ---
+  duration_ms: 155.45775
+  type: 'test'
+  ...
+# Subtest: opening a task brings its detail into view on narrow screens
+ok 37 - opening a task brings its detail into view on narrow screens
+  ---
+  duration_ms: 40.111125
+  type: 'test'
+  ...
+# Subtest: blank identity can be imported without asserting an unknown pair and remains visibly pending
+ok 38 - blank identity can be imported without asserting an unknown pair and remains visibly pending
+  ---
+  duration_ms: 70.429958
+  type: 'test'
+  ...
+# Subtest: uncertain model fields start blank while explicit user corrections remain savable
+ok 39 - uncertain model fields start blank while explicit user corrections remain savable
+  ---
+  duration_ms: 149.223958
+  type: 'test'
+  ...
+# Subtest: explicit attribute corrections override uncertain model assessments without filling untouched flags
+ok 40 - explicit attribute corrections override uncertain model assessments without filling untouched flags
+  ---
+  duration_ms: 83.993916
+  type: 'test'
+  ...
+# Subtest: SMS code 7215 can submit through native form validation
+ok 41 - SMS code 7215 can submit through native form validation
+  ---
+  duration_ms: 140.575083
+  type: 'test'
+  ...
+# Subtest: SMS code 0123 can submit through native form validation
+ok 42 - SMS code 0123 can submit through native form validation
+  ---
+  duration_ms: 21.144625
+  type: 'test'
+  ...
+# Subtest: SMS code 123456 can submit through native form validation
+ok 43 - SMS code 123456 can submit through native form validation
+  ---
+  duration_ms: 34.852791
+  type: 'test'
+  ...
+# Subtest: invalid SMS code "" blocks submission
+ok 44 - invalid SMS code "" blocks submission
+  ---
+  duration_ms: 47.34325
+  type: 'test'
+  ...
+# Subtest: invalid SMS code "123" blocks submission
+ok 45 - invalid SMS code "123" blocks submission
+  ---
+  duration_ms: 25.992708
+  type: 'test'
+  ...
+# Subtest: invalid SMS code "1234567" blocks submission
+ok 46 - invalid SMS code "1234567" blocks submission
+  ---
+  duration_ms: 37.427083
+  type: 'test'
+  ...
+# Subtest: invalid SMS code "12a4" blocks submission
+ok 47 - invalid SMS code "12a4" blocks submission
+  ---
+  duration_ms: 21.020125
+  type: 'test'
+  ...
+# Subtest: an unsent SMS challenge cannot submit a code or continue
+ok 48 - an unsent SMS challenge cannot submit a code or continue
+  ---
+  duration_ms: 21.929333
+  type: 'test'
+  ...
+# Subtest: server search works without Chrome extension; credentials never sent in search or status
+ok 49 - server search works without Chrome extension; credentials never sent in search or status
+  ---
+  duration_ms: 0.517875
+  type: 'test'
+  ...
+# Subtest: account error LOGIN_REQUIRED opens recoverable product flow
+ok 50 - account error LOGIN_REQUIRED opens recoverable product flow
+  ---
+  duration_ms: 0.619542
+  type: 'test'
+  ...
+# Subtest: account error LOGIN_REJECTED opens recoverable product flow
+ok 51 - account error LOGIN_REJECTED opens recoverable product flow
+  ---
+  duration_ms: 0.081625
+  type: 'test'
+  ...
+# Subtest: account error VERIFICATION_REQUIRED opens recoverable product flow
+ok 52 - account error VERIFICATION_REQUIRED opens recoverable product flow
+  ---
+  duration_ms: 0.058625
+  type: 'test'
+  ...
+# Subtest: missing account opens login, successful save resumes the exact card with no empty evidence write
+ok 53 - missing account opens login, successful save resumes the exact card with no empty evidence write
+  ---
+  duration_ms: 90.134417
+  type: 'test'
+  ...
+# Subtest: wrong password stays in form and does not continue
+ok 54 - wrong password stays in form and does not continue
+  ---
+  duration_ms: 27.069333
+  type: 'test'
+  ...
+# Subtest: SMS challenge clears password and resumes only after successful verification
+ok 55 - SMS challenge clears password and resumes only after successful verification
+  ---
+  duration_ms: 23.71225
+  type: 'test'
+  ...
+# Subtest: unmount aborts login and ignores a late success
+ok 56 - unmount aborts login and ignores a late success
+  ---
+  duration_ms: 13.067917
+  type: 'test'
+  ...
+# Subtest: forget deletes only backend binding and resets SMS form
+ok 57 - forget deletes only backend binding and resets SMS form
+  ---
+  duration_ms: 10.263708
+  type: 'test'
+  ...
+# Subtest: empty complete name search retries the supplied product fallback
+ok 58 - empty complete name search retries the supplied product fallback
+  ---
+  duration_ms: 0.212541
+  type: 'test'
+  ...
+# Subtest: incomplete name search does not turn into a complete product search
+ok 59 - incomplete name search does not turn into a complete product search
+  ---
+  duration_ms: 0.080375
+  type: 'test'
+  ...
+# Subtest: product fallback authentication error remains recoverable rather than no orders
+ok 60 - product fallback authentication error remains recoverable rather than no orders
+  ---
+  duration_ms: 0.186291
+  type: 'test'
+  ...
+# Subtest: a rejected name candidate also gets one bounded product retry with both order scopes
+ok 61 - a rejected name candidate also gets one bounded product retry with both order scopes
+  ---
+  duration_ms: 0.238458
+  type: 'test'
+  ...
+# Subtest: image title correction is disclosed in the rendered order evidence
+ok 62 - image title correction is disclosed in the rendered order evidence
+  ---
+  duration_ms: 1.721333
+  type: 'test'
+  ...
+# Subtest: closing the modal after final matching starts still reports a confirmed write
+ok 63 - closing the modal after final matching starts still reports a confirmed write
+  ---
+  duration_ms: 102.857916
+  type: 'test'
+  ...
+# Subtest: cancelling as product fallback returns cannot start another write
+ok 64 - cancelling as product fallback returns cannot start another write
+  ---
+  duration_ms: 0.82175
+  type: 'test'
+  ...
+# Subtest: expired challenge offers restart and recovers the slider without asking for credentials
+ok 65 - expired challenge offers restart and recovers the slider without asking for credentials
+  ---
+  duration_ms: 314.954417
+  type: 'test'
+  ...
+# Subtest: only the current official captcha frame can trigger one SMS request, and only success marks sent
+ok 66 - only the current official captcha frame can trigger one SMS request, and only success marks sent
+  ---
+  duration_ms: 71.987292
+  type: 'test'
+  ...
+# Subtest: send failure never shows success and reloads server cooldown
+ok 67 - send failure never shows success and reloads server cooldown
+  ---
+  duration_ms: 92.071833
+  type: 'test'
+  ...
+# Subtest: refresh restores confirmed send without resending
+ok 68 - refresh restores confirmed send without resending
+  ---
+  duration_ms: 10.297666
+  type: 'test'
+  ...
+# Subtest: advanced fields preserve false and zero and allow multi-value intersection
+ok 69 - advanced fields preserve false and zero and allow multi-value intersection
+  ---
+  duration_ms: 296.351834
+  type: 'test'
+  ...
+# Subtest: invalid ranges display an error without applying and chips clear independently
+ok 70 - invalid ranges display an error without applying and chips clear independently
+  ---
+  duration_ms: 152.022917
+  type: 'test'
+  ...
+# Subtest: Chinese composition does not accidentally submit incomplete query
+ok 71 - Chinese composition does not accidentally submit incomplete query
+  ---
+  duration_ms: 41.712416
+  type: 'test'
+  ...
+# Subtest: holding status filter can select sold cards and clear back to all
+ok 72 - holding status filter can select sold cards and clear back to all
+  ---
+  duration_ms: 36.598167
+  type: 'test'
+  ...
+# Subtest: manual cost entry is directly accessible and saves without contacting CardHobby
+ok 73 - manual cost entry is directly accessible and saves without contacting CardHobby
+  ---
+  duration_ms: 737.805333
+  type: 'test'
+  ...
+# Subtest: cards render without waiting for summary or correction counts
+ok 74 - cards render without waiting for summary or correction counts
+  ---
+  duration_ms: 238.52575
+  type: 'test'
+  ...
+# Subtest: core detail displays while review and catalog are pending, and auxiliary errors can retry
+ok 75 - core detail displays while review and catalog are pending, and auxiliary errors can retry
+  ---
+  duration_ms: 360.341167
+  type: 'test'
+  ...
+# Subtest: closing detail invalidates late auxiliary responses
+ok 76 - closing detail invalidates late auxiliary responses
+  ---
+  duration_ms: 322.540791
+  type: 'test'
+  ...
+# Subtest: switching cards discards the previous card catalog and auxiliary failures
+ok 77 - switching cards discards the previous card catalog and auxiliary failures
+  ---
+  duration_ms: 588.336334
+  type: 'test'
+  ...
+# Subtest: logout rejects a summary that completes after the session ended
+ok 78 - logout rejects a summary that completes after the session ended
+  ---
+  duration_ms: 341.918583
+  type: 'test'
+  ...
+# Subtest: session expiry clears account cards, amounts and correction state before another login
+ok 79 - session expiry clears account cards, amounts and correction state before another login
+  ---
+  duration_ms: 382.882916
+  type: 'test'
+  ...
+# Subtest: auxiliary failures do not erase cards and have a retry action
+ok 80 - auxiliary failures do not erase cards and have a retry action
+  ---
+  duration_ms: 208.651792
+  type: 'test'
+  ...
+# Subtest: search, sorting and page size reuse metrics while an explicit refresh reloads them
+ok 81 - search, sorting and page size reuse metrics while an explicit refresh reloads them
+  ---
+  duration_ms: 603.276625
+  type: 'test'
+  ...
+# Subtest: unfiltered loading projects only the page and refresh keeps metrics independent
+ok 82 - unfiltered loading projects only the page and refresh keeps metrics independent
+  ---
+  duration_ms: 159.619416
+  type: 'test'
+  ...
+# Subtest: collection search is beside holdings and queries the whole account, preserving filters across pagination
+ok 83 - collection search is beside holdings and queries the whole account, preserving filters across pagination
+  ---
+  duration_ms: 490.695
+  type: 'test'
+  ...
+# Subtest: new search supersedes an older page request and retains server results not matching literal Chinese text
+ok 84 - new search supersedes an older page request and retains server results not matching literal Chinese text
+  ---
+  duration_ms: 196.363583
+  type: 'test'
+  ...
+# Subtest: failed search from later page remains on search page one when background work retries
+ok 85 - failed search from later page remains on search page one when background work retries
+  ---
+  duration_ms: 383.467875
+  type: 'test'
+  ...
+# Subtest: historical scanner imports on other pages refresh once without a fetch/render loop
+ok 86 - historical scanner imports on other pages refresh once without a fetch/render loop
+  ---
+  duration_ms: 65.141292
+  type: 'test'
+  ...
+# Subtest: portfolio metrics update automatically only after scanned cards are imported
+ok 87 - portfolio metrics update automatically only after scanned cards are imported
+  ---
+  duration_ms: 34.817209
+  type: 'test'
+  ...
+# Subtest: background valuation keeps the total and pager stable; stale page response cannot undo navigation
+ok 88 - background valuation keeps the total and pager stable; stale page response cannot undo navigation
+  ---
+  duration_ms: 123.89675
+  type: 'test'
+  ...
+# Subtest: final scanner import retries after a failed refresh even after active polling stops
+ok 89 - final scanner import retries after a failed refresh even after active polling stops
+  ---
+  duration_ms: 125.811416
+  type: 'test'
+  ...
+# Subtest: scanner completion waits for navigation, then refreshes the selected page without hiding the total
+ok 90 - scanner completion waits for navigation, then refreshes the selected page without hiding the total
+  ---
+  duration_ms: 192.682375
+  type: 'test'
+  ...
+# Subtest: getting cost directly from the price cell stays in the list and updates the price while refreshing quietly
+ok 91 - getting cost directly from the price cell stays in the list and updates the price while refreshing quietly
+  ---
+  duration_ms: 192.520958
+  type: 'test'
+  ...
+# Subtest: explicit cost lookup refreshes an existing 0.00 cost and immediately displays new price
+ok 92 - explicit cost lookup refreshes an existing 0.00 cost and immediately displays new price
+  ---
+  duration_ms: 74.937042
+  type: 'test'
+  ...
+# Subtest: explicit cost lookup refreshes an existing 25.00 cost and immediately displays new price
+ok 93 - explicit cost lookup refreshes an existing 25.00 cost and immediately displays new price
+  ---
+  duration_ms: 42.460125
+  type: 'test'
+  ...
+# Subtest: pending cost follows its card across pages and completion refreshes the currently selected page
+ok 94 - pending cost follows its card across pages and completion refreshes the currently selected page
+  ---
+  duration_ms: 172.905542
+  type: 'test'
+  ...
+# Subtest: different cards queue their searches while each row keeps its own pending state and result
+ok 95 - different cards queue their searches while each row keeps its own pending state and result
+  ---
+  duration_ms: 212.789334
+  type: 'test'
+  ...
+# Subtest: no matching order ends the row loading state and a later click starts a fresh automatic lookup
+ok 96 - no matching order ends the row loading state and a later click starts a fresh automatic lookup
+  ---
+  duration_ms: 154.629542
+  type: 'test'
+  ...
+# Subtest: a search failure ends the row loading state and does not prevent retry
+ok 97 - a search failure ends the row loading state and does not prevent retry
+  ---
+  duration_ms: 169.676666
+  type: 'test'
+  ...
+# Subtest: duplicate purchases wait in the row and opening their choice uses the already fetched evidence
+ok 98 - duplicate purchases wait in the row and opening their choice uses the already fetched evidence
+  ---
+  duration_ms: 151.915375
+  type: 'test'
+  ...
+# Subtest: a missing connection stops row loading and opens connection instructions only when requested
+ok 99 - a missing connection stops row loading and opens connection instructions only when requested
+  ---
+  duration_ms: 63.8345
+  type: 'test'
+  ...
+# Subtest: expired login is visible in the row with a login link and no cost write
+ok 100 - expired login is visible in the row with a login link and no cost write
+  ---
+  duration_ms: 81.903875
+  type: 'test'
+  ...
+# Subtest: selected cost recording skips unselected cards and existing zero costs, then updates queued rows in order
+ok 101 - selected cost recording skips unselected cards and existing zero costs, then updates queued rows in order
+  ---
+  duration_ms: 538.593
+  type: 'test'
+  ...
+# Subtest: a batch joins an existing lookup once and keeps its submitted cards after deselection and navigation
+ok 102 - a batch joins an existing lookup once and keeps its submitted cards after deselection and navigation
+  ---
+  duration_ms: 509.67725
+  type: 'test'
+  ...
+# Subtest: selected retry preserves duplicate choices and retries only the unmatched card
+ok 103 - selected retry preserves duplicate choices and retries only the unmatched card
+  ---
+  duration_ms: 182.6235
+  type: 'test'
+  ...
+# Subtest: page size defaults to 30 and persists through filtered navigation and polling
+ok 104 - page size defaults to 30 and persists through filtered navigation and polling
+  ---
+  duration_ms: 160.931666
+  type: 'test'
+  ...
+# Subtest: size change supersedes older requests and failed size changes retry at page one
+ok 105 - size change supersedes older requests and failed size changes retry at page one
+  ---
+  duration_ms: 197.8975
+  type: 'test'
+  ...
+# Subtest: marking sold and restoring refresh both card state and portfolio metrics
+ok 106 - marking sold and restoring refresh both card state and portfolio metrics
+  ---
+  duration_ms: 146.32325
+  type: 'test'
+  ...
+# Subtest: first page is requested without competing full-account metrics
+ok 107 - first page is requested without competing full-account metrics
+  ---
+  duration_ms: 80.271458
+  type: 'test'
+  ...
+# Subtest: next page rebuilds an expired snapshot without returning to page one
+ok 108 - next page rebuilds an expired snapshot without returning to page one
+  ---
+  duration_ms: 154.078167
+  type: 'test'
+  ...
+# Subtest: search superseding the first load still starts initial account metrics once
+ok 109 - search superseding the first load still starts initial account metrics once
+  ---
+  duration_ms: 53.655583
+  type: 'test'
+  ...
+# Subtest: incomplete imported card stays visible with pending marker and blank-safe library and detail identity
+ok 110 - incomplete imported card stays visible with pending marker and blank-safe library and detail identity
+  ---
+  duration_ms: 58.704584
+  type: 'test'
+  ...
+# Subtest: restored fronts wait for a back scan and offer reconnection beside the back step
+ok 111 - restored fronts wait for a back scan and offer reconnection beside the back step
+  ---
+  duration_ms: 294.868041
+  type: 'test'
+  ...
+# Subtest: cloud Canon scans locally, retains failed upload and retries without scanning twice
+ok 112 - cloud Canon scans locally, retains failed upload and retries without scanning twice
+  ---
+  duration_ms: 233.209791
+  type: 'test'
+  ...
+# Subtest: unavailable scanner disables native capture while whole-sheet import remains usable
+ok 113 - unavailable scanner disables native capture while whole-sheet import remains usable
+  ---
+  duration_ms: 39.654417
+  type: 'test'
+  ...
+# Subtest: closing cloud scanner aborts local capture and cannot start a late cloud upload
+ok 114 - closing cloud scanner aborts local capture and cannot start a late cloud upload
+  ---
+  duration_ms: 188.635916
+  type: 'test'
+  ...
+# Subtest: closing while connecting aborts the exclusive local device probe
+ok 115 - closing while connecting aborts the exclusive local device probe
+  ---
+  duration_ms: 48.375292
+  type: 'test'
+  ...
+# Subtest: back scan keeps reporting crop progress until pairing completes
+ok 116 - back scan keeps reporting crop progress until pairing completes
+  ---
+  duration_ms: 3071.078083
+  type: 'test'
+  ...
+# Subtest: explicit next batch creates a fresh session instead of reusing restored sheets
+ok 117 - explicit next batch creates a fresh session instead of reusing restored sheets
+  ---
+  duration_ms: 20.625666
+  type: 'test'
+  ...
+# Subtest: flatbed submit carries the token returned for the confirmed images
+ok 118 - flatbed submit carries the token returned for the confirmed images
+  ---
+  duration_ms: 55.456417
+  type: 'test'
+  ...
+# Subtest: mark sold and restore request explicit states, with busy and failure feedback
+ok 119 - mark sold and restore request explicit states, with busy and failure feedback
+  ---
+  duration_ms: 118.534208
+  type: 'test'
+  ...
+# Subtest: both sides start immediately and completion waits for both
+ok 120 - both sides start immediately and completion waits for both
+  ---
+  duration_ms: 0.883667
+  type: 'test'
+  ...
+# Subtest: one failed upload waits for the other before reporting failure
+ok 121 - one failed upload waits for the other before reporting failure
+  ---
+  duration_ms: 3.27575
+  type: 'test'
+  ...
+# Subtest: empty and single-side input do not add uploads
+ok 122 - empty and single-side input do not add uploads
+  ---
+  duration_ms: 0.518792
+  type: 'test'
+  ...
+# Subtest: filters and panel closing retain URL and never write
+ok 123 - filters and panel closing retain URL and never write
+  ---
+  duration_ms: 400.149625
+  type: 'test'
+  ...
+# Subtest: preview and cancel are inert; network retry keeps the request key
+ok 124 - preview and cancel are inert; network retry keeps the request key
+  ---
+  duration_ms: 318.841791
+  type: 'test'
+  ...
+# Subtest: readonly user can inspect without mutation controls
+ok 125 - readonly user can inspect without mutation controls
+  ---
+  duration_ms: 134.909208
+  type: 'test'
+  ...
+# Subtest: search resets offset and sends exact player/card and status filters
+ok 126 - search resets offset and sends exact player/card and status filters
+  ---
+  duration_ms: 169.882708
+  type: 'test'
+  ...
+# Subtest: URL season remains selected after asynchronous options arrive
+ok 127 - URL season remains selected after asynchronous options arrive
+  ---
+  duration_ms: 81.424542
+  type: 'test'
+  ...
+# Subtest: source mapping conflict is visible and cannot be called audited pairing
+ok 128 - source mapping conflict is visible and cannot be called audited pairing
+  ---
+  duration_ms: 58.771292
+  type: 'test'
+  ...
+# Subtest: an approved unpublished draft can be rejected, but published history cannot
+ok 129 - an approved unpublished draft can be rejected, but published history cannot
+  ---
+  duration_ms: 130.991458
+  type: 'test'
+  ...
+# Subtest: corrected effective metadata separates unknown fields from original source and pricing state
+ok 130 - corrected effective metadata separates unknown fields from original source and pricing state
+  ---
+  duration_ms: 59.356958
+  type: 'test'
+  ...
+# Subtest: publication timeline displays exact applied and rollback versions without calling rolled back current
+ok 131 - publication timeline displays exact applied and rollback versions without calling rolled back current
+  ---
+  duration_ms: 86.821
+  type: 'test'
+  ...
+# Subtest: incomplete reviewed identity does not label unreviewed backbone as a proven image conflict
+ok 132 - incomplete reviewed identity does not label unreviewed backbone as a proven image conflict
+  ---
+  duration_ms: 74.985917
+  type: 'test'
+  ...
+# Subtest: overview includes zero-product manufacturers, immutable version and source gaps
+ok 133 - overview includes zero-product manufacturers, immutable version and source gaps
+  ---
+  duration_ms: 392.643083
+  type: 'test'
+  ...
+# Subtest: product search resets pagination and preserves filters when leaving detail
+ok 134 - product search resets pagination and preserves filters when leaving detail
+  ---
+  duration_ms: 267.886958
+  type: 'test'
+  ...
+# Subtest: card filters use the contract and ignore delayed previous responses
+ok 135 - card filters use the contract and ignore delayed previous responses
+  ---
+  duration_ms: 174.112333
+  type: 'test'
+  ...
+# Subtest: product facets and related card versions retain catalogue return context
+ok 136 - product facets and related card versions retain catalogue return context
+  ---
+  duration_ms: 252.387041
+  type: 'test'
+  ...
+# Subtest: gallery labels design images and viewer supports comparison transforms and focus return
+ok 137 - gallery labels design images and viewer supports comparison transforms and focus return
+  ---
+  duration_ms: 223.617209
+  type: 'test'
+  ...
+# Subtest: glossary filters types and presents known aliases and sources
+ok 138 - glossary filters types and presents known aliases and sources
+  ---
+  duration_ms: 70.876042
+  type: 'test'
+  ...
+# Subtest: index preparing is separate from empty content and supports manual retry
+ok 139 - index preparing is separate from empty content and supports manual retry
+  ---
+  duration_ms: 38.310792
+  type: 'test'
+  ...
+# Subtest: preparing retries stop after a bounded interval and explain manual recovery
+ok 140 - preparing retries stop after a bounded interval and explain manual recovery
+  ---
+  duration_ms: 31.444291
+  type: 'test'
+  ...
+# Subtest: a failed thumbnail keeps accessible media controls and an original-image retry
+ok 141 - a failed thumbnail keeps accessible media controls and an original-image retry
+  ---
+  duration_ms: 76.084875
+  type: 'test'
+  ...
+# Subtest: card-bound front/back switching retains exact identity and only explicit pairs are marked
+ok 142 - card-bound front/back switching retains exact identity and only explicit pairs are marked
+  ---
+  duration_ms: 86.267042
+  type: 'test'
+  ...
+# Subtest: an empty published list differs from an API error and pagination preserves URL filters
+ok 143 - an empty published list differs from an API error and pagination preserves URL filters
+  ---
+  duration_ms: 207.756292
+  type: 'test'
+  ...
+# Subtest: browser popstate restores a shareable search and filter state
+ok 144 - browser popstate restores a shareable search and filter state
+  ---
+  duration_ms: 112.790458
+  type: 'test'
+  ...
+# Subtest: comparison keeps two distinct images when the primary selection changes
+ok 145 - comparison keeps two distinct images when the primary selection changes
+  ---
+  duration_ms: 104.45125
+  type: 'test'
+  ...
+# Subtest: captured sell-sheet evidence has readable titles and source labels without losing original captions
+ok 146 - captured sell-sheet evidence has readable titles and source labels without losing original captions
+  ---
+  duration_ms: 94.085625
+  type: 'test'
+  ...
+# Subtest: global media shows its series and returns to the same gallery filters after visiting it
+ok 147 - global media shows its series and returns to the same gallery filters after visiting it
+  ---
+  duration_ms: 112.098792
+  type: 'test'
+  ...
+# Subtest: missing optional series labels still allow navigation through a known product binding
+ok 148 - missing optional series labels still allow navigation through a known product binding
+  ---
+  duration_ms: 81.0055
+  type: 'test'
+  ...
+# Subtest: media type is independent of card binding and preserves unknown or unbound specimen states
+ok 149 - media type is independent of card binding and preserves unknown or unbound specimen states
+  ---
+  duration_ms: 122.084083
+  type: 'test'
+  ...
+# Subtest: camera connects and captures only enumerated device without forwarding cloud credentials
+ok 150 - camera connects and captures only enumerated device without forwarding cloud credentials
+  ---
+  duration_ms: 29.858417
+  type: 'test'
+  ...
+# Subtest: missing devices, unavailable helper, and non-image capture remain failures
+ok 151 - missing devices, unavailable helper, and non-image capture remain failures
+  ---
+  duration_ms: 0.581125
+  type: 'test'
+  ...
+# Subtest: local requests omit cloud credentials and capture returns exact image plus native metadata
+ok 152 - local requests omit cloud credentials and capture returns exact image plus native metadata
+  ---
+  duration_ms: 31.878375
+  type: 'test'
+  ...
+# Subtest: helper/network errors remain recoverable and never redirect to cloud native capture
+ok 153 - helper/network errors remain recoverable and never redirect to cloud native capture
+  ---
+  duration_ms: 0.5975
+  type: 'test'
+  ...
+# Subtest: positive and negative coexist with evidence and source links
+ok 154 - positive and negative coexist with evidence and source links
+  ---
+  duration_ms: 78.623041
+  type: 'test'
+  ...
+# Subtest: expired alerts never render
+ok 155 - expired alerts never render
+  ---
+  duration_ms: 2.462125
+  type: 'test'
+  ...
+# Subtest: open page removes a marker automatically at expiry
+ok 156 - open page removes a marker automatically at expiry
+  ---
+  duration_ms: 137.146208
+  type: 'test'
+  ...
+# Subtest: shows engineering progress without inventing full directory coverage
+ok 157 - shows engineering progress without inventing full directory coverage
+  ---
+  duration_ms: 48.766375
+  type: 'test'
+  ...
+# Subtest: scanner draft is confirmed through its capture job without create-upload-delete bypass
+ok 158 - scanner draft is confirmed through its capture job without create-upload-delete bypass
+  ---
+  duration_ms: 1349.096334
+  type: 'test'
+  ...
+# Subtest: raw two-photo recognition is persisted and a known conflict cannot enter the card form
+ok 159 - raw two-photo recognition is persisted and a known conflict cannot enter the card form
+  ---
+  duration_ms: 541.86875
+  type: 'test'
+  ...
+# Subtest: library header exposes failed automatic tasks before opening any recognition mode
+ok 160 - library header exposes failed automatic tasks before opening any recognition mode
+  ---
+  duration_ms: 278.762708
+  type: 'test'
+  ...
+# Subtest: Canon submission opens its new task and photos instead of leaving an empty card library
+ok 161 - Canon submission opens its new task and photos instead of leaving an empty card library
+  ---
+  duration_ms: 384.314541
+  type: 'test'
+  ...
+# Subtest: legacy scanner confirmation saves blank identity and unknown pairing without inventing defaults
+ok 162 - legacy scanner confirmation saves blank identity and unknown pairing without inventing defaults
+  ---
+  duration_ms: 353.594667
+  type: 'test'
+  ...
+# Subtest: CardHobby intake leaves uncertain identity blank and imports without invented brand or years
+ok 163 - CardHobby intake leaves uncertain identity blank and imports without invented brand or years
+  ---
+  duration_ms: 190.743625
+  type: 'test'
+  ...
+# Subtest: recognition preview clears uncertain suggestions and preserves explicitly retyped identity through save
+ok 164 - recognition preview clears uncertain suggestions and preserves explicitly retyped identity through save
+  ---
+  duration_ms: 392.165334
+  type: 'test'
+  ...
+# Subtest: shared sorting ranks the disclosed monthly card and leaves a missing reference last
+ok 165 - shared sorting ranks the disclosed monthly card and leaves a missing reference last
+  ---
+  duration_ms: 9.938875
+  type: 'test'
+  ...
+# Subtest: collapsed row exposes monthly signal, exact identity, medians and sample counts without an index
+ok 166 - collapsed row exposes monthly signal, exact identity, medians and sample counts without an index
+  ---
+  duration_ms: 91.162667
+  type: 'test'
+  ...
+# Subtest: index-only data cannot appear as a monthly change or a false zero
+ok 167 - index-only data cannot appear as a monthly change or a false zero
+  ---
+  duration_ms: 20.7535
+  type: 'test'
+  ...
+# Subtest: monthly sorting works through user controls and reference outside detail limit remains visible
+ok 168 - monthly sorting works through user controls and reference outside detail limit remains visible
+  ---
+  duration_ms: 91.983083
+  type: 'test'
+  ...
+# Subtest: both declared comparison windows are displayed in Shanghai calendar dates
+ok 169 - both declared comparison windows are displayed in Shanghai calendar dates
+  ---
+  duration_ms: 0.829625
+  type: 'test'
+  ...
+# Subtest: default activity ranking excludes an older market and shows its actual report date
+ok 170 - default activity ranking excludes an older market and shows its actual report date
+  ---
+  duration_ms: 59.527667
+  type: 'test'
+  ...
+# Subtest: reference identity preserves a printed two-year season and its manufacturer
+ok 171 - reference identity preserves a printed two-year season and its manufacturer
+  ---
+  duration_ms: 0.53775
+  type: 'test'
+  ...
+# Subtest: ineligible base trend remains evidence without a player reference or headline gain
+ok 172 - ineligible base trend remains evidence without a player reference or headline gain
+  ---
+  duration_ms: 12.97825
+  type: 'test'
+  ...
+# Subtest: real empty dataset is not silently replaced with demo
+ok 173 - real empty dataset is not silently replaced with demo
+  ---
+  duration_ms: 47.229667
+  type: 'test'
+  ...
+# Subtest: explicit demo shows label, sort controls and representative detail
+ok 174 - explicit demo shows label, sort controls and representative detail
+  ---
+  duration_ms: 311.777792
+  type: 'test'
+  ...
+# Subtest: zero change ranks ahead of insufficient without turning null into zero
+ok 175 - zero change ranks ahead of insufficient without turning null into zero
+  ---
+  duration_ms: 0.266458
+  type: 'test'
+  ...
+# Subtest: source failure and no result are visible and refresh is disabled in demo
+ok 176 - source failure and no result are visible and refresh is disabled in demo
+  ---
+  duration_ms: 82.390041
+  type: 'test'
+  ...
+# Subtest: stale snapshots and source errors are visible before expanding a row
+ok 177 - stale snapshots and source errors are visible before expanding a row
+  ---
+  duration_ms: 45.900708
+  type: 'test'
+  ...
+# Subtest: single-card market survives a missing index and refresh targets just that player
+ok 178 - single-card market survives a missing index and refresh targets just that player
+  ---
+  duration_ms: 114.9055
+  type: 'test'
+  ...
+# Subtest: sampling error leaves existing market visible and explains rejected identities
+ok 179 - sampling error leaves existing market visible and explains rejected identities
+  ---
+  duration_ms: 29.033208
+  type: 'test'
+  ...
+# Subtest: waits for server capability then uses shared thumbnail URL for back-only cards
+ok 180 - waits for server capability then uses shared thumbnail URL for back-only cards
+  ---
+  duration_ms: 64.330709
+  type: 'test'
+  ...
+# Subtest: shared sorting parameters start a snapshot and retain opaque continuation tokens
+ok 181 - shared sorting parameters start a snapshot and retain opaque continuation tokens
+  ---
+  duration_ms: 1.160125
+  type: 'test'
+  ...
+# Subtest: web pagination keeps snapshot, sort resets page, and expiry retries the requested page
+ok 182 - web pagination keeps snapshot, sort resets page, and expiry retries the requested page
+  ---
+  duration_ms: 871.859458
+  type: 'test'
+  ...
+# Subtest: combined portfolio response avoids a duplicate summary computation
+ok 183 - combined portfolio response avoids a duplicate summary computation
+  ---
+  duration_ms: 0.489875
+  type: 'test'
+  ...
+# Subtest: legacy combined-summary calls retain full snapshot mode across pages
+ok 184 - legacy combined-summary calls retain full snapshot mode across pages
+  ---
+  duration_ms: 0.451708
+  type: 'test'
+  ...
+# Subtest: starts immediately, deduplicates the same card and preserves the result after a failed refresh
+ok 185 - starts immediately, deduplicates the same card and preserves the result after a failed refresh
+  ---
+  duration_ms: 94.390542
+  type: 'test'
+  ...
+# Subtest: different rows immediately show loading and search sequentially through the extension
+ok 186 - different rows immediately show loading and search sequentially through the extension
+  ---
+  duration_ms: 67.815459
+  type: 'test'
+  ...
+# Subtest: a skipped search plan never contacts the extension or submits orders
+ok 187 - a skipped search plan never contacts the extension or submits orders
+  ---
+  duration_ms: 55.513167
+  type: 'test'
+  ...
+# Subtest: only multiple verified same-card purchases produce a confirmation state
+ok 188 - only multiple verified same-card purchases produce a confirmation state
+  ---
+  duration_ms: 110.436709
+  type: 'test'
+  ...
+# Subtest: not_found remains a completed row result without a confirmation callback
+ok 189 - not_found remains a completed row result without a confirmation callback
+  ---
+  duration_ms: 62.610833
+  type: 'test'
+  ...
+# Subtest: incomplete remains a completed row result without a confirmation callback
+ok 190 - incomplete remains a completed row result without a confirmation callback
+  ---
+  duration_ms: 56.977125
+  type: 'test'
+  ...
+# Subtest: unmatched remains a completed row result without a confirmation callback
+ok 191 - unmatched remains a completed row result without a confirmation callback
+  ---
+  duration_ms: 56.049458
+  type: 'test'
+  ...
+# Subtest: a missing extension has a distinct connection-required result
+ok 192 - a missing extension has a distinct connection-required result
+  ---
+  duration_ms: 1555.612125
+  type: 'test'
+  ...
+# Subtest: a search failure settles the row and permits retry
+ok 193 - a search failure settles the row and permits retry
+  ---
+  duration_ms: 108.994833
+  type: 'test'
+  ...
+# Subtest: expired login is recoverable without submitting empty orders: 请先在此 Chrome 登录卡淘，再重试获取成本
+ok 194 - expired login is recoverable without submitting empty orders: 请先在此 Chrome 登录卡淘，再重试获取成本
+  ---
+  duration_ms: 107.165666
+  type: 'test'
+  ...
+# Subtest: expired login is recoverable without submitting empty orders: 卡淘登录已过期，请在卡淘订单页重新登录后重试
+ok 195 - expired login is recoverable without submitting empty orders: 卡淘登录已过期，请在卡淘订单页重新登录后重试
+  ---
+  duration_ms: 107.309459
+  type: 'test'
+  ...
+# Subtest: expired login is recoverable without submitting empty orders: Authentication expired
+ok 196 - expired login is recoverable without submitting empty orders: Authentication expired
+  ---
+  duration_ms: 108.703959
+  type: 'test'
+  ...
+# Subtest: a failed first row releases the queue so the next card still completes
+ok 197 - a failed first row releases the queue so the next card still completes
+  ---
+  duration_ms: 56.34
+  type: 'test'
+  ...
+# Subtest: an exception in the first lookup does not leave later cards stuck in the queue
+ok 198 - an exception in the first lookup does not leave later cards stuck in the queue
+  ---
+  duration_ms: 55.0335
+  type: 'test'
+  ...
+# Subtest: owner changes abort a pending plan and ignore its late completion
+ok 199 - owner changes abort a pending plan and ignore its late completion
+  ---
+  duration_ms: 55.49525
+  type: 'test'
+  ...
+# Subtest: owner changes abort a pending search and ignore its late completion
+ok 200 - owner changes abort a pending search and ignore its late completion
+  ---
+  duration_ms: 53.313209
+  type: 'test'
+  ...
+# Subtest: owner changes abort a pending resolve and ignore its late completion
+ok 201 - owner changes abort a pending resolve and ignore its late completion
+  ---
+  duration_ms: 54.858875
+  type: 'test'
+  ...
+# Subtest: unmount cancels the active search and discards queued rows without late writes
+ok 202 - unmount cancels the active search and discards queued rows without late writes
+  ---
+  duration_ms: 69.838583
+  type: 'test'
+  ...
+# Subtest: clearing a queued row skips its plan and does not interrupt the active card
+ok 203 - clearing a queued row skips its plan and does not interrupt the active card
+  ---
+  duration_ms: 56.913167
+  type: 'test'
+  ...
+# Subtest: clear cancels an old lookup and a late response cannot replace its retry
+ok 204 - clear cancels an old lookup and a late response cannot replace its retry
+  ---
+  duration_ms: 109.146375
+  type: 'test'
+  ...
+# Subtest: uses the latest refresh callback without restarting pending work
+ok 205 - uses the latest refresh callback without restarting pending work
+  ---
+  duration_ms: 3.32325
+  type: 'test'
+  ...
+# Subtest: logged-out sessions cannot start a lookup and logout clears completed results
+ok 206 - logged-out sessions cannot start a lookup and logout clears completed results
+  ---
+  duration_ms: 54.401541
+  type: 'test'
+  ...
+# Subtest: unknown purchase cost renders no cost amount in list or detail
+ok 207 - unknown purchase cost renders no cost amount in list or detail
+  ---
+  duration_ms: 12.414625
+  type: 'test'
+  ...
+# Subtest: real order amounts appear and genuine zero remains visible
+ok 208 - real order amounts appear and genuine zero remains visible
+  ---
+  duration_ms: 21.7705
+  type: 'test'
+  ...
+# Subtest: missing total is hidden without replacing it with card price or zero
+ok 209 - missing total is hidden without replacing it with card price or zero
+  ---
+  duration_ms: 3.322375
+  type: 'test'
+  ...
+# Subtest: detail renders known cost in the original currency
+ok 210 - detail renders known cost in the original currency
+  ---
+  duration_ms: 1.730959
+  type: 'test'
+  ...
+# Subtest: inferred order snapshot exposes image title price source and uncertainty
+ok 211 - inferred order snapshot exposes image title price source and uncertainty
+  ---
+  duration_ms: 101.248792
+  type: 'test'
+  ...
+# Subtest: persisted inference snapshot is readable after reopening independently of transient lookup
+ok 212 - persisted inference snapshot is readable after reopening independently of transient lookup
+  ---
+  duration_ms: 23.087625
+  type: 'test'
+  ...
+# Subtest: manual cost without an order displays an explicit empty snapshot state
+ok 213 - manual cost without an order displays an explicit empty snapshot state
+  ---
+  duration_ms: 5.368625
+  type: 'test'
+  ...
+# Subtest: opening the cost action searches live orders and fills a unique match without upload or confirmation
+ok 214 - opening the cost action searches live orders and fills a unique match without upload or confirmation
+  ---
+  duration_ms: 17.994625
+  type: 'test'
+  ...
+# Subtest: multiple purchases of the same card require only order selection and bind confirmation to the evidence version
+ok 215 - multiple purchases of the same card require only order selection and bind confirmation to the evidence version
+  ---
+  duration_ms: 29.320041
+  type: 'test'
+  ...
+# Subtest: expired CardHobby login offers login, not extension installation, and retry recovers
+ok 216 - expired CardHobby login offers login, not extension installation, and retry recovers
+  ---
+  duration_ms: 37.786
+  type: 'test'
+  ...
+# Subtest: a supplied duplicate result opens directly without another search and confirms once before closing
+ok 217 - a supplied duplicate result opens directly without another search and confirms once before closing
+  ---
+  duration_ms: 19.068
+  type: 'test'
+  ...
+# Subtest: a supplied connection state explains setup without searching and retry delegates then closes
+ok 218 - a supplied connection state explains setup without searching and retry delegates then closes
+  ---
+  duration_ms: 8.643292
+  type: 'test'
+  ...
+# Subtest: retry from a supplied duplicate result delegates instead of re-running the modal search
+ok 219 - retry from a supplied duplicate result delegates instead of re-running the modal search
+  ---
+  duration_ms: 9.984834
+  type: 'test'
+  ...
+# Subtest: invalid candidates cannot turn a supplied result into a duplicate purchase choice
+ok 220 - invalid candidates cannot turn a supplied result into a duplicate purchase choice
+  ---
+  duration_ms: 5.304084
+  type: 'test'
+  ...
+# Subtest: switching cards and supplied state drops the previous choices without searching
+ok 221 - switching cards and supplied state drops the previous choices without searching
+  ---
+  duration_ms: 22.580917
+  type: 'test'
+  ...
+# Subtest: an old search cannot overwrite a supplied result when the same dialog switches cards
+ok 222 - an old search cannot overwrite a supplied result when the same dialog switches cards
+  ---
+  duration_ms: 11.520208
+  type: 'test'
+  ...
+# Subtest: a late confirmation refreshes its original card without closing or changing the new dialog
+ok 223 - a late confirmation refreshes its original card without closing or changing the new dialog
+  ---
+  duration_ms: 77.083292
+  type: 'test'
+  ...
+# Subtest: retry extracts fresh keywords from the card again and searches without user input
+ok 224 - retry extracts fresh keywords from the card again and searches without user input
+  ---
+  duration_ms: 34.288416
+  type: 'test'
+  ...
+# Subtest: not_found is a system result and never asks the user to choose an unverified card
+ok 225 - not_found is a system result and never asks the user to choose an unverified card
+  ---
+  duration_ms: 20.887542
+  type: 'test'
+  ...
+# Subtest: incomplete is a system result and never asks the user to choose an unverified card
+ok 226 - incomplete is a system result and never asks the user to choose an unverified card
+  ---
+  duration_ms: 8.039584
+  type: 'test'
+  ...
+# Subtest: unmatched is a system result and never asks the user to choose an unverified card
+ok 227 - unmatched is a system result and never asks the user to choose an unverified card
+  ---
+  duration_ms: 8.886166
+  type: 'test'
+  ...
+# Subtest: a lone candidate cannot enable the duplicate-order confirmation flow
+ok 228 - a lone candidate cannot enable the duplicate-order confirmation flow
+  ---
+  duration_ms: 10.577333
+  type: 'test'
+  ...
+# Subtest: existing cost skips network search and retains the recorded cost
+ok 229 - existing cost skips network search and retains the recorded cost
+  ---
+  duration_ms: 9.655417
+  type: 'test'
+  ...
+# Subtest: missing extension explains the one-time connection without a file upload flow
+ok 230 - missing extension explains the one-time connection without a file upload flow
+  ---
+  duration_ms: 1507.304333
+  type: 'test'
+  ...
+# Subtest: live batch searches every card automatically and only duplicate purchases offer an order choice
+ok 231 - live batch searches every card automatically and only duplicate purchases offer an order choice
+  ---
+  duration_ms: 22.104791
+  type: 'test'
+  ...
+# Subtest: cancelling a pending automatic batch does not turn cancellation into a search failure
+ok 232 - cancelling a pending automatic batch does not turn cancellation into a search failure
+  ---
+  duration_ms: 23.206417
+  type: 'test'
+  ...
+# Subtest: closing while create waits for the extension prevents a late job request
+ok 233 - closing while create waits for the extension prevents a late job request
+  ---
+  duration_ms: 11.6375
+  type: 'test'
+  ...
+# Subtest: closing while resume waits for the extension prevents a late job request
+ok 234 - closing while resume waits for the extension prevents a late job request
+  ---
+  duration_ms: 13.778791
+  type: 'test'
+  ...
+# Subtest: closing during an already submitted job creation cancels the returned job
+ok 235 - closing during an already submitted job creation cancels the returned job
+  ---
+  duration_ms: 124.116125
+  type: 'test'
+  ...
+# Subtest: manual override retains audit evidence and highlights changed source
+ok 236 - manual override retains audit evidence and highlights changed source
+  ---
+  duration_ms: 5.2405
+  type: 'test'
+  ...
+# Subtest: Next rewrite preserves a formal scanner multipart body larger than 10 MB
+ok 237 - Next rewrite preserves a formal scanner multipart body larger than 10 MB
+  ---
+  duration_ms: 36.589417
+  type: 'test'
+  ...
+# Subtest: a stalled upload ends with a recoverable timeout instead of waiting forever
+ok 238 - a stalled upload ends with a recoverable timeout instead of waiting forever
+  ---
+  duration_ms: 16.877459
+  type: 'test'
+  ...
+# Subtest: both clients share recognition corrections without retaining removed autograph evidence
+ok 239 - both clients share recognition corrections without retaining removed autograph evidence
+  ---
+  duration_ms: 0.586792
+  type: 'test'
+  ...
+# Subtest: explicit season correction is shared and invalid season ranges are rejected
+ok 240 - explicit season correction is shared and invalid season ranges are rejected
+  ---
+  duration_ms: 0.163333
+  type: 'test'
+  ...
+# Subtest: supplement selection preserves every unselected confirmed field and excludes unknown suggestions
+ok 241 - supplement selection preserves every unselected confirmed field and excludes unknown suggestions
+  ---
+  duration_ms: 1.081125
+  type: 'test'
+  ...
+# Subtest: only accepting incompatible season start explains dependent field correction
+ok 242 - only accepting incompatible season start explains dependent field correction
+  ---
+  duration_ms: 0.359834
+  type: 'test'
+  ...
+1..242
+# tests 242
+# suites 0
+# pass 242
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 10918.022459

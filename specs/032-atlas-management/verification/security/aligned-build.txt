@@ -1,0 +1,52 @@
+   ▲ Next.js 15.5.20
+   - Experiments (use with caution):
+     · cpus: 1
+     · proxyTimeout: 180000
+     · middlewareClientMaxBodySize: "100mb"
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|/Users/song/Documents/Codex/2026-07-19/w/card_platform/apps/web/node_modules/.pnpm/next@15.5.20_react-dom@19.2.7_react@19.2.7__react@19.2.7/node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[10].use[2]!/Users/song/Documents/Codex/2026-07-19/w/card_platform/apps/web/node_modules/.pnpm/next@15.5.20_react-dom@19.2.7_react@19.2.7__react@19.2.7/node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[10].use[3]!/Users/song/Documents/Codex/2026-10-30/task/card-platform-atlas/.runtime/atlas-compatible-source/web-source/apps/web/app/globals.css': No serializer registered for Warning
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> Array { 1 items } -> webpack/lib/ModuleWarning -> Warning
+ ⚠ Compiled with warnings in 2.7s
+
+./app/globals.css.webpack[javascript/auto]!=!../../../../../../../../2026-07-19/w/card_platform/apps/web/node_modules/.pnpm/next@15.5.20_react-dom@19.2.7_react@19.2.7__react@19.2.7/node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[10].use[2]!../../../../../../../../2026-07-19/w/card_platform/apps/web/node_modules/.pnpm/next@15.5.20_react-dom@19.2.7_react@19.2.7__react@19.2.7/node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[10].use[3]!./app/globals.css
+Warning
+
+(3658:47) autoprefixer: start value has mixed support, consider using flex-start instead
+
+Import trace for requested module:
+./app/globals.css.webpack[javascript/auto]!=!../../../../../../../../2026-07-19/w/card_platform/apps/web/node_modules/.pnpm/next@15.5.20_react-dom@19.2.7_react@19.2.7__react@19.2.7/node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[10].use[2]!../../../../../../../../2026-07-19/w/card_platform/apps/web/node_modules/.pnpm/next@15.5.20_react-dom@19.2.7_react@19.2.7__react@19.2.7/node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[10].use[3]!./app/globals.css
+./app/globals.css
+
+ ✓ Compiled successfully in 4.8s
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/12) ...
+   Generating static pages (3/12)
+   Generating static pages (6/12)
+   Generating static pages (9/12)
+ ✓ Generating static pages (12/12)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size  First Load JS
+┌ ○ /                                    69.2 kB         178 kB
+├ ○ /_not-found                            988 B         103 kB
+├ ○ /benchmarks                          11.3 kB         120 kB
+├ ƒ /chatgpt/actions/[operationId]       3.42 kB         106 kB
+├ ○ /chatgpt/authorize                   1.85 kB         111 kB
+├ ○ /chatgpt/connections                 1.54 kB         104 kB
+├ ƒ /chatgpt/research/[runId]            5.36 kB         108 kB
+├ ○ /knowledge                           7.95 kB         121 kB
+├ ○ /knowledge/manage                    9.01 kB         122 kB
+├ ○ /knowledge/manage/legacy              8.3 kB         117 kB
+├ ○ /market-data                         2.79 kB         112 kB
+└ ○ /player-prices                       8.33 kB         111 kB
++ First Load JS shared by all             102 kB
+  ├ chunks/962-d53a0ba00f8f5abd.js       46.2 kB
+  ├ chunks/f6e8a550-6549a1fee354ca26.js  54.2 kB
+  └ other shared chunks (total)          2.04 kB
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
