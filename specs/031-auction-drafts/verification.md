@@ -87,3 +87,9 @@ MIUI细调仍出现忽略/跳档，因此上述UI自动化成功片段不作为�
 用户在MIUI弹窗确认后安装成功，并通过手机授予相机权限。最终APK1.0.3（4）、sha256 4c4b3fdede0a619bc6b9cb8969656fd4e6f3215cf39cdda697be194047f82de5，已确认覆盖安装和权限保留。真实镜头1–3×，手动1.6/1.5均正确回读，自动约1.4×verified=true、focus_confirmed=true，AF锁定与实际预览timestamp一致；同认证会话内先对焦再一次快门，4208×3120新JPEG回传成功。完整回执 `.runtime/redmi-zoom-20261030/implementation/native-real-device-verified.json`。
 
 新增回归包括密钥交接state握手、未安装组件的pm list探测、卡片相对支架候选优先、AF锁定后新帧检查、每次单次快门前同通道重新对焦；本机37项通过，最新Atlas基线网页245项通过、构建和TS通过。未改API/iPhone功能代码，本次用户明确要求的是网页端USB控制；保留现有云端Atlas及独立API部署。
+
+### 云端及本机发布完成
+
+网页镜像card-platform-web:0.6.8-20261031-auctionzoom1已激活，151个产物SHA全部一致。API容器与环境/挂载/用户未变，实际worker=true、deepseek-flash/thinking disabled和独立百炼qwen-plus搜索回读通过。六个公网页面/发现端点200，17个JS/CSS均200，相机新bundle已回读。LaunchAgent重启后返回camera_controls=true，真实Redmi枚举与PNA预检通过。
+
+登录Chrome新建单独标签页，保留用户原有Canon扫描配对页面；打开Tre Johnson III卡片的拍卖草稿，实际连接手机并取得取景，自动调整显示1.4×；点击“放大0.1倍”后实际回读1.5×、成功提示可见，随后关闭验证窗口。此网页验证不拍照、不上传、不改原卡数据；原先系统快门→云端草稿的完整写入验收T014仍保留，不能把镜头控制验证当作该路径通过。发布细节见docs/release-20261031-auction-camera.md。
