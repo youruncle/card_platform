@@ -6,6 +6,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createNativeCameraControls, captureNativeCamera } from './android-camera-native.mjs';
 
 const ORIGINS = new Set(['https://cardsp.cn', 'https://www.cardsp.cn', 'http://localhost:3000', 'http://127.0.0.1:3000']);
 const CLIENT = 'cardsp-web-v1';
@@ -70,7 +71,7 @@ function parsePhotos(output) {
   return files;
 }
 
-async function readPayload(request) {
+async function readPayload(request, controls = false) {
   let body = '';
   for await (const chunk of request) {
     body += chunk;
@@ -78,11 +79,15 @@ async function readPayload(request) {
   }
   let value;
   try { value = JSON.parse(body); } catch { throw fault(422, '拍照参数无效。'); }
-  if (!value || Array.isArray(value) || typeof value.serial !== 'string' || Object.keys(value).length !== 1) throw fault(422, '请选择已连接的手机。');
+  if (!value || Array.isArray(value) || typeof value.serial !== 'string') throw fault(422, '请选择已连接的手机。');
+  if (controls) {
+    const keys = value.action === 'zoom' ? ['serial', 'action', 'zoom'] : ['serial', 'action'];
+    if (!['preview', 'auto', 'zoom'].includes(value.action) || Object.keys(value).length !== keys.length || Object.keys(value).some(key => !keys.includes(key)) || (value.action === 'zoom' && (typeof value.zoom !== 'number' || !Number.isFinite(value.zoom) || value.zoom < .6 || value.zoom > 3))) throw fault(422, '相机操作或缩放倍率无效，倍率范围为 0.6–3×。');
+  } else if (Object.keys(value).length !== 1) throw fault(422, '请选择已连接的手机。');
   return value;
 }
 
-export function createAndroidCameraHelper({ adbRunner = runAdb, captureTimeoutMs = 35_000, pollMs = 500, cameraReadyMs = 1200, maxImageBytes = MAX_IMAGE_BYTES } = {}) {
+export function createAndroidCameraHelper({ adbRunner = runAdb, captureTimeoutMs = 35_000, pollMs = 500, cameraReadyMs = 1200, maxImageBytes = MAX_IMAGE_BYTES, cameraControlsFactory = createNativeCameraControls, nativeCaptureFactory = captureNativeCamera } = {}) {
   const token = randomBytes(32).toString('hex');
   let enumerated = new Set(), busy = false, activeController;
   const server = createServer(async (request, response) => {
@@ -105,8 +110,9 @@ export function createAndroidCameraHelper({ adbRunner = runAdb, captureTimeoutMs
     if (request.headers['x-camera-client'] !== CLIENT) return json(403, { detail: '请从卡牌网页连接手机。' });
     const isDevices = request.method === 'GET' && request.url === '/v1/devices';
     const isCapture = request.method === 'POST' && request.url === '/v1/capture';
-    if (!isDevices && !isCapture) return json(404, { detail: '接口不存在。' });
-    if (isCapture) {
+    const isCamera = request.method === 'POST' && request.url === '/v1/camera';
+    if (!isDevices && !isCapture && !isCamera) return json(404, { detail: '接口不存在。' });
+    if (isCapture || isCamera) {
       const supplied = Buffer.from(String(request.headers['x-camera-token'] || '')), expected = Buffer.from(token);
       if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return json(403, { detail: '拍照连接已失效，请重新连接手机。' });
     }
@@ -115,7 +121,7 @@ export function createAndroidCameraHelper({ adbRunner = runAdb, captureTimeoutMs
     const controller = new AbortController();
     activeController = controller;
     response.on('close', () => { if (!response.writableFinished) controller.abort(fault(499, '拍照已取消。')); });
-    const timer = setTimeout(() => controller.abort(fault(504, '拍照超时：未收到本次新照片。请解锁手机、确认相机权限及照片保存为 JPEG/PNG 后重试。')), isDevices ? 20_000 : captureTimeoutMs);
+    const timer = setTimeout(() => controller.abort(fault(504, isCamera ? '相机调整超时，请保持手机解锁、关闭弹窗后重试。' : '拍照超时：未收到本次新照片。请解锁手机、确认相机权限及照片保存为 JPEG/PNG 后重试。')), isDevices ? 20_000 : isCamera ? 85_000 : captureTimeoutMs);
     timer.unref();
     const adb = async (args, maxBytes) => {
       controller.signal.throwIfAborted();
@@ -127,9 +133,9 @@ export function createAndroidCameraHelper({ adbRunner = runAdb, captureTimeoutMs
       if (isDevices) {
         const result = parseDevices(await adb(['devices', '-l']));
         enumerated = new Set(result.devices.map(device => device.serial));
-        return json(200, { ...result, token });
+        return json(200, { ...result, token, camera_controls: true });
       }
-      const { serial } = await readPayload(request);
+      const { serial, action, zoom } = await readPayload(request, isCamera);
       if (!enumerated.has(serial)) throw fault(422, '手机未在已授权设备列表中，请重新连接并选择手机。');
       const connected = parseDevices(await adb(['devices', '-l']));
       if (!connected.devices.some(device => device.serial === serial)) { enumerated.delete(serial); throw fault(503, '所选手机已断开、离线或失去 USB 调试授权，请重新连接。'); }
@@ -141,6 +147,18 @@ export function createAndroidCameraHelper({ adbRunner = runAdb, captureTimeoutMs
         if (!/(?:mKeyguardShowing|mShowingLockscreen|isStatusBarKeyguard|mDreamingLockscreen|showing|isKeyguardShowing)\s*=\s*false/i.test(policy)) throw fault(409, '无法确认手机锁屏状态，请解锁手机后重试。');
       };
       await checkUnlocked();
+      const cleanupDevice = args => adbRunner(['-s', serial, ...args], { timeoutMs: 2000 });
+      if (isCamera) {
+        const controls = cameraControlsFactory(onDevice, { signal: controller.signal, cleanupDevice, serial });
+        return json(200, await controls(action, zoom));
+      }
+      const nativeInstalled = String(await onDevice(['shell', 'pm', 'list', 'packages', 'cn.cardsp.camera']));
+      if (/^package:cn\.cardsp\.camera\s*$/m.test(nativeInstalled)) {
+        const image = await nativeCaptureFactory(onDevice, { signal: controller.signal, cleanupDevice, serial });
+        if (image.length > maxImageBytes) throw fault(413, '手机照片超过 25 MB。');
+        response.writeHead(200, { 'Content-Type': 'image/jpeg', 'Content-Length': image.length });
+        return response.end(image);
+      }
       const launched = String(await onDevice(['shell', 'am', 'start', '-W', '-a', 'android.media.action.STILL_IMAGE_CAMERA']));
       if (/Error:|Exception|Status:\s*(?!ok\b)\S+/i.test(launched) || !/Status:\s*ok\b/i.test(launched)) throw fault(409, '手机相机无法启动，请在手机完成相机权限确认后重试。');
       await delay(cameraReadyMs, undefined, { signal: controller.signal });
@@ -173,7 +191,7 @@ export function createAndroidCameraHelper({ adbRunner = runAdb, captureTimeoutMs
       }
     } catch (error) {
       const reason = controller.signal.aborted ? controller.signal.reason : error;
-      json(reason?.status || 503, { detail: reason?.status ? reason.message : '手机拍照失败，请检查 USB 连接、相机权限及手机解锁状态后重试。' });
+      json(reason?.status || 503, { detail: reason?.status ? reason.message : '手机相机操作失败，请检查 USB 连接、相机权限及手机解锁状态后重试。' });
     } finally {
       clearTimeout(timer);
       activeController = undefined;
@@ -187,7 +205,7 @@ export function createAndroidCameraHelper({ adbRunner = runAdb, captureTimeoutMs
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const server = createAndroidCameraHelper();
-  server.requestTimeout = 40_000;
+  server.requestTimeout = 90_000;
   server.listen(8767, '127.0.0.1', () => console.log('Android camera helper listening on 127.0.0.1:8767'));
   server.on('error', error => { console.error(`Android camera helper: ${error.code}`); process.exit(1); });
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {

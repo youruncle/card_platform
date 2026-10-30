@@ -82,3 +82,19 @@ Files: shared `packages/card-core/src/auction.ts`，网页 `components/auction-d
 - 云端备份数据库并校验归档，事务执行0091新增草稿表迁移。基于现有API/Web镜像叠加本次模块，保留现有Compose各层及worker/视觉/独立搜索配置；失败只回退镜像。
 - 使用原个人开发签名覆盖安装iPhone版，回读版本、启动与延迟进程；不得卸载或清除数据。锁屏需要用户解锁。
 - 本机手机助手用LaunchAgent持续运行，验证只监听回环、授权设备枚举和HTTP；公网匿名鉴权及已登录浏览器验证单卡入口、图片和草稿恢复。卡淘远端草稿仍禁用，变焦/预览/对焦未实现不纳入上线声明。
+
+## Task 6: 网页自动取景和手动倍率
+
+- 本机新增 `scripts/android-camera-controls.mjs`：解析MIUI XML，读取真实倍率/预览范围/控件；预设定位点击，细调展开标尺并有限次校正，每次读回实际值。新增 `scripts/android-camera-frame.swift`：stdin PNG+argv矩形，输出裁切预览、Vision矩形坐标；用xcrun swiftc按源码hash缓存本机二进制，失败明确回报。无云端凭据。
+- 助手新增令牌保护POST `/v1/camera` `{serial,action:'preview'|'zoom'|'auto',zoom?}`。响应 `{zoom,presets,preview,card?,message}`；预览只在本机内存传输。auto发现多张/无卡不调节；安全倍率按画面中心各边最大外伸计算，限制0.6–1.8×，检测贴边则减倍率或提示手动；不调用快门。
+- 先写controls解析/倍率计算/有限收敛与HTTP鉴权失败测试，RED后实现GREEN。Swift实际编译并回放本次Redmi截图及空白/多矩形样本，区分检测候选与实卡身份。
+- 网页新增 `components/auction-camera-controls.tsx` 和local-camera接口：刷新取景、自动调整、实际倍率、±0.1、预设、目标倍率滑杆+应用。复用父级busy/AbortController，拍照/重连/调节互斥，旧版本助手清楚提示更新。先写交互测试RED，再实现GREEN。
+- 运行助手与网页相关/完整测试、TS与生产构建。真实Redmi预览、手动1→1.6→1回读、自动调整、不自动拍照检查。冻结在当前线上web镜像上叠加本改动，保留动态Compose和全部MCP/发现代理；仅本桌面控制组件及本机助手改变，手机/API无对应功能代码变更。网页发布沿用已有授权，不覆盖并发新版本。
+
+## Task 7: 根据实机失败改用Camera2 USB组件（安装待授权）
+
+- 旧MIUI控件方式作为调研保留，不接新控件生产路径；系统快门不受影响。
+- 新增 `tools/android-camera` 原生Java最小组件与 `scripts/build-android-camera.py`，使用已有SDK工具构建、个人本地开发证书签名，检查APK无联网/存储/麦克风权限；编译不代表安装/实机通过。
+- `scripts/android-camera-native.mjs`负责ADB临时转发、私有UNIX socket的nonce/token命令、有限响应/取消和finally端口清理；预览/自动/倍率共用此通道。`CONTROL_ZOOM_RATIO`或SCALER_CROP_REGION实际CaptureResult确认，ImageReader JPEG按sensor timestamp绑定一次快门。准备阶段先通过本机TCP协议/Java策略/HTTP路由测试。
+- 网页按设备min/max启用缩放；未取景前先读取范围。只有组件安装成功时快门走同一原生镜头，未安装保持原系统相机快门；不得在原生失败后悄悄回退拍另一张图。
+- 用户确认后才覆盖安装Android组件并授予相机权限，真实读取1→1.6→1.5→1.6及自动调整、取景/拍照一致性，然后更新LaunchAgent与网页发布。确认前保留未完成状态、安装包和测试证据，不声称上线。

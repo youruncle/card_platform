@@ -18,6 +18,7 @@ async function fixture(t, options = {}) {
     assert.ok(!signal?.aborted);
     if (args[0] === 'devices') return options.devices ?? 'List of devices attached\nredmi-1 device product:foo model:Redmi_Note_13 device:foo transport_id:1\nlocked unauthorized usb:1\ngone offline usb:2\n';
     assert.deepEqual(args.slice(0, 2), ['-s', 'redmi-1']);
+    if (args.includes('pm')) { if(args.includes('path')&&!options.nativeInstalled) throw Object.assign(new Error('package absent'),{status:503}); return options.nativeInstalled ? 'package:cn.cardsp.camera\n' : ''; }
     if (args.includes('dumpsys')) return options.unknownLock ? 'unexpected policy' : options.screenOff ? 'mKeyguardShowing=false\nscreenState=SCREEN_STATE_OFF' : options.locked ? 'mKeyguardShowing=true' : 'mKeyguardShowing=false';
     if (args.includes('am')) return options.cameraFailure ? 'Error: Activity not started, unable to resolve Intent' : 'Starting: Intent { act=android.media.action.STILL_IMAGE_CAMERA }\nStatus: ok\nActivity: com.android.camera/.Camera\n';
     if (args.includes('keyevent')) { shutter = true; options.onShutter?.(); return ''; }
@@ -171,4 +172,17 @@ test('real subprocess runner bounds bytes, honors cancellation, times out and pr
   const pending = runAdb(['hang'], { adbPath: executable, signal: controller.signal });
   controller.abort(); await assert.rejects(pending);
   await assert.rejects(runAdb(['devices'], { adbPath: join(root, 'missing') }), error => error.status === 503);
+});
+
+test('camera controls require token and enumerated serial, validate commands, and never fire shutter',async t=>{
+ const operations=[];
+ const f=await fixture(t,{helper:{cameraControlsFactory:()=>async(action,zoom)=>{operations.push({action,zoom});return {zoom:zoom??1,presets:[.6,1,3],preview:'data:image/jpeg;base64,AA==',rectangles:[],message:'ok'};}}});
+ const post=(token,body)=>fetch(f.url+'/v1/camera',{method:'POST',headers:{...f.headers,'X-Camera-Token':token,'Content-Type':'application/json'},body:JSON.stringify(body)});
+ assert.equal((await post('wrong',{serial:'redmi-1',action:'auto'})).status,403);assert.equal(f.calls.length,0);
+ const {token}=await f.connect();
+ for(const payload of [{serial:'other',action:'preview'},{serial:'redmi-1',action:'reboot'},{serial:'redmi-1',action:'zoom',zoom:4},{serial:'redmi-1',action:'zoom',zoom:'1.6'},{serial:'redmi-1',action:'auto',zoom:2},{serial:'redmi-1',action:'preview',command:'rm'}])assert.equal((await post(token,payload)).status,422);
+ const response=await post(token,{serial:'redmi-1',action:'zoom',zoom:1.6});assert.equal(response.status,200);assert.equal((await response.json()).zoom,1.6);assert.deepEqual(operations,[{action:'zoom',zoom:1.6}]);assert.equal(f.calls.filter(c=>c.includes('keyevent')).length,0);
+});
+test('installed native camera captures through its private fresh-image channel without system shutter',async t=>{
+ let captures=0;const f=await fixture(t,{nativeInstalled:true,helper:{nativeCaptureFactory:async()=>{captures++;return jpeg;}}});const {token}=await f.connect();const response=await f.capture(token);assert.equal(response.status,200);assert.deepEqual(Buffer.from(await response.arrayBuffer()),jpeg);assert.equal(captures,1);assert.equal(f.calls.some(a=>a.includes('keyevent')||a.includes('am')),false);
 });

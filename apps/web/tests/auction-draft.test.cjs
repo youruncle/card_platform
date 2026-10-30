@@ -137,3 +137,28 @@ test('USB success explains the shutter step, capture reports local progress, and
  await waitFor(()=>assert.match(usb.getByRole('alert').textContent,/没有已授权的手机/));
  assert.equal(usb.queryByRole('button',{name:'触发 Redmi 快门'}),null);assert.equal(usb.queryByLabelText('拍照手机'),null);assert.equal(usb.queryByText(/已连接.*Redmi Note/),null);
 });
+test('camera preview and manual/automatic zoom read actual values without uploading a photo',async()=>{
+ const ops=[],cloud=[];let zoom=1;
+ global.fetch=async(url,init={})=>{
+  if(String(url).endsWith('/v1/devices'))return Response.json({devices:[{serial:'redmi-a',name:'Redmi'}],token:'t'});
+  if(String(url).endsWith('/v1/camera')){const body=JSON.parse(init.body);ops.push(body);if(body.action==='zoom')zoom=body.zoom;if(body.action==='auto')zoom=1.5;return Response.json({zoom,presets:[.6,1,3],width:1080,height:1440,preview:'data:image/jpeg;base64,AA==',rectangles:[],message:body.action==='auto'?'自动调整完成':'取景已刷新'});}
+  throw Error('image unavailable');
+ };
+ render(React.createElement(AuctionDraftPanel,{itemId:'card-a',onClose:()=>{},request:async(path)=>{cloud.push(path);return draft();}}));await screen.findByRole('button',{name:'连接 USB 手机'});fireEvent.click(screen.getByRole('button',{name:'连接 USB 手机'}));await screen.findByRole('button',{name:'刷新取景'});
+ fireEvent.click(screen.getByRole('button',{name:'刷新取景'}));await screen.findByAltText('Redmi 当前取景');assert.match(screen.getByLabelText('手机实际倍率').textContent,/1.0/);
+ fireEvent.change(screen.getByLabelText('目标缩放倍率'),{target:{value:'1.6'}});fireEvent.click(screen.getByRole('button',{name:'应用缩放'}));await waitFor(()=>assert.match(screen.getByLabelText('手机实际倍率').textContent,/1.6/));
+ fireEvent.click(screen.getByRole('button',{name:'自动调整'}));await waitFor(()=>assert.match(screen.getByLabelText('手机实际倍率').textContent,/1.5/));assert.deepEqual(ops.map(o=>o.action),['preview','zoom','auto']);assert.equal(cloud.some(p=>p.endsWith('/images')),false);
+ fireEvent.click(screen.getByRole('button',{name:'触发 Redmi 快门'}));await screen.findByRole('alert');await waitFor(()=>assert.equal(screen.queryAllByAltText('Redmi 当前取景').length,0));
+ fireEvent.click(screen.getByRole('button',{name:'连接 USB 手机'}));await waitFor(()=>assert.equal(screen.queryAllByAltText('Redmi 当前取景').length,0));
+});
+test('pending zoom disables shutter, and unmount aborts the local control request',async()=>{
+ let operationSignal,finish;
+ global.fetch=async(url,init={})=>{
+  if(String(url).endsWith('/v1/devices'))return Response.json({devices:[{serial:'redmi-a',name:'Redmi'}],token:'t'});
+  if(String(url).endsWith('/v1/camera')){operationSignal=init.signal;return new Promise(resolve=>finish=resolve);}
+  throw Error('image unavailable');
+ };
+ const view=render(React.createElement(AuctionDraftPanel,{itemId:'card-a',onClose:()=>{},request:async()=>draft()}));await screen.findByRole('button',{name:'连接 USB 手机'});fireEvent.click(screen.getByRole('button',{name:'连接 USB 手机'}));await screen.findByRole('button',{name:'自动调整'});fireEvent.click(screen.getByRole('button',{name:'自动调整'}));
+ assert.equal(screen.getByRole('button',{name:'触发 Redmi 快门'}).disabled,true);assert.equal(screen.getByRole('button',{name:'正在自动调整…'}).disabled,true);
+ view.unmount();assert.equal(operationSignal.aborted,true);finish(Response.json({zoom:1,presets:[1],width:1080,height:1440,preview:'data:image/jpeg;base64,AA==',rectangles:[],message:'ok'}));
+});

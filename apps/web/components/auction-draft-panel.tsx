@@ -2,7 +2,8 @@
 import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { AuctionEditor, auctionSideName, type AuctionRequest, type AuctionPhoto } from '../../../packages/card-core/src/auction';
 import { assetUrl } from '../lib/api';
-import { connectLocalCamera, captureLocalCamera, type CameraConnection } from '../lib/local-camera';
+import { connectLocalCamera, captureLocalCamera, controlLocalCamera, type CameraConnection, type CameraControlAction, type CameraFrame } from '../lib/local-camera';
+import { AuctionCameraControls } from './auction-camera-controls';
 const textAreaStyle: React.CSSProperties = { width: '100%', border: '1px solid var(--line)', background: 'var(--panel-2)', color: 'var(--text)', padding: '11px 12px', borderRadius: 7, font: 'inherit', fontSize: 13, lineHeight: 1.6, resize: 'vertical' };
 const browserRequest: AuctionRequest = async <T,>(path: string, options: RequestInit = {}): Promise<T> => {
   const signal = options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(180000)]) : AbortSignal.timeout(180000);
@@ -25,7 +26,8 @@ export function AuctionDraftPanel({ itemId, onClose, request = browserRequest }:
   const state = useSyncExternalStore(editor.subscribe, editor.snapshot, editor.snapshot);
   const [side, setSide] = useState<AuctionPhoto['side']>('front');
   const [connection, setConnection] = useState<CameraConnection | null>(null), [serial, setSerial] = useState('');
-  const [cameraAction, setCameraAction] = useState<'connect' | 'capture' | null>(null), [cameraError, setCameraError] = useState(''), [cameraNotice, setCameraNotice] = useState(''), [copied, setCopied] = useState('');
+  const [cameraAction, setCameraAction] = useState<'connect' | 'capture' | CameraControlAction | null>(null), [cameraError, setCameraError] = useState(''), [cameraNotice, setCameraNotice] = useState(''), [copied, setCopied] = useState('');
+  const [cameraFrame, setCameraFrame] = useState<CameraFrame | null>(null);
   const cameraController = useRef<AbortController | null>(null), dialog = useRef<HTMLDivElement>(null);
   useEffect(() => { void editor.open(itemId); return () => { editor.dispose(); cameraController.current?.abort(); }; }, [editor, itemId]);
   useEffect(() => { const prior = document.activeElement as HTMLElement | null; dialog.current?.focus(); return () => prior?.focus(); }, []);
@@ -35,7 +37,7 @@ export function AuctionDraftPanel({ itemId, onClose, request = browserRequest }:
     const controller = new AbortController(); cameraController.current = controller;
     setCameraAction(capture ? 'capture' : 'connect'); setCameraError('');
     setCameraNotice(capture ? '正在拍照，请保持手机解锁并等待照片回传…' : '正在查找手机，请保持手机解锁并允许 USB 调试…');
-    if (!capture) { setConnection(null); setSerial(''); }
+    if (!capture) { setConnection(null); setSerial(''); setCameraFrame(null); }
     try {
       if (capture && connection) {
         const file = await captureLocalCamera(connection, serial, controller.signal);
@@ -57,10 +59,26 @@ export function AuctionDraftPanel({ itemId, onClose, request = browserRequest }:
       }
     } catch (error) {
       if (!controller.signal.aborted) {
+        setCameraFrame(null);
         setCameraError(error instanceof Error ? error.message : capture ? '拍照失败，请重试' : '连接失败，请重新连接');
         setCameraNotice('');
         if (!capture) { setConnection(null); setSerial(''); }
       }
+    } finally {
+      if (cameraController.current === controller) cameraController.current = null;
+      if (!controller.signal.aborted) setCameraAction(null);
+    }
+  }
+  async function adjustCamera(action: CameraControlAction, zoom?: number) {
+    if (busy || cameraController.current || !connection) return;
+    const controller = new AbortController(); cameraController.current = controller;
+    setCameraAction(action); setCameraError('');
+    setCameraNotice(action === 'auto' ? '正在检测卡片并调整倍率，请保持手机和卡片不动…' : action === 'zoom' ? '正在调整手机倍率并读取实际结果…' : '正在读取手机取景…');
+    try {
+      const frame = await controlLocalCamera(connection, serial, action, zoom, controller.signal);
+      if (!controller.signal.aborted) { setCameraFrame(frame); setCameraNotice(frame.message); }
+    } catch (error) {
+      if (!controller.signal.aborted) { setCameraFrame(null); setCameraError(error instanceof Error ? error.message : '取景调整失败，请重试'); setCameraNotice(''); }
     } finally {
       if (cameraController.current === controller) cameraController.current = null;
       if (!controller.signal.aborted) setCameraAction(null);
@@ -81,10 +99,11 @@ export function AuctionDraftPanel({ itemId, onClose, request = browserRequest }:
           <section aria-label="USB 手机拍照">
             <div style={{display:'flex',flexWrap:'wrap',alignItems:'end',gap:8}}>
               <button className="secondary-button" disabled={busy} onClick={()=>void camera(false)}>{cameraAction === 'connect' ? '正在查找手机…' : '连接 USB 手机'}</button>
-              {connection && <><label>拍照手机 <select value={serial} onChange={event=>{setSerial(event.target.value);const device=connection.devices.find(value=>value.serial===event.target.value);if(device)setCameraNotice(`已连接 ${device.name}。请点击“触发 Redmi 快门”拍照。`);}}>{connection.devices.map(device=><option key={device.serial} value={device.serial}>{device.name} · {device.serial}</option>)}</select></label><button className="secondary-button" disabled={busy || !serial} onClick={()=>void camera(true)}>{cameraAction === 'capture' ? '正在拍照…' : '触发 Redmi 快门'}</button></>}
+              {connection && <><label>拍照手机 <select value={serial} onChange={event=>{setSerial(event.target.value);setCameraFrame(null);setCameraError('');const device=connection.devices.find(value=>value.serial===event.target.value);if(device)setCameraNotice(`已连接 ${device.name}。请点击“触发 Redmi 快门”拍照。`);}}>{connection.devices.map(device=><option key={device.serial} value={device.serial}>{device.name} · {device.serial}</option>)}</select></label><button className="secondary-button" disabled={busy || !serial} onClick={()=>void camera(true)}>{cameraAction === 'capture' ? '正在拍照…' : '触发 Redmi 快门'}</button></>}
             </div>
             {cameraNotice && <p role="status" style={{margin:'10px 0',fontSize:13,lineHeight:1.6,color:'var(--accent)'}}>{cameraNotice}</p>}
             {cameraError && <p role="alert" className="form-error" style={{margin:'10px 0',fontSize:13,lineHeight:1.6}}>{cameraError}</p>}
+            {connection && <AuctionCameraControls key={serial} frame={cameraFrame} busy={!!busy} action={cameraAction} onControl={(action,zoom)=>void adjustCamera(action,zoom)}/>}
             <p style={{margin:'10px 0 0',fontSize:12,lineHeight:1.6,color:'var(--muted)'}}>连接只查找手机；连接成功后需点击快门。先在电脑启动手机拍照助手，手机解锁并允许 USB 调试。新照片上传后自动生成文案。</p>
           </section>
         </fieldset>
