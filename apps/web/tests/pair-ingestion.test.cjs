@@ -76,7 +76,7 @@ test('library header exposes failed automatic tasks before opening any recogniti
  assert.ok(await screen.findByRole('dialog',{name:'录入任务中心'}));fireEvent.click(await screen.findByRole('button',{name:'查看任务 canon-task'}));
  assert.ok(await screen.findByAltText('任务正面'));assert.ok(screen.getByText('自动识别失败，请核对照片',{selector:'.capture-task-error'}));
 });
-test('Canon submission opens its new task and photos instead of leaving an empty card library',async()=>{
+test('Canon submission stays on the scanner and opens tasks only when requested',async()=>{
  fixture();const original=global.fetch;let submitted=0;
  global.fetch=async(url,options)=>{
   const path=new URL(url,'http://localhost').pathname;
@@ -91,7 +91,11 @@ test('Canon submission opens its new task and photos instead of leaving an empty
  await act(async()=>render(React.createElement(Dashboard)));
  fireEvent.click(await screen.findByRole('button',{name:'图片识别'}));fireEvent.click(screen.getByRole('button',{name:/Canon 扫描仪/}));
  const submit=await screen.findByRole('button',{name:'确认配对并录入 1 张卡片'});await waitFor(()=>assert.equal(submit.disabled,false));fireEvent.click(submit);
- assert.ok(await screen.findByRole('dialog',{name:'录入任务中心'}));assert.ok(await screen.findByAltText('任务正面'));assert.equal(submitted,1);assert.equal(screen.queryByText('识别卡面信息'),null);
+ await screen.findByText(/已提交 1 对图片/);assert.equal(submitted,1);
+ assert.equal(screen.queryByRole('dialog',{name:'录入任务中心'}),null);assert.ok(screen.getByText('识别卡面信息'));
+ fireEvent.click(within(screen.getByText('识别卡面信息').closest('.modal')).getByRole('button',{name:'关闭'}));
+ fireEvent.click(await screen.findByRole('button',{name:'录入任务 · 1 项待处理'}));
+ assert.ok(await screen.findByRole('dialog',{name:'录入任务中心'}));fireEvent.click(await screen.findByRole('button',{name:'查看任务 canon-task'}));assert.ok(await screen.findByAltText('任务正面'));
 });
 
 test('legacy scanner confirmation saves blank identity and unknown pairing without inventing defaults',async()=>{

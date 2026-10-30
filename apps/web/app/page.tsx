@@ -2730,9 +2730,7 @@ export default function Dashboard() {
           onRetryScannerJob={(jobId) => void retryScannerJob(jobId)}
           onDeleteScannerJob={(jobId) => void deleteScannerJob(jobId)}
           onFlatbedCompleted={async (jobIds) => {
-            setShowRecognition(false);
             setCaptureTaskIds(jobIds);
-            setShowCaptureTasks(true);
             setScannerJobs(await getScannerRecognitionJobs().catch(() => scannerJobs));
             if (ownerId) void refresh(ownerId);
           }}
