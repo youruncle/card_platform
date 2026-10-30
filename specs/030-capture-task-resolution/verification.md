@@ -64,3 +64,9 @@ API最终镜像card-platform-api:0.6.8-20261030-partialintake3；网页card-plat
 真实Dirk原始JPEG另在一次性PostgreSQL经HTTP确认入库成功：未提交pair_review，未知属性仍为null；线上验证仅回读门禁与实际按钮，没有代用户提交截图中的卡片。缺失正面产品名的Deron仅使用该面明确SkyBox标识做兼容性核对，原product_name仍保留null。私有现场/签名/发布详细凭据在.runtime/partial-intake-20261030。
 
 发布过程发生并行网页切换，首次CAS中止后的回滚短暂选用了旧网页；随后恢复当时已上线拍卖版并合并两边已提交的构建。另修正了验证脚本多JSON输出解析和环境/卷数组顺序比较，避免正常服务被误回滚；最终版本、环境、健康与两张实卡门禁均通过。只切换镜像和应用可逆schema迁移，没有执行卡片/交易数据回退。
+
+### 2026-10-31 录入提交不自动弹出任务中心
+
+按用户要求，Canon点击录入并提交成功后保留当前扫描页面和提交提示，可继续下一批；仅主动点击“录入任务”时打开任务中心。删除完成回调中的两个自动切换弹窗操作，保持后台任务、照片、任务入口及卡库刷新。
+
+沿用线上已验证的112个网页/共享源文件快照构建，仅覆盖本次page.tsx和对应既有交互测试；没有用当前Git快照覆盖线上尚未合入的Atlas/MCP/扫描裁图与配对修复。pair-ingestion与capture-tasks共20项通过，生产构建及类型检查通过。镜像card-platform-web:intake-no-popup-20261031-1，BUILD_ID为_24MxqG7i77AO86xYilRD；候选容器及发布后HTTP 200、版本回读通过。API容器、环境、卷和运行用户不变，成本worker=true，DeepSeek非思考与独立搜索配置已验证；本次只改网页，无手机/API代码变更。发布凭据位于.runtime/intake-no-popup-20261031。
