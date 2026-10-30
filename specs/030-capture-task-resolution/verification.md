@@ -69,4 +69,4 @@ API最终镜像card-platform-api:0.6.8-20261030-partialintake3；网页card-plat
 
 按用户要求，Canon点击录入并提交成功后保留当前扫描页面和提交提示，可继续下一批；仅主动点击“录入任务”时打开任务中心。删除完成回调中的两个自动切换弹窗操作，保持后台任务、照片、任务入口及卡库刷新。
 
-沿用线上已验证的112个网页/共享源文件快照构建，仅覆盖本次page.tsx和对应既有交互测试；没有用当前Git快照覆盖线上尚未合入的Atlas/MCP/扫描裁图与配对修复。pair-ingestion与capture-tasks共20项通过，生产构建及类型检查通过。镜像card-platform-web:intake-no-popup-20261031-1，BUILD_ID为_24MxqG7i77AO86xYilRD；候选容器及发布后HTTP 200、版本回读通过。API容器、环境、卷和运行用户不变，成本worker=true，DeepSeek非思考与独立搜索配置已验证；本次只改网页，无手机/API代码变更。发布凭据位于.runtime/intake-no-popup-20261031。
+沿用线上已验证的112个网页/共享源文件快照构建，仅覆盖本次page.tsx和对应既有交互测试；没有用当前Git快照覆盖线上尚未合入的Atlas/MCP/扫描裁图与配对修复。pair-ingestion与capture-tasks共20项通过，生产构建及类型检查通过。首次镜像card-platform-web:intake-no-popup-20261031-1通过候选容器及发布后HTTP检查，随后并行拍卖发布切换了网页；合并该已提交的拍卖图片浏览/移除/撤销源码后，39项相关交互测试及生产构建再次通过。最终镜像card-platform-web:intake-no-popup-20261031-2，BUILD_ID为iwaoDtEa8DyDx6zIEHeJD；保留拍卖新版API和原有扫描、Atlas、MCP网页源码，发布后HTTP及版本另行回读。API容器、环境、卷和运行用户不变，成本worker=true，DeepSeek非思考与独立搜索配置已验证；本次只改网页，无手机/API代码变更。发布凭据位于.runtime/intake-no-popup-20261031。
