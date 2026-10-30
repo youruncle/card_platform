@@ -93,3 +93,10 @@ MIUI细调仍出现忽略/跳档，因此上述UI自动化成功片段不作为�
 网页镜像card-platform-web:0.6.8-20261031-auctionzoom1已激活，151个产物SHA全部一致。API容器与环境/挂载/用户未变，实际worker=true、deepseek-flash/thinking disabled和独立百炼qwen-plus搜索回读通过。六个公网页面/发现端点200，17个JS/CSS均200，相机新bundle已回读。LaunchAgent重启后返回camera_controls=true，真实Redmi枚举与PNA预检通过。
 
 登录Chrome新建单独标签页，保留用户原有Canon扫描配对页面；打开Tre Johnson III卡片的拍卖草稿，实际连接手机并取得取景，自动调整显示1.4×；点击“放大0.1倍”后实际回读1.5×、成功提示可见，随后关闭验证窗口。此网页验证不拍照、不上传、不改原卡数据；原先系统快门→云端草稿的完整写入验收T014仍保留，不能把镜头控制验证当作该路径通过。发布细节见docs/release-20261031-auction-camera.md。
+
+
+### 2026-10-31 照片浏览及可撤销移除
+
+T021/T022完成。网页251项与拍卖草稿API19项（真实独立PostgreSQL）通过，生产构建及TS通过。网页/API镜像均为0.6.8-20261031-auctionphotos1，0093新增归档列迁移成功；备份637,194,344字节且pg_restore目录验证通过。API仅替换两个拍卖模块，151个网页文件SHA验证，原扫描与图谱代理、worker/视觉/独立搜索配置保留。公网页面和资源均通过，新移除/恢复接口匿名401。
+
+实际Chrome验证截图对应ID930草稿的5张照片，已有卡图和手机新照大图已检查，方向键切换及Esc回草稿/焦点恢复通过；选中数3和revision7不变，五个移除按钮可见。生产没有点击移除/恢复；写入、撤销、原卡不变、跨账户、旧版本、12张容量和上传重试均通过独立测试库验证。完整记录与一次发布校验误判回滚、一次网页502重试见`.specify/bugs/auction-photo-preview/report.md`。扩展test_public_auction_integrity.py中既有test_visual_prompt_contains_target_back_and_parallel_requirement失败（扩展53通过/1失败），未修改相关估值提示，未声称API全套通过。
