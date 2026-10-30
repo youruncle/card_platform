@@ -98,3 +98,11 @@ Files: shared `packages/card-core/src/auction.ts`，网页 `components/auction-d
 - `scripts/android-camera-native.mjs`负责ADB临时转发、私有UNIX socket的nonce/token命令、有限响应/取消和finally端口清理；预览/自动/倍率共用此通道。`CONTROL_ZOOM_RATIO`或SCALER_CROP_REGION实际CaptureResult确认，ImageReader JPEG按sensor timestamp绑定一次快门。准备阶段先通过本机TCP协议/Java策略/HTTP路由测试。
 - 网页按设备min/max启用缩放；未取景前先读取范围。只有组件安装成功时快门走同一原生镜头，未安装保持原系统相机快门；不得在原生失败后悄悄回退拍另一张图。
 - 用户确认后才覆盖安装Android组件并授予相机权限，真实读取1→1.6→1.5→1.6及自动调整、取景/拍照一致性，然后更新LaunchAgent与网页发布。确认前保留未完成状态、安装包和测试证据，不声称上线。
+
+## Task 8: 照片浏览与可撤销移除
+
+- 网页已有GlobalImageViewer接入照片按钮，checkbox独立；查看器获得/恢复焦点及Tab约束。
+- 新增0093迁移，仅为auction_draft新增removed_photos JSONB数组；photos保持活跃最多12张约束，媒体文件不删除。DELETE `/drafts/{id}/images/{photo}`与POST同路径`/restore`接收`revision,selected_photo_ids?`，同锁内验证并移动元数据，响应只公开可恢复ID，不暴露filename。
+- card-core编辑器串行移除/恢复，保留未保存人工文案，显式提交当前选图；网页逐图“移除”及“撤销上次移除”，操作期间互斥。
+- 先跑失败单元/真实数据库/网页交互回归，再实现；仅用独立auction_test数据库与合成图片测试写入。
+- 冻结当前线上flatbed-confirm源，叠加网页/共享核心/两API模块，保留扫描、图谱、代理及模型/worker配置。API+网页发布，手机UI无改动；新字段/接口向后兼容现有iPhone。

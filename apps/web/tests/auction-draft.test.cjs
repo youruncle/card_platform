@@ -197,3 +197,39 @@ test('auction photos open a full-size gallery without changing selection; Escape
  fireEvent.click(screen.getByRole('button',{name:'关闭图片查看器'}));
  assert.equal(closes,0);assert.ok(screen.getByRole('dialog',{name:'单卡拍卖草稿'}));
 });
+
+test('removing a draft photo persists selection, preserves unsaved text, and can undo after reopen',async()=>{
+ let server=draft(),calls=[];
+ const request=async(path,init={})=>{
+  calls.push({path,method:init.method,body:init.body&&JSON.parse(init.body)});
+  if(init.method==='DELETE')server={...server,revision:2,photos:[draft().photos[1]],selected_photo_ids:[],removed_photo_ids:['front']};
+  if(path.endsWith('/restore'))server={...draft(),revision:3,photos:[draft().photos[1],draft().photos[0]],removed_photo_ids:[]};
+  return server;
+ };
+ const view=render(React.createElement(AuctionDraftPanel,{itemId:'card-a',onClose:()=>{},request}));
+ await screen.findByRole('button',{name:'从草稿移除正面照片 1'});
+ fireEvent.change(screen.getByLabelText('标题'),{target:{value:'尚未保存的标题'}});
+ fireEvent.click(screen.getByRole('button',{name:'从草稿移除正面照片 1'}));
+ await waitFor(()=>assert.equal(Boolean(screen.queryByLabelText('选择正面照片 1')),false));
+ assert.equal(screen.getByLabelText('标题').value,'尚未保存的标题');
+ assert.deepEqual(calls.find(c=>c.method==='DELETE').body,{revision:1,selected_photo_ids:['front']});
+ view.unmount();
+ render(React.createElement(AuctionDraftPanel,{itemId:'card-a',onClose:()=>{},request}));
+ fireEvent.click(await screen.findByRole('button',{name:'撤销上次移除'}));
+ await screen.findByLabelText('选择正面照片 2');
+ assert.equal(screen.getByLabelText('选择正面照片 2').checked,true);
+ assert.equal(screen.queryByRole('button',{name:'撤销上次移除'}),null);
+});
+
+test('failed removal keeps the photo and edits; concurrent removal cannot run twice',async()=>{
+ let finish,removals=0;
+ const editor=new AuctionEditor(async(path,init={})=>{
+  if(init.method==='DELETE'){removals++;await new Promise(resolve=>finish=resolve);throw Object.assign(new Error('旧版本'),{status:409});}
+  return draft();
+ });
+ await editor.open('card-a');editor.edit({description:'尚未保存的描述'});
+ const pending=editor.changePhoto('front');await editor.changePhoto('front');
+ assert.equal(removals,1);finish();await pending;
+ assert.equal(editor.state.conflict,true);assert.equal(editor.state.draft.photos.length,2);
+ assert.equal(editor.state.description,'尚未保存的描述');editor.dispose();
+});

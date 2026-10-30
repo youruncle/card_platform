@@ -57,6 +57,27 @@ def apply_edit(row, revision, changes):
     return result
 
 
+def change_photo(row, revision, photo_id, *, restore, selected_photo_ids=None):
+    changes = {} if selected_photo_ids is None else {'selected_photo_ids': selected_photo_ids}
+    result = apply_edit(row, revision, changes)
+    removed = result.setdefault('removed_photos', [])
+    source, target = (removed, result['photos']) if restore else (result['photos'], removed)
+    photo = next((p for p in source if p['id'] == str(photo_id)), None)
+    if photo is None:
+        raise NotFoundError('拍卖图片不存在')
+    if restore:
+        if len(target) >= MAX_PHOTOS:
+            raise ValueError('当前已有12张照片，请先移除一张再恢复')
+        if photo.pop('was_selected', False):
+            result['selected_photo_ids'].append(photo['id'])
+    else:
+        photo['was_selected'] = photo['id'] in result['selected_photo_ids']
+        result['selected_photo_ids'] = [id for id in result['selected_photo_ids'] if id != photo['id']]
+    source.remove(photo)
+    target.append(photo)
+    return result
+
+
 def fact(value):
     if value is None or isinstance(value, bool):
         return ''
@@ -218,10 +239,10 @@ async def create_draft(connection, owner, item_id, upload_root, media):
 async def persist(connection, row):
     return await (await connection.execute(
         '''UPDATE auction_draft SET title=%s,description=%s,condition_notes=%s,selected_photo_ids=%s,
-           photos=%s,identity=%s,generation_basis=%s,revision=%s,updated_at=clock_timestamp()
+           photos=%s,removed_photos=%s,identity=%s,generation_basis=%s,revision=%s,updated_at=clock_timestamp()
            WHERE id=%s AND owner_id=%s RETURNING *''',
         (row['title'], row['description'], row['condition_notes'], Jsonb(row['selected_photo_ids']),
-         Jsonb(row['photos']), Jsonb(row['identity']), Jsonb(row['generation_basis']),
+         Jsonb(row['photos']), Jsonb(row.get('removed_photos', [])), Jsonb(row['identity']), Jsonb(row['generation_basis']),
          row['revision'], row['id'], row['owner_id']),
     )).fetchone()
 
@@ -232,4 +253,5 @@ def public_draft(row):
     value['photos'] = [{**{key: photo[key] for key in ('id', 'side', 'source', 'sha256')},
                         'url': f'/v1/auction/drafts/{row["id"]}/images/{photo["id"]}'} for photo in row['photos']]
     value['external'] = dict(EXTERNAL)
+    value['removed_photo_ids'] = [photo['id'] for photo in row.get('removed_photos', [])]
     return value

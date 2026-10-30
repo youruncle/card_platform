@@ -15,7 +15,7 @@ from card_platform.api import get_connection
 from card_platform.auction_drafts import (
     AuctionMediaStore, DraftConflict, EXTERNAL, IDENTITY_FIELDS, MAX_PHOTOS,
     apply_edit, create_draft, generate_copy, load_draft, owned_item, persist,
-    public_draft, validate_selection,
+    public_draft, validate_selection, change_photo,
 )
 from card_platform.auth import AuthenticatedUser
 from card_platform.capture_media_api import media_user
@@ -48,6 +48,12 @@ class DraftGenerate(BaseModel):
     automatic: bool = False
     edited_title: str | None = Field(default=None, max_length=200)
     edited_description: str | None = Field(default=None, max_length=8000)
+
+
+class DraftPhotoEdit(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    revision: int = Field(ge=1)
+    selected_photo_ids: list[str] | None = Field(default=None, max_length=MAX_PHOTOS)
 
 
 def media_store():
@@ -141,6 +147,8 @@ async def upload_photo(draft_id: UUID, response: Response, revision: int = Form(
                        user: AuthenticatedUser = Depends(media_user), connection: AsyncConnection = Depends(get_connection)):
     try:
         row = await load_draft(connection, user.id, draft_id, lock=True)
+        if request_id and any(photo.get('request_id') == str(request_id) for photo in row.get('removed_photos', [])):
+            raise DraftConflict('这张照片已从草稿移除，请读取最新版本；如需恢复请使用撤销移除')
         prior = next((photo for photo in row['photos'] if request_id and photo.get('request_id') == str(request_id)), None)
         if prior:
             content = await read_validated_image(image, get_settings().max_image_bytes)
@@ -218,6 +226,30 @@ async def get_photo(draft_id: UUID, photo_id: UUID, user: AuthenticatedUser = De
     except (NotFoundError, OSError) as error:
         raise error_response(error) from error
     return FileResponse(path, headers=PRIVATE_HEADERS)
+
+
+async def update_photo(draft_id, photo_id, payload, response, user, connection, *, restore):
+    try:
+        row = await load_draft(connection, user.id, draft_id, lock=True)
+        edited = change_photo(row, payload.revision, photo_id, restore=restore,
+                              selected_photo_ids=payload.selected_photo_ids)
+        updated = await persist(connection, edited)
+    except (NotFoundError, ValueError) as error:
+        raise error_response(error) from error
+    response.headers.update(PRIVATE_HEADERS)
+    return public_draft(updated)
+
+
+@router.delete('/drafts/{draft_id}/images/{photo_id}')
+async def remove_photo(draft_id: UUID, photo_id: UUID, payload: DraftPhotoEdit, response: Response,
+                       user: AuthenticatedUser = Depends(media_user), connection: AsyncConnection = Depends(get_connection)):
+    return await update_photo(draft_id, photo_id, payload, response, user, connection, restore=False)
+
+
+@router.post('/drafts/{draft_id}/images/{photo_id}/restore')
+async def restore_photo(draft_id: UUID, photo_id: UUID, payload: DraftPhotoEdit, response: Response,
+                        user: AuthenticatedUser = Depends(media_user), connection: AsyncConnection = Depends(get_connection)):
+    return await update_photo(draft_id, photo_id, payload, response, user, connection, restore=True)
 
 
 @router.post('/drafts/{draft_id}/cardhobby')

@@ -2,6 +2,7 @@ export type AuctionPhoto = { id: string; side: 'front' | 'back' | 'detail'; sour
 export type AuctionDraft = {
   id: string; item_id: string; revision: number; status: 'draft'; title: string; description: string;
   condition_notes: string; selected_photo_ids: string[]; photos: AuctionPhoto[];
+  removed_photo_ids?: string[];
   identity: Record<string, unknown>; generation_basis: Record<string, unknown>;
   external: { supported: false; status: 'unavailable'; reason: string }; updated_at: string;
 };
@@ -71,6 +72,18 @@ export class AuctionEditor {
       const { draft, title, description, condition_notes, selected_photo_ids } = this.state;
       const result = await this.call(`/v1/auction/drafts/${draft!.id}`, json('PATCH', { revision: draft!.revision, title, description, condition_notes, selected_photo_ids }), signal);
       this.textEdits.clear(); this.update({ draft: result, ...editable(result), latestConflicts: {}, notice: '平台草稿已保存' });
+    });
+  }
+  async changePhoto(id: string, restore = false) {
+    if (!this.state.draft || this.state.busy || this.state.conflict) return;
+    await this.run(async signal => {
+      const { draft, selected_photo_ids } = this.state;
+      const path = `/v1/auction/drafts/${draft!.id}/images/${encodeURIComponent(id)}${restore ? '/restore' : ''}`;
+      const result = await this.call(path, json(restore ? 'POST' : 'DELETE', { revision: draft!.revision, selected_photo_ids }), signal);
+      this.textEdits.delete('selected_photo_ids');
+      const latestConflicts = { ...this.state.latestConflicts }; delete latestConflicts.selected_photo_ids;
+      this.update({ draft: result, selected_photo_ids: result.selected_photo_ids, latestConflicts,
+        notice: restore ? '照片已恢复，原有文案已保留。' : '照片已从草稿移除，可撤销。原卡库与手机图片、手工文案均保留；需要时可重新生成文案。' });
     });
   }
   async refresh() {

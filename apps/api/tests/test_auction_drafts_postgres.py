@@ -26,6 +26,7 @@ def auction_dsn():
         if conn.execute("SELECT to_regclass('public.auction_draft')").fetchone()[0] is None:
             for file in sorted(migrations.glob('*.sql')):
                 conn.execute(file.read_text())
+        conn.execute((migrations / '0093_auction_removed_photos.sql').read_text())
     return dsn
 
 
@@ -218,3 +219,74 @@ def test_upload_response_loss_replay_does_not_duplicate_photo_or_hide_conflict(c
     changed = owner.patch(base, json=dict(revision=first.json()['revision'], title='另一端修改'))
     assert changed.status_code == 200
     assert upload(key).status_code == 409
+
+
+def test_remove_restore_private_photos_persist_and_never_touch_portfolio(clients):
+    owner, other, anon = clients
+    item = card(owner)
+    before = owner.get(f'/v1/portfolio/items/{item}/detail').json()
+    created = draft(owner,item)
+    base = f'/v1/auction/drafts/{created["id"]}'
+    photo = created['photos'][0]
+    url = photo['url']
+    for client, status in [(other,404),(anon,401)]:
+        assert client.request('DELETE',url,json={'revision':1}).status_code == status
+    removed = owner.request('DELETE',url,json={'revision':1})
+    assert removed.status_code == 200, removed.text
+    row = removed.json()
+    assert row['photos'] == [] and row['selected_photo_ids'] == []
+    assert row['removed_photo_ids'] == [photo['id']]
+    assert 'filename' not in str(row) and 'was_selected' not in str(row)
+    assert owner.get(url).status_code == 404
+    assert draft(owner,item)['photos'] == []
+    assert owner.request('DELETE',url,json={'revision':1}).status_code == 409
+    assert owner.patch(base,json={'revision':2,'selected_photo_ids':[photo['id']]}).status_code == 422
+    for client,status in [(other,404),(anon,401)]:
+        assert client.post(url+'/restore',json={'revision':2}).status_code == status
+    restored = owner.post(url+'/restore',json={'revision':2})
+    assert restored.status_code == 200, restored.text
+    assert restored.json()['selected_photo_ids'] == [photo['id']]
+    assert restored.json()['removed_photo_ids'] == []
+    assert owner.get(url).content == picture()
+    assert owner.get(f'/v1/portfolio/items/{item}/detail').json() == before
+
+
+def test_removed_slot_can_be_reused_and_full_restore_is_rejected(clients):
+    owner, _, _ = clients
+    created = draft(owner,card(owner))
+    base = f'/v1/auction/drafts/{created["id"]}'
+    def upload(current):
+        result = owner.post(base+'/images',data={'revision':current['revision'],'side':'detail','source':'upload'},
+                            files={'image':('detail.png',picture(),'image/png')})
+        assert result.status_code == 200, result.text
+        return result.json()
+    row = created
+    for _ in range(11):
+        row = upload(row)
+    image_url = row['photos'][0]['url']
+    removed = owner.request('DELETE',image_url,json={'revision':row['revision']}).json()
+    assert len(removed['photos']) == 11
+    row = upload(removed)
+    assert len(row['photos']) == 12
+    assert owner.post(image_url+'/restore',json={'revision':row['revision']}).status_code == 422
+    current = owner.get(base).json()
+    assert current['removed_photo_ids'] == removed['removed_photo_ids']
+    assert current['revision'] == row['revision']
+    with ThreadPoolExecutor(2) as pool:
+        responses = list(pool.map(lambda photo:owner.request('DELETE',photo['url'],json={'revision':row['revision']}),row['photos'][:2]))
+    assert sorted(r.status_code for r in responses) == [200,409]
+
+
+def test_upload_retry_cannot_recreate_removed_photo(clients):
+    owner, _, _ = clients
+    created = draft(owner,card(owner))
+    base = f'/v1/auction/drafts/{created["id"]}'
+    request_id = str(uuid4())
+    def upload(revision):
+        return owner.post(base+'/images',data={'revision':revision,'side':'detail','source':'redmi','request_id':request_id},
+                          files={'image':('redmi.png',picture(),'image/png')})
+    uploaded = upload(1).json()
+    removed = owner.request('DELETE',uploaded['photos'][-1]['url'],json={'revision':uploaded['revision']}).json()
+    assert upload(removed['revision']).status_code == 409
+    assert len(owner.get(base).json()['photos']) == 1
+    assert owner.get(base).json()['removed_photo_ids'] == removed['removed_photo_ids']

@@ -140,3 +140,23 @@ async def test_optional_order_cipher_failure_cannot_block_generation(monkeypatch
         raise ValueError('account key permissions invalid')
     monkeypatch.setattr(auction_api, 'account_service', unavailable)
     assert await auction_api.load_order_examples(None, uuid4(), {}) == ([], 'unavailable')
+
+
+def test_photo_removal_and_restore_preserve_media_and_release_active_slots():
+    from copy import deepcopy
+    original = dict(revision=4, title='人工标题', description='人工描述', condition_notes='',
+                    selected_photo_ids=['a'], photos=[dict(id='a',filename='a.png',source='existing')],
+                    generation_basis={})
+    before = deepcopy(original)
+    removed = service().change_photo(original, 4, 'a', restore=False)
+    assert original == before
+    assert removed['photos'] == [] and removed['selected_photo_ids'] == []
+    assert removed['removed_photos'][0]['filename'] == 'a.png'
+    assert removed['title'] == '人工标题' and removed['revision'] == 5
+    restored = service().change_photo(removed, 5, 'a', restore=True)
+    assert restored['photos'] == original['photos'] and restored['selected_photo_ids'] == ['a']
+    assert restored['removed_photos'] == [] and restored['revision'] == 6
+    with pytest.raises(service().DraftConflict):
+        service().change_photo(removed, 4, 'a', restore=True)
+    with pytest.raises(ValueError):
+        service().change_photo({**removed,'photos':[dict(id=str(i)) for i in range(12)]},5,'a',restore=True)
