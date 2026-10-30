@@ -1,0 +1,13 @@
+{
+  "source_report": "/Users/song/Documents/Codex/2026-10-28/task/card-platform-incremental/specs/009-official-checklist-knowledge/atlas-api-publication-20261030.md",
+  "image": "card-platform-api:atlas-readonly-20261030-023839",
+  "image_id": "sha256:119b9ba3827c6db5ff544085374f12343174cae9df817d09251db413f9bddc65",
+  "source_file_sha256": {
+    "knowledge_browser.py": "c2d71ac814f9046a7622f01ad96359aba68952f4e30753b8a94199c2c99ba540",
+    "knowledge_browser_api.py": "79273920be341f78afc66ef17e53dc74c4a3560c6537a7694deb0f5e2b5b8b99",
+    "knowledge_atlas.py": "19dde10c9f8697d0925b0491a0df67124bd5785f8f305a8c1375109bc4e061f2"
+  },
+  "deployed_cache_schema": 7,
+  "manager_cache_schema": 8,
+  "alignment": "Both deployed SQLite indexes and all three compact-index count clauses retained; manager extends derived schema and fingerprints, no production schema change. Source atlas/API files byte-identical. Other worktree read only. Management none/single/both image filters additionally use the existing atlas_image covering state index, with equivalent semantics and SQL-plan regression guards."
+}

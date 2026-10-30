@@ -644,6 +644,8 @@ class KnowledgeBrowser:
                 CREATE INDEX cards_product ON cards(product_id);
                 CREATE INDEX cards_manufacturer_season ON cards(manufacturer COLLATE NOCASE,season);
                 CREATE INDEX cards_related ON cards(product_id,season,season_end,player,card_number,section);
+                CREATE INDEX cards_with_images ON cards(id) WHERE image_count>0;
+                CREATE INDEX card_search_text ON card_search(search);
                 CREATE INDEX entities_type ON entities(entity_type);
             """)
             self._add_media(db, products, entity_map, issues)
@@ -1115,7 +1117,10 @@ class KnowledgeBrowser:
                     )
                 )
                 params.append(value)
-        if image_state != "any":
+        if image_state in {"none", "single", "both"}:
+            where.append("id IN (SELECT card_id FROM atlas_state WHERE image=?)")
+            params.append(image_state)
+        elif image_state != "any":
             where.append(
                 {
                     "has_image": "image_count>0",
@@ -1158,7 +1163,7 @@ class KnowledgeBrowser:
             # intersection avoids random wide-card reads for every text match.
             total = db.execute(
                 f"SELECT count(*) FROM cards INDEXED BY {covering} WHERE {clause} "
-                "AND rowid IN (SELECT card_rowid FROM card_search WHERE instr(search,?)>0)",
+                "AND rowid IN (SELECT card_rowid FROM card_search INDEXED BY card_search_text WHERE instr(search,?)>0)",
                 [*params, query],
             ).fetchone()[0]
         elif clause:
@@ -1167,7 +1172,7 @@ class KnowledgeBrowser:
             ).fetchone()[0]
         else:
             total = db.execute(
-                "SELECT count(*) FROM card_search WHERE instr(search,?)>0", (query,)
+                "SELECT count(*) FROM card_search INDEXED BY card_search_text WHERE instr(search,?)>0", (query,)
             ).fetchone()[0]
         if offset >= total:
             selected = []
@@ -1308,7 +1313,7 @@ class KnowledgeBrowser:
                     card_count = cards["total"]
                 elif query:
                     card_count = db.execute(
-                        "SELECT count(*) FROM card_search WHERE instr(search,?)>0", (query,)
+                        "SELECT count(*) FROM card_search INDEXED BY card_search_text WHERE instr(search,?)>0", (query,)
                     ).fetchone()[0]
                 else:
                     card_count = db.execute("SELECT count(*) FROM cards").fetchone()[0]

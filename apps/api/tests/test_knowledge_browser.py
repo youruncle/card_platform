@@ -585,3 +585,53 @@ def test_glossary_card_counts_and_default_union_include_attachment_facts(tmp_pat
     assert index.entities(q="球员甲")["total"] == 3
     page = index.entities(entity_type="card", offset=1, limit=1)
     assert page["total"] == 2 and page["items"][0]["id"] == "card:1"
+
+
+def test_global_text_count_reads_a_compact_covering_index(tmp_path, monkeypatch):
+    """A global term must not page through the interleaved wide card store."""
+    index = browser(tmp_path)
+    connect = index._connect
+    statements = []
+
+    def traced():
+        db = connect()
+        db.set_trace_callback(statements.append)
+        return db
+
+    monkeypatch.setattr(index, "_connect", traced)
+    assert index.cards(q="Player A")["total"] == 1
+    sql = next(s for s in statements if s.startswith("SELECT count(*) FROM card_search"))
+    with connect() as db:
+        plan = [row[3] for row in db.execute("EXPLAIN QUERY PLAN " + sql)]
+    assert any("COVERING INDEX" in step for step in plan), plan
+
+
+def test_has_image_count_avoids_scanning_unpictured_card_payloads(tmp_path, monkeypatch):
+    index = browser(tmp_path)
+    connect = index._connect
+    statements = []
+
+    def traced():
+        db = connect()
+        db.set_trace_callback(statements.append)
+        return db
+
+    monkeypatch.setattr(index, "_connect", traced)
+    assert index.cards(image_state="has_image")["total"] == 0
+    sql = next(s for s in statements if s.startswith("SELECT count(*) FROM cards WHERE"))
+    with connect() as db:
+        plan = [row[3] for row in db.execute("EXPLAIN QUERY PLAN " + sql)]
+    assert any("USING INDEX" in step for step in plan), plan
+
+
+@pytest.mark.parametrize('state,total',[('none',1),('single',0),('both',0)])
+def test_manager_image_filters_use_compact_state_index(tmp_path,monkeypatch,state,total):
+    index=browser(tmp_path); connect=index._connect; statements=[]
+    def traced():
+        db=connect(); db.set_trace_callback(statements.append); return db
+    monkeypatch.setattr(index,'_connect',traced)
+    assert index.cards(image_state=state)['total']==total
+    sql=next(s for s in statements if s.startswith('SELECT count(*) FROM cards WHERE'))
+    with connect() as db: plan=[row[3] for row in db.execute('EXPLAIN QUERY PLAN '+sql)]
+    assert any('COVERING INDEX atlas_image' in step for step in plan),plan
+    assert not any(step=='SCAN cards' for step in plan),plan

@@ -16,5 +16,15 @@
 - Ruling: automatic official_source_keys publication carries published overlays only; atlas drafts require explicit normal publication. Prevents background ingestion changing manual correction state.
 - Ruling: unpublished approval can be rejected after rollback/version advance; published history remains immutable. Latest audit event determines state consistently.
 - Ruling: face pairing and reviewed target binding are separate; legacy physical paired state is retained, new pair_binding_status/source mappings control the UI audit claim.
-- Deferred Minor: application version/current rollback lifecycle timeline; original-source serial/autograph metadata versus corrected effective field metadata. Detailed costs and scope in verification.md.
+- Previously deferred residuals were explicitly reopened and completed in F1/F2 below; see metadata-lifecycle-verification.md.
 - Keep local branch/worktree for independent release review; no deployment/push/merge.
+
+## Follow-up: identity metadata and publication history (authorized 2026-10-30)
+- [x] F1: Map effective identity/filter/source/pricing dependencies; RED tests for serial/autograph/section changes and original evidence preservation; recompute effective metadata, label original assertions, explicitly mark price grouping not recomputed.
+- [x] F2: RED tests for submit/review/publish/carry/rollback/remove/restore/stale-draft history; derive per-proposal state from immutable version membership and all audit events; display exact versions/actors/time/reasons without rewriting evidence or adding production schema.
+- [x] F3: Related backend/web/type/build and real key-flow QA; independent narrow review of F1/F2, fixes and report. Wait for actual final readonly adapter before integration; no deploy/push/merge.
+
+- Follow-up verified162 backend /28 web, typecheck/ruff/build pass; independent narrow review completed. Legacy transaction-time ambiguity fixed with retained raw timestamps and visible uncertainty, not rewritten history.
+- [x] F4: Align to actual deployed readonly schema7/indexes, run retained SQL plan guards and full-snapshot35-response contract/resource replay.
+
+- Final alignment:168 backend /28 web; cold and warm35 recorded deployed contract cases each zero differences, complete565 products/2,169,016 facts/831 media/14 pairs, issues0. Resource receipts and release gates in deployed-alignment-verification.md.

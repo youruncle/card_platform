@@ -1,0 +1,369 @@
+{
+  "run": "warm",
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "cache_existed_before": true,
+  "snapshot_checksum": "82bdd53f184af540ffe6251fadaef4e2752a34cb69ff1e5b497ec305aef06e81",
+  "version_id": "28346a44-4202-4d50-b0a9-edd88f6e30ba",
+  "workspace_revision": 1859,
+  "index_seconds": 1.463013666914776,
+  "total_seconds": 12.580926625058055,
+  "max_rss_bytes": 618987520,
+  "cache_bytes": 4535410688,
+  "summary": {
+    "version": 26,
+    "version_id": "28346a44-4202-4d50-b0a9-edd88f6e30ba",
+    "discovery_complete": false,
+    "summary": {
+      "manufacturers": 3,
+      "products": 565,
+      "card_facts": 2169016,
+      "images": 831,
+      "paired_cards": 14
+    },
+    "manufacturers": [
+      {
+        "name": "Panini",
+        "product_count": 446,
+        "card_count": 2125332,
+        "image_count": 560
+      },
+      {
+        "name": "Topps",
+        "product_count": 60,
+        "card_count": 34502,
+        "image_count": 271
+      },
+      {
+        "name": "Upper Deck",
+        "product_count": 20,
+        "card_count": 9182,
+        "image_count": 0
+      }
+    ],
+    "seasons": [
+      2026,
+      2025,
+      2024,
+      2023,
+      2022,
+      2021,
+      2020,
+      2019,
+      2018,
+      2017,
+      2016,
+      2015,
+      2014,
+      2013,
+      2012,
+      2011,
+      2010,
+      2009
+    ],
+    "entity_types": [
+      {
+        "type": "attribute",
+        "count": 109
+      },
+      {
+        "type": "card",
+        "count": 2169016
+      },
+      {
+        "type": "insert",
+        "count": 1119
+      },
+      {
+        "type": "parallel",
+        "count": 46
+      },
+      {
+        "type": "player",
+        "count": 5216
+      },
+      {
+        "type": "product",
+        "count": 565
+      }
+    ],
+    "issues": []
+  },
+  "calls": [
+    {
+      "key": "/summary?null",
+      "status": 200,
+      "seconds": 0.8768253340385854,
+      "differences": 0
+    },
+    {
+      "key": "/products?{\"limit\": 24}",
+      "status": 200,
+      "seconds": 0.039077833062037826,
+      "differences": 0
+    },
+    {
+      "key": "/products?{\"limit\": 24, \"offset\": 24}",
+      "status": 200,
+      "seconds": 0.04763045907020569,
+      "differences": 0
+    },
+    {
+      "key": "/products?{\"limit\": 10, \"manufacturer\": \"Panini\", \"season\": 2024}",
+      "status": 200,
+      "seconds": 0.04069829103536904,
+      "differences": 0
+    },
+    {
+      "key": "/products?{\"has_images\": true, \"limit\": 10}",
+      "status": 200,
+      "seconds": 0.03701733401976526,
+      "differences": 0
+    },
+    {
+      "key": "/cards?{\"limit\": 10}",
+      "status": 200,
+      "seconds": 0.07517779106274247,
+      "differences": 0
+    },
+    {
+      "key": "/cards?{\"limit\": 10, \"offset\": 10}",
+      "status": 200,
+      "seconds": 0.07758679194375873,
+      "differences": 0
+    },
+    {
+      "key": "/cards?{\"limit\": 10, \"q\": \"Wembanyama\"}",
+      "status": 200,
+      "seconds": 0.818299249978736,
+      "differences": 0
+    },
+    {
+      "key": "/cards?{\"limit\": 10, \"manufacturer\": \"Panini\", \"season\": 2025}",
+      "status": 200,
+      "seconds": 0.08933191699907184,
+      "differences": 0
+    },
+    {
+      "key": "/cards?{\"image_state\": \"has_image\", \"limit\": 10}",
+      "status": 200,
+      "seconds": 0.037441874854266644,
+      "differences": 0
+    },
+    {
+      "key": "/media?{\"limit\": 10}",
+      "status": 200,
+      "seconds": 0.03713258309289813,
+      "differences": 0
+    },
+    {
+      "key": "/media?{\"kind\": \"specimen\", \"limit\": 10}",
+      "status": 200,
+      "seconds": 0.055871875025331974,
+      "differences": 0
+    },
+    {
+      "key": "/entities?{\"entity_type\": \"player\", \"limit\": 10}",
+      "status": 200,
+      "seconds": 0.04592683305963874,
+      "differences": 0
+    },
+    {
+      "key": "/entities?{\"limit\": 10, \"q\": \"Prizm\"}",
+      "status": 200,
+      "seconds": 0.7594916669186205,
+      "differences": 0
+    },
+    {
+      "key": "/products/e7dfab71-21a9-4849-844f-54d053d8e48f?null",
+      "status": 200,
+      "seconds": 0.07071870798245072,
+      "differences": 0
+    },
+    {
+      "key": "/cards?{\"limit\": 10, \"product_id\": \"e7dfab71-21a9-4849-844f-54d053d8e48f\"}",
+      "status": 200,
+      "seconds": 0.04285854194313288,
+      "differences": 0
+    },
+    {
+      "key": "/cards?{\"limit\": 10, \"offset\": 10, \"product_id\": \"e7dfab71-21a9-4849-844f-54d053d8e48f\"}",
+      "status": 200,
+      "seconds": 0.04454945889301598,
+      "differences": 0
+    },
+    {
+      "key": "/cards/official%3Apanini-api-2023-1303%3A0003f8b47d5d04c73ed06e04?null",
+      "status": 200,
+      "seconds": 0.03919204091653228,
+      "differences": 0
+    },
+    {
+      "key": "/cards/official%3Apanini-api-2023-1303%3A69dbb0e740a582dd7fb3a9ee?null",
+      "status": 200,
+      "seconds": 0.06169416685588658,
+      "differences": 0
+    },
+    {
+      "key": "/products/08647a76-e338-4272-9d4c-f8914367c3ab?null",
+      "status": 200,
+      "seconds": 0.08865216700360179,
+      "differences": 0
+    },
+    {
+      "key": "/cards?{\"limit\": 10, \"product_id\": \"08647a76-e338-4272-9d4c-f8914367c3ab\"}",
+      "status": 200,
+      "seconds": 0.046346249990165234,
+      "differences": 0
+    },
+    {
+      "key": "/cards?{\"limit\": 10, \"offset\": 10, \"product_id\": \"08647a76-e338-4272-9d4c-f8914367c3ab\"}",
+      "status": 200,
+      "seconds": 0.049253541976213455,
+      "differences": 0
+    },
+    {
+      "key": "/cards/official%3Apanini-api-2024-1378%3A0001d7c407230afcc659b845?null",
+      "status": 200,
+      "seconds": 0.03670608391985297,
+      "differences": 0
+    },
+    {
+      "key": "/cards/official%3Apanini-api-2024-1378%3A2e0fb29c3e823891afa17be8?null",
+      "status": 200,
+      "seconds": 0.03391337487846613,
+      "differences": 0
+    },
+    {
+      "key": "/products/2a09f03b-10da-403d-b48a-52dd6bd310ce?null",
+      "status": 200,
+      "seconds": 0.04334708279930055,
+      "differences": 0
+    },
+    {
+      "key": "/cards?{\"limit\": 10, \"product_id\": \"2a09f03b-10da-403d-b48a-52dd6bd310ce\"}",
+      "status": 200,
+      "seconds": 0.06018529203720391,
+      "differences": 0
+    },
+    {
+      "key": "/cards?{\"limit\": 10, \"offset\": 10, \"product_id\": \"2a09f03b-10da-403d-b48a-52dd6bd310ce\"}",
+      "status": 200,
+      "seconds": 0.04020316689275205,
+      "differences": 0
+    },
+    {
+      "key": "/cards/official%3Apanini-api-2025-1533%3A00000d898614dd85ee0fb8a1?null",
+      "status": 200,
+      "seconds": 0.03305816603824496,
+      "differences": 0
+    },
+    {
+      "key": "/cards/official%3Apanini-api-2025-1533%3Aadea1817b57d78bda91fc117?null",
+      "status": 200,
+      "seconds": 0.03427091706544161,
+      "differences": 0
+    },
+    {
+      "key": "/media?{\"kind\": \"specimen\", \"limit\": 1}",
+      "status": 200,
+      "seconds": 0.035737124970182776,
+      "differences": 0
+    },
+    {
+      "key": "/media/media-0114b63970cfeae6ecc0c4a65c5ffdac/image?null",
+      "status": 200,
+      "seconds": 0.04228095896542072,
+      "differences": 0
+    },
+    {
+      "key": "/cards?{\"limit\": 101}",
+      "status": 422,
+      "seconds": 0.0011519580148160458,
+      "differences": 0
+    },
+    {
+      "key": "/cards?{\"image_state\": \"bogus\"}",
+      "status": 422,
+      "seconds": 0.0008017078507691622,
+      "differences": 0
+    },
+    {
+      "key": "/cards/absent?null",
+      "status": 404,
+      "seconds": 0.033772666938602924,
+      "differences": 0
+    },
+    {
+      "key": "/products/absent?null",
+      "status": 404,
+      "seconds": 0.03363729198463261,
+      "differences": 0
+    }
+  ],
+  "contract_cases": 35,
+  "differences": [],
+  "management": [
+    {
+      "name": "summary",
+      "seconds": 0.5673821249511093,
+      "total": null,
+      "summary": {
+        "version": 26,
+        "version_id": "28346a44-4202-4d50-b0a9-edd88f6e30ba",
+        "source_records": 2169016,
+        "confirmed": 702430,
+        "pending": 1466586,
+        "conflict": 0,
+        "image_states": {
+          "both": 14,
+          "none": 2169002
+        },
+        "global_unique_atlases": null
+      }
+    },
+    {
+      "name": "confirmed",
+      "seconds": 0.7844567080028355,
+      "total": 702430,
+      "summary": null
+    },
+    {
+      "name": "pending",
+      "seconds": 2.147210333030671,
+      "total": 1466586,
+      "summary": null
+    },
+    {
+      "name": "conflict",
+      "seconds": 0.041454541962593794,
+      "total": 0,
+      "summary": null
+    },
+    {
+      "name": "both_images",
+      "seconds": 0.04513891600072384,
+      "total": 14,
+      "summary": null
+    },
+    {
+      "name": "single_image",
+      "seconds": 0.03671620809473097,
+      "total": 0,
+      "summary": null
+    },
+    {
+      "name": "no_images",
+      "seconds": 2.4297357918694615,
+      "total": 2169002,
+      "summary": null
+    },
+    {
+      "name": "exact_player_card",
+      "seconds": 0.0448978750500828,
+      "total": 71,
+      "summary": null
+    }
+  ],
+  "production_writes": 0,
+  "network_requests": 0
+}

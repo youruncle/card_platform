@@ -1,0 +1,17 @@
+{
+  "none": [
+    "SEARCH cards USING COVERING INDEX sqlite_autoindex_cards_1 (id=?)",
+    "LIST SUBQUERY 1",
+    "SEARCH atlas_state USING COVERING INDEX atlas_image (image=?)"
+  ],
+  "single": [
+    "SEARCH cards USING COVERING INDEX sqlite_autoindex_cards_1 (id=?)",
+    "LIST SUBQUERY 1",
+    "SEARCH atlas_state USING COVERING INDEX atlas_image (image=?)"
+  ],
+  "both": [
+    "SEARCH cards USING COVERING INDEX sqlite_autoindex_cards_1 (id=?)",
+    "LIST SUBQUERY 1",
+    "SEARCH atlas_state USING COVERING INDEX atlas_image (image=?)"
+  ]
+}

@@ -121,7 +121,11 @@ class CorrectionRepository:
                LIMIT %s OFFSET %s""",
             (workspace_id, workspace_id, card_id, card_id, limit, offset),
         )
-        return [row["after_value"] for row in await result.fetchall()]
+        from card_platform.knowledge_atlas_lifecycle import proposal_lifecycles
+
+        return await proposal_lifecycles(
+            connection, workspace_id, [row["after_value"] for row in await result.fetchall()]
+        )
 
     async def _duplicate(self, connection, workspace_id, actor_id, key, action, payload):
         if not key or len(key) > 200:
@@ -314,7 +318,43 @@ def apply_corrections(db, snapshot):
             }
         else:
             card.setdefault("original_identity", {key: card.get(key) for key in FIELDS})
+            card.setdefault(
+                "source_atlas",
+                {
+                    "scope": "original_source_assertions",
+                    **{
+                        key: card["atlas"].get(key)
+                        for key in (
+                            "identity_status",
+                            "identity_scope",
+                            "serial_status",
+                            "autograph_status",
+                        )
+                    },
+                },
+            )
             card.update(item["changes"])
+            # Effective fields govern the reviewed catalogue identity. Original
+            # manufacturer naming and unnumbered evidence remain source assertions;
+            # they cannot certify the corrected identity or a physical specimen.
+            card["atlas"].update(
+                metadata_scope="effective_identity",
+                serial_status="known"
+                if type(card.get("serial_total")) is int and card["serial_total"] > 0
+                else "unknown",
+                autograph_status="attribute_true"
+                if card.get("is_autograph") is True
+                else "attribute_false"
+                if card.get("is_autograph") is False
+                else "unknown",
+                physical_autograph_status=None,
+            )
+            card["correction_effects"] = {
+                "catalogue_identity": "effective",
+                "image_bindings": "requires_review",
+                "pricing_groups": "not_recomputed",
+                "physical_cards": "unchanged",
+            }
             card["name"] = " · ".join(
                 str(card[k])
                 for k in ("player", "card_number", "section", "parallel")

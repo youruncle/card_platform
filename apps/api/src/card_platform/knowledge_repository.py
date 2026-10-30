@@ -604,8 +604,8 @@ class KnowledgeRepository:
             """
             INSERT INTO knowledge_audit_log (
                 workspace_id, actor_id, action, object_type, object_id,
-                request_id, before_value, after_value
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                request_id, before_value, after_value, created_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, clock_timestamp())
             """,
             (
                 workspace_id,

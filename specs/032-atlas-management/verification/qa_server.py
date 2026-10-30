@@ -27,6 +27,7 @@ with psycopg.connect(DSN,autocommit=True) as c:
     c.execute('CREATE TABLE app_user(id uuid PRIMARY KEY)')
     c.execute((ROOT/'db/migrations/0015_card_knowledge_base.sql').read_text())
     c.execute('CREATE TABLE knowledge_source(workspace_id uuid,source_key text,source_type text)')
+    c.execute('CREATE TABLE knowledge_import_batch(workspace_id uuid,status text,published_version_id uuid,dry_run boolean)')
     c.execute('CREATE TABLE market_comp(id uuid PRIMARY KEY,listing_title text)')
     c.execute('CREATE TABLE card_definition(id uuid PRIMARY KEY,insert_name text,parallel_name text,card_number text)')
     c.execute('CREATE TABLE collection_item(id uuid PRIMARY KEY,card_definition_id uuid)')
@@ -50,6 +51,9 @@ async def lifespan(app):
 
 app=FastAPI(lifespan=lifespan);app.include_router(router)
 app.state.database=SimpleNamespace(connection=connection)
+from card_platform.knowledge_runtime import KnowledgeRuntime
+app.state.knowledge_runtime=KnowledgeRuntime(app.state.database)
+app.state.knowledge_runtime.activate(snapshot,version)
 app.state.knowledge_browser_paths={'data_root':Path('/Users/song/Documents/Codex/2026-07-19/w/card_platform/data'),'artifact_root':TASK/'real-validation/input/artifacts','cache_root':ROOT/'.runtime/atlas-qa/cache'}
 app.dependency_overrides[current_user]=lambda:SimpleNamespace(id=actor,role='admin')
 @ app.get('/qa/info')

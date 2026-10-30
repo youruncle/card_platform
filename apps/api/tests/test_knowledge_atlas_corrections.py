@@ -4,7 +4,7 @@ import asyncio
 import os
 from copy import deepcopy
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import psycopg
 import pytest
@@ -433,3 +433,292 @@ def test_changed_source_bytes_quarantine_old_reviewed_overlay(tmp_path):
     assert current["serial_total"] == original["serial_total"]
     assert current["atlas"]["identity_status"] == "conflict"
     assert current["correction_conflict"]
+
+
+@pytest.mark.parametrize(
+    "total,autograph,serial_status,autograph_status",
+    [
+        (None, None, "unknown", "unknown"),
+        (10, False, "known", "attribute_false"),
+        (25, True, "known", "attribute_true"),
+    ],
+)
+def test_effective_metadata_recomputed_without_overwriting_source_assertions(
+    tmp_path, total, autograph, serial_status, autograph_status
+):
+    from test_knowledge_atlas_browser import source_data, browser
+
+    data, card, ref = source_data(tmp_path)
+    evidence = deepcopy(data)
+    original = browser(tmp_path, data).card(card["id"])["card"]
+    data["atlas_corrections"] = [
+        {
+            "id": str(uuid4()),
+            "card_id": card["id"],
+            "base_fingerprint": corrections.fingerprint(original),
+            "changes": {
+                "serial_total": total,
+                "is_autograph": autograph,
+                "section": "Reviewed Section",
+            },
+            "reason": "本地有效身份校验",
+            "evidence": ["https://example.org/review"],
+        }
+    ]
+    result = browser(tmp_path, data).card(card["id"])["card"]
+    assert result["atlas"]["serial_status"] == serial_status
+    assert result["atlas"]["autograph_status"] == autograph_status
+    assert result["atlas"]["metadata_scope"] == "effective_identity"
+    assert result["source_atlas"]["serial_status"] == original["atlas"]["serial_status"]
+    assert result["source_atlas"]["scope"] == "original_source_assertions"
+    assert result["original_identity"]["serial_total"] == original["serial_total"]
+    assert result["correction_effects"]["pricing_groups"] == "not_recomputed"
+    assert data["entities"] == evidence["entities"]
+    assert data.get("official_artifacts", []) == evidence.get("official_artifacts", [])
+    assert browser(tmp_path, data).cards(section="Reviewed Section")["total"] == 1
+
+
+def test_proposal_timeline_tracks_exact_publish_carry_rollback_and_restore(database):
+    async def scenario():
+        connect, make_browser, actor, original = database
+        repo = FrozenPublicationRepository()
+        service = corrections.CorrectionRepository()
+        b = make_browser()
+        async with await connect() as c:
+            ws = await repo.workspace(c)
+            item = await service.submit(c, ws, actor, payload(b, original), "timeline-submit", b)
+            pending = (await service.list(c, ws["id"]))[0]
+            assert pending["lifecycle"]["state"] == "pending"
+            await service.review(
+                c, ws, actor, item["id"], "approved", "核验依据通过", "timeline-review", b
+            )
+            assert (await service.list(c, ws["id"]))[0]["lifecycle"]["state"] == "approved_draft"
+            ws = await repo.workspace(c)
+            first = await repo.publish(
+                c, ws, actor, ws["revision"], "首个纠错发布", "timeline-pub1"
+            )
+            current = (await service.list(c, ws["id"]))[0]
+            assert current["lifecycle"]["state"] == "current"
+            assert current["lifecycle"]["current_version"] == {"id": str(first["id"]), "number": 2}
+            ws = await repo.workspace(c)
+            carry = await repo.publish(
+                c,
+                ws,
+                actor,
+                ws["revision"],
+                "来源自动携带",
+                "timeline-pub2",
+                official_source_keys=["unrelated"],
+            )
+            ws = await repo.workspace(c)
+            await repo.rollback(c, ws, actor, original, ws["revision"], "timeline-rb1")
+            rolled = (await service.list(c, ws["id"]))[0]
+            assert rolled["lifecycle"]["state"] == "rolled_back"
+            assert rolled["lifecycle"]["current_version_contains"] is False
+            assert [v["number"] for v in rolled["lifecycle"]["application_versions"]] == [2, 3]
+            ws = await repo.workspace(c)
+            await repo.rollback(c, ws, actor, first["id"], ws["revision"], "timeline-rb2")
+            restored = (await service.list(c, ws["id"]))[0]
+            assert (
+                restored["lifecycle"]["state"] == "current"
+            )  # restored version status can still say rolled_back
+            events = restored["lifecycle"]["timeline"]
+            assert [e["kind"] for e in events] == [
+                "submitted",
+                "approved",
+                "published",
+                "carried_forward",
+                "rollback_removed",
+                "rollback_restored",
+            ]
+            assert events[2]["version"] == {"id": str(first["id"]), "number": 2}
+            assert events[2]["reason"] == "首个纠错发布"
+            assert events[4]["from_version"] == {"id": str(carry["id"]), "number": 3}
+            assert events[4]["version"] == {"id": str(original), "number": 1}
+            assert all(e["at"] and e["actor_id"] == str(actor) for e in events)
+            # Idempotent publication/rollback retries cannot duplicate audit events.
+            ws = await repo.workspace(c)
+            await repo.rollback(c, ws, actor, first["id"], ws["revision"], "timeline-rb2")
+            assert (await service.list(c, ws["id"]))[0]["lifecycle"]["timeline"] == events
+            with pytest.raises(KnowledgeConflictError):
+                await service.review(
+                    c,
+                    ws,
+                    actor,
+                    item["id"],
+                    "rejected",
+                    "不得修改发布历史",
+                    "late-reject",
+                    make_browser(first["snapshot"], first["id"]),
+                )
+
+    run(scenario())
+
+
+def test_stale_approval_and_withdrawal_preserve_all_review_history(database):
+    async def scenario():
+        connect, make_browser, actor, original = database
+        repo = FrozenPublicationRepository()
+        service = corrections.CorrectionRepository()
+        b = make_browser()
+        async with await connect() as c:
+            ws = await repo.workspace(c)
+            item = await service.submit(c, ws, actor, payload(b, original), "s1", b)
+            await service.review(c, ws, actor, item["id"], "approved", "首次批准依据", "r1", b)
+            ws = await repo.workspace(c)
+            advanced = await repo.publish(
+                c,
+                ws,
+                actor,
+                ws["revision"],
+                "自动水位推进",
+                "auto",
+                official_source_keys=["unrelated"],
+            )
+            stale = (await service.list(c, ws["id"]))[0]
+            assert stale["lifecycle"]["state"] == "stale_draft"
+            assert stale["lifecycle"]["current_version"]["id"] == str(advanced["id"])
+            await service.review(
+                c,
+                ws,
+                actor,
+                item["id"],
+                "rejected",
+                "依据水位改变撤销",
+                "r2",
+                make_browser(advanced["snapshot"], advanced["id"]),
+            )
+            withdrawn = (await service.list(c, ws["id"]))[0]
+            assert withdrawn["lifecycle"]["state"] == "rejected"
+            assert [e["kind"] for e in withdrawn["lifecycle"]["timeline"]] == [
+                "submitted",
+                "approved",
+                "rejected",
+            ]
+            assert [e["reason"] for e in withdrawn["lifecycle"]["timeline"]][-2:] == [
+                "首次批准依据",
+                "依据水位改变撤销",
+            ]
+            assert withdrawn["lifecycle"]["application_versions"] == []
+
+    run(scenario())
+
+
+def test_chained_corrections_keep_first_source_metadata_and_drop_stale_autograph_family(tmp_path):
+    from test_knowledge_atlas_browser import source_data, browser
+    from test_knowledge_browser import artifact
+    from hashlib import sha256
+
+    data, card, ref = source_data(tmp_path)
+    card["attributes"]["section"] = "Prizm Autographs Gold"
+    data["entities"][3]["attributes"]["official_artifact"] = artifact(tmp_path, [card])
+    attachment = (
+        tmp_path / "artifacts" / data["entities"][3]["attributes"]["official_artifact"]["path"]
+    )
+    checksum = sha256(attachment.read_bytes()).hexdigest()
+    original = browser(tmp_path, data).card(card["id"])["card"]
+    assert original["atlas"]["autograph_status"] == "manufacturer_named_autograph_family"
+    first = {
+        "id": str(uuid4()),
+        "card_id": card["id"],
+        "base_fingerprint": corrections.fingerprint(original),
+        "changes": {"serial_total": 50, "is_autograph": True},
+        "reason": "第一次校验",
+        "evidence": ["https://example.org/first"],
+    }
+    data["atlas_corrections"] = [first]
+    intermediate = browser(tmp_path, data).card(card["id"])["card"]
+    second = {
+        "id": str(uuid4()),
+        "card_id": card["id"],
+        "base_fingerprint": corrections.fingerprint(intermediate),
+        "changes": {"serial_total": None, "is_autograph": None, "section": "Base"},
+        "reason": "第二次校验",
+        "evidence": ["https://example.org/second"],
+    }
+    data["atlas_corrections"].append(second)
+    current = browser(tmp_path, data).card(card["id"])["card"]
+    assert current["atlas"]["serial_status"] == "unknown"
+    assert current["atlas"]["autograph_status"] == "unknown"
+    assert current["source_atlas"]["serial_status"] == "known"
+    assert current["source_atlas"]["autograph_status"] == "manufacturer_named_autograph_family"
+    assert current["original_identity"]["serial_total"] == original["serial_total"]
+    assert current["field_sources"]["serial_total"]["proposal_id"] == second["id"]
+    assert sha256(attachment.read_bytes()).hexdigest() == checksum
+    assert browser(tmp_path, data).cards(section="Prizm Autographs Gold")["total"] == 0
+
+
+def test_legacy_transaction_timestamps_are_flagged_without_rewriting_audit(database, monkeypatch):
+    async def legacy_audit(
+        self, c, workspace_id, actor_id, action, object_type, object_id, before, after, request_id
+    ):
+        from card_platform.knowledge_repository import _json_safe
+
+        await c.execute(
+            "INSERT INTO knowledge_audit_log(workspace_id,actor_id,action,object_type,object_id,request_id,before_value,after_value) VALUES(%s,%s,%s,%s,%s,%s,%s,%s)",
+            (
+                workspace_id,
+                actor_id,
+                action,
+                object_type,
+                object_id,
+                request_id,
+                Jsonb(_json_safe(before)) if before is not None else None,
+                Jsonb(_json_safe(after)) if after is not None else None,
+            ),
+        )
+
+    monkeypatch.setattr(KnowledgeRepository, "audit", legacy_audit)
+
+    async def scenario():
+        connect, make_browser, actor, original = database
+        repo = FrozenPublicationRepository()
+        service = corrections.CorrectionRepository()
+        b = make_browser()
+        async with await connect() as c:
+            ws = await repo.workspace(c)
+            item = await service.submit(c, ws, actor, payload(b, original), "legacy-s", b)
+            await service.review(c, ws, actor, item["id"], "approved", "旧审计批准", "legacy-r", b)
+            ws = await repo.workspace(c)
+            await repo.publish(c, ws, actor, ws["revision"], "旧事务发布", "legacy-p")
+            result = (await service.list(c, ws["id"]))[0]["lifecycle"]
+            assert result["state"] == "current"
+            assert result["timeline_order_uncertain"] is True
+            published = next(event for event in result["timeline"] if event["kind"] == "published")
+            assert published["time_basis"] == "transaction_time_uncertain"
+            stored = await c.execute(
+                "SELECT created_at FROM knowledge_audit_log WHERE id=%s", (UUID(published["id"]),)
+            )
+            assert published["at"] == (await stored.fetchone())["created_at"].isoformat()
+            assert published["at"] < next(
+                e["at"] for e in result["timeline"] if e["kind"] == "approved"
+            )
+
+    run(scenario())
+
+
+def test_corrected_identity_updates_deployed_image_index_and_manager_state(tmp_path):
+    from test_knowledge_atlas_browser import source_data, external_image, browser
+
+    data, card, ref = source_data(tmp_path)
+    external_image(tmp_path, data, card, ref, name="front.jpg", side="front")
+    external_image(tmp_path, data, card, ref, name="back.jpg", side="back")
+    old = browser(tmp_path, data)
+    assert old.cards(image_state="has_image")["total"] == 1
+    assert old.cards(image_state="both")["total"] == 1
+    original = old.card(card["id"])["card"]
+    data["atlas_corrections"] = [
+        {
+            "id": str(uuid4()),
+            "card_id": card["id"],
+            "base_fingerprint": corrections.fingerprint(original),
+            "changes": {"serial_total": None},
+            "reason": "校验图像来源失效",
+            "evidence": ["https://example.org/review"],
+        }
+    ]
+    current = browser(tmp_path, data)
+    assert current.cards(image_state="has_image")["total"] == 0
+    assert current.cards(image_state="both")["total"] == 0
+    assert current.cards(image_state="none")["total"] == 1
+    assert current.card(card["id"])["images"] == []
