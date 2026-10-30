@@ -1,0 +1,94 @@
+{
+  "stage": "prewarm_passed",
+  "build_seconds": 649.0231593749486,
+  "warm_open_seconds": 10.609994928818196,
+  "total_seconds": 666.6824150388129,
+  "max_rss_bytes": 412549120,
+  "summary": {
+    "version": 27,
+    "version_id": "0710ef3f-c147-45bc-9619-9d8c83a6887f",
+    "discovery_complete": false,
+    "summary": {
+      "manufacturers": 3,
+      "products": 565,
+      "card_facts": 2169016,
+      "images": 831,
+      "paired_cards": 14
+    },
+    "manufacturers": [
+      {
+        "name": "Panini",
+        "product_count": 446,
+        "card_count": 2125332,
+        "image_count": 560
+      },
+      {
+        "name": "Topps",
+        "product_count": 60,
+        "card_count": 34502,
+        "image_count": 271
+      },
+      {
+        "name": "Upper Deck",
+        "product_count": 20,
+        "card_count": 9182,
+        "image_count": 0
+      }
+    ],
+    "seasons": [
+      2026,
+      2025,
+      2024,
+      2023,
+      2022,
+      2021,
+      2020,
+      2019,
+      2018,
+      2017,
+      2016,
+      2015,
+      2014,
+      2013,
+      2012,
+      2011,
+      2010,
+      2009
+    ],
+    "entity_types": [
+      {
+        "type": "attribute",
+        "count": 109
+      },
+      {
+        "type": "card",
+        "count": 2169016
+      },
+      {
+        "type": "insert",
+        "count": 1119
+      },
+      {
+        "type": "parallel",
+        "count": 46
+      },
+      {
+        "type": "player",
+        "count": 5216
+      },
+      {
+        "type": "product",
+        "count": 565
+      }
+    ],
+    "issues": []
+  },
+  "active_cache_name": "3cc59f26341a83777055b3058d48427e13ffe7c433d029aee115b992acc52d69.sqlite3",
+  "active_cache_bytes": 4535574528,
+  "shared_cache_bytes": 25931939840,
+  "worker_enabled": true,
+  "vision_model": "deepseek-flash",
+  "vision_thinking_enabled": false,
+  "search_model": "qwen-plus",
+  "production_knowledge_writes": 0
+}

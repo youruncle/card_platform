@@ -1,0 +1,31 @@
+{
+  "verified_at": "2026-10-30T16:50:48.251662+00:00",
+  "production_images_environment_mounts_user_unchanged": true,
+  "knowledge_unchanged": {
+    "revision": 1861,
+    "id": "0710ef3f-c147-45bc-9619-9d8c83a6887f",
+    "version_number": 27,
+    "checksum": "87a77700583d48bad400a9236cdfa57637c7bdfb345b34acadf1bf698622690e",
+    "audits": 795,
+    "atlas_audits": 0
+  },
+  "invariants": {
+    "worker": true,
+    "vision_models": [
+      "deepseek-flash"
+    ],
+    "thinking_body": {
+      "thinking": {
+        "type": "disabled"
+      }
+    },
+    "search_is_bailian": true,
+    "separate_search_key": true,
+    "search_models": [
+      "qwen-plus",
+      "qwen-plus"
+    ]
+  },
+  "api_image": "sha256:890f5f22d7bed8ed9916f13fb8d8889c56d81cc4000a49cd7a46bfb357cbe2ff",
+  "web_image": "sha256:c53d9ecea9817bc908a208b9bd6a99bcd2c0055606f462d519096422c8418748"
+}

@@ -1,0 +1,13 @@
+{
+  "old_contracts": 35,
+  "removed_or_changed_fields": [],
+  "additive_fields": [
+    "/cards/official%3Apanini-api-2023-1303%3A0003f8b47d5d04c73ed06e04?null/json/card/atlas/pair_binding_status",
+    "/cards/official%3Apanini-api-2023-1303%3A69dbb0e740a582dd7fb3a9ee?null/json/card/atlas/pair_binding_status",
+    "/cards/official%3Apanini-api-2024-1378%3A0001d7c407230afcc659b845?null/json/card/atlas/pair_binding_status",
+    "/cards/official%3Apanini-api-2024-1378%3A2e0fb29c3e823891afa17be8?null/json/card/atlas/pair_binding_status",
+    "/cards/official%3Apanini-api-2025-1533%3A00000d898614dd85ee0fb8a1?null/json/card/atlas/pair_binding_status",
+    "/cards/official%3Apanini-api-2025-1533%3Aadea1817b57d78bda91fc117?null/json/card/atlas/pair_binding_status"
+  ],
+  "old_field_compatibility_passed": true
+}

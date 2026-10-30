@@ -69,3 +69,7 @@ ATLAS_TEST_DATABASE_URL='postgresql://atlas_test@/postgres?host=/tmp/card-atlas-
 ## 安全收尾最终补充
 
 旧管理发布/回滚actor冒充已用真实会话失败测试修复，兼容API源码候选/网页独立回退路径及pending/approved提案保留已验证，独立安全复核无遗留Critical/Important。最终179项相关后端、兼容候选32项、实际网页冻结源整合242项、原相关网页28项、tsc/Ruff/构建均通过。详细范围/源码清单/持久化/恢复影响/仍需获准的目标环境验证见 `security-rollback-verification.md`。现行生产只读核对v27/rev1861，代码上线不得回退到本机历史v26。没有构建镜像、部署、push/merge或生产写入。可进入单独候选构建/上线评审，目标环境角色/全量资源/兼容恢复镜像验证尚未执行。
+
+## 已获上线授权后的现场验收
+
+用户已明确允许网页＋API上线。本轮刷新现场发现dfcd0da5管理镜像已在运行，未重复构建/切换。已补齐目标机独立数据库的15个真实会话/角色/并发/幂等/历史场景、兼容镜像新进程恢复及正式域名真实Chrome登录只读/400px移动验收，全部通过；生产知识仍v27/rev1861、795审计/0atlas事件、worker=true。实际镜像和限制以 `production-verification-20261030.md` 为准，前述“未构建/部署”只描述早期本地阶段。

@@ -1,0 +1,59 @@
+{
+  "api_http_health": {
+    "status": 200,
+    "body": {
+      "status": "ready"
+    }
+  },
+  "source_diff": {
+    "modified": [
+      "knowledge_api.py",
+      "knowledge_browser.py",
+      "knowledge_repository.py"
+    ],
+    "added": [
+      "knowledge_atlas_api.py",
+      "knowledge_atlas_corrections.py",
+      "knowledge_atlas_lifecycle.py"
+    ],
+    "removed": []
+  },
+  "public_checks": [
+    {
+      "path": "/knowledge/manage",
+      "method": "GET",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "path": "/knowledge/manage/legacy",
+      "method": "GET",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "path": "/knowledge",
+      "method": "GET",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "path": "/v1/knowledge/atlas/permissions",
+      "method": "GET",
+      "status": 401,
+      "expected": 401
+    },
+    {
+      "path": "/v1/knowledge/atlas/proposals",
+      "method": "POST",
+      "status": 401,
+      "expected": 401
+    },
+    {
+      "path": "/v1/knowledge/publish",
+      "method": "POST",
+      "status": 401,
+      "expected": 401
+    }
+  ]
+}
