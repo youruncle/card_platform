@@ -16,7 +16,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 type ViewerImage = { url: string; alt: string };
 type ImageViewerDetail = { images: ViewerImage[]; index: number };
 
-function openImageViewer(
+export function openImageViewer(
   url: string | null | undefined,
   alt: string,
   gallery?: Array<{ src: string | null | undefined; alt: string }>,
@@ -79,6 +79,8 @@ export function OpenableImage({
 
 export function GlobalImageViewer() {
   const [viewer, setViewer] = useState<ImageViewerDetail | null>(null);
+  const dialog = useRef<HTMLDivElement>(null);
+  const isOpen = viewer !== null;
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -116,6 +118,13 @@ export function GlobalImageViewer() {
     window.addEventListener("card-platform:open-image", open);
     return () => window.removeEventListener("card-platform:open-image", open);
   }, [resetView]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const prior = document.activeElement as HTMLElement | null;
+    dialog.current?.focus();
+    return () => { if (prior?.isConnected) prior.focus(); };
+  }, [isOpen]);
 
   useEffect(() => {
     if (!viewer) return;
@@ -161,9 +170,21 @@ export function GlobalImageViewer() {
   return (
     <div
       className="image-viewer-backdrop"
+      ref={dialog}
+      tabIndex={-1}
       role="dialog"
       aria-modal="true"
       aria-label={image.alt}
+      onKeyDown={(event) => {
+        if (event.key !== "Tab") return;
+        const controls = Array.from(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href]') ?? []);
+        const first = controls[0], last = controls.at(-1);
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) {
+          event.preventDefault(); last?.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialog.current)) {
+          event.preventDefault(); first?.focus();
+        }
+      }}
       onClick={(event) => {
         if (event.target === event.currentTarget) setViewer(null);
       }}

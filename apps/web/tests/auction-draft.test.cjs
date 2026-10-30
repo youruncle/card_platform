@@ -4,7 +4,7 @@ const {JSDOM}=require('jsdom');
 const dom=new JSDOM('<html><body></body></html>');
 global.window=dom.window;global.document=dom.window.document;
 Object.defineProperty(global,'navigator',{value:dom.window.navigator,configurable:true});
-global.HTMLElement=dom.window.HTMLElement;global.React=require('react');
+global.HTMLElement=dom.window.HTMLElement;global.CustomEvent=dom.window.CustomEvent;global.React=require('react');
 const {render,screen,fireEvent,cleanup,waitFor,within}=require('@testing-library/react');
 const {AuctionEditor}=require('../../../packages/card-core/src/auction.ts');
 const {AuctionDraftPanel}=require('../components/auction-draft-panel.tsx');
@@ -161,4 +161,39 @@ test('pending zoom disables shutter, and unmount aborts the local control reques
  const view=render(React.createElement(AuctionDraftPanel,{itemId:'card-a',onClose:()=>{},request:async()=>draft()}));await screen.findByRole('button',{name:'连接 USB 手机'});fireEvent.click(screen.getByRole('button',{name:'连接 USB 手机'}));await screen.findByRole('button',{name:'自动调整'});fireEvent.click(screen.getByRole('button',{name:'自动调整'}));
  assert.equal(screen.getByRole('button',{name:'触发 Redmi 快门'}).disabled,true);assert.equal(screen.getByRole('button',{name:'正在自动调整…'}).disabled,true);
  view.unmount();assert.equal(operationSignal.aborted,true);finish(Response.json({zoom:1,presets:[1],width:1080,height:1440,preview:'data:image/jpeg;base64,AA==',rectangles:[],message:'ok'}));
+});
+
+test('auction photos open a full-size gallery without changing selection; Escape returns to the draft',async()=>{
+ const {GlobalImageViewer}=require('../components/image-viewer.tsx');
+ let closes=0;
+ global.fetch=async()=>new Response(new Blob(['fixture'],{type:'image/jpeg'}));
+ render(React.createElement(React.Fragment,null,
+  React.createElement(AuctionDraftPanel,{itemId:'card-a',onClose:()=>{closes++;},request:async()=>draft()}),
+  React.createElement(GlobalImageViewer)));
+ const thumbnail=await screen.findByRole('button',{name:'放大查看正面照片 1'});
+ thumbnail.focus();fireEvent.click(thumbnail);
+ const viewer=await screen.findByRole('dialog',{name:'正面草稿照片 1'});
+ assert.equal(document.activeElement,viewer);
+ fireEvent.keyDown(viewer,{key:'Tab',shiftKey:true});
+ assert.equal(document.activeElement,within(viewer).getByRole('button',{name:'查看下一张图片'}));
+ fireEvent.keyDown(document.activeElement,{key:'Tab'});
+ assert.equal(document.activeElement,within(viewer).getByRole('button',{name:'缩小'}));
+ assert.equal(within(viewer).getByRole('img').getAttribute('src'),'/v1/auction/drafts/draft-a/images/front');
+ assert.equal(screen.getByLabelText('选择正面照片 1').checked,true);
+ fireEvent.click(within(viewer).getByRole('button',{name:'放大'}));
+ assert.equal(within(viewer).getByText('125%').textContent,'125%');
+ fireEvent.click(within(viewer).getByRole('button',{name:'查看下一张图片'}));
+ const back=screen.getByRole('dialog',{name:'背面草稿照片 2'});
+ assert.equal(within(back).getByRole('img').getAttribute('src'),'/v1/auction/drafts/draft-a/images/back');
+ assert.equal(screen.getByLabelText('选择背面照片 2').checked,false);
+ fireEvent.keyDown(document.activeElement,{key:'Escape'});
+ await waitFor(()=>assert.equal(screen.queryByRole('dialog',{name:'背面草稿照片 2'}),null));
+ assert.equal(closes,0);assert.equal(document.activeElement,thumbnail);
+ fireEvent.click(screen.getByLabelText('选择背面照片 2'));
+ assert.equal(screen.getByLabelText('选择背面照片 2').checked,true);
+ assert.equal(screen.getAllByRole('dialog').length,1);
+ fireEvent.click(thumbnail);
+ await screen.findByRole('dialog',{name:'正面草稿照片 1'});
+ fireEvent.click(screen.getByRole('button',{name:'关闭图片查看器'}));
+ assert.equal(closes,0);assert.ok(screen.getByRole('dialog',{name:'单卡拍卖草稿'}));
 });
