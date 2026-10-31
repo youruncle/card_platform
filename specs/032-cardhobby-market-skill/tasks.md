@@ -5,14 +5,14 @@
 - [x] T003 Independent skill, behavior verification and package validation.
 - [x] T004 Review, focused regressions, cloud API and migration release with invariant checks.
 - [x] T005 Cloud skill installation and actual query/image/report readback; document client limits.
-- [ ] T006 用用户Barnes正背截图执行真实端到端验证，区分当前聊天工具缺失、锁屏阻塞与服务端验证；记录全部候选决定及历史观察。
-- [ ] T007 RED/GREEN补充空估值原因、明确审核进度/图片依据，改进能力判断和有卡号的搜索顺序；更新发布并记录仍未验收边界。
+- [x] T006 用用户Barnes正背截图执行真实端到端验证，区分当前聊天工具缺失、锁屏阻塞与服务端验证；记录全部候选决定及历史观察。
+- [x] T007 RED/GREEN补充空估值原因、明确审核进度/图片依据，改进能力判断和有卡号的搜索顺序；更新发布并记录仍未验收边界。
 
 ### 2026-11-01 真实卡复核状态
 
-T006：服务端真实原图/12请求/457候选决定/1张实际候选图/报告回读已完成；当前聊天六新工具缺schema，网页附件因系统锁屏暂停，客户端端到端仍未完成。标题规则筛选411，45待核，1旧类比，不冒称全部视觉核验。
+T006：工程检索12请求/457候选决定/1张候选实图已完成；解锁后当前Codex真实原图上传及六工具链已通过（限定词第一页1候选，明确空估值），网页独立两附件流程亦通过，跨客户端回读原SHA/1次查询/1条实图审核/空估值一致。标题规则筛选411，45待核，1旧类比，不冒称全部视觉核验。
 
-T007：代码及本机skill改进、209项回归、独立行为/代码检查和生产API market4发布已完成；云端账号skill文本更新待Mac手动解锁。两任务保持未勾选直到其客户端/云端skill部分真正完成。详见real-card-validation-20261101.md。
+T007：代码改进、209项回归、独立行为/代码检查和生产API market4发布已完成；真实工具暴露后纠正files双schema说明，本机和云端原skill均更新，云端重开回读正文一致。非null真实估值及iPhone/Android仍未验收。详见real-card-validation-20261101.md。
 
 ## Execution ledger
 

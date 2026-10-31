@@ -11,13 +11,13 @@ description: Use when querying CardHobby historical sales or estimating a card's
 
 先调用 `get_profile`、`get_capabilities`，再核对**当前聊天实际可调用目录及参数 schema**。start_cardhobby_valuation、search_cardhobby_sales、inspect_cardhobby_candidate、review_cardhobby_candidates、get_cardhobby_valuation、list_cardhobby_valuations 六项必须都能实际调用。get_capabilities 只报告服务端注册表：即使列出29项，当前聊天仍可能只有旧23项；这时明确说“服务端已启用，当前聊天未加载”，不启动研究、不推测工具参数，也不声称端到端可用。恢复方式是在插件管理刷新工具，并在新聊天显式选择卡牌管家；这些是恢复动作，不保证已生效，仍须重新核对实际目录。
 
-照片入口：直接看用户当前正背图，提取有图证的身份；把可用附件通过 `files` 传给 start_cardhobby_valuation（ChatGPT file_id/download_url），云端保存目标图SHA256。不能将URL、截图文字或工具返回的图片描述当实际核图。只有文字也可建任务查询，但没有已保存目标图时云端不给估值。卡库入口先消歧并用 get_card_image 看当前图片；不能用库存旧身份、旧估值或本人采购成本替代图证。若当前客户端无法把目标图交给云端，应明确仅能研究候选，估值保持null。
+照片入口：直接看用户当前正背图，提取有图证的身份，再按**当前工具实际files schema**传入：若为字符串数组且说明接收本机绝对路径，就传用户原图绝对路径，由插件执行真实上传；若为原始MCP的附件对象数组，则传系统实际提供的file_id/download_url。两种适配形式不能混用，也不自行编造file_id或下载URL。云端返回target_images及SHA256后，才确认目标图已保存。不能将URL、截图文字或工具返回的图片描述当实际核图。只有文字也可建任务查询，但没有已保存目标图时云端不给估值。卡库入口先消歧并用 get_card_image 看当前图片；不能用库存旧身份、旧估值或本人采购成本替代图证。若当前客户端没有可用附件入口，应明确仅能研究候选，估值保持null。
 
 identity 字段及核验要点见 [身份与核图](references/identity-and-matching.md)。未知填null；确认无编号填 is_numbered=false，普通裸卡填 grade_company=raw；基础子系列明确填set_name=base，不能用这些值掩盖未知。identity_notes逐项记录图上可见、用户描述、资料核实和冲突。目标身份建成后保持不变；目标纠正需新建run，原任务仍保留。
 
 每个新目标生成UUID idempotency_key。超时先用原参数和原编号恢复，不能重复新建。
 
-本机文件路径不是ChatGPT附件下载地址，不能把 `/Users/...`、file:// 或虚构HTTPS地址传入files。若本机截图无法经受支持入口传给工具，应明确说明图片传递未完成。私有SSH传图、直接调用handler等工程验证可检查服务器逻辑，但必须单列为工程验证，不能替代用户当前聊天的附件和工具调用验收。
+本机文件路径不是下载URL，不能把 `/Users/...` 或file://塞进附件对象的download_url，也不能虚构HTTPS地址。但当前工具明确提供绝对路径字符串适配时，应正常使用这个受支持入口，不能因原始MCP需要URL就误报本机图片不可用。私有SSH传图、直接调用handler等工程验证必须单列，不能替代用户当前聊天的实际附件上传和工具调用验收。
 
 ## 实际检索
 
