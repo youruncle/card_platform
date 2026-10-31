@@ -8,6 +8,8 @@
 
 买入价Skill为`skills/cardhobby-purchase-price`，支持直接传1–3组关键词，不要求卡片先入库。新增start_purchase_cost_lookup/get_purchase_cost_lookup/list_purchase_cost_lookups三个远程工具，查询不落账；旧连接在插件管理中“刷新工具”后核对get_capabilities。安装包及常用请求见[买入价说明](../../docs/cardhobby-purchase-price-skill.md)。
 
+成交估值Skill为`skills/cardhobby-market-valuation`，使用六项独立云端工具保存卡淘公开搜索、详情与图片，逐候选核图后形成卡淘来源参考区间。与本人买入成本分开，不自动写回持仓或正式估值。安装与边界见[成交估值说明](../../docs/cardhobby-market-valuation-skill.md)。
+
 服务器使用标准OAuth发现、受限DCR及public client PKCE S256。实际ChatGPT使用的回调URI必须先由部署配置精确允许；不接受通配符、聊天传token或固定Bearer替代授权。首次连接后执行get_profile/get_capabilities，核对账户与实际工具；撤销在平台的ChatGPT连接管理中进行。
 
 本包使用公开Agent Plugins1.0.0的root plugin.json、mcp.json与skills目录。2026-10-28核查：OpenAI打包文档另描述server.extensions.com.openai.auth，但链接的1.0.0 mcp schema仍对server.additionalProperties=false且未包含extensions。本包保持标准schema有效的最小远程配置，在连接页明确选择OAuth并用服务器发现；是否自动导入OAuth仍须T037实测，未以本地marketplace代替云端安装。实际导入若要求认证扩展，保留当前标准包，按经实测的OpenAI导入格式另生成适配包并记录差异。

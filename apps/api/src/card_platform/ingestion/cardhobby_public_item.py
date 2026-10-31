@@ -92,7 +92,7 @@ def _visible(node):
     return True
 
 
-def _primary_price_currency(price_node):
+def _primary_price_currency(price_node, *, bound_search_currency: str | None = None):
     # Currency must label the primary price itself, never shipping or the USD estimate.
     cell = price_node.closest('td') or price_node.parent
     def visible_text(node):
@@ -103,10 +103,16 @@ def _primary_price_currency(price_node):
     text = visible_text(cell) if cell else ''
     if re.search(r'[$€£]|\b(?:USD|JPY|EUR|GBP|HKD|AUD|CAD)\b|日元|港币|美元', text, re.I):
         return None
-    return 'CNY' if re.search(r'[￥¥]|\bCNY\b|人民币', text, re.I) else None
+    if re.search(r'[￥¥]|\bCNY\b|人民币', text, re.I):
+        return 'CNY'
+    # Some current pages render the RMB symbol through CSS. A separately
+    # captured same-item CNY search row may bind an otherwise currency-free
+    # numeric cell. Unknown labels are NOT a license to override a currency.
+    residue = re.sub(r'[\d\s,.()（）:：]+|次(?:竞价|出价)|当前价|成交价|结束价', '', text)
+    return 'CNY' if bound_search_currency == 'CNY' and not residue else None
 
 
-def parse_public_item_html(html: str, source_url: str, *, now: datetime | None = None) -> dict:
+def parse_public_item_html(html: str, source_url: str, *, now: datetime | None = None, require_shipping: bool = True, bound_search_currency: str | None = None) -> dict:
     url = canonical_public_item_url(source_url)
     if not url:
         raise ValueError('unapproved public item URL')
@@ -152,7 +158,7 @@ def parse_public_item_html(html: str, source_url: str, *, now: datetime | None =
     if len(prices) != 1 or not _visible(prices[0]):
         reasons.append('public_item_closing_price_missing')
     else:
-        currency = _primary_price_currency(prices[0])
+        currency = _primary_price_currency(prices[0], bound_search_currency=bound_search_currency)
         if currency is None:
             reasons.append('public_item_closing_currency_unverified')
         raw = prices[0].text()
@@ -191,16 +197,17 @@ def parse_public_item_html(html: str, source_url: str, *, now: datetime | None =
             if match:
                 shipping, shipping_verified = match[1], True
                 break
-    if not shipping_verified:
+    if not shipping_verified and require_shipping:
         reasons.append('public_item_shipping_not_verified')
     metadata = {'kind': 'public_item_html', 'retrieved_at': now.isoformat(),
                 'raw_html_sha256': hashlib.sha256(html.encode()).hexdigest(),
                 'source_url': url, 'payment_confirmed': False, 'image_urls': images,
-                'shipping_verified': shipping_verified, 'currency': currency}
+                'shipping_verified': shipping_verified, 'currency': currency,
+                'bound_search_currency': bound_search_currency}
     if reasons:
         return {'sale': None, 'reasons': reasons, 'source_metadata': metadata}
     sale = {'item_id': item_id, 'source_url': url, 'title': title,
-            'occurred_at': ended.isoformat(), 'sale_price': str(price), 'shipping_price': shipping,
+            'occurred_at': ended.isoformat(), 'sale_price': str(price), 'shipping_price': shipping if shipping_verified else None,
             'bid_count': bid_count, 'sale_type': 'auction', 'evidence_level': 'ended_auction',
             'sold_status_evidence': f'公开商品页soldMark、过去结束时间、同商品{bid_count}次出价及CNY结束价；未确认付款',
             'image_url': images[0], 'match_confidence': '0.5',

@@ -29,6 +29,7 @@ from card_platform.mcp.reports import ReportTools
 from card_platform.mcp.research import ResearchTools
 from card_platform.mcp.jobs import JobTools
 from card_platform.mcp.purchase_cost import PurchaseLookupTools
+from card_platform.mcp.market_sales import MarketSalesTools
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +189,8 @@ def create_authenticated_runtime(database, operations=None):
     JobTools(database, server.capture_tools, server.research_tools).register(server.card_tools)
     server.purchase_lookup_tools = PurchaseLookupTools(database, operations)
     server.purchase_lookup_tools.register(server.card_tools)
+    server.market_sales_tools = MarketSalesTools(database, get_settings(), operations)
+    server.market_sales_tools.register(server.card_tools)
     operations.register_execution_tool(server.card_tools)
     return server, server.streamable_http_app()
 

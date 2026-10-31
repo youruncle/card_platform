@@ -1,0 +1,11 @@
+interface:
+  display_name: "卡淘成交估值"
+  short_description: "从卡片照片查询卡淘历史成交，逐条核图并给出有证据的市场参考区间"
+  default_prompt: "使用 $cardhobby-market-valuation 查询这张卡的卡淘历史成交，核对版本和品相后给出参考估值。"
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "card-manager"
+      description: "已连接本人账户的卡牌管家云端工具"
+      transport: "streamable_http"
+      url: "https://cardsp.cn/mcp"

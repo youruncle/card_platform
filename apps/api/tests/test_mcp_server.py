@@ -114,7 +114,9 @@ def test_parent_api_lifespan_can_restart_without_reusing_sdk_session_manager(mcp
                     "get_job_status", "prepare_capture_confirmation", "execute_operation", "prepare_card_change",
                     "prepare_transaction", "prepare_trash_change", "get_activity_report", "start_card_research", "get_research_result",
                     "prepare_research_publication", "create_batch", "list_jobs", "retry_job",
-                    "start_purchase_cost_lookup", "get_purchase_cost_lookup", "list_purchase_cost_lookups"}
+                    "start_purchase_cost_lookup", "get_purchase_cost_lookup", "list_purchase_cost_lookups",
+                    "start_cardhobby_valuation", "search_cardhobby_sales", "inspect_cardhobby_candidate",
+                    "review_cardhobby_candidates", "get_cardhobby_valuation", "list_cardhobby_valuations"}
                 importer = next(tool for tool in tools if tool["name"] == "prepare_card_import")
                 assert importer["_meta"]["openai/fileParams"] == ["files"]
                 assert importer["annotations"]["readOnlyHint"] is False
