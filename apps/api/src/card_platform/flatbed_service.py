@@ -965,7 +965,8 @@ class FlatbedService:
                 (path, Jsonb(signals), row["id"], owner_id),
             )
 
-    def reference_preview(self, original_path: str, bounds: dict, rotation: int = 0) -> bytes:
+    def reference_preview(self, original_path: str, bounds: dict, rotation: int = 0,
+                          *, max_edge: int | None = None) -> bytes:
         """Render an uncorrected region for review without creating an ingestible crop."""
         try:
             x, y, width, height = (float(bounds[key]) for key in ("x", "y", "width", "height"))
@@ -996,6 +997,12 @@ class FlatbedService:
                      270: cv2.ROTATE_90_COUNTERCLOCKWISE}
         if rotation in rotations:
             preview = cv2.rotate(preview, rotations[rotation])
+        if max_edge and max(preview.shape[:2]) > max_edge:
+            scale = max_edge / max(preview.shape[:2])
+            preview = cv2.resize(
+                preview, (max(1, round(preview.shape[1] * scale)), max(1, round(preview.shape[0] * scale))),
+                interpolation=cv2.INTER_AREA,
+            )
         try:
             ok, encoded = cv2.imencode(".jpg", preview, [cv2.IMWRITE_JPEG_QUALITY, 95])
         except cv2.error as error:

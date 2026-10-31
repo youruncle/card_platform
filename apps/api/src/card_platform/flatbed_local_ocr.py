@@ -1,6 +1,5 @@
 """Offline Linux OCR and semantic orientation; no model API calls."""
 
-import asyncio
 import hashlib
 import json
 import os
@@ -49,6 +48,13 @@ def choose_orientation(text_votes: dict[int, float], faces: dict[int, tuple[floa
     return OrientationDecision(best, min(.97, .8 + margin * .15) if strong else .25, "rapidocr_text")
 
 
+def orientation_image(image):
+    """Direction votes need fewer pixels than the final printed-text extraction."""
+    import cv2
+    scale = min(1, 960 / max(image.shape[:2]))
+    return cv2.resize(image, None, fx=scale, fy=scale) if scale < 1 else image
+
+
 def observe_image(path: Path) -> dict:
     # Heavy engines live in a bounded subprocess so timeout/cancellation reaps
     # their CPU/RAM instead of leaving an uncancellable inference thread.
@@ -80,9 +86,10 @@ def observe_image(path: Path) -> dict:
     votes = {angle: 0.0 for angle in (0, 90, 180, 270)}
     # Text line crops are rectified independently. Their 0/180 classifier plus
     # each quad's vertical axis gives the corresponding whole-card rotation.
-    boxes, _ = engine.auto_text_det(image)
+    direction_image = orientation_image(image)
+    boxes, _ = engine.auto_text_det(direction_image)
     if boxes is not None:
-        crops = engine.get_crop_img_list(image, boxes)
+        crops = engine.get_crop_img_list(direction_image, boxes)
         fixed, classes, _ = engine.text_cls(crops)
         texts, _ = engine.text_rec(fixed)
         for box, (text, confidence), (label, cls_confidence) in zip(boxes, texts, classes):

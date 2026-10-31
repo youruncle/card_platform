@@ -131,7 +131,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await database.close()
 
 
-app = FastAPI(title="Card Platform API", version="0.6.9", lifespan=lifespan)
+app = FastAPI(title="Card Platform API", version="0.6.10", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().cors_origins,

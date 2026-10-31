@@ -18,6 +18,7 @@ from card_platform.flatbed_detection import Detection
 from card_platform.flatbed_pair_sources import confirmation_token, pair_source_snapshot
 from card_platform.flatbed_service import FlatbedBridgeError, FlatbedSourceConflict, FlatbedService, ordered_source_quad
 from card_platform.image_service import InvalidImageError, read_validated_image
+from card_platform.image_variants import ImageVariant, get_image_variant
 from card_platform.scanner_queue import ScannerQueueService
 
 router = APIRouter(prefix="/v1/flatbed", tags=["flatbed"], dependencies=[Depends(current_user)])
@@ -678,9 +679,24 @@ async def submit(
     return {"status": "submitted", "job_ids": jobs}
 
 
+async def _image_response(request: Request, path: Path, media_type: str) -> Response:
+    # Revalidate after ownership checks, including when a crop was rotated in place.
+    stat = await asyncio.to_thread(path.stat)
+    response = FileResponse(path, media_type=media_type, stat_result=stat,
+                            headers={"Cache-Control": "private, no-cache"})
+    validators = request.headers.get("if-none-match", "").split(",")
+    if any(value.strip().removeprefix("W/") in {"*", response.headers["etag"]} for value in validators):
+        return Response(status_code=304, headers={
+            "Cache-Control": "private, no-cache", "ETag": response.headers["etag"],
+        })
+    return response
+
+
 @router.get("/regions/{region_id}/image")
 async def region_image(
     region_id: UUID,
+    request: Request,
+    variant: ImageVariant = "original",
     user: AuthenticatedUser = Depends(current_user),
     db: AsyncConnection = Depends(connection),
 ) -> Response:
@@ -698,11 +714,18 @@ async def region_image(
         if row["crop_path"]:
             path = flatbed.resolve_path(row["crop_path"])
             if path.is_file():
-                return FileResponse(path, media_type="image/jpeg")
+                path = await asyncio.to_thread(
+                    get_image_variant, path, flatbed.root / ".image-variants",
+                    f"{user.id}:region:{region_id}", variant,
+                )
+                return await _image_response(request, path, "image/jpeg")
         preview = await asyncio.to_thread(
             flatbed.reference_preview, row["original_path"], row["bounds"],
             (row["signals"] or {}).get("orientation_rotation_degrees", 0),
+            max_edge=320 if variant == "thumb" else 960 if variant == "preview" else None,
         )
+    except TimeoutError as error:
+        raise HTTPException(503, "预览生成繁忙，请稍后重试", headers={"Retry-After": "1"}) from error
     except (OSError, ValueError) as error:
         raise HTTPException(404, "参考预览不可用，请查看整版原图或重新扫描") from error
     return Response(
@@ -714,9 +737,11 @@ async def region_image(
 @router.get("/sheets/{sheet_id}/image")
 async def sheet_image(
     sheet_id: UUID,
+    request: Request,
+    variant: ImageVariant = "original",
     user: AuthenticatedUser = Depends(current_user),
     db: AsyncConnection = Depends(connection),
-) -> FileResponse:
+) -> Response:
     result = await db.execute(
         "SELECT original_path,content_type FROM flatbed_scan_sheet WHERE id=%s AND owner_id=%s",
         (sheet_id, user.id),
@@ -724,5 +749,15 @@ async def sheet_image(
     row = await result.fetchone()
     if row is None:
         raise HTTPException(404, "整版扫描图片不存在")
-    path = service().resolve_path(row["original_path"])
-    return FileResponse(path, media_type=row["content_type"])
+    flatbed = service()
+    try:
+        path = flatbed.resolve_path(row["original_path"])
+        path = await asyncio.to_thread(
+            get_image_variant, path, flatbed.root / ".image-variants",
+            f"{user.id}:sheet:{sheet_id}", variant,
+        )
+        return await _image_response(request, path, row["content_type"] if variant == "original" else "image/jpeg")
+    except TimeoutError as error:
+        raise HTTPException(503, "预览生成繁忙，请稍后重试", headers={"Retry-After": "1"}) from error
+    except (OSError, ValueError) as error:
+        raise HTTPException(404, "整版扫描图片不存在") from error

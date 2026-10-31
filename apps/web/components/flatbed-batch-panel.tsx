@@ -17,6 +17,7 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
   const scannerAbort = useRef<AbortController | null>(null);
   const mounted = useRef(true);
   const [pendingScan, setPendingScan] = useState<(LocalScannerImage & { side: "front" | "back" }) | null>(null);
+  const [localPreview, setLocalPreview] = useState<{ side: "front" | "back"; url: string } | null>(null);
   const [dpi, setDpi] = useState<300 | 600>(300);
   const [session, setSession] = useState<FlatbedSession | null>(null);
   const [fronts, setFronts] = useState<FlatbedRegion[]>([]);
@@ -123,6 +124,13 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
       .finally(() => { if (active) setBusy(false); });
     return () => { active = false; mounted.current = false; scannerAbort.current?.abort(); };
   }, []);
+
+  useEffect(() => {
+    if (!pendingScan) { setLocalPreview(null); return; }
+    const url = URL.createObjectURL(pendingScan.file);
+    setLocalPreview({ side: pendingScan.side, url });
+    return () => URL.revokeObjectURL(url);
+  }, [pendingScan]);
 
   useEffect(() => {
     if (!lightbox) return;
@@ -337,16 +345,23 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
     setUndo([]); setSelected(0); setEditing(side); setEditingRegion(region?.id ?? null); setLayoutMessage(null);
   }
 
-  function SheetPreview({ side, regions }: { side: "front" | "back"; regions: FlatbedRegion[] }) {
+  function sheetPreview(side: "front" | "back", regions: FlatbedRegion[]) {
+    const label = `${side === "front" ? "正面" : "背面"}整版扫描`;
+    if (pendingScan?.side === side && localPreview?.side === side) {
+      return <div className="flatbed-sheet-preview"><strong>{label}</strong>
+        <div className="flatbed-sheet-image"><span className="flatbed-sheet-canvas">
+          <img src={localPreview.url} decoding="async" alt={`${side === "front" ? "正面" : "背面"}本机扫描预览`} />
+        </span></div><small>本机扫描图已就绪，云端处理完成后显示裁切结果。</small>
+      </div>;
+    }
     const current = sheets[side];
     if (!current) return null;
     const original = assetUrl(`/v1/flatbed/sheets/${current.id}/image`) ?? undefined;
-    const label = `${side === "front" ? "正面" : "背面"}整版扫描`;
     return <div className="flatbed-sheet-preview">
       <div className="flatbed-sheet-heading"><strong>{label}</strong><span><button type="button" className="ghost-button" disabled={busy} onClick={() => openLayout(side)}>校正布局</button><button type="button" className="link-button" onClick={() => original && setLightbox({ url: original, label })}>查看原图</button></span></div>
       <button type="button" className="flatbed-sheet-image" onClick={() => original && setLightbox({ url: original, label })}>
         <span className="flatbed-sheet-canvas">
-          <img src={original} alt={`${side === "front" ? "正面" : "背面"}整版扫描缩略图`} />
+          <img src={`${original}?variant=preview`} decoding="async" alt={`${side === "front" ? "正面" : "背面"}整版扫描缩略图`} />
           <svg className="flatbed-sheet-polygons" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">{regions.map((region) => {
             const points = region.bounds.points?.length === 4 ? region.bounds.points : [
               { x: region.bounds.x, y: region.bounds.y }, { x: region.bounds.x + region.bounds.width, y: region.bounds.y },
@@ -357,7 +372,7 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
           {regions.map((region) => { const points = region.bounds.points ?? [{ x: region.bounds.x, y: region.bounds.y }]; return <i className={cropQualityState(region)} key={region.id} title={cropQualityTitle(region)} style={{ left: `${Math.min(...points.map((point) => point.x)) * 100}%`, top: `${Math.min(...points.map((point) => point.y)) * 100}%` }}>{region.ordinal + 1}</i>; })}
         </span>
       </button>
-      <div className="flatbed-region-thumbs">{regions.map((region) => { const url = assetUrl(`/v1/flatbed/regions/${region.id}/image`) ?? ""; return <button type="button" className={cropQualityState(region)} title={cropQualityTitle(region)} key={region.id} onClick={() => setLightbox({ url, label: `${side === "front" ? "正面" : "背面"}卡片 ${region.ordinal + 1}` })}><img src={url} alt={`卡片 ${region.ordinal + 1}`} /><span>{region.ordinal + 1}</span></button>; })}</div>
+      <div className="flatbed-region-thumbs">{regions.map((region) => { const url = assetUrl(`/v1/flatbed/regions/${region.id}/image`) ?? ""; return <button type="button" className={cropQualityState(region)} title={cropQualityTitle(region)} key={region.id} onClick={() => setLightbox({ url, label: `${side === "front" ? "正面" : "背面"}卡片 ${region.ordinal + 1}` })}><img src={`${url}?variant=thumb`} decoding="async" alt={`卡片 ${region.ordinal + 1}`} /><span>{region.ordinal + 1}</span></button>; })}</div>
       {regions.some((region) => cropQuality(region)) && <small className="flatbed-quality-legend"><span className="ok" />可用 <span className="review" />有边界提示 <span className="error" />疑似空白、残片或多卡（仍可编辑）</small>}
     </div>;
   }
@@ -517,10 +532,10 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
     {session && <div className="flatbed-steps">
       <label><b>1. 扫描正面{fronts.length > 0 ? ` · 版本 ${sheets.front?.revision ?? 1}` : ""}</b><small>支持单张、多行多列、卡片与卡砖混合</small><span className="flatbed-scan-actions"><button type="button" onClick={() => void scan("front", true)} disabled={busy || connecting || !deviceReady || !!pendingScan}>概览</button><button type="button" onClick={() => void scan("front", false)} disabled={busy || connecting || !deviceReady || !!pendingScan}>正式扫描</button></span><input title="也可导入已有整版图" type="file" accept="image/jpeg,image/png" onChange={(e) => void sheet("front", e.target.files?.[0])} disabled={busy || !!pendingScan} /></label>
       <span className={fronts.length ? "done" : ""}>{fronts.length} 张</span>
-      <SheetPreview side="front" regions={fronts} />
+      {sheetPreview("front", fronts)}
       <label><b>2. 翻面后扫描背面{backs.length > 0 ? ` · 版本 ${sheets.back?.revision ?? 1}` : ""}</b><small>背面独立识别卡片边界，不套用正面位置；保持大致顺序有助于配对，数量或配对有疑问时会提示确认</small><span className="flatbed-scan-actions"><button type="button" onClick={() => void scan("back", true)} disabled={busy || connecting || !deviceReady || !!pendingScan || !fronts.length}>概览</button><button type="button" onClick={() => void scan("back", false)} disabled={busy || connecting || !deviceReady || !!pendingScan || !fronts.length}>正式扫描</button></span><input title="也可导入已有整版图" type="file" accept="image/jpeg,image/png" onChange={(e) => void sheet("back", e.target.files?.[0])} disabled={busy || !!pendingScan || !fronts.length} /></label>
       <span className={backs.length ? "done" : ""}>{backs.length} 张</span>
-      <SheetPreview side="back" regions={backs} />
+      {sheetPreview("back", backs)}
     </div>}
     {fronts.length > 0 && backs.length === 0 && !sheets.back && <div className="flatbed-pair-title">
       <small>{busy || messageTone === "error" ? message : "正面已保存，等待背面图上传后生成配对。"}</small>
@@ -542,16 +557,16 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
         return <article key={pair.front_id} className={`flatbed-pair-card ${pair.requires_review ? "review" : ""}`}>
           <div className="flatbed-pair-card-heading"><strong>卡片 {index + 1}</strong><span className={`flatbed-confidence ${pair.confidence_level}`}>配对分数 {Math.round(pair.confidence * 100)}% · {pair.identity_status === "consistent" ? "文字身份一致" : "身份待核对"}</span></div>
           <div className="flatbed-pair-visuals">
-            <button type="button" onClick={() => setLightbox({ url: frontUrl, label: `卡片 ${index + 1} 正面` })}><img src={frontUrl} alt={`卡片 ${index + 1} 正面`} /><span>正面 {frontNumber}</span><small>点击放大</small></button>
+            <button type="button" onClick={() => setLightbox({ url: frontUrl, label: `卡片 ${index + 1} 正面` })}><img src={`${frontUrl}?variant=thumb`} decoding="async" alt={`卡片 ${index + 1} 正面`} /><span>正面 {frontNumber}</span><small>点击放大</small></button>
             <div className="flatbed-pair-switch"><span aria-hidden="true">⇄</span><label>匹配背面<select value={pair.back_id} onChange={(event) => swapBack(index, event.target.value)}>{backs.map((candidate) => <option key={candidate.id} value={candidate.id}>背面 {candidate.ordinal + 1}</option>)}</select></label></div>
-            <button type="button" onClick={() => setLightbox({ url: backUrl, label: `卡片 ${index + 1} 背面` })}><img src={backUrl} alt={`卡片 ${index + 1} 背面`} /><span>背面 {backNumber}</span><small>点击放大</small></button>
+            <button type="button" onClick={() => setLightbox({ url: backUrl, label: `卡片 ${index + 1} 背面` })}><img src={`${backUrl}?variant=thumb`} decoding="async" alt={`卡片 ${index + 1} 背面`} /><span>背面 {backNumber}</span><small>点击放大</small></button>
           </div>
           <div className="flatbed-pair-edit"><button type="button" className="link-button" disabled={busy || !front || !sheets.front} onClick={() => front && openLayout("front", front)}>校正正面 {frontNumber}</button><button type="button" className="link-button" disabled={busy || !back || !sheets.back} onClick={() => back && openLayout("back", back)}>校正背面 {backNumber}</button></div>
           <div className={`flatbed-pair-note ${pair.conflicts.length ? "conflict" : ""}`}>{pair.conflicts.length ? pair.conflicts.map(conflictLabel).join("；") : pair.identity_status === "consistent" ? "已找到一致的文字身份依据，仍请核对实物" : (pair.identity_reason_codes?.length ? pair.identity_reason_codes.map(conflictLabel).join("；") : "身份尚未核验，请查看当前正反面")}</div>
         </article>;
       })}</div>
     </div>}
-    {editing && <div className="flatbed-layout-editor" role="dialog" aria-modal="true"><div><header><strong>校正{editing === "front" ? "正面" : "背面"}布局</strong><small>{editingRegion ? `仅调整${editing === "front" ? "正面" : "背面"} ${((editing === "front" ? fronts : backs).find((r) => r.id === editingRegion)?.ordinal ?? 0) + 1}，其余图片保持不变。` : "拖动四角；可增加、删除、撤销后确认。"}</small></header>{layoutMessage && <p className={`flatbed-status ${layoutMessage.error ? "error" : "info"}`} role={layoutMessage.error ? "alert" : "status"}>{layoutMessage.text}</p>}<div className="flatbed-editor-canvas"><img src={assetUrl(`/v1/flatbed/sheets/${sheets[editing]!.id}/image`) ?? ""} alt="整版布局校正" /><svg viewBox="0 0 1 1" preserveAspectRatio="none" onPointerMove={(event) => { if (busy || !event.currentTarget.hasPointerCapture(event.pointerId)) return; const target = event.currentTarget.getBoundingClientRect(); const encoded = event.currentTarget.dataset.drag?.split(":").map(Number); if (!encoded) return; const [box, point] = encoded; const x = Math.max(0, Math.min(1, (event.clientX-target.left)/target.width)); const y = Math.max(0, Math.min(1, (event.clientY-target.top)/target.height)); setDraft((current) => current.map((p,i) => i === box ? p.map((v,j) => j === point ? {x,y} : v) : p)); }} onPointerUp={(event) => { event.currentTarget.releasePointerCapture(event.pointerId); delete event.currentTarget.dataset.drag; }}>{draft.map((points, box) => <g key={box} onPointerDown={() => setSelected(box)}><polygon points={points.map((p) => `${p.x},${p.y}`).join(" ")} />{points.map((p, point) => <circle key={point} cx={p.x} cy={p.y} r=".012" onPointerDown={(event) => { if (busy) return; event.stopPropagation(); setSelected(box); setUndo((h) => [...h, draft.map((q) => q.map((v) => ({...v})))].slice(-30)); const svg=event.currentTarget.ownerSVGElement!; svg.dataset.drag=`${box}:${point}`; svg.setPointerCapture(event.pointerId); }} />)}</g>)}</svg></div><footer><button type="button" onClick={() => { if (!undo.length) return; setDraft(undo[undo.length-1]); setUndo((h) => h.slice(0,-1)); }} disabled={busy || !undo.length}>撤销</button>{!editingRegion && <><button type="button" disabled={busy} onClick={() => { setUndo((h) => [...h,draft]); setDraft((d) => [...d,[{x:.35,y:.35},{x:.65,y:.35},{x:.65,y:.65},{x:.35,y:.65}]]); setSelected(draft.length); }}>增加框</button><button type="button" onClick={() => { if (draft.length <= 1) return; setUndo((h) => [...h,draft]); setDraft((d) => d.filter((_,i) => i !== selected)); setSelected(0); }} disabled={busy || draft.length <= 1}>删除框</button></>}<button type="button" disabled={busy} onClick={() => setEditing(null)}>取消</button><button type="button" className="primary-button" onClick={() => void saveLayout()} disabled={busy}>{busy ? "正在保存…" : "确认并重建裁切"}</button></footer></div></div>}
+    {editing && <div className="flatbed-layout-editor" role="dialog" aria-modal="true"><div><header><strong>校正{editing === "front" ? "正面" : "背面"}布局</strong><small>{editingRegion ? `仅调整${editing === "front" ? "正面" : "背面"} ${((editing === "front" ? fronts : backs).find((r) => r.id === editingRegion)?.ordinal ?? 0) + 1}，其余图片保持不变。` : "拖动四角；可增加、删除、撤销后确认。"}</small></header>{layoutMessage && <p className={`flatbed-status ${layoutMessage.error ? "error" : "info"}`} role={layoutMessage.error ? "alert" : "status"}>{layoutMessage.text}</p>}<div className="flatbed-editor-canvas"><img src={assetUrl(`/v1/flatbed/sheets/${sheets[editing]!.id}/image?variant=preview`) ?? ""} alt="整版布局校正" /><svg viewBox="0 0 1 1" preserveAspectRatio="none" onPointerMove={(event) => { if (busy || !event.currentTarget.hasPointerCapture(event.pointerId)) return; const target = event.currentTarget.getBoundingClientRect(); const encoded = event.currentTarget.dataset.drag?.split(":").map(Number); if (!encoded) return; const [box, point] = encoded; const x = Math.max(0, Math.min(1, (event.clientX-target.left)/target.width)); const y = Math.max(0, Math.min(1, (event.clientY-target.top)/target.height)); setDraft((current) => current.map((p,i) => i === box ? p.map((v,j) => j === point ? {x,y} : v) : p)); }} onPointerUp={(event) => { event.currentTarget.releasePointerCapture(event.pointerId); delete event.currentTarget.dataset.drag; }}>{draft.map((points, box) => <g key={box} onPointerDown={() => setSelected(box)}><polygon points={points.map((p) => `${p.x},${p.y}`).join(" ")} />{points.map((p, point) => <circle key={point} cx={p.x} cy={p.y} r=".012" onPointerDown={(event) => { if (busy) return; event.stopPropagation(); setSelected(box); setUndo((h) => [...h, draft.map((q) => q.map((v) => ({...v})))].slice(-30)); const svg=event.currentTarget.ownerSVGElement!; svg.dataset.drag=`${box}:${point}`; svg.setPointerCapture(event.pointerId); }} />)}</g>)}</svg></div><footer><button type="button" onClick={() => { if (!undo.length) return; setDraft(undo[undo.length-1]); setUndo((h) => h.slice(0,-1)); }} disabled={busy || !undo.length}>撤销</button>{!editingRegion && <><button type="button" disabled={busy} onClick={() => { setUndo((h) => [...h,draft]); setDraft((d) => [...d,[{x:.35,y:.35},{x:.65,y:.35},{x:.65,y:.65},{x:.35,y:.65}]]); setSelected(draft.length); }}>增加框</button><button type="button" onClick={() => { if (draft.length <= 1) return; setUndo((h) => [...h,draft]); setDraft((d) => d.filter((_,i) => i !== selected)); setSelected(0); }} disabled={busy || draft.length <= 1}>删除框</button></>}<button type="button" disabled={busy} onClick={() => setEditing(null)}>取消</button><button type="button" className="primary-button" onClick={() => void saveLayout()} disabled={busy}>{busy ? "正在保存…" : "确认并重建裁切"}</button></footer></div></div>}
     {lightbox && <div className="flatbed-lightbox" role="dialog" aria-modal="true" aria-label={lightbox.label} onMouseDown={(event) => { if (event.target === event.currentTarget) setLightbox(null); }}><div><header><strong>{lightbox.label}</strong><button type="button" aria-label="关闭大图" onClick={() => setLightbox(null)}>×</button></header><img src={lightbox.url} alt={lightbox.label} /></div></div>}
   </section>;
 }
