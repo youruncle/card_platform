@@ -514,7 +514,7 @@ class PurchaseCostService:
         return dict(item_id=str(item_id), **build_purchase_cost_search_plan(card, knowledge))
 
     @scoped_purchase_cost_knowledge
-    async def resolve_search(self, conn, owner_id, item_id, orders, complete, refresh=False):
+    async def resolve_search(self, conn, owner_id, item_id, orders, complete, refresh=False, *, preview_only=False):
         archive_source = False
         if complete and not orders:
             from card_platform.cardhobby_account_api import account_service
@@ -527,11 +527,11 @@ class PurchaseCostService:
                      trigger=dict(item_id=str(item_id),refresh=refresh),
                      recall=dict(complete=bool(complete),orders=len(orders),
                                  source='complete_private_history' if archive_source else 'live_search'))
-        result = await self._resolve_search(conn,owner_id,item_id,orders,complete,refresh=refresh,trace=trace)
+        result = await self._resolve_search(conn,owner_id,item_id,orders,complete,refresh=refresh,trace=trace,preview_only=preview_only)
         trace['allocation'] = dict(status=result['status'],choices=len(result.get('candidates',[])),
                                   unit_id=(result.get('recorded') or {}).get('unit_id'))
         trace['commit'] = dict(written=result['status']=='recorded',status=result['status'])
-        if (get_settings().purchase_cost_worker_enabled
+        if (not preview_only and get_settings().purchase_cost_worker_enabled
                 and any(issue.get('code') == 'multi_photo_pending' for issue in result.get('verification_issues', []))):
             # The user's explicit lookup may need several bounded steps. This
             # is continuation of that lookup, not automatic historical backfill.
@@ -543,7 +543,7 @@ class PurchaseCostService:
                 WHERE automatic_purchase_cost.owner_id=EXCLUDED.owner_id''', (item_id,owner_id))
         return {**result,'trace':trace}
 
-    async def _resolve_search(self, conn, owner_id, item_id, orders, complete, refresh=False, *, trace):
+    async def _resolve_search(self, conn, owner_id, item_id, orders, complete, refresh=False, *, trace, preview_only=False):
         from card_platform.purchase_cost_shipping import apply_collect_shipping_policy
         async with conn.transaction():
             await owner_lock(conn, owner_id)
@@ -589,6 +589,9 @@ class PurchaseCostService:
                             reason="发现多件同款购买记录，请选择与这张卡对应的一件")
             if len(eligible) == 1:
                 candidate = eligible[0]
+                if preview_only:
+                    return dict(status='matched', candidates=eligible, rejected=[],
+                                reason='已找到通过现有核验的购买记录，仅查询，未写入或更新成本')
                 try:
                     result = await self.confirm(conn, owner_id, item_id, UUID(candidate["unit_id"]), candidate["evidence_hash"], True, fresh_ids, refresh=refresh)
                     return dict(status=result["status"], candidates=[], rejected=[],

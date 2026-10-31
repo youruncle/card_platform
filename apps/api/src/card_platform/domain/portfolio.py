@@ -48,7 +48,10 @@ def calculate_position(entries: list[LedgerEntry]) -> Position:
             remaining_cost -= sold_cost
             quantity -= entry.quantity
         elif entry.kind == TransactionKind.FEE:
-            remaining_cost += fee
+            if quantity:
+                remaining_cost += fee
+            else:
+                realized_profit -= fee
         elif entry.kind == TransactionKind.ADJUSTMENT:
             remaining_cost += gross
 

@@ -1,0 +1,265 @@
+{
+  "date": "2026-10-28",
+  "client": "actual connected ChatGPT MCP",
+  "page_size": 3,
+  "results": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "case": 1,
+        "filters": {
+          "q": "库里"
+        },
+        "total": 34,
+        "ids": [
+          "190b28fa-b157-47c7-b584-c0eed256828b",
+          "2ed758a8-b6ba-4cd3-90ca-37e75c9b4e0e",
+          "da953fb3-342e-48ba-9da5-808006cfa186"
+        ],
+        "display_ids": [
+          906,
+          866,
+          859
+        ],
+        "next_page": 2
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "case": 2,
+        "filters": {
+          "autograph": true
+        },
+        "total": 61,
+        "ids": [
+          "2897044f-5586-42b8-875d-aa57741dd15c",
+          "da953fb3-342e-48ba-9da5-808006cfa186",
+          "632c8f22-cea2-419a-8bf6-50cfffe2e1c4"
+        ],
+        "display_ids": [
+          870,
+          859,
+          813
+        ],
+        "next_page": 2
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "case": 3,
+        "filters": {
+          "numbered": true,
+          "serial_max": 25
+        },
+        "total": 34,
+        "ids": [
+          "42e3de23-eaf3-46c7-b2ba-dd591c5aefd4",
+          "da953fb3-342e-48ba-9da5-808006cfa186",
+          "8406c8ae-3d52-4f70-af1c-393e96a435da"
+        ],
+        "display_ids": [
+          885,
+          859,
+          808
+        ],
+        "next_page": 2
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "case": 4,
+        "filters": {
+          "graded": true,
+          "grade_min": "9.5"
+        },
+        "total": 6,
+        "ids": [
+          "383adfcc-e68c-4189-acee-8043ff662199",
+          "1d69b020-0306-4c14-a8b7-f3720c94925e",
+          "682e80de-d660-4716-a4cc-733a8c5291fc"
+        ],
+        "display_ids": [
+          393,
+          391,
+          390
+        ],
+        "next_page": 2
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "case": 5,
+        "filters": {
+          "cost_min": "250"
+        },
+        "total": 21,
+        "ids": [
+          "eaeefba6-fa9c-473a-aff9-317d3f19ec12",
+          "07befb75-478d-4338-a697-d683610f0249",
+          "7df5e641-222c-4528-9549-03a2f21ed28a"
+        ],
+        "display_ids": [
+          876,
+          626,
+          616
+        ],
+        "next_page": 2
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "case": 6,
+        "filters": {
+          "holding_status": "sold"
+        },
+        "total": 0,
+        "ids": [],
+        "display_ids": [],
+        "next_page": null
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "case": 7,
+        "filters": {
+          "holding_status": "held",
+          "autograph": false
+        },
+        "total": 842,
+        "ids": [
+          "0fbf2cdc-26c3-4db6-80cb-fe0829c89f5f",
+          "190b28fa-b157-47c7-b584-c0eed256828b",
+          "2145064b-9db0-49cf-b146-e2b791c4ef35"
+        ],
+        "display_ids": [
+          903,
+          906,
+          900
+        ],
+        "next_page": 2
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "case": 8,
+        "filters": {
+          "brand": [
+            "Panini"
+          ],
+          "product": [
+            "Prizm"
+          ],
+          "year_min": 2023,
+          "year_max": 2024
+        },
+        "total": 42,
+        "ids": [
+          "45e727bc-b819-4ceb-8faf-0aa16686e063",
+          "e2ced0fa-567c-4441-b49d-7672d7c0bc14",
+          "b1e2a08a-237e-4925-b3bd-a5eec27c76d8"
+        ],
+        "display_ids": [
+          827,
+          823,
+          821
+        ],
+        "next_page": 2
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "case": 9,
+        "filters": {
+          "valuation_status": [
+            "unvalued"
+          ],
+          "autograph": true
+        },
+        "total": 38,
+        "ids": [
+          "2897044f-5586-42b8-875d-aa57741dd15c",
+          "e9dc7c64-e1cb-44e9-a75e-14d1cb1b25b8",
+          "14ac27b7-7de8-42d8-8c7a-eb7e0f889ad6"
+        ],
+        "display_ids": [
+          870,
+          740,
+          544
+        ],
+        "next_page": 2
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "case": 10,
+        "filters": {
+          "serial_number": 10
+        },
+        "total": 5,
+        "ids": [
+          "42e3de23-eaf3-46c7-b2ba-dd591c5aefd4",
+          "18875efb-82f2-4c49-8ba0-032198809d5d",
+          "fea084b7-91ad-4c8a-929b-6254736bf0ee"
+        ],
+        "display_ids": [
+          885,
+          873,
+          551
+        ],
+        "next_page": 2
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "case": 11,
+        "filters": {
+          "q": "Kobe"
+        },
+        "total": 43,
+        "ids": [
+          "4034ec22-6902-43c6-9c83-1fdafb0cc7f9",
+          "31909057-4a16-46bd-98f5-7b8030a8ebd3",
+          "0161d44d-c664-48ab-a912-0145f97cc009"
+        ],
+        "display_ids": [
+          909,
+          854,
+          849
+        ],
+        "next_page": 2
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "case": 12,
+        "filters": {
+          "q": "zzzz-no-such-player"
+        },
+        "total": 66,
+        "ids": [
+          "d98591b6-a009-44bf-bb3b-420ea9817ac1",
+          "925c1f0f-cc4a-46a4-a0b9-70120e98cdb1",
+          "9b5adee3-99cb-403f-9748-5de287bd6968"
+        ],
+        "display_ids": [
+          911,
+          190,
+          186
+        ],
+        "next_page": 2
+      }
+    }
+  ],
+  "note": "Live query probes only; webpage comparison and MCP Inspector replay pending. Hyphenated sentinel splits into discovery terms and is not an empty-match assertion."
+}

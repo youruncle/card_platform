@@ -131,11 +131,13 @@ async def cards(
     browser: Browser, product_id: Search = None, manufacturer: Search = None,
     season: int | None = None, q: Search = None, section: Search = None,
     parallel: Search = None,
+    player: Search = None, card_number: Search = None,
     image_state: Literal["any", "has_image", "missing_front", "missing_back"] = "any",
     offset: Offset = 0, limit: Limit = 40,
 ):
     return await _read(browser, "cards", product_id=product_id, manufacturer=manufacturer,
                        season=season, q=q, section=section, parallel=parallel,
+                       player=player, card_number=card_number,
                        image_state=image_state, offset=offset, limit=limit)
 
 

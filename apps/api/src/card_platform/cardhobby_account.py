@@ -380,8 +380,8 @@ class CardHobbyAccountService:
             raise AccountError('VERIFICATION_REQUIRED', '卡淘要求验证，请先完成滑块并获取短信验证码；验证成功后才保存账号')
         await self.save_session(conn, owner, client, credentials)
 
-    async def search(self, conn, owner, keywords):
-        archived = await self.archive_orders(conn, owner)
+    async def search(self, conn, owner, keywords, *, prefer_live=False):
+        archived = None if prefer_live else await self.archive_orders(conn, owner)
         if archived is not None:
             # Existing clients submit this empty capture back to resolve_search.
             # The server loads the owner's complete corpus, so private history

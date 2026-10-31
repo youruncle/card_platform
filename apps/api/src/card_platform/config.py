@@ -36,6 +36,12 @@ def is_bailian_search_url(value: str) -> bool:
 
 
 class Settings(BaseSettings):
+    chatgpt_mcp_resource_url: str = "https://cardsp.cn/mcp"
+    chatgpt_oauth_issuer_url: str = "https://cardsp.cn/v1/chatgpt/oauth"
+    chatgpt_web_origin: str = "https://cardsp.cn"
+    # Populate only with the exact redirect shown by the private connection UI.
+    # Empty by default: registration fails closed until deployment is configured.
+    chatgpt_oauth_redirect_uris: list[str] = Field(default_factory=list)
     database_url: str = "postgresql://card_platform:card_platform@localhost:5432/card_platform"
     default_currency: str = "CNY"
     database_pool_min_size: int = 1

@@ -55,6 +55,9 @@ def _verified_identity(asset: dict, cache: dict, official_artifact: dict) -> dic
             str(attrs.get(k) or "").casefold() for k in ("parallel", "source_variant_label", "section")
         }:
             raise ValueError("card identity variant disagrees with official checklist")
+    if proof.get("scope") == "reviewed_unpaired_public_image":
+        from card_platform.knowledge_intake_worker import verify_unpaired_export
+        return verify_unpaired_export(asset, cache[cache_key][ids[0]]["attributes"])
     review_path = Path(asset.get("review_artifact_path") or "")
     review_key = (str(review_path), asset.get("review_artifact_sha256"))
     if review_key not in cache:

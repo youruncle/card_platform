@@ -485,234 +485,240 @@ async def research_identity(item_id: UUID, payload: ResearchIdentityRequest, req
 async def confirm_identity(item_id: UUID, payload: ConfirmIdentityRequest, request: Request,
                            user: AuthenticatedUser = Depends(current_user)) -> dict:
     async with request.app.state.database.connection() as connection, connection.transaction():
-        item_row = await _item_identity(connection, item_id, user.id, lock=True)
-        if item_row is None:
-            raise HTTPException(status_code=404, detail="collection item not found")
-        item = dict(item_row)
-        identity = payload.identity.model_dump(mode="json")
-        evidence = await _evidence_rows(connection, item)
-        market_identity = MarketIdentity.model_validate({**identity, "print_run": identity["serial_total"]})
-        old_binding = await connection.execute(
-            "SELECT identity_fingerprint FROM market_identity_binding WHERE collection_item_id = %s",
-            (item_id,),
+        return await confirm_identity_with_connection(connection, item_id, payload, user.id)
+
+
+async def confirm_identity_with_connection(connection, item_id: UUID,
+                                           payload: ConfirmIdentityRequest, owner_id: UUID) -> dict:
+    """Reuse the identity review/audit chain inside a caller-owned transaction."""
+    item_row = await _item_identity(connection, item_id, owner_id, lock=True)
+    if item_row is None:
+        raise HTTPException(status_code=404, detail="collection item not found")
+    item = dict(item_row)
+    identity = payload.identity.model_dump(mode="json")
+    evidence = await _evidence_rows(connection, item)
+    market_identity = MarketIdentity.model_validate({**identity, "print_run": identity["serial_total"]})
+    old_binding = await connection.execute(
+        "SELECT identity_fingerprint FROM market_identity_binding WHERE collection_item_id = %s",
+        (item_id,),
+    )
+    old_row = await old_binding.fetchone()
+    old_fingerprint = old_row["identity_fingerprint"] if old_row else None
+    latest_result = await connection.execute(
+        "SELECT id, version FROM card_identity_version WHERE collection_item_id = %s ORDER BY version DESC LIMIT 1",
+        (item_id,),
+    )
+    latest = await latest_result.fetchone()
+    inserted = await connection.execute(
+        """
+        INSERT INTO card_identity_version (
+            collection_item_id, version, identity, field_provenance, conflicts,
+            review_status, source, confirmed_at, confirmed_by,
+            confirmation_reason, supersedes_id, identity_fingerprint
+        ) VALUES (%s, %s, %s, %s, '[]'::jsonb, 'confirmed', 'identity_review',
+                  now(), %s, %s, %s, %s) RETURNING id, version
+        """,
+        (item_id, (latest["version"] if latest else 0) + 1, Jsonb(identity),
+         Jsonb(payload.field_provenance), owner_id, payload.reason,
+         latest["id"] if latest else None, market_identity.fingerprint),
+    )
+    version = await inserted.fetchone()
+    prior_valuations_marked_incompatible = 0
+    if old_fingerprint and old_fingerprint != market_identity.fingerprint:
+        invalidated = await connection.execute(
+            """UPDATE valuation_snapshot
+               SET identity_compatibility = 'incompatible',
+                   identity_compatibility_reasons = %s
+               WHERE collection_item_id = %s
+                 AND identity_compatibility <> 'incompatible'""",
+            (Jsonb([
+                "superseded_by_confirmed_identity",
+                f"confirmed_identity_version:{version['id']}",
+            ]), item_id),
         )
-        old_row = await old_binding.fetchone()
-        old_fingerprint = old_row["identity_fingerprint"] if old_row else None
-        latest_result = await connection.execute(
-            "SELECT id, version FROM card_identity_version WHERE collection_item_id = %s ORDER BY version DESC LIMIT 1",
-            (item_id,),
+        prior_valuations_marked_incompatible = invalidated.rowcount
+    await connection.execute(
+        """UPDATE identity_research_case SET status = %s, updated_at = now()
+           WHERE collection_item_id = %s AND status IN
+             ('identity_research_required','candidate_identity_ready','awaiting_confirmation')""",
+        (ResearchStatus.CONFIRMED_NO_EXACT_SALES, item_id),
+    )
+    await connection.execute(
+        """INSERT INTO card_identity_change_audit
+           (collection_item_id, identity_version_id, actor_id, reason, before_state, after_state)
+           VALUES (%s, %s, %s, %s, %s, %s)""",
+        (item_id, version["id"], owner_id, payload.reason, Jsonb(_identity(item)), Jsonb(identity)),
+    )
+    await connection.execute(
+        """UPDATE card_identity_correction
+           SET status = 'superseded', updated_at = now()
+           WHERE collection_item_id = %s AND status = 'open'""",
+        (item_id,),
+    )
+    rebind_payload = CollectionItemCreate(
+        owner_id=owner_id,
+        card=CardIdentityInput(
+            player_name=payload.identity.player_name,
+            brand_name=payload.identity.brand_name,
+            season_start=payload.identity.season_start,
+            season_end=payload.identity.season_end,
+            product_name=payload.identity.product_name,
+            set_name=payload.identity.set_name,
+            card_number=payload.identity.card_number,
+            insert_name=payload.identity.insert_name,
+            parallel_name=payload.identity.parallel_name,
+            is_rookie=payload.identity.is_rookie,
+            is_autograph=payload.identity.is_autograph,
+            autograph_type=payload.identity.autograph_type,
+            is_memorabilia=payload.identity.is_memorabilia,
+            memorabilia_types=payload.identity.memorabilia_types,
+            print_run=payload.identity.serial_total,
+        ),
+        serial_number=payload.identity.serial_number,
+        serial_total=payload.identity.serial_total,
+        is_numbered=payload.identity.serial_total is not None,
+        grade_company=payload.identity.grade_company,
+        grade_value=payload.identity.grade_value,
+    )
+    portfolio = PortfolioRepository()
+    player_id = await portfolio._get_or_create_player(connection, rebind_payload)
+    brand_id = await portfolio._get_or_create_brand(connection, rebind_payload)
+    card_set_id = await portfolio._get_or_create_set(connection, brand_id, rebind_payload)
+    definition_id = await portfolio._get_or_create_definition(
+        connection, player_id, card_set_id, rebind_payload
+    )
+    await connection.execute(
+        """
+        UPDATE card_definition
+        SET is_rookie = %s, is_autograph = %s, autograph_type = %s,
+            is_memorabilia = %s, memorabilia_types = %s,
+            memorabilia_usage = CASE WHEN %s THEN
+                CASE WHEN memorabilia_usage = 'none' THEN 'unknown' ELSE memorabilia_usage END
+                ELSE 'none' END,
+            is_patch = CASE WHEN %s THEN is_patch ELSE false END,
+            print_run = %s, updated_at = now()
+        WHERE id = %s
+        """,
+        (
+            payload.identity.is_rookie,
+            payload.identity.is_autograph,
+            payload.identity.autograph_type,
+            payload.identity.is_memorabilia,
+            payload.identity.memorabilia_types,
+            payload.identity.is_memorabilia,
+            payload.identity.is_memorabilia,
+            payload.identity.serial_total,
+            definition_id,
+        ),
+    )
+    await connection.execute(
+        """
+        UPDATE collection_item
+        SET card_definition_id = %s, serial_number = %s, serial_total = %s,
+            is_numbered = %s, grade_company = %s, grade_value = %s,
+            updated_at = now()
+        WHERE id = %s
+        """,
+        (
+            definition_id,
+            payload.identity.serial_number,
+            payload.identity.serial_total,
+            payload.identity.serial_total is not None,
+            payload.identity.grade_company,
+            payload.identity.grade_value,
+            item_id,
+        ),
+    )
+    await MarketDataRepository().ensure_identity(connection, market_identity, item_id)
+    accepted = rejected = needs_review = 0
+    for sale in evidence:
+        decision, reasons = structured_evidence_decision(
+            sale.get("identity_classification") or {}, sale["evidence_level"],
+            identity_changed=old_fingerprint != market_identity.fingerprint,
         )
-        latest = await latest_result.fetchone()
-        inserted = await connection.execute(
-            """
-            INSERT INTO card_identity_version (
-                collection_item_id, version, identity, field_provenance, conflicts,
-                review_status, source, confirmed_at, confirmed_by,
-                confirmation_reason, supersedes_id, identity_fingerprint
-            ) VALUES (%s, %s, %s, %s, '[]'::jsonb, 'confirmed', 'identity_review',
-                      now(), %s, %s, %s, %s) RETURNING id, version
-            """,
-            (item_id, (latest["version"] if latest else 0) + 1, Jsonb(identity),
-             Jsonb(payload.field_provenance), user.id, payload.reason,
-             latest["id"] if latest else None, market_identity.fingerprint),
-        )
-        version = await inserted.fetchone()
-        prior_valuations_marked_incompatible = 0
-        if old_fingerprint and old_fingerprint != market_identity.fingerprint:
-            invalidated = await connection.execute(
-                """UPDATE valuation_snapshot
-                   SET identity_compatibility = 'incompatible',
-                       identity_compatibility_reasons = %s
-                   WHERE collection_item_id = %s
-                     AND identity_compatibility <> 'incompatible'""",
-                (Jsonb([
-                    "superseded_by_confirmed_identity",
-                    f"confirmed_identity_version:{version['id']}",
-                ]), item_id),
-            )
-            prior_valuations_marked_incompatible = invalidated.rowcount
+        accepted += decision == "accepted"
+        rejected += decision == "rejected"
+        needs_review += decision == "needs_review"
         await connection.execute(
-            """UPDATE identity_research_case SET status = %s, updated_at = now()
-               WHERE collection_item_id = %s AND status IN
-                 ('identity_research_required','candidate_identity_ready','awaiting_confirmation')""",
-            (ResearchStatus.CONFIRMED_NO_EXACT_SALES, item_id),
-        )
-        await connection.execute(
-            """INSERT INTO card_identity_change_audit
-               (collection_item_id, identity_version_id, actor_id, reason, before_state, after_state)
+            """INSERT INTO market_evidence_identity_decision
+               (collection_item_id, identity_version_id, market_evidence_id, decision, reason_codes, classification)
                VALUES (%s, %s, %s, %s, %s, %s)""",
-            (item_id, version["id"], user.id, payload.reason, Jsonb(_identity(item)), Jsonb(identity)),
+            (item_id, version["id"], sale["id"], decision, Jsonb(reasons),
+             Jsonb(sale.get("identity_classification") or {})),
         )
-        await connection.execute(
-            """UPDATE card_identity_correction
-               SET status = 'superseded', updated_at = now()
-               WHERE collection_item_id = %s AND status = 'open'""",
-            (item_id,),
-        )
-        rebind_payload = CollectionItemCreate(
-            owner_id=user.id,
-            card=CardIdentityInput(
-                player_name=payload.identity.player_name,
-                brand_name=payload.identity.brand_name,
-                season_start=payload.identity.season_start,
-                season_end=payload.identity.season_end,
-                product_name=payload.identity.product_name,
-                set_name=payload.identity.set_name,
-                card_number=payload.identity.card_number,
-                insert_name=payload.identity.insert_name,
-                parallel_name=payload.identity.parallel_name,
-                is_rookie=payload.identity.is_rookie,
-                is_autograph=payload.identity.is_autograph,
-                autograph_type=payload.identity.autograph_type,
-                is_memorabilia=payload.identity.is_memorabilia,
-                memorabilia_types=payload.identity.memorabilia_types,
-                print_run=payload.identity.serial_total,
-            ),
-            serial_number=payload.identity.serial_number,
-            serial_total=payload.identity.serial_total,
-            is_numbered=payload.identity.serial_total is not None,
-            grade_company=payload.identity.grade_company,
-            grade_value=payload.identity.grade_value,
-        )
-        portfolio = PortfolioRepository()
-        player_id = await portfolio._get_or_create_player(connection, rebind_payload)
-        brand_id = await portfolio._get_or_create_brand(connection, rebind_payload)
-        card_set_id = await portfolio._get_or_create_set(connection, brand_id, rebind_payload)
-        definition_id = await portfolio._get_or_create_definition(
-            connection, player_id, card_set_id, rebind_payload
-        )
-        await connection.execute(
-            """
-            UPDATE card_definition
-            SET is_rookie = %s, is_autograph = %s, autograph_type = %s,
-                is_memorabilia = %s, memorabilia_types = %s,
-                memorabilia_usage = CASE WHEN %s THEN
-                    CASE WHEN memorabilia_usage = 'none' THEN 'unknown' ELSE memorabilia_usage END
-                    ELSE 'none' END,
-                is_patch = CASE WHEN %s THEN is_patch ELSE false END,
-                print_run = %s, updated_at = now()
-            WHERE id = %s
-            """,
-            (
-                payload.identity.is_rookie,
-                payload.identity.is_autograph,
-                payload.identity.autograph_type,
-                payload.identity.is_memorabilia,
-                payload.identity.memorabilia_types,
-                payload.identity.is_memorabilia,
-                payload.identity.is_memorabilia,
-                payload.identity.serial_total,
-                definition_id,
-            ),
-        )
-        await connection.execute(
-            """
-            UPDATE collection_item
-            SET card_definition_id = %s, serial_number = %s, serial_total = %s,
-                is_numbered = %s, grade_company = %s, grade_value = %s,
-                updated_at = now()
-            WHERE id = %s
-            """,
-            (
-                definition_id,
-                payload.identity.serial_number,
-                payload.identity.serial_total,
-                payload.identity.serial_total is not None,
-                payload.identity.grade_company,
-                payload.identity.grade_value,
-                item_id,
-            ),
-        )
-        await MarketDataRepository().ensure_identity(connection, market_identity, item_id)
-        accepted = rejected = needs_review = 0
-        for sale in evidence:
-            decision, reasons = structured_evidence_decision(
-                sale.get("identity_classification") or {}, sale["evidence_level"],
-                identity_changed=old_fingerprint != market_identity.fingerprint,
-            )
-            accepted += decision == "accepted"
-            rejected += decision == "rejected"
-            needs_review += decision == "needs_review"
+        if decision == "accepted":
             await connection.execute(
-                """INSERT INTO market_evidence_identity_decision
-                   (collection_item_id, identity_version_id, market_evidence_id, decision, reason_codes, classification)
-                   VALUES (%s, %s, %s, %s, %s, %s)""",
-                (item_id, version["id"], sale["id"], decision, Jsonb(reasons),
-                 Jsonb(sale.get("identity_classification") or {})),
+                "UPDATE market_evidence SET identity_fingerprint = %s WHERE id = %s",
+                (market_identity.fingerprint, sale["id"]),
             )
-            if decision == "accepted":
-                await connection.execute(
-                    "UPDATE market_evidence SET identity_fingerprint = %s WHERE id = %s",
-                    (market_identity.fingerprint, sale["id"]),
-                )
-        await MarketDataRepository().adopt_reviewed_evidence(
-            connection, market_identity.fingerprint, version["id"]
-        )
-        await connection.execute(
-            """INSERT INTO market_identity_rebind_audit
-               (collection_item_id, identity_version_id, old_fingerprint, new_fingerprint,
-                actor_id, accepted_count, rejected_count, duplicate_count, details)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, 0, %s)""",
-            (item_id, version["id"], old_fingerprint, market_identity.fingerprint,
-             user.id, accepted, rejected, Jsonb({"published_valuation_unchanged": True,
-                                               "needs_review_count": needs_review})),
-        )
-        candidate_result = await connection.execute(
-            """SELECT c.market_evidence FROM identity_research_candidate c
-               JOIN identity_research_case r ON r.id = c.research_case_id
-               WHERE r.collection_item_id = %s AND c.identity = %s AND c.is_valid
-               ORDER BY c.created_at DESC LIMIT 1""",
-            (item_id, Jsonb(identity)),
-        )
-        candidate = await candidate_result.fetchone()
-        candidate_sales = (candidate or {}).get("market_evidence", [])
-        shadow_sales = []
-        now = datetime.now(timezone.utc)
-        for sale in candidate_sales:
-            occurred = datetime.fromisoformat(sale["occurred_at"].replace("Z", "+00:00"))
-            shadow_sales.append(ShadowSale(
-                id=sale["id"], provider_code=sale["provider_code"],
-                price=Decimal(sale["price_base"]), shipping=Decimal("0"),
-                age_days=max(0, (now - occurred).days), tier=ComparableTier.T0,
-                similarity=Decimal("1"), source_reliability=Decimal("0.85"),
-                evidence_level=sale["evidence_level"],
-            ))
-        shadow = ShadowValuationEstimator().estimate(shadow_sales, identity)
-        await connection.execute(
-            """INSERT INTO valuation_shadow_result (
-                   collection_item_id, identity_version_id, model_version, status,
-                   currency, low_value, fair_value, high_value, confidence,
-                   evidence_count, review_reasons, evidence)
-               SELECT %s, %s, 'robust-shadow-1.2-research', %s, u.base_currency,
-                      %s, %s, %s, %s, %s, %s, %s
-               FROM collection_item ci JOIN app_user u ON u.id = ci.owner_id WHERE ci.id = %s""",
-            (item_id, version["id"], shadow.status, shadow.low, shadow.fair, shadow.high,
-             shadow.confidence, len(shadow.used_ids), Jsonb(list(shadow.review_reasons)),
-             Jsonb({"used_ids": list(shadow.used_ids), "rejected": list(shadow.rejected),
-                    "accepted_count": accepted, "rejected_count": rejected,
-                    "needs_review_count": needs_review,
-                    "research_evidence": candidate_sales, "published_value_unchanged": True}), item_id),
-        )
-        final_status = (ResearchStatus.SHADOW_ESTIMATED if shadow.fair is not None
-                        else ResearchStatus.CONFIRMED_NO_EXACT_SALES)
-        await connection.execute(
-            "UPDATE identity_research_case SET status = %s, updated_at = now() WHERE collection_item_id = %s",
-            (final_status, item_id),
-        )
-        valuation_job = await connection.execute(
-            """INSERT INTO valuation_job (collection_item_id, status, result_summary)
-               VALUES (%s, 'queued', %s)
-               ON CONFLICT (collection_item_id)
-                   WHERE status IN ('queued','identifying','searching','calculating')
-               DO UPDATE SET updated_at = now()
-               RETURNING id""",
-            (item_id, Jsonb({
-                "reason": "confirmed_identity_revaluation",
-                "identity_version_id": str(version["id"]),
-                "published_value_unchanged": True,
-            })),
-        )
-        valuation_job_id = (await valuation_job.fetchone())["id"]
+    await MarketDataRepository().adopt_reviewed_evidence(
+        connection, market_identity.fingerprint, version["id"]
+    )
+    await connection.execute(
+        """INSERT INTO market_identity_rebind_audit
+           (collection_item_id, identity_version_id, old_fingerprint, new_fingerprint,
+            actor_id, accepted_count, rejected_count, duplicate_count, details)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, 0, %s)""",
+        (item_id, version["id"], old_fingerprint, market_identity.fingerprint,
+         owner_id, accepted, rejected, Jsonb({"published_valuation_unchanged": True,
+                                           "needs_review_count": needs_review})),
+    )
+    candidate_result = await connection.execute(
+        """SELECT c.market_evidence FROM identity_research_candidate c
+           JOIN identity_research_case r ON r.id = c.research_case_id
+           WHERE r.collection_item_id = %s AND c.identity = %s AND c.is_valid
+           ORDER BY c.created_at DESC LIMIT 1""",
+        (item_id, Jsonb(identity)),
+    )
+    candidate = await candidate_result.fetchone()
+    candidate_sales = (candidate or {}).get("market_evidence", [])
+    shadow_sales = []
+    now = datetime.now(timezone.utc)
+    for sale in candidate_sales:
+        occurred = datetime.fromisoformat(sale["occurred_at"].replace("Z", "+00:00"))
+        shadow_sales.append(ShadowSale(
+            id=sale["id"], provider_code=sale["provider_code"],
+            price=Decimal(sale["price_base"]), shipping=Decimal("0"),
+            age_days=max(0, (now - occurred).days), tier=ComparableTier.T0,
+            similarity=Decimal("1"), source_reliability=Decimal("0.85"),
+            evidence_level=sale["evidence_level"],
+        ))
+    shadow = ShadowValuationEstimator().estimate(shadow_sales, identity)
+    await connection.execute(
+        """INSERT INTO valuation_shadow_result (
+               collection_item_id, identity_version_id, model_version, status,
+               currency, low_value, fair_value, high_value, confidence,
+               evidence_count, review_reasons, evidence)
+           SELECT %s, %s, 'robust-shadow-1.2-research', %s, u.base_currency,
+                  %s, %s, %s, %s, %s, %s, %s
+           FROM collection_item ci JOIN app_user u ON u.id = ci.owner_id WHERE ci.id = %s""",
+        (item_id, version["id"], shadow.status, shadow.low, shadow.fair, shadow.high,
+         shadow.confidence, len(shadow.used_ids), Jsonb(list(shadow.review_reasons)),
+         Jsonb({"used_ids": list(shadow.used_ids), "rejected": list(shadow.rejected),
+                "accepted_count": accepted, "rejected_count": rejected,
+                "needs_review_count": needs_review,
+                "research_evidence": candidate_sales, "published_value_unchanged": True}), item_id),
+    )
+    final_status = (ResearchStatus.SHADOW_ESTIMATED if shadow.fair is not None
+                    else ResearchStatus.CONFIRMED_NO_EXACT_SALES)
+    await connection.execute(
+        "UPDATE identity_research_case SET status = %s, updated_at = now() WHERE collection_item_id = %s",
+        (final_status, item_id),
+    )
+    valuation_job = await connection.execute(
+        """INSERT INTO valuation_job (collection_item_id, status, result_summary)
+           VALUES (%s, 'queued', %s)
+           ON CONFLICT (collection_item_id)
+               WHERE status IN ('queued','identifying','searching','calculating')
+           DO UPDATE SET updated_at = now()
+           RETURNING id""",
+        (item_id, Jsonb({
+            "reason": "confirmed_identity_revaluation",
+            "identity_version_id": str(version["id"]),
+            "published_value_unchanged": True,
+        })),
+    )
+    valuation_job_id = (await valuation_job.fetchone())["id"]
     await connection.execute(
         """INSERT INTO automatic_purchase_cost(item_id,owner_id)
            SELECT %s,%s WHERE NOT EXISTS(
@@ -720,9 +726,9 @@ async def confirm_identity(item_id: UUID, payload: ConfirmIdentityRequest, reque
            ON CONFLICT(item_id) DO NOTHING""",
         (item_id, owner_id, item_id),
     )
-        return {"identity_version_id": version["id"], "version": version["version"],
-                "identity_fingerprint": market_identity.fingerprint, "accepted_count": accepted,
-                "rejected_count": rejected, "needs_review_count": needs_review,
-                "valuation_job_id": valuation_job_id,
-                "prior_valuations_marked_incompatible": prior_valuations_marked_incompatible,
-                "published_valuation_unchanged": True}
+    return {"identity_version_id": version["id"], "version": version["version"],
+            "identity_fingerprint": market_identity.fingerprint, "accepted_count": accepted,
+            "rejected_count": rejected, "needs_review_count": needs_review,
+            "valuation_job_id": valuation_job_id,
+            "prior_valuations_marked_incompatible": prior_valuations_marked_incompatible,
+            "published_valuation_unchanged": True}

@@ -31,9 +31,12 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
   const [busy, setBusy] = useState(true);
   const [lightbox, setLightbox] = useState<{ url: string; label: string } | null>(null);
   const [editing, setEditing] = useState<"front" | "back" | null>(null);
+  const [editingRegion, setEditingRegion] = useState<string | null>(null);
+  const [layoutMessage, setLayoutMessage] = useState<{ text: string; error: boolean } | null>(null);
   const [draft, setDraft] = useState<Array<Array<{ x: number; y: number }>>>([]);
   const [undo, setUndo] = useState<Array<Array<Array<{ x: number; y: number }>>>>([]);
   const [selected, setSelected] = useState(0);
+  const [pairingNeedsRetry, setPairingNeedsRetry] = useState(false);
 
   function inform(value: string) {
     setMessageTone("info");
@@ -53,7 +56,7 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
   useEffect(() => {
     let active = true;
     mounted.current = true;
-    if (localScanner) setDevice("请连接这台 Mac 上的 Canon 扫描仪，扫描图将保存到当前云端批次。");
+    if (localScanner) void connectScanner();
     else getFlatbedDevice().then((value) => {
       if (!active) return;
       setDevice(`${value.name} · ${value.serial} · 已就绪`);
@@ -128,10 +131,22 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
     return () => window.removeEventListener("keydown", close);
   }, [lightbox]);
 
+  function resetBatch(next: FlatbedSession) {
+    setSession(next); setFronts([]); setBacks([]); setSheets({}); setPairs([]); setOriginalPairs([]); setMissingFront([]); setMissingBack([]);
+  }
+
+  async function scanSession() {
+    if (!session) throw new Error("扫描会话尚未准备好，请重试。");
+    if (!session.submitted_at) return session;
+    const next = await createFlatbedSession(dpi, true);
+    resetBatch(next);
+    return next;
+  }
+
   async function start() {
     if (pendingScan) return;
     setBusy(true); inform("正在创建扫描会话…");
-    try { setSession(await createFlatbedSession(dpi, true)); setFronts([]); setBacks([]); setSheets({}); setPairs([]); setOriginalPairs([]); setMissingFront([]); setMissingBack([]); succeed(`已创建 ${dpi} DPI 扫描会话，可以直接扫描正面。`); }
+    try { resetBatch(await createFlatbedSession(dpi, true)); succeed(`已创建 ${dpi} DPI 扫描会话，可以直接扫描正面。`); }
     catch (error) { fail(error, "无法创建会话"); }
     finally { setBusy(false); }
   }
@@ -140,36 +155,38 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
     if (!session || !file || pendingScan) return;
     setBusy(true); inform("正在上传整版图片并裁剪识别…");
     try {
-      await acceptSheet(side, await uploadFlatbedSheet(session.id, side, file));
+      const current = await scanSession();
+      await acceptSheet(side, await uploadFlatbedSheet(current.id, side, file), current.id);
     } catch (error) { fail(error, "扫描处理失败"); }
     finally { setBusy(false); }
   }
 
   async function connectScanner() {
-    if (connecting || busy) return;
+    if (connecting) return;
     setConnecting(true);
+    setDevice("正在自动连接本机 Canon 扫描仪…");
     const controller = new AbortController();
     scannerAbort.current = controller;
     try {
       const value = await getLocalScannerDevice(controller.signal);
-      if (!mounted.current) return;
+      if (!mounted.current || controller.signal.aborted || scannerAbort.current !== controller) return;
       scannerToken.current = value.token;
       setDeviceReady(true);
       setDevice(`${value.name} · ${value.serial} · 本机已连接，扫描图保存到云端`);
     } catch (error) {
-      if (!mounted.current) return;
+      if (!mounted.current || controller.signal.aborted || scannerAbort.current !== controller) return;
       scannerToken.current = null;
       setDeviceReady(false);
       setDevice(error instanceof Error ? error.message : "本机扫描助手连接失败，请重试。");
-    } finally { setConnecting(false); }
+    } finally { if (mounted.current && scannerAbort.current === controller && !controller.signal.aborted) setConnecting(false); }
   }
 
-  async function uploadLocalScan(image: LocalScannerImage & { side: "front" | "back" }) {
-    if (!session) return;
+  async function uploadLocalScan(image: LocalScannerImage & { side: "front" | "back" }, sessionId = session?.id) {
+    if (!sessionId) return;
     inform("本机已完成取图，正在上传到云端并裁剪识别…");
-    const result = await uploadFlatbedSheet(session.id, image.side, image.file, image.sourceResolution);
+    const result = await uploadFlatbedSheet(sessionId, image.side, image.file, image.sourceResolution);
     setPendingScan(null);
-    await acceptSheet(image.side, result);
+    await acceptSheet(image.side, result, sessionId);
   }
 
   async function retryLocalUpload() {
@@ -198,10 +215,19 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
       scannerAbort.current = controller;
       inform(`正在使用本机 Canon ${preview ? "概览" : `${dpi} DPI`}扫描${side === "front" ? "正面" : "背面"}，请保持盖板关闭…`);
       try {
-        const image = { ...await scanLocalScanner(dpi, preview, scannerToken.current, controller.signal), side };
+        const current = await scanSession();
+        if (!mounted.current || controller.signal.aborted) return;
+        const image = { ...await scanLocalScanner(dpi, preview, scannerToken.current, controller.signal).catch((error) => {
+          if (mounted.current && !controller.signal.aborted) {
+            scannerToken.current = null;
+            setDeviceReady(false);
+            setDevice(error instanceof Error ? error.message : "本机扫描连接失败，请重试连接。");
+          }
+          throw error;
+        }), side };
         if (!mounted.current || controller.signal.aborted) return;
         setPendingScan(image);
-        await uploadLocalScan(image);
+        await uploadLocalScan(image, current.id);
       } catch (error) { fail(error, "本机扫描或云端上传失败，请重试。"); }
       finally { setBusy(false); }
       return;
@@ -220,7 +246,7 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
           const progress = await getFlatbedCaptureProgress(captureId);
           if (!capturePending) return;
           if (progress.phase === "processing") {
-            const nextAction = side === "front" ? "请将本批卡片翻面；背面会独立识别边界" : "请保留本批卡片，核对正反面后再开始下一批";
+            const nextAction = side === "front" ? "请将本批卡片翻面；背面会独立识别边界" : "请保留本批卡片，核对并录入后即可换下一批";
             const elapsed = Math.floor((Date.now() - startedAt) / 1000);
             inform(`扫描仪已完成${sideLabel}取图，正在裁剪与识别（${progress.detail ? `${progress.detail}，` : ""}已等待 ${elapsed} 秒）；现在可以打开扫描仪，${nextAction}。`);
             continue;
@@ -232,16 +258,17 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
       }
     })();
     try {
-      const result = await captureFlatbedSheet(session.id, side, preview, captureId);
+      const current = await scanSession();
+      const result = await captureFlatbedSheet(current.id, side, preview, captureId);
       capturePending = false;
       await monitor;
-      await acceptSheet(side, result);
+      await acceptSheet(side, result, current.id);
     }
     catch (error) { fail(error, "扫描仪采集失败"); }
     finally { capturePending = false; setBusy(false); }
   }
 
-  async function acceptSheet(side: "front" | "back", result: { id: string; revision?: number; regions: FlatbedRegion[]; failures: string[] }) {
+  async function acceptSheet(side: "front" | "back", result: { id: string; revision?: number; regions: FlatbedRegion[]; failures: string[] }, sessionId: string) {
     setSheets((current) => ({ ...current, [side]: { id: result.id, side, revision: result.revision ?? (current[side]?.revision ?? 0) + 1 } }));
     const warning = result.failures.length
       ? ` 检测提示：${[...new Set(result.failures)].map(failureLabel).join("；")}。`
@@ -252,18 +279,19 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
         succeed(`检测到 ${result.regions.length} 张正面。${warning}确认后请保持位置并翻面。`);
         return;
       }
-      const proposal = await proposeFlatbedPairs(session!.id);
+      const proposal = await proposeFlatbedPairs(sessionId);
       applyProposal(proposal);
       succeed(proposal.requires_review ? `${warning}正面已更新并重新配对，请核对标记项。` : `${warning}正面已更新，全部配对可直接确认。`);
       return;
     }
     setBacks(result.regions);
-    const proposal = await proposeFlatbedPairs(session!.id);
+    const proposal = await proposeFlatbedPairs(sessionId);
     applyProposal(proposal);
     succeed(proposal.requires_review ? `${warning}存在低置信度、冲突或数量不一致，请人工核对或补扫。` : `${warning}全部为高置信度配对，可直接确认。`);
   }
 
   function applyProposal(proposal: Awaited<ReturnType<typeof proposeFlatbedPairs>>) {
+    setPairingNeedsRetry(false);
     setPairs(proposal.pairs);
     setOriginalPairs(proposal.pairs);
     setMissingFront(proposal.missing_front);
@@ -293,10 +321,20 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
     setBusy(true); inform("正在重新生成正反面配对…");
     try {
       const proposal = await proposeFlatbedPairs(session.id);
-      applyProposal(proposal);
+      if (pairingNeedsRetry && pairs.length > 0) { setOriginalPairs(pairs); setPairingNeedsRetry(false); }
+      else applyProposal(proposal);
       succeed(proposal.requires_review ? "配对已重建，请核对标记项后录入。" : "配对已重建，可直接录入。");
     } catch (error) { fail(error, "重新生成配对失败"); }
     finally { setBusy(false); }
+  }
+
+  function openLayout(side: "front" | "back", region?: FlatbedRegion) {
+    const regions = region ? [region] : side === "front" ? fronts : backs;
+    setDraft(regions.map((r) => r.bounds.points?.length === 4 ? r.bounds.points.map((p) => ({ ...p })) : [
+      { x: r.bounds.x, y: r.bounds.y }, { x: r.bounds.x + r.bounds.width, y: r.bounds.y },
+      { x: r.bounds.x + r.bounds.width, y: r.bounds.y + r.bounds.height }, { x: r.bounds.x, y: r.bounds.y + r.bounds.height },
+    ]));
+    setUndo([]); setSelected(0); setEditing(side); setEditingRegion(region?.id ?? null); setLayoutMessage(null);
   }
 
   function SheetPreview({ side, regions }: { side: "front" | "back"; regions: FlatbedRegion[] }) {
@@ -305,7 +343,7 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
     const original = assetUrl(`/v1/flatbed/sheets/${current.id}/image`) ?? undefined;
     const label = `${side === "front" ? "正面" : "背面"}整版扫描`;
     return <div className="flatbed-sheet-preview">
-      <div className="flatbed-sheet-heading"><strong>{label}</strong><span><button type="button" className="ghost-button" onClick={() => { const next = regions.map((r) => r.bounds.points?.length === 4 ? r.bounds.points.map((p) => ({...p})) : [{x:r.bounds.x,y:r.bounds.y},{x:r.bounds.x+r.bounds.width,y:r.bounds.y},{x:r.bounds.x+r.bounds.width,y:r.bounds.y+r.bounds.height},{x:r.bounds.x,y:r.bounds.y+r.bounds.height}]); setDraft(next); setUndo([]); setSelected(0); setEditing(side); }}>校正布局</button><button type="button" className="link-button" onClick={() => original && setLightbox({ url: original, label })}>查看原图</button></span></div>
+      <div className="flatbed-sheet-heading"><strong>{label}</strong><span><button type="button" className="ghost-button" disabled={busy} onClick={() => openLayout(side)}>校正布局</button><button type="button" className="link-button" onClick={() => original && setLightbox({ url: original, label })}>查看原图</button></span></div>
       <button type="button" className="flatbed-sheet-image" onClick={() => original && setLightbox({ url: original, label })}>
         <span className="flatbed-sheet-canvas">
           <img src={original} alt={`${side === "front" ? "正面" : "背面"}整版扫描缩略图`} />
@@ -325,23 +363,53 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
   }
 
   async function saveLayout() {
-    if (!editing || !sheets[editing]) return;
+    if (!editing || !sheets[editing] || busy) return;
     setBusy(true);
+    setLayoutMessage({ text: "正在保存裁切，请稍候…", error: false });
+    let saved = false;
+    const hasBothSides = editing === "front" ? backs.length > 0 : fronts.length > 0;
     try {
-      const result = await confirmFlatbedLayout(sheets[editing]!.id, draft.map((points) => ({ points })));
-      setSheets((current) => ({ ...current, [editing]: { id: result.id, side: editing, revision: (current[editing]?.revision ?? 0) + 1 } }));
+      const previousRegions = editing === "front" ? fronts : backs;
+      const result = await confirmFlatbedLayout(sheets[editing]!.id, draft.map((points) => ({ points })), editingRegion ?? undefined);
+      saved = true;
+      setSheets((current) => ({ ...current, [editing]: { id: result.id, side: editing, revision: result.revision } }));
       if (editing === "front") setFronts(result.regions); else setBacks(result.regions);
       setEditing(null);
-      const hasBothSides = editing === "front" ? backs.length > 0 : fronts.length > 0;
       if (hasBothSides) {
+        setPairingNeedsRetry(true);
+        if (editingRegion) {
+          const replacements = new Map(previousRegions.map((old) => [old.id, result.regions.find((next) => next.ordinal === old.ordinal)?.id ?? old.id]));
+          const kept = pairs.map((pair) => {
+            const front_id = editing === "front" ? replacements.get(pair.front_id) ?? pair.front_id : pair.front_id;
+            const back_id = editing === "back" ? replacements.get(pair.back_id) ?? pair.back_id : pair.back_id;
+            if (pair.front_id !== editingRegion && pair.back_id !== editingRegion) return { ...pair, front_id, back_id };
+            return { ...pair, front_id, back_id, identity_status: "unknown" as const,
+              identity_reason_codes: ["manual_pair_requires_recheck"], requires_review: true };
+          });
+          setPairs(kept); setOriginalPairs(kept);
+          if (editing === "front") setMissingBack((ids) => ids.map((id) => replacements.get(id) ?? id));
+          else setMissingFront((ids) => ids.map((id) => replacements.get(id) ?? id));
+        } else {
+          setPairs([]); setOriginalPairs([]); setMissingFront([]); setMissingBack([]);
+        }
+        inform("裁切已保存，正在更新配对…");
         const proposal = await proposeFlatbedPairs(session!.id);
-        applyProposal(proposal);
-        succeed(`已保存 ${result.regions.length} 个校正框、重建派生裁切及正反面配对，原始扫描未改变。`);
+        if (editingRegion) {
+          setPairingNeedsRetry(false);
+          succeed("单张裁切已保存，其余图片和配对选择保持不变，请核对后录入。");
+        } else {
+          applyProposal(proposal);
+          succeed(`已保存 ${result.regions.length} 个校正框并更新配对，原始扫描未改变。`);
+        }
       } else {
         setPairs([]); setOriginalPairs([]); setMissingFront([]); setMissingBack([]);
         succeed(`已保存 ${result.regions.length} 个校正框并重建派生裁切，原始扫描未改变。`);
       }
-    } catch (error) { fail(error, "布局保存失败"); }
+    } catch (error) {
+      const text = error instanceof Error ? error.message : "布局保存失败，请重试";
+      if (saved) fail(new Error(`裁切已保存，配对更新失败：${text}。请点击重新生成配对继续。`), text);
+      else { setLayoutMessage({ text, error: true }); fail(error, "布局保存失败"); }
+    }
     finally { setBusy(false); }
   }
 
@@ -425,14 +493,15 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
   }
 
   async function confirmAndSubmit() {
-    if (!session || pairs.length === 0 || pendingScan) return;
+    if (!session || pairs.length === 0 || pendingScan || pairingNeedsRetry) return;
     setBusy(true);
     try {
       inform(`正在确认 ${pairs.length} 对正反面…`);
       const confirmation = await confirmFlatbedPairs(session.id, pairs.map((pair) => ({ front_region_id: pair.front_id, back_region_id: pair.back_id })));
       inform(`配对已确认，正在录入 ${pairs.length} 张卡片…`);
       const result = await submitFlatbedSession(session.id, confirmation.confirmation_token);
-      succeed(`已提交 ${result.job_ids.length} 对图片；一致的卡片将自动入库，身份冲突或证据不足将保留在待审核。`);
+      resetBatch({ ...session, status: "submitted", submitted_at: new Date().toISOString() });
+      succeed(`已提交 ${result.job_ids.length} 对图片；一致的卡片将自动入库，身份冲突或证据不足将保留在待审核。换好卡片后可直接扫描下一批正面。`);
       await onCompleted?.(result.job_ids);
     } catch (error) { fail(error, "提交失败"); }
     finally { setBusy(false); }
@@ -440,8 +509,8 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
 
   return <section className="flatbed-panel">
     <div className="flatbed-heading"><div><strong>Canon 扫描仪批量录入</strong><small>{device}</small></div><label>DPI <select value={dpi} onChange={(event) => setDpi(Number(event.target.value) as 300 | 600)} disabled={!!session}><option>300</option><option>600</option></select></label></div>
-    {localScanner && <div className="flatbed-pair-title"><small>首次连接时，请允许浏览器访问本机网络。扫描助手需在连接 Canon 的 Mac 上运行。</small><button type="button" className="ghost-button" disabled={busy || connecting} onClick={() => void connectScanner()}>{connecting ? "正在连接…" : deviceReady ? "重新连接扫描仪" : "连接本机扫描仪"}</button></div>}
-    {session && <div className="flatbed-pair-title"><small>当前批次 {session.id.slice(0, 8)} · 更换整批卡片时请开始下一批；本批重扫会重新生成配对。</small><button type="button" className="ghost-button" disabled={busy || !!pendingScan} onClick={() => void start()}>开始下一批</button></div>}
+    {localScanner && !deviceReady && <div className="flatbed-pair-title"><small>首次使用请允许浏览器访问本机网络，并在连接 Canon 的 Mac 上运行扫描助手。</small>{!connecting && <button type="button" className="ghost-button" disabled={busy} onClick={() => void connectScanner()}>重试连接扫描仪</button>}</div>}
+    {session && <div className="flatbed-pair-title"><small>录入后自动切换下一批；录入前重扫会更新当前批次并重新配对。</small></div>}
     {message && <p className={`flatbed-status ${messageTone}`} role={messageTone === "error" ? "alert" : "status"}>{busy && <span className="valuation-spinner" />} {message}</p>}
     {pendingScan && !busy && <div className="flatbed-pair-title"><small>扫描图已保留在当前页面，重试上传不会重新扫描；关闭页面前可先保存原图。</small><button type="button" className="primary-button" onClick={() => void retryLocalUpload()}>重试上传扫描图</button><button type="button" className="ghost-button" onClick={downloadPendingScan}>保存扫描原图</button></div>}
     {!session && !busy && <button type="button" className="primary-button" onClick={start}>重新创建扫描会话</button>}
@@ -455,15 +524,14 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
     </div>}
     {fronts.length > 0 && backs.length === 0 && !sheets.back && <div className="flatbed-pair-title">
       <small>{busy || messageTone === "error" ? message : "正面已保存，等待背面图上传后生成配对。"}</small>
-      {localScanner && !deviceReady && <button type="button" className="ghost-button" disabled={busy || connecting} onClick={() => void connectScanner()}>{connecting ? "正在连接…" : "连接扫描仪并继续背面扫描"}</button>}
     </div>}
     {fronts.length > 0 && backs.length > 0 && pairs.length === 0 && missingFront.length === 0 && missingBack.length === 0 && <div className="flatbed-pairs">
       <p className="recognition-error">正反面都已扫描，但尚未生成配对。</p>
       <button type="button" className="primary-button" onClick={() => void retryPairing()} disabled={busy}>重新生成配对并继续录入</button>
     </div>}
-    {(backs.length > 0 || !!sheets.back) && (pairs.length > 0 || missingFront.length > 0 || missingBack.length > 0) && <div className="flatbed-pairs"><div className="flatbed-pair-title"><strong>正反面配对</strong><button type="button" className="ghost-button" onClick={() => setPairs(originalPairs)}>撤销调整</button></div>
+    {(backs.length > 0 || !!sheets.back) && (pairs.length > 0 || missingFront.length > 0 || missingBack.length > 0) && <div className="flatbed-pairs"><div className="flatbed-pair-title"><strong>正反面配对</strong>{pairingNeedsRetry && <button type="button" className="primary-button" disabled={busy} onClick={() => void retryPairing()}>重新生成配对并继续录入</button>}<button type="button" className="ghost-button" onClick={() => setPairs(originalPairs)}>撤销调整</button></div>
       {(missingFront.length > 0 || missingBack.length > 0) && <p className="recognition-error">未配对：正面 {missingBack.length} 张，背面 {missingFront.length} 张。你可以先录入下方完整的 {pairs.length} 对；未配对图片本次不会录入，如需纳入请先校正布局或补扫。</p>}
-      <div className="flatbed-submit-bar"><span><strong>本次录入 {pairs.length} 张</strong><small role={messageTone === "error" ? "alert" : undefined}>{messageTone === "error" ? message : busy ? message : missingFront.length + missingBack.length > 0 ? `另有 ${missingFront.length + missingBack.length} 张本次不录入，不阻塞完整配对` : "裁切质量提示可人工核对；身份冲突会停止自动入库"}</small></span><button type="button" className="primary-button" onClick={confirmAndSubmit} disabled={busy || !!pendingScan || pairs.length === 0}>{busy ? "处理中…" : `确认配对并录入 ${pairs.length} 张卡片`}</button></div>
+      <div className="flatbed-submit-bar"><span><strong>本次录入 {pairs.length} 张</strong><small role={messageTone === "error" ? "alert" : undefined}>{messageTone === "error" ? message : busy ? message : missingFront.length + missingBack.length > 0 ? `另有 ${missingFront.length + missingBack.length} 张本次不录入，不阻塞完整配对` : "裁切质量提示可人工核对；身份冲突会停止自动入库"}</small></span><button type="button" className="primary-button" onClick={confirmAndSubmit} disabled={busy || !!pendingScan || pairs.length === 0 || pairingNeedsRetry}>{busy ? "处理中…" : `确认配对并录入 ${pairs.length} 张卡片`}</button></div>
       <div className="flatbed-pair-grid">{pairs.map((pair, index) => {
         const front = fronts.find((item) => item.id === pair.front_id);
         const back = backs.find((item) => item.id === pair.back_id);
@@ -478,11 +546,12 @@ export function FlatbedBatchPanel({ onCompleted }: { onCompleted?: (jobIds: stri
             <div className="flatbed-pair-switch"><span aria-hidden="true">⇄</span><label>匹配背面<select value={pair.back_id} onChange={(event) => swapBack(index, event.target.value)}>{backs.map((candidate) => <option key={candidate.id} value={candidate.id}>背面 {candidate.ordinal + 1}</option>)}</select></label></div>
             <button type="button" onClick={() => setLightbox({ url: backUrl, label: `卡片 ${index + 1} 背面` })}><img src={backUrl} alt={`卡片 ${index + 1} 背面`} /><span>背面 {backNumber}</span><small>点击放大</small></button>
           </div>
+          <div className="flatbed-pair-edit"><button type="button" className="link-button" disabled={busy || !front || !sheets.front} onClick={() => front && openLayout("front", front)}>校正正面 {frontNumber}</button><button type="button" className="link-button" disabled={busy || !back || !sheets.back} onClick={() => back && openLayout("back", back)}>校正背面 {backNumber}</button></div>
           <div className={`flatbed-pair-note ${pair.conflicts.length ? "conflict" : ""}`}>{pair.conflicts.length ? pair.conflicts.map(conflictLabel).join("；") : pair.identity_status === "consistent" ? "已找到一致的文字身份依据，仍请核对实物" : (pair.identity_reason_codes?.length ? pair.identity_reason_codes.map(conflictLabel).join("；") : "身份尚未核验，请查看当前正反面")}</div>
         </article>;
       })}</div>
     </div>}
-    {editing && <div className="flatbed-layout-editor" role="dialog" aria-modal="true"><div><header><strong>校正{editing === "front" ? "正面" : "背面"}布局</strong><small>拖动四角；可增加、删除、撤销后确认。绿色为当前框。</small></header><div className="flatbed-editor-canvas"><img src={assetUrl(`/v1/flatbed/sheets/${sheets[editing]!.id}/image`) ?? ""} alt="整版布局校正" /><svg viewBox="0 0 1 1" preserveAspectRatio="none" onPointerMove={(event) => { if (!event.currentTarget.hasPointerCapture(event.pointerId)) return; const target = event.currentTarget.getBoundingClientRect(); const encoded = event.currentTarget.dataset.drag?.split(":").map(Number); if (!encoded) return; const [box, point] = encoded; const x = Math.max(0, Math.min(1, (event.clientX-target.left)/target.width)); const y = Math.max(0, Math.min(1, (event.clientY-target.top)/target.height)); setDraft((current) => current.map((p,i) => i === box ? p.map((v,j) => j === point ? {x,y} : v) : p)); }} onPointerUp={(event) => { event.currentTarget.releasePointerCapture(event.pointerId); delete event.currentTarget.dataset.drag; }}>{draft.map((points, box) => <g key={box} onPointerDown={() => setSelected(box)}><polygon points={points.map((p) => `${p.x},${p.y}`).join(" ")} />{points.map((p, point) => <circle key={point} cx={p.x} cy={p.y} r=".012" onPointerDown={(event) => { event.stopPropagation(); setUndo((h) => [...h, draft.map((q) => q.map((v) => ({...v})))].slice(-30)); const svg=event.currentTarget.ownerSVGElement!; svg.dataset.drag=`${box}:${point}`; svg.setPointerCapture(event.pointerId); }} />)}</g>)}</svg></div><footer><button type="button" onClick={() => { if (!undo.length) return; setDraft(undo[undo.length-1]); setUndo((h) => h.slice(0,-1)); }} disabled={!undo.length}>撤销</button><button type="button" onClick={() => { setUndo((h) => [...h,draft]); setDraft((d) => [...d,[{x:.35,y:.35},{x:.65,y:.35},{x:.65,y:.65},{x:.35,y:.65}]]); setSelected(draft.length); }}>增加框</button><button type="button" onClick={() => { if (draft.length <= 1) return; setUndo((h) => [...h,draft]); setDraft((d) => d.filter((_,i) => i !== selected)); setSelected(0); }}>删除框</button><button type="button" onClick={() => setEditing(null)}>取消</button><button type="button" className="primary-button" onClick={() => void saveLayout()} disabled={busy}>确认并重建裁切</button></footer></div></div>}
+    {editing && <div className="flatbed-layout-editor" role="dialog" aria-modal="true"><div><header><strong>校正{editing === "front" ? "正面" : "背面"}布局</strong><small>{editingRegion ? `仅调整${editing === "front" ? "正面" : "背面"} ${((editing === "front" ? fronts : backs).find((r) => r.id === editingRegion)?.ordinal ?? 0) + 1}，其余图片保持不变。` : "拖动四角；可增加、删除、撤销后确认。"}</small></header>{layoutMessage && <p className={`flatbed-status ${layoutMessage.error ? "error" : "info"}`} role={layoutMessage.error ? "alert" : "status"}>{layoutMessage.text}</p>}<div className="flatbed-editor-canvas"><img src={assetUrl(`/v1/flatbed/sheets/${sheets[editing]!.id}/image`) ?? ""} alt="整版布局校正" /><svg viewBox="0 0 1 1" preserveAspectRatio="none" onPointerMove={(event) => { if (busy || !event.currentTarget.hasPointerCapture(event.pointerId)) return; const target = event.currentTarget.getBoundingClientRect(); const encoded = event.currentTarget.dataset.drag?.split(":").map(Number); if (!encoded) return; const [box, point] = encoded; const x = Math.max(0, Math.min(1, (event.clientX-target.left)/target.width)); const y = Math.max(0, Math.min(1, (event.clientY-target.top)/target.height)); setDraft((current) => current.map((p,i) => i === box ? p.map((v,j) => j === point ? {x,y} : v) : p)); }} onPointerUp={(event) => { event.currentTarget.releasePointerCapture(event.pointerId); delete event.currentTarget.dataset.drag; }}>{draft.map((points, box) => <g key={box} onPointerDown={() => setSelected(box)}><polygon points={points.map((p) => `${p.x},${p.y}`).join(" ")} />{points.map((p, point) => <circle key={point} cx={p.x} cy={p.y} r=".012" onPointerDown={(event) => { if (busy) return; event.stopPropagation(); setSelected(box); setUndo((h) => [...h, draft.map((q) => q.map((v) => ({...v})))].slice(-30)); const svg=event.currentTarget.ownerSVGElement!; svg.dataset.drag=`${box}:${point}`; svg.setPointerCapture(event.pointerId); }} />)}</g>)}</svg></div><footer><button type="button" onClick={() => { if (!undo.length) return; setDraft(undo[undo.length-1]); setUndo((h) => h.slice(0,-1)); }} disabled={busy || !undo.length}>撤销</button>{!editingRegion && <><button type="button" disabled={busy} onClick={() => { setUndo((h) => [...h,draft]); setDraft((d) => [...d,[{x:.35,y:.35},{x:.65,y:.35},{x:.65,y:.65},{x:.35,y:.65}]]); setSelected(draft.length); }}>增加框</button><button type="button" onClick={() => { if (draft.length <= 1) return; setUndo((h) => [...h,draft]); setDraft((d) => d.filter((_,i) => i !== selected)); setSelected(0); }} disabled={busy || draft.length <= 1}>删除框</button></>}<button type="button" disabled={busy} onClick={() => setEditing(null)}>取消</button><button type="button" className="primary-button" onClick={() => void saveLayout()} disabled={busy}>{busy ? "正在保存…" : "确认并重建裁切"}</button></footer></div></div>}
     {lightbox && <div className="flatbed-lightbox" role="dialog" aria-modal="true" aria-label={lightbox.label} onMouseDown={(event) => { if (event.target === event.currentTarget) setLightbox(null); }}><div><header><strong>{lightbox.label}</strong><button type="button" aria-label="关闭大图" onClick={() => setLightbox(null)}>×</button></header><img src={lightbox.url} alt={lightbox.label} /></div></div>}
   </section>;
 }

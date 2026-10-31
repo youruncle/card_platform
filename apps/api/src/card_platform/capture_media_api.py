@@ -91,11 +91,18 @@ async def portfolio_variant(
     variant: ImageVariant = 'preview', revision: str | None = None,
     user: AuthenticatedUser = Depends(media_user),
 ):
+    path = await portfolio_image_path(request.app.state.database, user.id, item_id, side, variant, revision)
+    return FileResponse(path, headers=PRIVATE_HEADERS)
+
+
+async def portfolio_image_path(database, owner_id: UUID, item_id: UUID, side: Literal['front', 'back'],
+                               variant: ImageVariant = 'preview', revision: str | None = None) -> Path:
+    """Shared owner/revision checks for HTTP media and authenticated MCP images."""
     column = 'image_front_url' if side == 'front' else 'image_back_url'
-    async with request.app.state.database.connection() as connection:
+    async with database.connection() as connection:
         result = await connection.execute(
             f'SELECT {column} AS image_url FROM collection_item WHERE id = %s AND owner_id = %s AND deleted_at IS NULL',
-            (item_id, user.id),
+            (item_id, owner_id),
         )
         row = await result.fetchone()
     current_revision = image_revision(row['image_url']) if row else None
@@ -108,7 +115,7 @@ async def portfolio_variant(
     if source.is_symlink() or source.resolve().parent != root.resolve() or Path(current_revision).suffix.lower() not in {'.jpg','.jpeg','.png','.webp'}:
         raise HTTPException(404, '图片不存在', headers=PRIVATE_HEADERS)
     try:
-        path = await run_in_threadpool(get_image_variant, source, root / '.image-variants', f'{user.id}:{item_id}:{side}:{current_revision}', variant)
+        path = await run_in_threadpool(get_image_variant, source, root / '.image-variants', f'{owner_id}:{item_id}:{side}:{current_revision}', variant)
     except (ValueError, OSError) as error:
         raise media_error(error) from error
-    return FileResponse(path, headers=PRIVATE_HEADERS)
+    return path

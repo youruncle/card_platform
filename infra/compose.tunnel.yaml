@@ -27,6 +27,10 @@ services:
         condition: service_healthy
     env_file: ../.env.cloud
     environment:
+      CHATGPT_MCP_RESOURCE_URL: ${CHATGPT_MCP_RESOURCE_URL:-https://cardsp.cn/mcp}
+      CHATGPT_OAUTH_ISSUER_URL: ${CHATGPT_OAUTH_ISSUER_URL:-https://cardsp.cn/v1/chatgpt/oauth}
+      CHATGPT_WEB_ORIGIN: ${CHATGPT_WEB_ORIGIN:-https://cardsp.cn}
+      CHATGPT_OAUTH_REDIRECT_URIS: ${CHATGPT_OAUTH_REDIRECT_URIS:-[]}
       DATABASE_URL: postgresql://card_platform:${POSTGRES_PASSWORD:?required}@postgres:5432/card_platform
       ALLOWED_ORIGINS: http://localhost:13000,http://127.0.0.1:13000,http://1.117.65.47
       AUTH_COOKIE_SECURE: 'false'

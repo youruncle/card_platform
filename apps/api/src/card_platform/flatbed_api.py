@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -7,7 +8,7 @@ from uuid import UUID, uuid4
 
 import numpy as np
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Request, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
@@ -284,6 +285,37 @@ async def override_layout(
     if row is None:
         raise HTTPException(404, "整版扫描图片不存在")
     detections = _manual_layout_detections(payload)
+    preserved = None
+    if payload.get("region_id") is not None:
+        if len(detections) != 1:
+            raise HTTPException(422, "单张校正只允许提交一个卡片区域")
+        try:
+            target_id = UUID(str(payload["region_id"]))
+        except ValueError as error:
+            raise HTTPException(422, "校正区域编号无效") from error
+        source_regions = await db.execute(
+            "SELECT * FROM flatbed_scan_region WHERE sheet_id=%s AND owner_id=%s ORDER BY ordinal",
+            (sheet_id, user.id),
+        )
+        existing = await source_regions.fetchall()
+        if not any(region["id"] == target_id for region in existing):
+            raise HTTPException(404, "待校正卡片不属于当前扫描图片")
+        original_detections = []
+        preserved = {}
+        for ordinal, region in enumerate(existing):
+            if region["id"] == target_id:
+                original_detections.append(detections[0])
+                continue
+            bounds = region["bounds"]
+            points = bounds.get("points") or [
+                {"x": bounds["x"], "y": bounds["y"]},
+                {"x": bounds["x"] + bounds["width"], "y": bounds["y"]},
+                {"x": bounds["x"] + bounds["width"], "y": bounds["y"] + bounds["height"]},
+                {"x": bounds["x"], "y": bounds["y"] + bounds["height"]},
+            ]
+            original_detections.extend(_manual_layout_detections({"regions": [{"points": points}]}))
+            preserved[ordinal] = region
+        detections = original_detections
     flatbed = service()
     path = flatbed.resolve_path(row["original_path"])
     try:
@@ -297,6 +329,7 @@ async def override_layout(
             detections_override=detections,
             source_resolution=(row.get("layout_hypothesis") or {}).get("source_resolution"),
             expected_source_sheet_id=sheet_id,
+            **({"preserved_regions": preserved} if preserved is not None else {}),
         )
     except FlatbedSourceConflict as error:
         raise HTTPException(409, str(error)) from error
@@ -526,6 +559,7 @@ async def override_pairs(
         (session_id, user.id, selected_ids),
     )
     try:
+        await service().materialize_review_crops(db, user.id, session_id, front_ids + back_ids)
         snapshot = await pair_source_snapshot(db, user.id, session_id, service().resolve_path)
     except ValueError as error:
         raise HTTPException(409, str(error)) from error
@@ -649,16 +683,32 @@ async def region_image(
     region_id: UUID,
     user: AuthenticatedUser = Depends(current_user),
     db: AsyncConnection = Depends(connection),
-) -> FileResponse:
+) -> Response:
     result = await db.execute(
-        "SELECT crop_path FROM flatbed_scan_region WHERE id=%s AND owner_id=%s",
+        """SELECT r.crop_path,r.bounds,r.signals,s.original_path
+           FROM flatbed_scan_region r JOIN flatbed_scan_sheet s ON s.id=r.sheet_id
+           WHERE r.id=%s AND r.owner_id=%s AND s.owner_id=r.owner_id""",
         (region_id, user.id),
     )
     row = await result.fetchone()
     if row is None:
         raise HTTPException(404, "图片不存在")
-    path = service().resolve_path(row["crop_path"])
-    return FileResponse(path, media_type="image/jpeg")
+    flatbed = service()
+    try:
+        if row["crop_path"]:
+            path = flatbed.resolve_path(row["crop_path"])
+            if path.is_file():
+                return FileResponse(path, media_type="image/jpeg")
+        preview = await asyncio.to_thread(
+            flatbed.reference_preview, row["original_path"], row["bounds"],
+            (row["signals"] or {}).get("orientation_rotation_degrees", 0),
+        )
+    except (OSError, ValueError) as error:
+        raise HTTPException(404, "参考预览不可用，请查看整版原图或重新扫描") from error
+    return Response(
+        preview, media_type="image/jpeg",
+        headers={"Cache-Control": "private, no-store", "X-Flatbed-Preview": "uncorrected-region"},
+    )
 
 
 @router.get("/sheets/{sheet_id}/image")

@@ -1060,8 +1060,8 @@ export function confirmFlatbedPairs(sessionId: string, pairs: Array<{ front_regi
   return request(`/v1/flatbed/sessions/${sessionId}/pairs`, { method: "PUT", body: JSON.stringify({ pairs }) });
 }
 
-export function confirmFlatbedLayout(sheetId: string, regions: Array<{ points: Array<{ x: number; y: number }> }>): Promise<{ id: string; revision: number; regions: FlatbedRegion[]; failures: string[] }> {
-  return request(`/v1/flatbed/sheets/${sheetId}/layout`, { method: "PUT", body: JSON.stringify({ regions }) });
+export function confirmFlatbedLayout(sheetId: string, regions: Array<{ points: Array<{ x: number; y: number }> }>, regionId?: string): Promise<{ id: string; revision: number; regions: FlatbedRegion[]; failures: string[] }> {
+  return request(`/v1/flatbed/sheets/${sheetId}/layout`, { method: "PUT", body: JSON.stringify({ regions, ...(regionId ? { region_id: regionId } : {}) }) });
 }
 
 export function submitFlatbedSession(sessionId: string, confirmationToken: string): Promise<{ status: string; job_ids: string[] }> {
@@ -1181,4 +1181,9 @@ export type OfficialChecklistProgress = {
 };
 export async function getOfficialChecklistProgress(): Promise<OfficialChecklistProgress> {
   return request<OfficialChecklistProgress>("/v1/knowledge/official-checklists/progress");
+}
+
+/** Atlas management uses the logged-in session; no caller-supplied actor identity. */
+export function requestKnowledgeAtlas<T>(path: string, init?: RequestInit): Promise<T> {
+  return request<T>(`/v1/knowledge/atlas${path}`, init);
 }

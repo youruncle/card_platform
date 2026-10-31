@@ -1,6 +1,6 @@
 {
   "name": "@card-platform/mobile",
-  "version": "1.1.20",
+  "version": "1.1.22",
   "private": true,
   "type": "module",
   "scripts": {

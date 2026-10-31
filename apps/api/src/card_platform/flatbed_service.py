@@ -415,6 +415,7 @@ class FlatbedService:
         source_resolution: dict | None = None,
         on_progress: Callable[[int, int], None] | None = None,
         expected_source_sheet_id: UUID | None = None,
+        preserved_regions: dict[int, dict] | None = None,
     ) -> dict:
         session_result = await connection.execute(
             "SELECT * FROM flatbed_scan_session WHERE id=%s AND owner_id=%s FOR UPDATE",
@@ -514,7 +515,7 @@ class FlatbedService:
         )
         detections = [replace(d, failure="card_outline_unresolved", confidence=min(d.confidence, .49),
                               evidence=(*d.evidence, "quad_unresolved", "original_content_missing"))
-                      if any(v.code in {"original_card_content_missing", "unexplained_card_content"}
+                      if detections_override is None and any(v.code in {"original_card_content_missing", "unexplained_card_content"}
                              for v in report.violations) else d
                       for d, report in zip(detections, quality_reports, strict=True)]
         quality_error_codes = list(
@@ -571,6 +572,19 @@ class FlatbedService:
             nonlocal completed_regions
             async with limit:
                 region_id = uuid4()
+                if preserved_regions and ordinal in preserved_regions:
+                    previous = preserved_regions[ordinal]
+                    completed_regions += 1
+                    if on_progress:
+                        on_progress(completed_regions, len(detections))
+                    return (
+                        (region_id, sheet_id, owner_id, ordinal, Jsonb(previous["bounds"]),
+                         previous["confidence"], previous["failure_reason"], previous["crop_path"],
+                         Jsonb(previous["signals"])),
+                        {"id": region_id, "ordinal": ordinal, "bounds": previous["bounds"],
+                         "confidence": previous["confidence"], "failure_reason": previous["failure_reason"],
+                         "crop_quality": (previous["signals"] or {}).get("crop_quality")},
+                    )
                 x1 = max(0, int(detection.x * width))
                 y1 = max(0, int(detection.y * height))
                 x2 = min(width, int((detection.x + detection.width) * width))
@@ -740,6 +754,14 @@ class FlatbedService:
             raise LookupError("扫描会话不存在")
         if current.get("submitted_at") is not None or current.get("status") == "submitted":
             raise FlatbedSourceConflict("扫描会话已经录入，请创建新会话")
+        if expected_source_sheet_id is not None:
+            latest = await connection.execute(
+                "SELECT id FROM flatbed_scan_sheet WHERE session_id=%s AND owner_id=%s AND side=%s ORDER BY revision DESC LIMIT 1",
+                (session_id, owner_id, side),
+            )
+            latest_row = await latest.fetchone()
+            if latest_row is None or latest_row["id"] != expected_source_sheet_id:
+                raise FlatbedSourceConflict("扫描版本已更换，请打开最新图片后重新校正")
         revision_result = await connection.execute(
             "SELECT COALESCE(max(revision),0)+1 AS revision FROM flatbed_scan_sheet WHERE session_id=%s AND side=%s",
             (session_id, side),
@@ -901,6 +923,86 @@ class FlatbedService:
             (proposal["transform"], proposal["requires_review"], session_id, owner_id),
         )
         return proposal
+
+    async def materialize_review_crops(self, connection, owner_id: UUID, session_id: UUID,
+                                       region_ids: list[UUID]) -> None:
+        """Keep the reviewed reference bytes when a user explicitly confirms pairs."""
+        result = await connection.execute(
+            """SELECT r.id,r.sheet_id,r.crop_path,r.bounds,r.signals,s.original_path,s.sha256
+               FROM flatbed_scan_region r JOIN flatbed_scan_sheet s ON s.id=r.sheet_id
+               WHERE r.owner_id=%s AND s.owner_id=%s AND s.session_id=%s AND r.id=ANY(%s)
+                 AND s.revision=(SELECT max(revision) FROM flatbed_scan_sheet
+                                 WHERE session_id=s.session_id AND side=s.side)""",
+            (owner_id, owner_id, session_id, region_ids),
+        )
+        for row in await result.fetchall():
+            if row["crop_path"] and self.resolve_path(row["crop_path"]).is_file():
+                continue
+
+            def prepare():
+                original = self.resolve_path(row["original_path"])
+                if hashlib.sha256(original.read_bytes()).hexdigest() != row["sha256"]:
+                    raise FlatbedSourceConflict("扫描原图已改变，请重新扫描并确认配对")
+                signals = dict(row["signals"] or {})
+                rotation = signals.get("orientation_rotation_degrees", 0)
+                content = self.reference_preview(row["original_path"], row["bounds"], rotation)
+                destination = original.parent / f"review-{row['id']}-{uuid4()}.jpg"
+                fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                with os.fdopen(fd, "wb") as stream:
+                    stream.write(content)
+                signals["crop_fallback"] = {
+                    "method": "reviewed_reference_rectangle", "source_sheet_id": str(row["sheet_id"]),
+                    "source_sha256": row["sha256"], "bounds": row["bounds"], "rotation": rotation,
+                }
+                return str(destination.relative_to(self.root)), signals
+
+            try:
+                path, signals = await asyncio.to_thread(prepare)
+            except OSError as error:
+                raise ValueError("扫描原图不可用，请重新扫描后确认") from error
+            await connection.execute(
+                "UPDATE flatbed_scan_region SET crop_path=%s,signals=%s WHERE id=%s AND owner_id=%s",
+                (path, Jsonb(signals), row["id"], owner_id),
+            )
+
+    def reference_preview(self, original_path: str, bounds: dict, rotation: int = 0) -> bytes:
+        """Render an uncorrected region for review without creating an ingestible crop."""
+        try:
+            x, y, width, height = (float(bounds[key]) for key in ("x", "y", "width", "height"))
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError("invalid flatbed preview bounds") from error
+        if not np.isfinite([x, y, width, height]).all() or width <= 0 or height <= 0:
+            raise ValueError("invalid flatbed preview bounds")
+        content = self.resolve_path(original_path).read_bytes()
+        if not content:
+            raise ValueError("empty flatbed original image")
+        try:
+            image = cv2.imdecode(np.frombuffer(content, np.uint8), cv2.IMREAD_COLOR)
+        except cv2.error as error:
+            raise ValueError("invalid flatbed original image") from error
+        if image is None:
+            raise ValueError("invalid flatbed original image")
+        image_height, image_width = image.shape[:2]
+        # Use the enclosing rectangle rather than the rejected perspective quad
+        # so the reference remains conservative about uncertain card edges.
+        x1, x2 = (int(np.floor(np.clip(x, 0, 1) * image_width)),
+                  int(np.ceil(np.clip(x + width, 0, 1) * image_width)))
+        y1, y2 = (int(np.floor(np.clip(y, 0, 1) * image_height)),
+                  int(np.ceil(np.clip(y + height, 0, 1) * image_height)))
+        if x2 <= x1 or y2 <= y1:
+            raise ValueError("empty flatbed preview")
+        preview = image[y1:y2, x1:x2]
+        rotations = {90: cv2.ROTATE_90_CLOCKWISE, 180: cv2.ROTATE_180,
+                     270: cv2.ROTATE_90_COUNTERCLOCKWISE}
+        if rotation in rotations:
+            preview = cv2.rotate(preview, rotations[rotation])
+        try:
+            ok, encoded = cv2.imencode(".jpg", preview, [cv2.IMWRITE_JPEG_QUALITY, 95])
+        except cv2.error as error:
+            raise ValueError("cannot encode flatbed preview") from error
+        if not ok:
+            raise ValueError("cannot encode flatbed preview")
+        return encoded.tobytes()
 
     def resolve_path(self, relative: str) -> Path:
         path = (self.root / relative).resolve()

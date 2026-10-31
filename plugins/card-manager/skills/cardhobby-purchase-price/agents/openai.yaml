@@ -1,0 +1,11 @@
+interface:
+  display_name: "卡淘买入价"
+  short_description: "按关键词查询本人卡淘购买记录，核对商品金额、运费和实际买入成本"
+  default_prompt: "请用 $cardhobby-purchase-price 按关键词查询我的卡淘实际买入价，仅查价不入账。"
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "card-manager"
+      description: "已授权的卡牌管家云端卡淘买入价工具"
+      transport: "streamable_http"
+      url: "https://cardsp.cn/mcp"

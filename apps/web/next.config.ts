@@ -14,6 +14,8 @@ const nextConfig: NextConfig = {
       (!publicApiUrl ? "http://127.0.0.1:8000" : undefined);
     return apiUrl
       ? [
+          { source: "/mcp", destination: `${apiUrl}/mcp` },
+          { source: "/.well-known/:path*", destination: `${apiUrl}/.well-known/:path*` },
           {
             source: "/v1/:path*",
             destination: `${apiUrl}/v1/:path*`,

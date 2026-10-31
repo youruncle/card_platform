@@ -29,6 +29,13 @@
 
 ## Task Interfaces
 
+### 2026-10-31 确认录入与单张校正修复
+
+- `flatbed_service.py` 提供仅在显式配对确认中物化缺失参考裁图的服务；保留审核状态并记录原图、区域和生成方式。`flatbed_api.override_pairs` 在冻结哈希前调用，正常 GET 不写入。测试缺失裁图确认、错误原图、其他账户、旧版本与哈希失效。
+- 现有 `PUT /sheets/{sheet_id}/layout` 增加可选 `region_id`；单张模式只接收一个四角框，沿用不可变源与新版本，复用其他区域的既有裁图、边界和信号。人工框审核警告不得再次吞掉已明确指定的裁图。测试只重建一张、其他字节一致、过期请求和人工校正可保存。
+- `flatbed-batch-panel.tsx` 在正反面配对卡提供单张校正入口，弹窗显示选中的框、保存进度与错误，防止重复确认；现有整版增删框保留。`lib/api.ts` 传递区域 ID；校正保存后保留用户其他配对选择，更新当前源版本。使用真实组件覆盖保存成功、保存失败、重试和确认提交。
+- 在隔离工作区保留现有未提交增量，按测试先失败再修复执行；发布采用线上当前基底，只纳入本次补丁，验证真实样本、worker=true 与 deepseek-flash/thinking-disabled。
+
 ### T1: OCR和匹配
 
 Ownership: `flatbed_matching.py`、新增`flatbed_pair_signals.py`与相应纯单测。产出`extract_pair_signals(text: str)->dict`，原`FlatbedService.ocr_signals()`由T3改为调用它。信号键保留兼容`ocr_text/ocr_tokens`，新增可靠`product_name/insert_name/player_name`和明确赛季`season_start/season_end`；普通日期不写`year`。`propose_pairs()`保留现有键，可添加identity状态和歧义提示。

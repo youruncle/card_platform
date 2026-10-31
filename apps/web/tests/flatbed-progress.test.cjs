@@ -9,10 +9,11 @@ const {render,screen,fireEvent,cleanup,waitFor}=require('@testing-library/react'
 const {FlatbedBatchPanel}=require('../components/flatbed-batch-panel.tsx');
 afterEach(()=>{cleanup();dom.reconfigure({url:'http://localhost:3000'});});
 
-test('restored fronts wait for a back scan and offer reconnection beside the back step',async()=>{
+test('restored fronts wait for a back scan and a failed automatic connection offers retry',async()=>{
  dom.reconfigure({url:'https://cardsp.cn/'});
  const response=data=>({ok:true,json:async()=>data});
  global.fetch=async url=>{
+  if(String(url).endsWith(':8766/v1/device'))throw new TypeError('Failed to fetch');
   const path=new URL(url,'https://cardsp.cn').pathname;
   if(path==='/v1/flatbed/sessions')return response([{id:'session',submitted_at:null}]);
   if(path==='/v1/flatbed/sessions/session')return response({id:'session',regions:[{id:'front',side:'front',ordinal:0,bounds:{x:.1,y:.1,width:.4,height:.7},confidence:.9}],sheets:[],pairs:[]});
@@ -21,7 +22,7 @@ test('restored fronts wait for a back scan and offer reconnection beside the bac
  render(React.createElement(FlatbedBatchPanel));
  await waitFor(()=>assert.match(screen.getByRole('status').textContent,/已恢复.*1 张正面.*扫描背面/));
  assert.equal(screen.queryByRole('button',{name:'确认配对并录入 0 张卡片'}),null);
- assert.ok(screen.getByRole('button',{name:'连接扫描仪并继续背面扫描'}));
+ assert.ok(screen.getByRole('button',{name:'重试连接扫描仪'}));
 });
 
 test('cloud Canon scans locally, retains failed upload and retries without scanning twice',async()=>{
@@ -52,14 +53,13 @@ test('cloud Canon scans locally, retains failed upload and retries without scann
   throw Error(`Unexpected request ${url}`);
  };
  render(React.createElement(FlatbedBatchPanel));
- const connect=await screen.findByRole('button',{name:'连接本机扫描仪'});
- await waitFor(()=>assert.equal(connect.disabled,false));fireEvent.click(connect);
  await waitFor(()=>assert.equal(screen.getAllByText('概览',{selector:'button'})[0].disabled,false));
+ assert.equal(screen.queryByRole('button',{name:/连接.*扫描仪/}),null);
  fireEvent.click(screen.getAllByText('概览',{selector:'button'})[0]);
  const retry=await screen.findByRole('button',{name:'重试上传扫描图'});
  assert.equal(scans,1);assert.equal(uploads,1);
  assert.equal(screen.getAllByText('概览',{selector:'button'})[0].disabled,true);
- assert.equal(screen.getByRole('button',{name:'开始下一批'}).disabled,true);
+ assert.equal(screen.queryByRole('button',{name:'开始下一批'}),null);
  fireEvent.click(retry);
  await waitFor(()=>assert.match(screen.getByRole('status').textContent,/检测到 1 张正面/));
  assert.equal(scans,1);assert.equal(uploads,2);assert.equal(native,0);
@@ -101,8 +101,6 @@ test('closing cloud scanner aborts local capture and cannot start a late cloud u
   throw Error(`Unexpected request ${url}`);
  };
  const view=render(React.createElement(FlatbedBatchPanel));
- await waitFor(()=>assert.equal(screen.getByRole('button',{name:'连接本机扫描仪'}).disabled,false));
- fireEvent.click(screen.getByRole('button',{name:'连接本机扫描仪'}));
  await waitFor(()=>assert.equal(screen.getAllByRole('button',{name:'正式扫描'})[0].disabled,false));
  fireEvent.click(screen.getAllByRole('button',{name:'正式扫描'})[0]);
  await waitFor(()=>assert.ok(finishScan));view.unmount();
@@ -121,10 +119,77 @@ test('closing while connecting aborts the exclusive local device probe',async()=
   throw Error(`Unexpected request ${url}`);
  };
  const view=render(React.createElement(FlatbedBatchPanel));
- await waitFor(()=>assert.equal(screen.getByRole('button',{name:'连接本机扫描仪'}).disabled,false));
- fireEvent.click(screen.getByRole('button',{name:'连接本机扫描仪'}));
  await waitFor(()=>assert.ok(finishProbe));view.unmount();
  try {assert.equal(probeSignal.aborted,true);} finally {finishProbe();}
+});
+
+test('local scan failure exposes reconnection and retry restores scanning',async()=>{
+ dom.reconfigure({url:'https://cardsp.cn/'});
+ const response=data=>({ok:true,json:async()=>data});let probes=0;
+ global.fetch=async url=>{
+  if(String(url).endsWith(':8766/v1/device')){probes++;return response({name:'Canon',serial:'fixture',token:`token-${probes}`});}
+  if(String(url).endsWith(':8766/v1/scan'))return {ok:false,status:403,json:async()=>({detail:'扫描连接已失效'})};
+  const path=new URL(url,'https://cardsp.cn').pathname;
+  if(path==='/v1/flatbed/sessions')return response([{id:'session',submitted_at:null}]);
+  if(path==='/v1/flatbed/sessions/session')return response({id:'session',regions:[],sheets:[],pairs:[]});
+  throw Error(`Unexpected request ${url}`);
+ };
+ render(React.createElement(FlatbedBatchPanel));
+ await waitFor(()=>assert.equal(screen.getAllByRole('button',{name:'正式扫描'})[0].disabled,false));
+ fireEvent.click(screen.getAllByRole('button',{name:'正式扫描'})[0]);
+ await waitFor(()=>assert.match(screen.getByRole('alert').textContent,/连接已失效/));
+ fireEvent.click(screen.getByRole('button',{name:'重试连接扫描仪'}));
+ await waitFor(()=>assert.equal(screen.getAllByRole('button',{name:'正式扫描'})[0].disabled,false));
+ assert.equal(probes,2);
+ assert.equal(screen.queryByRole('button',{name:'重试连接扫描仪'}),null);
+});
+
+for(const source of ['local','import'])test(`${source} front uses a new batch after submit and never uploads to the submitted batch`,async()=>{
+ if(source==='local')dom.reconfigure({url:'https://cardsp.cn/'});
+ const response=data=>({ok:true,json:async()=>data});
+ const region={ordinal:0,bounds:{x:.1,y:.1,width:.4,height:.7},confidence:.9};
+ let creates=0,scans=0,uploads=0,failedCreate=source==='import';
+ global.fetch=async(url,options={})=>{
+  if(String(url).endsWith(':8766/v1/device'))return response({name:'Canon',serial:'fixture',token:'token'});
+  if(String(url).endsWith(':8766/v1/scan')){scans++;return new Response(new Uint8Array([137,80,78,71]),{headers:{'Content-Type':'image/png'}});}
+  const path=new URL(url,'http://localhost').pathname;
+  if(path==='/v1/flatbed/device')return response({name:'Canon',serial:'fixture'});
+  if(path==='/v1/flatbed/sessions'&&options.method==='POST'){
+   creates++;assert.equal(JSON.parse(options.body).new_batch,true);
+   if(failedCreate){failedCreate=false;return {ok:false,status:503,json:async()=>({detail:'创建暂时失败'})};}
+   return response({id:'fresh',dpi:300,submitted_at:null});
+  }
+  if(path==='/v1/flatbed/sessions')return response([{id:'old',submitted_at:null}]);
+  if(path==='/v1/flatbed/sessions/old')return response({id:'old',dpi:300,regions:[{...region,id:'front',side:'front'},{...region,id:'back',side:'back'}],sheets:[],pairs:[{front_region_id:'front',back_region_id:'back',score:.9,confidence_level:'high',identity_status:'consistent',signals:{},conflicts:[],selected:true}]});
+  if(path.endsWith('/pairs'))return response({confirmation_token:'confirmed'});
+  if(path.endsWith('/submit'))return response({job_ids:['job']});
+  if(path.includes('/sheets/front')){
+   assert.equal(path,'/v1/flatbed/sessions/fresh/sheets/front');uploads++;
+   if(source==='local'&&uploads===1)return {ok:false,status:502,json:async()=>({detail:'上传暂时失败'})};
+   return response({id:'sheet',regions:[{...region,id:'next-front',side:'front'}],failures:[]});
+  }
+  throw Error(`Unexpected request ${url}`);
+ };
+ const {container}=render(React.createElement(FlatbedBatchPanel));
+ await waitFor(()=>assert.equal(screen.getByRole('button',{name:'确认配对并录入 1 张卡片'}).disabled,false));
+ fireEvent.click(screen.getByRole('button',{name:'确认配对并录入 1 张卡片'}));
+ await waitFor(()=>assert.match(screen.getByRole('status').textContent,/已提交/));
+ if(source==='local'){
+  fireEvent.click(screen.getAllByRole('button',{name:'正式扫描'})[0]);
+  fireEvent.click(await screen.findByRole('button',{name:'重试上传扫描图'}));
+  assert.equal(scans,1);
+ }else{
+  const input=container.querySelector('input[type="file"]');
+  const file=new File([new Uint8Array([137,80,78,71])],'sheet.png',{type:'image/png'});
+  fireEvent.change(input,{target:{files:[file]}});
+  await waitFor(()=>assert.match(screen.getByRole('alert').textContent,/创建暂时失败/));
+  assert.equal(uploads,0);
+  fireEvent.change(input,{target:{files:[file]}});
+ }
+ await waitFor(()=>assert.match(screen.getByRole('status').textContent,/检测到 1 张正面/));
+ assert.equal(creates,source==='import'?2:1);
+ assert.equal(uploads,source==='local'?2:1);
+ assert.equal(screen.getAllByRole('button',{name:'正式扫描'})[1].disabled,false);
 });
 
 test('back scan keeps reporting crop progress until pairing completes',async()=>{
@@ -150,9 +215,10 @@ test('back scan keeps reporting crop progress until pairing completes',async()=>
  await waitFor(()=>assert.match(screen.getByRole('status').textContent,/全部为高置信度配对/));
 });
 
-test('explicit next batch creates a fresh session instead of reusing restored sheets', async()=>{
- const calls=[];
+test('front rescans stay in the current batch and scanning after submit creates a fresh batch', async()=>{
+ const calls=[],captures=[];
  const response=data=>({ok:true,json:async()=>data});
+ const region={ordinal:0,bounds:{x:.1,y:.1,width:.4,height:.7},confidence:.9};
  global.fetch=async (url,options={})=>{
   const path=new URL(url,'http://localhost').pathname;
   if(path==='/v1/flatbed/device')return response({name:'Canon',serial:'fixture'});
@@ -160,14 +226,29 @@ test('explicit next batch creates a fresh session instead of reusing restored sh
    calls.push(JSON.parse(options.body));return response({id:'fresh',dpi:300});
   }
   if(path==='/v1/flatbed/sessions')return response([{id:'old',submitted_at:null}]);
-  if(path==='/v1/flatbed/sessions/old')return response({id:'old',regions:[],sheets:[],pairs:[]});
+  if(path==='/v1/flatbed/sessions/old')return response({id:'old',dpi:300,regions:[{...region,id:'front',side:'front'},{...region,id:'back',side:'back'}],sheets:[],pairs:[{front_region_id:'front',back_region_id:'back',score:.9,confidence_level:'high',identity_status:'consistent',signals:{},conflicts:[],selected:true}]});
+  if(path.includes('/capture/front')){captures.push(path);return response({id:'sheet',regions:[{...region,id:'front',side:'front'}],failures:[]});}
+  if(path.endsWith('/pair'))return response({pairs:[{front_id:'front',back_id:'back',confidence:.9,confidence_level:'high',requires_review:false,conflicts:[],signals:{}}],missing_front:[],missing_back:[],requires_review:false});
+  if(path.endsWith('/pairs'))return response({confirmation_token:'confirmed'});
+  if(path.endsWith('/submit'))return response({job_ids:['job']});
   throw Error(`Unexpected request: ${path}`);
  };
  render(React.createElement(FlatbedBatchPanel));
  await waitFor(()=>assert.match(screen.getByRole('status').textContent,/恢复/));
- fireEvent.click(screen.getByRole('button',{name:'开始下一批'}));
+ assert.equal(screen.queryByRole('button',{name:'开始下一批'}),null);
+ fireEvent.click(screen.getAllByRole('button',{name:'正式扫描'})[0]);
+ await waitFor(()=>assert.match(screen.getByRole('status').textContent,/正面已更新/),{timeout:2000});
+ assert.deepEqual(captures,['/v1/flatbed/sessions/old/capture/front']);
+ assert.equal(calls.length,0);
+ fireEvent.click(screen.getByRole('button',{name:'确认配对并录入 1 张卡片'}));
+ await waitFor(()=>assert.match(screen.getByRole('status').textContent,/已提交/));
+ assert.equal(screen.queryByRole('button',{name:'确认配对并录入 1 张卡片'}),null);
+ assert.equal(screen.getAllByRole('button',{name:'正式扫描'})[1].disabled,true);
+ fireEvent.click(screen.getAllByRole('button',{name:'正式扫描'})[0]);
  await waitFor(()=>assert.equal(calls.length,1));
  assert.equal(calls[0].new_batch,true);
+ await waitFor(()=>assert.match(screen.getByRole('status').textContent,/检测到 1 张正面/),{timeout:2000});
+ assert.deepEqual(captures,['/v1/flatbed/sessions/old/capture/front','/v1/flatbed/sessions/fresh/capture/front']);
 });
 
 test('flatbed submit carries the token returned for the confirmed images', async()=>{

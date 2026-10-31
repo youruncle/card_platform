@@ -1,0 +1,22 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "card-manager",
+  "version": "0.2.0",
+  "description": "管理已连接账户的云端卡库，并按关键词查询本人卡淘实际买入价、运费和订单证据。",
+  "author": {"name": "Card Platform", "url": "https://cardsp.cn"},
+  "homepage": "https://cardsp.cn",
+  "keywords": ["cards", "collection", "portfolio", "卡牌", "卡库", "记账"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "卡牌管家",
+        "shortDescription": "连接同一云端卡库，核对实卡、交易和成交证据",
+        "longDescription": "使用本人授权的 Card Platform 卡库。照片先生成待核对草稿；入库、交易和发布估值均通过平台确认。证据不足的市场价格保持未知。",
+        "developerName": "Card Platform",
+        "category": "Productivity",
+        "defaultPrompt": ["查找我的库里有哪些库里签字卡", "核对这组正背照片并准备入库", "查看最近任务和本月买卖费用"]
+      },
+      "onboardingSkill": "./skills/card-manager/SKILL.md"
+    }
+  }
+}

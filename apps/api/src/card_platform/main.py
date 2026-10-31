@@ -37,6 +37,14 @@ from card_platform.scanner_api import router as scanner_router
 from card_platform.scanner_queue import ScannerRecognitionWorker, stop_scanner_worker
 from card_platform.flatbed_api import router as flatbed_router
 from card_platform.ebay_notification_api import router as ebay_notification_router
+from card_platform.mcp.server import mcp_app, oauth_app, oauth_provider, create_authenticated_runtime
+from card_platform.mcp.oauth_api import router as chatgpt_router
+from card_platform.mcp.operation_api import router as chatgpt_operation_router
+from card_platform.mcp.operations import OperationService
+from card_platform.mcp.captures import CaptureIntakeWorker
+from card_platform.mcp.research import ResearchWorker
+from card_platform.mcp.purchase_cost import PurchaseLookupWorker
+from card_platform.mcp.research_api import router as chatgpt_research_router
 
 
 @asynccontextmanager
@@ -44,6 +52,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     database = Database(get_settings())
     await database.open()
     app.state.database = database
+    oauth_provider.database = database
+    app.state.chatgpt_oauth = oauth_provider
+    app.state.chatgpt_operations = OperationService(database, oauth_provider.config.web_origin)
+    mcp_server, app.state.chatgpt_mcp_http = create_authenticated_runtime(database, app.state.chatgpt_operations)
+    app.state.chatgpt_mcp_server = mcp_server
     knowledge_runtime = KnowledgeRuntime(database)
     await knowledge_runtime.refresh()
     app.state.knowledge_runtime = knowledge_runtime
@@ -54,16 +67,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     recognition_worker_task = None
     scanner_worker = None
     scanner_worker_tasks: list[asyncio.Task] = []
+    chatgpt_intake_task = None
+    chatgpt_research_task = None
     if get_settings().recognition_worker_enabled:
         recognition_worker = RecognitionBenchmarkWorker(database, get_settings())
         recognition_worker_task = asyncio.create_task(recognition_worker.run())
     if get_settings().valuation_worker_enabled:
+        chatgpt_research_task = asyncio.create_task(ResearchWorker(mcp_server.research_tools).run())
         codex_fallback_task = asyncio.create_task(
             run_codex_fallback_worker(database, get_settings().resolved_upload_dir)
         )
         concurrency = max(1, get_settings().valuation_worker_concurrency)
         worker_tasks = [asyncio.create_task(worker.run()) for _ in range(concurrency)]
     if get_settings().scanner_worker_enabled:
+        chatgpt_intake_task = asyncio.create_task(CaptureIntakeWorker(mcp_server.capture_tools).run())
         scanner_worker = ScannerRecognitionWorker(database, get_settings())
         concurrency = max(1, get_settings().scanner_worker_concurrency)
         scanner_worker_tasks = [
@@ -74,12 +91,26 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if get_settings().purchase_cost_worker_enabled
         else None
     )
+    purchase_lookup_task = (
+        asyncio.create_task(PurchaseLookupWorker(mcp_server.purchase_lookup_tools).run())
+        if get_settings().purchase_cost_worker_enabled else None
+    )
     price_worker = (asyncio.create_task(run_price_worker(database))
                     if get_settings().player_price_worker_enabled else None)
     image_worker = asyncio.create_task(run_image_worker(database, get_settings()))
     try:
-        yield
+        async with mcp_server.session_manager.run():
+            yield
     finally:
+        if purchase_lookup_task is not None:
+            purchase_lookup_task.cancel()
+            await asyncio.gather(purchase_lookup_task, return_exceptions=True)
+        if chatgpt_research_task is not None:
+            chatgpt_research_task.cancel()
+            await asyncio.gather(chatgpt_research_task, return_exceptions=True)
+        if chatgpt_intake_task is not None:
+            chatgpt_intake_task.cancel()
+            await asyncio.gather(chatgpt_intake_task, return_exceptions=True)
         image_worker.cancel()
         await asyncio.gather(image_worker, return_exceptions=True)
         if price_worker is not None:
@@ -100,7 +131,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await database.close()
 
 
-app = FastAPI(title="Card Platform API", version="0.6.8", lifespan=lifespan)
+app = FastAPI(title="Card Platform API", version="0.6.9", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().cors_origins,
@@ -122,6 +153,8 @@ async def reject_cross_site_session_writes(request: Request, call_next):
             return JSONResponse(status_code=403, content={"detail": "请求来源未获授权"})
     response = await call_next(request)
     path = request.url.path
+    if path.startswith(("/v1/chatgpt/", "/mcp")):
+        response.headers["Cache-Control"] = "private, no-store"
     if request.method in {"GET", "HEAD"} and (
         path.startswith("/v1/capture/")
         or (path.startswith("/v1/portfolio/items/") and "/images/" in path)
@@ -150,6 +183,9 @@ app.include_router(market_data_router)
 app.include_router(recognition_benchmark_router)
 app.include_router(ebay_notification_router)
 app.include_router(private_uploads_router)
+app.include_router(chatgpt_router)
+app.include_router(chatgpt_operation_router)
+app.include_router(chatgpt_research_router)
 
 
 @app.get("/health", tags=["system"])
@@ -170,3 +206,17 @@ def client_capabilities() -> dict:
             "supplement": True, "crop_proposals": True,
             "image_variants": True, "portfolio_sort": True, "pair_integrity": True,
             "pair_review_version": 1, "flatbed_source_confirmation": True}
+
+
+# The SDK already owns /mcp. Mount at root last so existing API routes win and
+# the endpoint is /mcp (no double path or slash redirect losing Authorization).
+@app.get("/.well-known/oauth-authorization-server/v1/chatgpt/oauth", include_in_schema=False)
+async def chatgpt_authorization_metadata(request: Request):
+    # RFC8414 discovery for an issuer that contains a path.
+    from starlette.requests import Request as StarletteRequest
+    route = next(r for r in oauth_app.routes if r.path == "/.well-known/oauth-authorization-server")
+    return await route.endpoint(StarletteRequest(request.scope))
+
+
+app.mount("/v1/chatgpt/oauth", oauth_app)
+app.mount("/", mcp_app)

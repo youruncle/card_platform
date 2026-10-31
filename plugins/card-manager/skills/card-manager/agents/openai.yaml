@@ -1,0 +1,11 @@
+interface:
+  display_name: "卡牌管家"
+  short_description: "在 ChatGPT 中查询同一云端卡库，核对照片、记账和真实成交证据"
+  default_prompt: "请用 $card-manager 查看我的卡库，并按本次请求管理卡片和交易。"
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "card-manager"
+      description: "Card Platform 账户授权的远程卡库服务"
+      transport: "streamable_http"
+      url: "https://cardsp.cn/mcp"

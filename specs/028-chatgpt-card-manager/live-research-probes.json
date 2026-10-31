@@ -1,0 +1,70 @@
+{
+  "date": "2026-10-28",
+  "api_version": "0.6.5-20261028-chatgpt3",
+  "results": [
+    {
+      "display_id": 906,
+      "run_id": "1fd6d195-c428-4428-8e75-b6767d1f7329",
+      "status": "review_required",
+      "searches": [
+        {
+          "query": "Stephen Curry 2025 Topps Hoops HN-13",
+          "sha256": "2c6042f7378462bb6d26565baecf5636459bb677649f2f7be8d1cf0a59c026c4",
+          "outcome": "blocked",
+          "platform": "ebay",
+          "recovery": "来源访问失败时稍后重试，候选须逐项核图审核。",
+          "diagnostic": "HTTP_403",
+          "capture_ref": "43dce7bf-19ce-40aa-9000-bc93b4afc5e3.txt",
+          "executed_at": "2026-10-28T02:14:39.544707+00:00"
+        },
+        {
+          "query": "Stephen Curry 2025 Topps Hoops HN-13",
+          "sha256": "7ca42412a054fa7d21854eb8f9c5a77244444d0f2669bdb57f1e3a79085f5b65",
+          "outcome": "no_results",
+          "platform": "cardhobby",
+          "recovery": "来源访问失败时稍后重试，候选须逐项核图审核。",
+          "diagnostic": "待逐条打开商品、核对实卡及成交事实",
+          "capture_ref": "f3f15499-eb43-435d-9251-a9d9e66fee58.txt",
+          "executed_at": "2026-10-28T02:14:41.422491+00:00"
+        }
+      ],
+      "reasons": [
+        "target_identity_unresolved"
+      ],
+      "fair_value": null,
+      "review_url": "https://cardsp.cn/chatgpt/research/1fd6d195-c428-4428-8e75-b6767d1f7329"
+    },
+    {
+      "display_id": 859,
+      "run_id": "1bb1a7f0-ce25-4be2-a950-d58b86ab4e28",
+      "status": "review_required",
+      "searches": [
+        {
+          "query": "Dell Curry 2023 Panini National Treasures P-DCY",
+          "sha256": "6f90394efdce2e0d245315416e0a2fb73b4ba0be7584e78f624515f4e237fd73",
+          "outcome": "blocked",
+          "platform": "ebay",
+          "recovery": "来源访问失败时稍后重试，候选须逐项核图审核。",
+          "diagnostic": "HTTP_403",
+          "capture_ref": "9a5ee7b7-843e-49cd-ac99-2aaa77bfb7d6.txt",
+          "executed_at": "2026-10-28T02:14:41.567163+00:00"
+        },
+        {
+          "query": "Dell Curry 2023 Panini National Treasures P-DCY",
+          "sha256": "7ca42412a054fa7d21854eb8f9c5a77244444d0f2669bdb57f1e3a79085f5b65",
+          "outcome": "no_results",
+          "platform": "cardhobby",
+          "recovery": "来源访问失败时稍后重试，候选须逐项核图审核。",
+          "diagnostic": "待逐条打开商品、核对实卡及成交事实",
+          "capture_ref": "e951946a-bd74-495a-8f3e-631b19ff823a.txt",
+          "executed_at": "2026-10-28T02:14:42.553680+00:00"
+        }
+      ],
+      "reasons": [
+        "target_identity_unresolved"
+      ],
+      "fair_value": null,
+      "review_url": "https://cardsp.cn/chatgpt/research/1bb1a7f0-ce25-4be2-a950-d58b86ab4e28"
+    }
+  ]
+}

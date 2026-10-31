@@ -164,6 +164,12 @@ Ruling: 浏览路由挂入既有 knowledge_api.router，继承原管理员与连
 
 ### 2026-10-23 续批执行边界
 
+以`.runtime/knowledge-deepen-20261023/cloud-baseline.json`保存真实云端v22全126产品基线和全部产品身份，9产品只追加审核来源规则和媒体；NOW/Instant的6个年度检索单元逐项交账，来源不支持存在的产品仅保留目录研究处置，不伪造发行。研究按Topps、Panini、按需印刷目录3独立目录并行；统一审核整合到新的不可变`data/knowledge-deepen-20261023`资料包。原v22及之前批次不重写。
+
+发布门禁扩展为有显式工作范围的深化合同，保留旧批合同兼容；先以真实行为测试验证9项子集/新目录范围、三路线、来源缺口、旧属性保护、未审核/未发布拒绝。沿用现有清单附件和SigLIP模型缓存，新增媒体图文各编码一次。只通过内容发布脚本更新云端，不部署/重启应用、不改配置、不写本地运行知识库。最终直接回读云端清单/图片/证据/向量/幂等/worker=true，形成逐产品覆盖与实际缺口报告。
+
+本轮取得一个无评级但同挂牌、可核唯一限编号的双面实卡。离线媒体校验最小扩展`public_specimen_listing`，必须保存实际挂牌ID、两面原图绑定、限编号近照SHA与独立审核，并逐项核官方版本限编；不伪造cert。先运行接受/缺限编/限编冲突/错挂牌4项失败用例，再实现校验；发布时通过封存内容工具加载校验模块，不覆盖或重启在线API。
+
 ## 2026-10-23 程序化实卡采集V1实施计划
 
 用户已批准上一轮后台批处理方案并要求开始第一版；在当前会话直接执行，复用本spec/plan/tasks，不重复建立计划。使用executing-plans和TDD；保留当前未提交依赖，仅增加本任务文件和文档章节。
@@ -172,15 +178,12 @@ Ruling: 浏览路由挂入既有 knowledge_api.router，继承原管理员与连
 
 文件边界：`knowledge_intake_queue.py`负责持久批次/租约/审核；`knowledge_intake_sources.py`负责卡淘搜索/图库/字节；`knowledge_intake_worker.py`负责云端清单分层和执行/导出；`scripts/knowledge_intake_worker.py`提供CLI；`db/migrations/0087_knowledge_intake_queue.sql`建立独立表；`test_knowledge_intake_worker.py`与`test_knowledge_intake_queue.py`验证合同。
 
-- T048 先写缺图分层/来源响应行为失败用例，再实现`plan_targets(products, artifact_root, limit)`与`CardHobbyImageSource.capture(identity, output)`；逐图保持候选，不能自动approved。
+- T048 先写缺图分层/来源响应行为失败用例，再实现`plan_targets(products, artifact_root, limit)`与`CardHobbyImageSource(output).capture(identity)`；逐图保持候选，不能自动approved。
 - T049 先写幂等、租约恢复、旧审核及未审核导出失败用例，再实现`IntakeQueue`及迁移；云端任务使用独立表，所有状态推进校验当前租约或内容hash。
 - T050 实现CLI的`init/run/report/review/export`，复用内容寻址图片与既有媒体合同；验证真实导出的ready资产通过既有附件校验，仍不绕过知识发布SOP。
 - T051 运行相关回归和lint；仅上传独立worker代码/迁移到云端，冻结300款并有界试跑，报告实际请求/图片/待审/失败/未发布及云端版本保护。工作量/准确率/全库覆盖不由少量试跑外推。
 
 Review Focus：产品身份与来源混淆、SSRＦ/外域图、HTTP200空壳、图片部分下载后中断、并发租约回收、审核后换字节、单面不应强配、未审误发布。每项纳入对应任务测试。开发测试仅使用临时数据，不修改运行知识库。
 
-以`.runtime/knowledge-deepen-20261023/cloud-baseline.json`保存真实云端v22全126产品基线和全部产品身份，9产品只追加审核来源规则和媒体；NOW/Instant的6个年度检索单元逐项交账，来源不支持存在的产品仅保留目录研究处置，不伪造发行。研究按Topps、Panini、按需印刷目录3独立目录并行；统一审核整合到新的不可变`data/knowledge-deepen-20261023`资料包。原v22及之前批次不重写。
 
-发布门禁扩展为有显式工作范围的深化合同，保留旧批合同兼容；先以真实行为测试验证9项子集/新目录范围、三路线、来源缺口、旧属性保护、未审核/未发布拒绝。沿用现有清单附件和SigLIP模型缓存，新增媒体图文各编码一次。只通过内容发布脚本更新云端，不部署/重启应用、不改配置、不写本地运行知识库。最终直接回读云端清单/图片/证据/向量/幂等/worker=true，形成逐产品覆盖与实际缺口报告。
-
-本轮取得一个无评级但同挂牌、可核唯一限编号的双面实卡。离线媒体校验最小扩展`public_specimen_listing`，必须保存实际挂牌ID、两面原图绑定、限编号近照SHA与独立审核，并逐项核官方版本限编；不伪造cert。先运行接受/缺限编/限编冲突/错挂牌4项失败用例，再实现校验；发布时通过封存内容工具加载校验模块，不覆盖或重启在线API。
+V1执行补充：云端API资料只读，使用同镜像独立一次性worker和本批可写子挂载；最终代码包19e29eb98e4b。逐款审核与可恢复采集由不同模块负责；新reviewed_unpaired_public_image只支持不宣称配对的单面身份核验，不放宽旧认证/限编配对合同。实际结果见intake-worker-verification.md，自动视觉审核和剩余288款采集未完成。
