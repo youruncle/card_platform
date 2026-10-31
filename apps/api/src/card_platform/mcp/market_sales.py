@@ -529,7 +529,8 @@ class MarketSalesTools:
                     self.read_capture(row, entry)
                 reviews[review.candidate_id] = {
                     **review.model_dump(mode="json"),
-                    "source": "conversation_model_image_review",
+                    "source": "conversation_model_review",
+                    "image_evidence_available": bool(c["images"]),
                     "reviewed_at": datetime.now(timezone.utc).isoformat(),
                 }
             row = await (

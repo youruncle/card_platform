@@ -105,10 +105,11 @@ def build_report(target, candidates, reviews, has_target_images):
     missing = [k for k in REQUIRED_FIELDS if not target.get(k)]
     if target.get("grade_company") != "raw" and not target.get("grade_value"):
         missing.append("grade_value")
-    if any(
-        target.get(k) is None for k in ("is_autograph", "is_memorabilia", "is_numbered", "is_patch")
-    ):
-        missing.append("autograph_or_memorabilia_unknown")
+    missing.extend(
+        k
+        for k in ("is_autograph", "is_memorabilia", "is_numbered", "is_patch")
+        if target.get(k) is None
+    )
     if target.get("is_numbered") and target.get("serial_total") is None:
         missing.append("serial_total")
     for flag, field in (("is_autograph", "autograph_type"), ("is_memorabilia", "memorabilia_type")):
@@ -200,8 +201,68 @@ def build_report(target, candidates, reviews, has_target_images):
             currency="CNY",
             shipping_included=False,
         )
+    stale = sum(
+        1
+        for c in candidates
+        if c["candidate_id"] in latest
+        and latest[c["candidate_id"]].get("evidence_digest") != c.get("evidence_digest")
+    )
+    progress = dict(
+        total=len(candidates),
+        current=reviewed,
+        pending=len(candidates) - reviewed - stale,
+        stale=stale,
+    )
+    blockers = []
+    if not has_target_images:
+        blockers.append(
+            dict(
+                code="target_images_missing",
+                message="未保存目标卡图证",
+                recovery="通过当前可用的附件入口保存用户原图后重新建立目标研究；不能用候选图冒充目标图。",
+            )
+        )
+    if missing:
+        blockers.append(
+            dict(
+                code="target_identity_incomplete",
+                fields=list(dict.fromkeys(missing)),
+                message="目标身份或品相仍有未知字段",
+                recovery="核对原图和可验证资料；无法确认的字段保持未知，不为得到估值而补猜。",
+            )
+        )
+    if not candidates:
+        blockers.append(
+            dict(
+                code="no_captured_candidates",
+                message="本任务尚无已捕获候选",
+                recovery="先检查真实搜索状态；查询失败不能解释为市场没有成交。",
+            )
+        )
+    if not complete:
+        blockers.append(
+            dict(
+                code="candidate_review_incomplete",
+                pending=progress["pending"],
+                stale=stale,
+                message="候选尚未全部审核或审核证据已变化",
+                recovery="读取所有候选分页，对未审核候选记录决定，重新查看已变更图片后更新审核摘要。",
+            )
+        )
+    if len(sellers) < 3:
+        blockers.append(
+            dict(
+                code="insufficient_independent_sellers",
+                observed=len(sellers),
+                required=3,
+                message=f"已核验独立卖家 {len(sellers)}/3，尚不足以形成参考估值",
+                recovery="列出已有观察并继续查找可比同款；不同版本、重复实卡或不同品相不凑数。",
+            )
+        )
     return dict(
         estimate=estimate,
+        estimate_blockers=blockers,
+        review_progress=progress,
         accepted=accepted,
         excluded=excluded,
         reviewed_count=reviewed,

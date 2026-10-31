@@ -185,6 +185,54 @@ async def test_empty_shell_is_failure_not_zero_results_and_request_is_captured(
     assert list(tmp_path.rglob("*.json"))
 
 
+async def test_title_only_decision_never_claims_image_review(mcp_database, mcp_principal, tmp_path):
+    from card_platform.config import Settings
+
+    tools = MarketSalesTools(
+        mcp_database,
+        Settings(upload_dir=str(tmp_path)),
+        OperationService(mcp_database, "https://cardsp.cn"),
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(
+                200,
+                json={
+                    "result": 1,
+                    "data": {
+                        "PageIndex": 1,
+                        "Total": 1,
+                        "TotalCount": 1,
+                        "PagedMarketItemList": [row()],
+                    },
+                },
+            )
+        ),
+    )
+    started = await tools.start(
+        mcp_principal, StartMarketRun(identity=identity(), idempotency_key=uuid4())
+    )
+    result = await tools.search(
+        mcp_principal, SearchMarketSales(run_id=started["run_id"], keyword="Curry")
+    )
+    c = result["candidates"][0]
+    result = await tools.review(
+        mcp_principal,
+        ReviewMarketSales(
+            run_id=started["run_id"],
+            reviews=[
+                CandidateReview(
+                    candidate_id=c["candidate_id"],
+                    evidence_digest=c["evidence_digest"],
+                    classification="uncertain",
+                    identity={},
+                    reasons=["Only title available, version not yet checked"],
+                )
+            ],
+        ),
+    )
+    assert result["reviews"][0]["source"] == "conversation_model_review"
+    assert result["reviews"][0]["image_evidence_available"] is False
+
+
 async def test_concurrent_pages_merge_and_revoke_during_search_does_not_publish(
     mcp_database, mcp_principal, tmp_path
 ):

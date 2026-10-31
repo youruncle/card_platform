@@ -100,6 +100,38 @@ def test_missing_target_image_identity_or_unreviewed_candidate_blocks_estimate()
     assert build_report(identity(), cs, rs[:2], True)["review_complete"] is False
 
 
+def test_null_estimate_explains_missing_images_review_progress_and_seller_threshold():
+    cs = [candidate(i) for i in range(1, 4)]
+    rs = [review(i) for i in range(1, 4)]
+    report = build_report(identity(), cs, rs, False)
+    assert {b["code"] for b in report["estimate_blockers"]} == {"target_images_missing"}
+    report = build_report(identity(), cs[:2], rs[:2], True)
+    blocker = next(
+        b for b in report["estimate_blockers"] if b["code"] == "insufficient_independent_sellers"
+    )
+    assert blocker["observed"] == 2 and blocker["required"] == 3 and blocker["recovery"]
+    report = build_report(identity(), cs, rs[:2], True)
+    assert report["review_progress"] == {"total": 3, "current": 2, "pending": 1, "stale": 0}
+    assert any(b["code"] == "candidate_review_incomplete" for b in report["estimate_blockers"])
+    rs[2]["evidence_digest"] = "old"
+    assert build_report(identity(), cs, rs, True)["review_progress"]["stale"] == 1
+
+
+def test_null_estimate_distinguishes_identity_unknown_no_candidates_and_valid_success():
+    cs = [candidate(i) for i in range(1, 4)]
+    rs = [review(i) for i in range(1, 4)]
+    report = build_report({**identity(), "parallel_name": None}, cs, rs, True)
+    blocker = next(
+        b for b in report["estimate_blockers"] if b["code"] == "target_identity_incomplete"
+    )
+    assert "parallel_name" in blocker["fields"]
+    report = build_report(identity(), [], [], True)
+    assert report["review_complete"] is True
+    assert report["review_progress"]["total"] == 0
+    assert any(b["code"] == "no_captured_candidates" for b in report["estimate_blockers"])
+    assert build_report(identity(), cs, rs, True)["estimate_blockers"] == []
+
+
 def test_unknown_numbering_subset_and_brand_cannot_form_exact_valuation():
     cs = [candidate(i) for i in range(1, 4)]
     rs = [review(i) for i in range(1, 4)]
