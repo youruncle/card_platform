@@ -2,11 +2,11 @@
 
 ## Performance iteration 2026-11-02
 
-- [ ] T008 RED/GREEN compact responses, aligned candidate/review pagination and timings; old defaults compatible.
-- [ ] T009 RED/GREEN combined target creation/first search, idempotency and failure recovery.
-- [ ] T010 RED/GREEN batch original images, bounded concurrency and partial failure recovery.
-- [ ] T011 Old/new skill behavior, fixed-sample call/bytes/time comparison and validation.
-- [ ] T012 Independent review, focused regressions, cloud API/original skill release and real client readback.
+- [x] T008 RED/GREEN compact responses, aligned candidate/review pagination and timings; old defaults compatible.
+- [x] T009 RED/GREEN combined target creation/first search, idempotency and failure recovery.
+- [x] T010 RED/GREEN batch original images, bounded concurrency and partial failure recovery.
+- [x] T011 Old/new skill behavior, fixed-sample call/bytes/time comparison and validation.
+- [x] T012 Independent review, focused regressions, cloud API/original skill release and real client readback.
 
 Ruling: extend six existing tools to avoid a new tool-directory requirement. Old schemas fall back. Baseline search approximately0.95s and web workflow approximately80s measure different spans; do not attribute all difference to model work. Existing unrelated auction edits remain in the primary checkout.
 
@@ -36,3 +36,7 @@ T007：代码改进、209项回归、独立行为/代码检查和生产API marke
 - Focused suite: 206 passed; broad suite 333 passed/35 failed; isolated original production source reproduces identical 35 failures (0 new), in existing formal-research/provider expectations.
 - Cloud skill installed and visible under installed/created; ID 6ae60c10f9bc8191937757ad77852802. Final API market3 healthy; production query, inline image capture, raw evidence and same-run restoration verified. iPhone/Android and a real non-null target valuation are not claimed.
 - Actual ChatGPT skill+plugin session completed public search and same-run image/report recovery; visible card text, 48/99 and material-window observation matched independently inspected image. Missing back/year/target image were kept unknown; no price or ledger writes.
+
+Performance execution ledger: baseline20 tests passed. New schema tests first failed for missing response_mode/keyword/image_indexes. Compact query-cursor test failed before query_id implementation. Review found running/legacy-query selection leakage; new regression failed120vs60 before verified-capture reconstruction fix. Final focused regression91 passed/1 known baseline deselected, warning only; the excluded formal-research test was independently reproduced unchanged using original HEAD market module. Static review and independent behavior fast-path checks completed. Commit6431db6e.
+
+Release acceptance: API market-speed1 healthy; separately verified installed244/source243 files and preserved7 pre-existing tree differences. Worker/vision/search/runtime invariants retained. Original cloud skill updated in place, reloaded body matched, plugin tools refreshed. Real457-candidate report full73794B/summary3667B. Fresh web first-page Barnes run displayed54s (prior80s), same-chat independent repeat47s; both original target SHA match, actual images and1/1 review persisted, no estimate/ledger writes. Full findings and measurement limits: performance-validation-20261102.md.
