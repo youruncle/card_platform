@@ -34,3 +34,15 @@
 ## Assumptions
 
 第一版由对话模型执行多模态核图，云端执行确定性抓取、存储和统计；不另加模型worker。搜索分步调用，网络失败可用原run恢复。云端发布指该skill及其工具服务，无客户端代码改动不重复发布无关二进制。
+
+## 2026-11-02 Performance iteration
+
+User authorized repeated worthwhile speed improvements and cloud publication. Preserve all valuation, ownership, capture integrity and model-review requirements above.
+
+- Extend existing six tool schemas, retaining old single-image/full-response defaults. No new tool discovery requirement.
+- Optional first keyword on start combines target upload and first search; idempotency binds keyword and retries reuse the same run and captured query. Failures retain a recoverable run.
+- Optional compact start/search/review responses return relevant candidates, current report, progress and capture references without repeating all historical reviews. Get supports summary_only and aligned candidate/review pagination; full evidence remains retrievable.
+- Optional image_indexes (max4) captures a candidate detail once, downloads images with bounded concurrency and returns labeled original inline images and one final evidence digest. Partial download failure retains successes and names failed indexes. Revocation and changed snapshots still fail closed.
+- Return per-operation stage timings and cache hits without private URLs or identifiers. Server operation timings are distinct from full model/client latency.
+- Skill reuses successful account/capability checks in the same chat, prefers combined/compact/batch paths if schema supports them, otherwise falls back. Search expands in bounded rounds and reports scope; no default exhaustion of 12 pages.
+- Compare fixed-sample call count, response bytes, target SHA and operation timings. Validate real cloud captures and web attachment use; explicitly report untested positive valuation and mobile scenarios.

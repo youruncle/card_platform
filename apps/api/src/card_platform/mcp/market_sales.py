@@ -7,6 +7,7 @@ from decimal import Decimal
 import hashlib
 import json
 import re
+from time import perf_counter
 from typing import Literal
 from uuid import UUID, uuid4
 
@@ -56,6 +57,15 @@ class StartMarketRun(StrictModel):
     identity_notes: list[str] = Field(default_factory=list, max_length=20)
     files: list[ChatGPTFile] = Field(default_factory=list, max_length=2)
     idempotency_key: UUID
+    keyword: str | None = Field(default=None, min_length=1, max_length=120)
+    response_mode: Literal["full", "compact"] = "full"
+
+    @field_validator("keyword")
+    @classmethod
+    def keyword_valid(cls, value):
+        if value is not None and not re.search(r"\w", value):
+            raise ValueError("empty keyword")
+        return value.strip() if value is not None else None
 
 
 class GetMarketRun(StrictModel):
@@ -63,12 +73,16 @@ class GetMarketRun(StrictModel):
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=20, ge=1, le=60)
     capture_ref: str | None = Field(default=None, pattern=r"^[a-f0-9-]{36}\.(json|html|jpg)$")
+    summary_only: bool = False
+    query_id: UUID | None = None
+    response_mode: Literal["full", "compact"] = "full"
 
 
 class SearchMarketSales(StrictModel):
     run_id: UUID
     keyword: str = Field(min_length=1, max_length=120)
     page: int = Field(default=1, ge=1, le=5000)
+    response_mode: Literal["full", "compact"] = "full"
 
     @field_validator("keyword")
     @classmethod
@@ -82,6 +96,16 @@ class InspectMarketCandidate(StrictModel):
     run_id: UUID
     candidate_id: str = Field(pattern=r"^\d{1,40}$")
     image_index: int = Field(default=0, ge=0, le=19)
+    image_indexes: list[int] | None = Field(default=None, min_length=1, max_length=4)
+
+    @field_validator("image_indexes")
+    @classmethod
+    def indexes_valid(cls, value):
+        if value is not None and (
+            len(set(value)) != len(value) or any(i < 0 or i > 19 for i in value)
+        ):
+            raise ValueError("unique image indexes in 0..19 required")
+        return value
 
 
 class CandidateReview(StrictModel):
@@ -100,6 +124,7 @@ class CandidateReview(StrictModel):
 class ReviewMarketSales(StrictModel):
     run_id: UUID
     reviews: list[CandidateReview] = Field(min_length=1, max_length=60)
+    response_mode: Literal["full", "compact"] = "full"
 
 
 class ListMarketRuns(StrictModel):
@@ -152,7 +177,17 @@ class MarketSalesTools:
             raise McpFailure("NOT_FOUND", "市场研究任务不存在")
         return row
 
-    def view(self, row, page=1, page_size=20):
+    def view(
+        self,
+        row,
+        page=1,
+        page_size=20,
+        *,
+        compact=False,
+        summary_only=False,
+        candidate_ids=None,
+        query=None,
+    ):
         for entry in row["target_images"]:
             self.read_capture(row, entry)
         for candidate in row["candidates"]:
@@ -160,8 +195,16 @@ class MarketSalesTools:
                 self.read_capture(row, candidate["detail_capture"])
             for entry in candidate["images"].values():
                 self.read_capture(row, entry)
+        if query and candidate_ids is None:
+            candidate_ids = self.query_candidate_ids(row, query)
         candidates = row["candidates"]
+        selected = (
+            candidates
+            if candidate_ids is None
+            else [c for c in candidates if c["candidate_id"] in candidate_ids]
+        )
         offset = (page - 1) * page_size
+        current = selected[offset : offset + page_size] if not summary_only else []
         queries = row["queries"]
         latest = list({(q["keyword"], q["page"]): q for q in queries}.values())
         # Exhausted pages of one spelling never imply market-wide completeness.
@@ -177,33 +220,84 @@ class MarketSalesTools:
                 for n in range(1, min(q.get("total_pages") or 1, 5000) + 1)
             )
         )
-        return dict(
+        report = build_report(
+            row["identity"], candidates, row["reviews"], bool(row["target_images"])
+        )
+        if compact or summary_only:
+            report["accepted_count"] = len(report.pop("accepted"))
+            report["excluded_count"] = len(report.pop("excluded"))
+        result = dict(
             run_id=str(row["id"]),
             identity=row["identity"],
             target_notes=row["target_notes"],
             target_images=row["target_images"],
             created_at=row["created_at"].isoformat(),
             updated_at=row["updated_at"].isoformat(),
-            candidates=candidates[offset : offset + page_size],
+            candidates=current,
             candidate_count=len(candidates),
+            selection_count=len(selected),
             page=page,
-            next_page=page + 1 if offset + page_size < len(candidates) else None,
-            queries=queries,
+            next_page=page + 1 if offset + page_size < len(selected) else None,
+            queries=[query] if query else (queries[-1:] if compact or summary_only else queries),
             query_count=len(queries),
             request_budget=12,
             search_complete=complete,
             search_scope="本任务实际查询词及已抓取分页；不代表全站历史完整",
-            report=build_report(
-                row["identity"], candidates, row["reviews"], bool(row["target_images"])
-            ),
-            reviews=row["reviews"],
+            report=report,
             ledger_modified=False,
             valuation_published=False,
         )
+        if query:
+            result["selection_query_id"] = query["query_id"]
+        if result["next_page"]:
+            result["next_page_args"] = dict(
+                run_id=str(row["id"]),
+                page=page + 1,
+                page_size=page_size,
+                **({"query_id": query["query_id"]} if query else {}),
+                **({"response_mode": "compact"} if compact else {}),
+            )
+        if compact or summary_only:
+            # Raw captures and all judgments remain in the owner-scoped get API.
+            result.update(response_mode="compact", audit_available=True)
+            result["candidates"] = [
+                {
+                    k: v
+                    for k, v in c.items()
+                    if k not in {"gallery", "row_sha256", "detail_reasons", "thumbnail_url"}
+                }
+                for c in current
+            ]
+        else:
+            ids = {c["candidate_id"] for c in current}
+            result["reviews"] = [r for r in row["reviews"] if r["candidate_id"] in ids]
+        return result
+
+    def query_candidate_ids(self, row, query):
+        if "candidate_ids" in query:
+            return query["candidate_ids"]
+        if query["status"] != "ok" or not query.get("response_capture"):
+            return []
+        # Older runs predate the selection cursor. Recover membership from the
+        # actual verified response rather than attaching unrelated run candidates.
+        body = self.read_capture(row, query["response_capture"])
+        rows = json.loads(body)["data"]["PagedMarketItemList"]
+        return [str(c["ID"]) for c in rows if isinstance(c, dict) and c.get("ID") is not None]
+
+    @staticmethod
+    def measured(result, started, **metrics):
+        result["performance"] = {
+            "elapsed_ms": round((perf_counter() - started) * 1000, 2),
+            **metrics,
+        }
+        return result
 
     async def start(self, principal, request):
+        started = perf_counter()
         # Signed download URLs expire; idempotency binds stable file IDs and identity.
-        material = request.model_dump(mode="json", exclude={"files"})
+        material = request.model_dump(mode="json", exclude={"files", "response_mode"})
+        if material["keyword"] is None:
+            material.pop("keyword")  # Match hashes created before the fast path existed.
         material["file_ids"] = [f.file_id for f in request.files]
         request_hash = digest(material)
         async with self.database.connection() as conn:
@@ -224,40 +318,74 @@ class MarketSalesTools:
                     or prior["connection_id"] != principal.connection_id
                 ):
                     raise McpFailure("IDEMPOTENCY_CONFLICT", "编号已用于其他目标或连接")
-                return self.view(prior)
-            run_id = uuid4()
-            row = {"id": run_id, "owner_id": principal.owner_id}
-            images = []
-            for index, file in enumerate(request.files):
-                body = await self.downloader.download(file.download_url)
-                images.append(
+                row = prior
+            else:
+                run_id = uuid4()
+                row = {"id": run_id, "owner_id": principal.owner_id}
+                # At most two target attachments, preserving original input ordering.
+                bodies = await asyncio.gather(
+                    *(self.downloader.download(file.download_url) for file in request.files)
+                )
+                images = [
                     {
                         **self.capture(row, body, "jpg"),
                         "input_index": index,
                         "file_id": file.file_id,
                     }
-                )
-            await self.operations._grant(conn, principal, frozenset({"cards:read"}))
-            row = await (
-                await conn.execute(
-                    """INSERT INTO chatgpt_market_run
+                    for index, (file, body) in enumerate(zip(request.files, bodies, strict=True))
+                ]
+                await self.operations._grant(conn, principal, frozenset({"cards:read"}))
+                row = await (
+                    await conn.execute(
+                        """INSERT INTO chatgpt_market_run
                 (id,owner_id,connection_id,idempotency_key,request_hash,identity,target_notes,target_images)
                 VALUES(%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
-                    (
-                        run_id,
-                        principal.owner_id,
-                        principal.connection_id,
-                        request.idempotency_key,
-                        request_hash,
-                        Jsonb(request.identity.model_dump(mode="json")),
-                        Jsonb(request.identity_notes),
-                        Jsonb(images),
-                    ),
-                )
-            ).fetchone()
-        return self.view(row)
+                        (
+                            run_id,
+                            principal.owner_id,
+                            principal.connection_id,
+                            request.idempotency_key,
+                            request_hash,
+                            Jsonb(request.identity.model_dump(mode="json")),
+                            Jsonb(request.identity_notes),
+                            Jsonb(images),
+                        ),
+                    )
+                ).fetchone()
+        target_ms = round((perf_counter() - started) * 1000, 2)
+        if request.keyword:
+            result = await self.search(
+                principal,
+                SearchMarketSales(
+                    run_id=row["id"], keyword=request.keyword, response_mode=request.response_mode
+                ),
+            )
+            return self.measured(
+                result,
+                started,
+                target_ms=target_ms,
+                target_cache_hit=bool(prior),
+                search=result["performance"],
+            )
+        return self.measured(
+            self.view(row, compact=request.response_mode == "compact"),
+            started,
+            target_ms=target_ms,
+            target_cache_hit=bool(prior),
+        )
 
-    async def get(self, principal, run_id, page=1, page_size=20, capture_ref=None):
+    async def get(
+        self,
+        principal,
+        run_id,
+        page=1,
+        page_size=20,
+        capture_ref=None,
+        summary_only=False,
+        query_id=None,
+        response_mode="full",
+    ):
+        started = perf_counter()
         async with self.database.connection() as conn:
             row = await self.owned(conn, principal, run_id)
         if capture_ref:
@@ -290,7 +418,23 @@ class MarketSalesTools:
                 "body": body[:256000].decode(errors="replace"),
                 "truncated": len(body) > 256000,
             }
-        return self.view(row, page, page_size)
+        query = None
+        if query_id:
+            query = next((q for q in row["queries"] if q["query_id"] == str(query_id)), None)
+            if not query:
+                raise McpFailure("NOT_FOUND", "查询不属于本任务")
+        return self.measured(
+            self.view(
+                row,
+                page,
+                page_size,
+                summary_only=summary_only,
+                candidate_ids=query.get("candidate_ids") if query else None,
+                query=query,
+                compact=response_mode == "compact",
+            ),
+            started,
+        )
 
     async def fetch(self, url, *, params=None):
         async with self._source_lock:
@@ -314,6 +458,7 @@ class MarketSalesTools:
                 return response.status_code, bytes(data)
 
     async def search(self, principal, request):
+        started = perf_counter()
         qid = str(uuid4())
         async with self.database.connection() as conn:
             row = await self.owned(conn, principal, request.run_id, lock=True)
@@ -323,7 +468,18 @@ class MarketSalesTools:
                 if q["keyword"] == request.keyword and q["page"] == request.page
             ]
             if matches and matches[-1]["status"] == "ok":
-                return self.view(row)
+                return self.measured(
+                    self.view(
+                        row,
+                        compact=request.response_mode == "compact",
+                        candidate_ids=matches[-1].get("candidate_ids")
+                        if request.response_mode == "compact"
+                        else None,
+                        query=matches[-1] if request.response_mode == "compact" else None,
+                    ),
+                    started,
+                    search_cache_hit=True,
+                )
             if (
                 matches
                 and matches[-1]["status"] == "running"
@@ -332,7 +488,15 @@ class MarketSalesTools:
                 ).total_seconds()
                 < 60
             ):
-                return self.view(row)
+                return self.measured(
+                    self.view(
+                        row,
+                        compact=request.response_mode == "compact",
+                        query=matches[-1] if request.response_mode == "compact" else None,
+                    ),
+                    started,
+                    search_running=True,
+                )
             if len(row["queries"]) >= 12:
                 raise McpFailure(
                     "INVALID_INPUT",
@@ -361,6 +525,7 @@ class MarketSalesTools:
                 (Jsonb(queries), row["id"]),
             )
         new = []
+        fetching = perf_counter()
         try:
             status, body = await self.fetch(CARDHOBBY_SEARCH_URL, params=params)
             query["response_capture"] = self.capture(row, body, "json")
@@ -400,6 +565,8 @@ class MarketSalesTools:
                 new.append(c)
         except (httpx.HTTPError, ValueError, TypeError, KeyError, OverflowError):
             query.update(status="failed", error_code="SOURCE_BLOCKED")
+        query["candidate_ids"] = [c["candidate_id"] for c in new]
+        query["performance"] = {"source_ms": round((perf_counter() - fetching) * 1000, 2)}
         async with self.database.connection() as conn:
             row = await self.owned(conn, principal, request.run_id, lock=True)
             queries = [query if q["query_id"] == qid else q for q in row["queries"]]
@@ -416,15 +583,29 @@ class MarketSalesTools:
                     (Jsonb(queries), Jsonb(list(candidates.values())), row["id"]),
                 )
             ).fetchone()
-        return self.view(row)
+        return self.measured(
+            self.view(
+                row,
+                compact=request.response_mode == "compact",
+                candidate_ids=query["candidate_ids"]
+                if request.response_mode == "compact"
+                else None,
+                query=query if request.response_mode == "compact" else None,
+            ),
+            started,
+            search_cache_hit=False,
+        )
 
     async def inspect(self, principal, request):
+        started = perf_counter()
+        detail_started = perf_counter()
         async with self.database.connection() as conn:
             row = await self.owned(conn, principal, request.run_id)
         c = next((c for c in row["candidates"] if c["candidate_id"] == request.candidate_id), None)
         if c is None:
             raise McpFailure("NOT_FOUND", "候选不属于本次检索")
         original = c["row_sha256"]
+        detail_cache_hit = bool(c.get("detail_capture"))
         if not c.get("detail_capture"):
             try:
                 status, body = await self.fetch(c["url"])
@@ -453,20 +634,35 @@ class MarketSalesTools:
                 and datetime.fromisoformat(sale["occurred_at"])
                 == datetime.fromisoformat(c["ended_at"])
             )
-        if request.image_index >= len(c.get("gallery", [])):
-            raise McpFailure(
-                "INSUFFICIENT_EVIDENCE",
-                "该商品没有所选卡图",
-                "选择有效image_index；图片顺序不是正背标签",
-            )
-        key = str(request.image_index)
-        if key not in c["images"]:
-            url = c["gallery"][request.image_index]
-            if not url.startswith("https://images.cardhobby.com/"):
-                raise McpFailure("INVALID_INPUT", "商品图域名未获允许")
-            body = await self.downloader.download(url)
-            c["images"][key] = {**self.capture(row, body, "jpg"), "url": url}
-        body = self.read_capture(row, c["images"][key])
+        detail_ms = round((perf_counter() - detail_started) * 1000, 2)
+        indexes = (
+            request.image_indexes if request.image_indexes is not None else [request.image_index]
+        )
+        images_started = perf_counter()
+        downloaded = 0
+
+        async def load_image(index):
+            nonlocal downloaded
+            try:
+                if index >= len(c.get("gallery", [])):
+                    raise McpFailure("INSUFFICIENT_EVIDENCE", "该商品没有所选卡图")
+                key = str(index)
+                if key not in c["images"]:
+                    url = c["gallery"][index]
+                    if not url.startswith("https://images.cardhobby.com/"):
+                        raise McpFailure("INVALID_INPUT", "商品图域名未获允许")
+                    body = await self.downloader.download(url)
+                    c["images"][key] = {**self.capture(row, body, "jpg"), "url": url}
+                    downloaded += 1
+                return index, self.read_capture(row, c["images"][key]), None
+            except McpFailure as error:
+                if error.code == "REVISION_CONFLICT":
+                    raise
+                return index, None, error
+
+        loaded = await asyncio.gather(*(load_image(index) for index in indexes))
+        images_ms = round((perf_counter() - images_started) * 1000, 2)
+        # Commit successful captures even when another requested image is unavailable.
         async with self.database.connection() as conn:
             row = await self.owned(conn, principal, request.run_id, lock=True)
             current = next(
@@ -494,24 +690,71 @@ class MarketSalesTools:
                 "UPDATE chatgpt_market_run SET candidates=%s,updated_at=now() WHERE id=%s",
                 (Jsonb(choices), row["id"]),
             )
-        return CallToolResult(
-            content=[
+        performance = {
+            "elapsed_ms": round((perf_counter() - started) * 1000, 2),
+            "detail_ms": detail_ms,
+            "images_ms": images_ms,
+            "detail_cache_hit": detail_cache_hit,
+            "images_downloaded": downloaded,
+        }
+        if request.image_indexes is None:
+            _, body, error = loaded[0]
+            if error:
+                raise error
+            content = [
                 ImageContent(
                     type="image",
                     data=base64.b64encode(body).decode(),
                     mimeType=detect_image_content_type(body),
                 ),
                 TextContent(type="text", text=json.dumps(c, ensure_ascii=False)),
-            ],
+            ]
+        else:
+            content = []
+            for index, body, error in loaded:
+                if error is None:
+                    content.extend(
+                        [
+                            TextContent(
+                                type="text",
+                                text=f"candidate_id={request.candidate_id}, image_index={index}; 顺序不是正背标签",
+                            ),
+                            ImageContent(
+                                type="image",
+                                data=base64.b64encode(body).decode(),
+                                mimeType=detect_image_content_type(body),
+                            ),
+                        ]
+                    )
+            content.append(
+                TextContent(
+                    type="text",
+                    text=json.dumps(
+                        {
+                            "candidate": c,
+                            "image_errors": [
+                                {"image_index": i, "code": e.code} for i, _, e in loaded if e
+                            ],
+                        },
+                        ensure_ascii=False,
+                    ),
+                )
+            )
+        return CallToolResult(
+            content=content,
             structuredContent={
                 "candidate": c,
                 "image_index": request.image_index,
                 "gallery_count": len(c["gallery"]),
+                "returned_image_indexes": [i for i, _, e in loaded if e is None],
+                "failed_image_indexes": [i for i, _, e in loaded if e],
+                "performance": performance,
                 "warning": "实际商品图；顺序不等于正背，审核为模型判断。",
             },
         )
 
     async def review(self, principal, request):
+        started = perf_counter()
         async with self.database.connection() as conn:
             row = await self.owned(conn, principal, request.run_id, lock=True)
             cs = {c["candidate_id"]: c for c in row["candidates"]}
@@ -539,7 +782,14 @@ class MarketSalesTools:
                     (Jsonb(list(reviews.values())), row["id"]),
                 )
             ).fetchone()
-        return self.view(row)
+        return self.measured(
+            self.view(
+                row,
+                compact=request.response_mode == "compact",
+                summary_only=request.response_mode == "compact",
+            ),
+            started,
+        )
 
     async def recent(self, principal, request):
         async with self.database.connection() as conn:
@@ -567,7 +817,14 @@ class MarketSalesTools:
 
         async def get(principal, request):
             return await self.get(
-                principal, request.run_id, request.page, request.page_size, request.capture_ref
+                principal,
+                request.run_id,
+                request.page,
+                request.page_size,
+                request.capture_ref,
+                request.summary_only,
+                request.query_id,
+                request.response_mode,
             )
 
         for name, model, handler, description, readonly in (
@@ -575,35 +832,35 @@ class MarketSalesTools:
                 "start_cardhobby_valuation",
                 StartMarketRun,
                 self.start,
-                "创建独立卡淘成交研究，绑定图片和身份，不要求入库；无图片仅搜索，不估价。files接受ChatGPT附件。",
+                "创建独立卡淘研究并保存原图；keyword可合并首轮搜索，response_mode=compact减少返回。files接受附件；无图不估价。",
                 False,
             ),
             (
                 "search_cardhobby_sales",
                 SearchMarketSales,
                 self.search,
-                "实际查询卡淘已售历史一页并保存原始证据；每页60条、每任务12页；关键词仅召回，不代表同款。",
+                "实际查询已售一页并捕获；response_mode=compact仅返回本次相关候选，需按next_page回读；每任务12页，关键词不是同款证明。",
                 False,
             ),
             (
                 "inspect_cardhobby_candidate",
                 InspectMarketCandidate,
                 self.inspect,
-                "读取候选详情和实际卡图，返回内联图片、图片数量及审核摘要；image_index不代表正背。",
+                "读取候选实际原图；image_indexes可一次取至多4张，返回逐图索引、失败索引及最终审核摘要；image_index单图兼容，顺序不是正背。",
                 False,
             ),
             (
                 "review_cardhobby_candidates",
                 ReviewMarketSales,
                 self.review,
-                "保存逐候选核图判断，校验当前证据摘要；三独立卖家、同款可比且全部审核后才形成卡淘参考区间。",
+                "批量保存至多60条判断，校验当前摘要；response_mode=compact返回最新报告，无需重复get；三卖家及原证据门槛不变。",
                 False,
             ),
             (
                 "get_cardhobby_valuation",
                 GetMarketRun,
                 get,
-                "恢复本人卡淘研究、分页候选和估值报告；capture_ref可回读本任务原始搜索、详情或图片。",
+                "恢复本人卡淘研究；summary_only=true只回读摘要，默认候选/审核分页；capture_ref回读原响应、详情或原图。",
                 True,
             ),
             (
@@ -623,7 +880,12 @@ class MarketSalesTools:
                     frozenset({"cards:read"}),
                     handler,
                     read_only=readonly,
-                    open_world=name in {"search_cardhobby_sales", "inspect_cardhobby_candidate"},
+                    open_world=name
+                    in {
+                        "start_cardhobby_valuation",
+                        "search_cardhobby_sales",
+                        "inspect_cardhobby_candidate",
+                    },
                     meta=meta,
                 )
             )

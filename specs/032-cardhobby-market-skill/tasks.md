@@ -1,5 +1,15 @@
 # Tasks
 
+## Performance iteration 2026-11-02
+
+- [ ] T008 RED/GREEN compact responses, aligned candidate/review pagination and timings; old defaults compatible.
+- [ ] T009 RED/GREEN combined target creation/first search, idempotency and failure recovery.
+- [ ] T010 RED/GREEN batch original images, bounded concurrency and partial failure recovery.
+- [ ] T011 Old/new skill behavior, fixed-sample call/bytes/time comparison and validation.
+- [ ] T012 Independent review, focused regressions, cloud API/original skill release and real client readback.
+
+Ruling: extend six existing tools to avoid a new tool-directory requirement. Old schemas fall back. Baseline search approximately0.95s and web workflow approximately80s measure different spans; do not attribute all difference to model work. Existing unrelated auction edits remain in the primary checkout.
+
 - [x] T001 RED/GREEN deterministic sale normalization, completeness and valuation guards.
 - [x] T002 Durable owner-scoped MCP tools, captured images, review binding and DB/transport tests.
 - [x] T003 Independent skill, behavior verification and package validation.
